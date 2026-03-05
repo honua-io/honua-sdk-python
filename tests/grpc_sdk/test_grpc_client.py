@@ -1,12 +1,15 @@
 """Unit tests for the gRPC client wrappers."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
 import pytest
 
-from honua_sdk.grpc._client import HonuaGrpcClient, HonuaGrpcError
+from honua_sdk import HonuaGrpcError as RootHonuaGrpcError
+from honua_sdk.grpc import HonuaGrpcError as GrpcModuleHonuaGrpcError
+from honua_sdk.grpc._client import HonuaGrpcAsyncClient, HonuaGrpcClient
 from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
 from honua_sdk.grpc._models import (
     GeometryType,
@@ -22,21 +25,49 @@ from honua_sdk.grpc._models import (
 class TestClientConstruction:
     """Tests for HonuaGrpcClient construction."""
 
+    def test_requires_explicit_insecure_opt_in_without_credentials(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="set `insecure=True` explicitly",
+        ):
+            HonuaGrpcClient("localhost:50051")
+
     @patch("honua_sdk.grpc._client.grpc.insecure_channel")
     @patch(
         "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
-    def test_creates_insecure_channel_by_default(
+    def test_creates_insecure_channel_when_opted_in(
         self, mock_stub_cls: MagicMock, mock_insecure: MagicMock
     ) -> None:
         mock_insecure.return_value = MagicMock()
-        client = HonuaGrpcClient("localhost:50051")
+        client = HonuaGrpcClient("localhost:50051", insecure=True)
 
         mock_insecure.assert_called_once_with(
             "localhost:50051", compression=grpc.Compression.Gzip
         )
         mock_stub_cls.assert_called_once()
         assert client._owns_channel is True
+        client.close()
+
+    @patch("honua_sdk.grpc._client.grpc.secure_channel")
+    @patch(
+        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+    )
+    def test_creates_secure_channel_when_credentials_provided(
+        self, mock_stub_cls: MagicMock, mock_secure: MagicMock
+    ) -> None:
+        credentials = MagicMock()
+        mock_channel = MagicMock()
+        mock_secure.return_value = mock_channel
+
+        client = HonuaGrpcClient("localhost:50051", credentials=credentials)
+
+        mock_secure.assert_called_once_with(
+            "localhost:50051",
+            credentials,
+            compression=grpc.Compression.Gzip,
+        )
+        assert client._channel is mock_channel
         client.close()
 
     @patch(
@@ -70,7 +101,7 @@ class TestClientConstruction:
         mock_channel = MagicMock()
         mock_insecure.return_value = mock_channel
 
-        with HonuaGrpcClient("localhost:50051"):
+        with HonuaGrpcClient("localhost:50051", insecure=True):
             pass
 
         mock_channel.close.assert_called_once()
@@ -128,7 +159,7 @@ class TestQueryFeatures:
 
         request = QueryFeaturesRequest(service_id="svc", layer_id=0)
 
-        with pytest.raises(HonuaGrpcError) as exc_info:
+        with pytest.raises(RootHonuaGrpcError) as exc_info:
             client.query_features(request)
 
         assert exc_info.value.code == grpc.StatusCode.UNAVAILABLE
@@ -234,11 +265,122 @@ class TestQueryFeaturesStream:
 
         request = QueryFeaturesRequest(service_id="svc", layer_id=0)
 
-        with pytest.raises(HonuaGrpcError) as exc_info:
+        with pytest.raises(RootHonuaGrpcError) as exc_info:
             list(client.query_features_stream(request))
 
         assert exc_info.value.code == grpc.StatusCode.INTERNAL
         client.close()
+
+
+# ---------------------------------------------------------------------------
+# Async client
+# ---------------------------------------------------------------------------
+
+
+class _FakeAioRpcError(Exception):
+    def __init__(self, code: grpc.StatusCode, details: str) -> None:
+        super().__init__(details)
+        self._code = code
+        self._details = details
+
+    def code(self) -> grpc.StatusCode:
+        return self._code
+
+    def details(self) -> str:
+        return self._details
+
+
+class _AsyncPageStream:
+    def __init__(self, pages: list[pb2.FeaturePage]) -> None:
+        self._iter = iter(pages)
+
+    def __aiter__(self) -> _AsyncPageStream:
+        return self
+
+    async def __anext__(self) -> pb2.FeaturePage:
+        try:
+            return next(self._iter)
+        except StopIteration as exc:
+            raise StopAsyncIteration from exc
+
+
+class TestAsyncClient:
+    def test_requires_explicit_insecure_opt_in_without_credentials(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="set `insecure=True` explicitly",
+        ):
+            HonuaGrpcAsyncClient("localhost:50051")
+
+    @patch("honua_sdk.grpc._client.grpc.aio.insecure_channel")
+    @patch(
+        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+    )
+    def test_creates_insecure_channel_when_opted_in(
+        self, mock_stub_cls: MagicMock, mock_insecure: MagicMock
+    ) -> None:
+        mock_channel = MagicMock()
+        mock_insecure.return_value = mock_channel
+
+        client = HonuaGrpcAsyncClient("localhost:50051", insecure=True)
+
+        mock_insecure.assert_called_once_with(
+            "localhost:50051", compression=grpc.Compression.Gzip
+        )
+        assert client._channel is mock_channel
+
+    def test_query_features_wraps_aio_rpc_errors(self) -> None:
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            mock_stub.QueryFeatures = AsyncMock(
+                side_effect=_FakeAioRpcError(grpc.StatusCode.UNAVAILABLE, "async unavailable")
+            )
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcAsyncClient("localhost:50051", channel=channel)
+
+        async def _run() -> None:
+            with pytest.raises(RootHonuaGrpcError) as exc_info:
+                await client.query_features(QueryFeaturesRequest(service_id="svc", layer_id=0))
+            assert exc_info.value.code == grpc.StatusCode.UNAVAILABLE
+            assert exc_info.value.message == "async unavailable"
+
+        with patch("honua_sdk.grpc._client.grpc.aio.AioRpcError", _FakeAioRpcError):
+            asyncio.run(_run())
+
+    def test_query_features_stream_yields_pages(self) -> None:
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcAsyncClient("localhost:50051", channel=channel)
+
+        page1 = pb2.FeaturePage()
+        page1.object_id_field_name = "OBJECTID"
+        page1.geometry_type = pb2.GEOMETRY_TYPE_POINT
+        page1.features.add().id = 1
+        page1.is_last_page = False
+
+        page2 = pb2.FeaturePage()
+        page2.features.add().id = 2
+        page2.is_last_page = True
+
+        mock_stub.QueryFeaturesStream.return_value = _AsyncPageStream([page1, page2])
+
+        async def _run() -> list[int]:
+            feature_ids: list[int] = []
+            async for page in client.query_features_stream(
+                QueryFeaturesRequest(service_id="svc", layer_id=0)
+            ):
+                feature_ids.extend(feature.id for feature in page.features)
+            return feature_ids
+
+        feature_ids = asyncio.run(_run())
+        assert feature_ids == [1, 2]
 
 
 # ---------------------------------------------------------------------------
@@ -249,19 +391,25 @@ class TestQueryFeaturesStream:
 class TestHonuaGrpcError:
     """Tests for the HonuaGrpcError exception class."""
 
+    def test_single_error_type_is_shared_across_modules(self) -> None:
+        from honua_sdk.grpc import _client as grpc_client_module
+
+        assert grpc_client_module.HonuaGrpcError is RootHonuaGrpcError
+        assert GrpcModuleHonuaGrpcError is RootHonuaGrpcError
+
     def test_inherits_from_honua_error(self) -> None:
         from honua_sdk.errors import HonuaError
 
-        err = HonuaGrpcError(grpc.StatusCode.NOT_FOUND, "layer not found")
+        err = RootHonuaGrpcError(grpc.StatusCode.NOT_FOUND, "layer not found")
         assert isinstance(err, HonuaError)
 
     def test_message_formatting(self) -> None:
-        err = HonuaGrpcError(grpc.StatusCode.UNAVAILABLE, "connection refused")
+        err = RootHonuaGrpcError(grpc.StatusCode.UNAVAILABLE, "connection refused")
         assert "UNAVAILABLE" in str(err)
         assert "connection refused" in str(err)
 
     def test_attributes(self) -> None:
-        err = HonuaGrpcError(
+        err = RootHonuaGrpcError(
             grpc.StatusCode.PERMISSION_DENIED, "forbidden", details={"key": "val"}
         )
         assert err.code == grpc.StatusCode.PERMISSION_DENIED

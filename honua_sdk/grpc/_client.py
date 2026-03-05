@@ -2,23 +2,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
 
 import grpc
 
-from honua_sdk.errors import HonuaError
+from honua_sdk.errors import HonuaGrpcError
 from . import _models as models
 from . import _proto_adapter as adapter
-
-
-class HonuaGrpcError(HonuaError):
-    """Raised when a gRPC call fails."""
-
-    def __init__(self, code: grpc.StatusCode, message: str, details: Any = None) -> None:
-        super().__init__(f"gRPC {code.name}: {message}")
-        self.code = code
-        self.message = message
-        self.details = details
 
 
 class HonuaGrpcClient:
@@ -30,6 +19,7 @@ class HonuaGrpcClient:
         *,
         channel: grpc.Channel | None = None,
         credentials: grpc.ChannelCredentials | None = None,
+        insecure: bool = False,
         metadata: list[tuple[str, str]] | None = None,
         compression: grpc.Compression | None = grpc.Compression.Gzip,
     ) -> None:
@@ -40,8 +30,12 @@ class HonuaGrpcClient:
             self._channel = channel
         elif credentials is not None:
             self._channel = grpc.secure_channel(target, credentials, compression=compression)
-        else:
+        elif insecure:
             self._channel = grpc.insecure_channel(target, compression=compression)
+        else:
+            raise ValueError(
+                "Provide `credentials`, a pre-configured `channel`, or set `insecure=True` explicitly."
+            )
 
         from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2_grpc
 
@@ -93,6 +87,7 @@ class HonuaGrpcAsyncClient:
         *,
         channel: grpc.aio.Channel | None = None,
         credentials: grpc.ChannelCredentials | None = None,
+        insecure: bool = False,
         metadata: list[tuple[str, str]] | None = None,
         compression: grpc.Compression | None = grpc.Compression.Gzip,
     ) -> None:
@@ -103,8 +98,12 @@ class HonuaGrpcAsyncClient:
             self._channel = channel
         elif credentials is not None:
             self._channel = grpc.aio.secure_channel(target, credentials, compression=compression)
-        else:
+        elif insecure:
             self._channel = grpc.aio.insecure_channel(target, compression=compression)
+        else:
+            raise ValueError(
+                "Provide `credentials`, a pre-configured `channel`, or set `insecure=True` explicitly."
+            )
 
         from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2_grpc
 

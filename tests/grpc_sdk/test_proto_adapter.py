@@ -243,6 +243,22 @@ class TestFromProtoResponse:
         assert result.geometry_type == GeometryType.UNSPECIFIED
         assert result.spatial_reference is None
 
+    def test_unknown_geometry_type_falls_back_to_unspecified(self) -> None:
+        resp = pb2.QueryFeaturesResponse()
+        resp.geometry_type = 999
+
+        result = adapter.from_proto_response(resp)
+        assert result.geometry_type == GeometryType.UNSPECIFIED
+
+    def test_unknown_field_type_falls_back_to_unspecified(self) -> None:
+        resp = pb2.QueryFeaturesResponse()
+        fd = resp.fields.add()
+        fd.name = "mystery"
+        fd.field_type = 999
+
+        result = adapter.from_proto_response(resp)
+        assert result.fields[0].field_type == FieldType.UNSPECIFIED
+
 
 # ---------------------------------------------------------------------------
 # from_proto_page
@@ -286,6 +302,13 @@ class TestFromProtoPage:
         result = adapter.from_proto_page(page)
         assert result.is_last_page is True
         assert result.features == []
+
+    def test_unknown_geometry_type_falls_back_to_unspecified(self) -> None:
+        page = pb2.FeaturePage()
+        page.geometry_type = 999
+
+        result = adapter.from_proto_page(page)
+        assert result.geometry_type == GeometryType.UNSPECIFIED
 
 
 # ---------------------------------------------------------------------------

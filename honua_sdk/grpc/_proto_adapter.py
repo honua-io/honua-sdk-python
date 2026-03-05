@@ -72,7 +72,11 @@ def from_proto_response(response: pb2.QueryFeaturesResponse) -> models.QueryFeat
     """Convert proto response to domain model."""
     return models.QueryFeaturesResponse(
         object_id_field_name=response.object_id_field_name,
-        geometry_type=models.GeometryType(response.geometry_type),
+        geometry_type=_safe_enum(
+            models.GeometryType,
+            response.geometry_type,
+            models.GeometryType.UNSPECIFIED,
+        ),
         spatial_reference=_convert_spatial_reference(response.spatial_reference)
         if response.HasField("spatial_reference")
         else None,
@@ -89,7 +93,11 @@ def from_proto_page(page: pb2.FeaturePage) -> models.FeaturePage:
     """Convert a streaming FeaturePage proto to domain model."""
     return models.FeaturePage(
         object_id_field_name=page.object_id_field_name,
-        geometry_type=models.GeometryType(page.geometry_type),
+        geometry_type=_safe_enum(
+            models.GeometryType,
+            page.geometry_type,
+            models.GeometryType.UNSPECIFIED,
+        ),
         spatial_reference=_convert_spatial_reference(page.spatial_reference)
         if page.HasField("spatial_reference")
         else None,
@@ -117,10 +125,21 @@ def _convert_extent(ext: Any) -> models.Extent:
 def _convert_field(f: Any) -> models.FieldDefinition:
     return models.FieldDefinition(
         name=f.name,
-        field_type=models.FieldType(f.field_type),
+        field_type=_safe_enum(
+            models.FieldType,
+            f.field_type,
+            models.FieldType.UNSPECIFIED,
+        ),
         length=f.length,
         nullable=f.nullable,
     )
+
+
+def _safe_enum(enum_type: Any, value: int, fallback: Any) -> Any:
+    try:
+        return enum_type(value)
+    except ValueError:
+        return fallback
 
 
 def _convert_feature(f: Any) -> models.Feature:

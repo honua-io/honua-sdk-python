@@ -29,7 +29,8 @@ class HonuaGrpcError(HonuaError):
     """Raised when a gRPC call fails."""
 
     def __init__(self, code: Any, message: str, details: Any = None) -> None:
-        super().__init__(f"gRPC {code}: {message}")
+        code_display = getattr(code, "name", code)
+        super().__init__(f"gRPC {code_display}: {message}")
         self.code = code
         self.message = message
         self.details = details

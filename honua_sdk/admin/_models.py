@@ -492,7 +492,7 @@ class CreateSecureConnectionRequest:
     port: int = 5432
     database_name: str = ""
     username: str = ""
-    password: str | None = None
+    password: str | None = field(default=None, repr=False)
     secret_reference: str | None = None
     secret_type: str | None = None
     ssl_required: bool = False
@@ -514,7 +514,7 @@ class UpdateSecureConnectionRequest:
     port: int | None = None
     database_name: str | None = None
     username: str | None = None
-    password: str | None = None
+    password: str | None = field(default=None, repr=False)
     ssl_required: bool | None = None
     ssl_mode: str | None = None
     is_active: bool | None = None

@@ -141,6 +141,20 @@ def test_test_draft_connection(make_client) -> None:
     assert result.message == "Connection successful"
 
 
+def test_create_connection_request_repr_redacts_password() -> None:
+    req = CreateSecureConnectionRequest(
+        name="prod-db",
+        host="db.example.com",
+        database_name="honua",
+        username="admin",
+        password="super-secret",
+    )
+
+    repr_text = repr(req)
+    assert "password" not in repr_text
+    assert "super-secret" not in repr_text
+
+
 def test_update_connection_sends_partial_body(make_client) -> None:
     seen: dict[str, Any] = {}
 
@@ -159,6 +173,14 @@ def test_update_connection_sends_partial_body(make_client) -> None:
     # password should not be present since it was not set
     assert "password" not in seen["body"]
     assert isinstance(result, SecureConnectionSummary)
+
+
+def test_update_connection_request_repr_redacts_password() -> None:
+    req = UpdateSecureConnectionRequest(password="super-secret", port=5433)
+
+    repr_text = repr(req)
+    assert "password" not in repr_text
+    assert "super-secret" not in repr_text
 
 
 def test_test_connection_by_id(make_client) -> None:

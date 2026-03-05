@@ -1,7 +1,8 @@
 """Honua gRPC client and domain models."""
 from __future__ import annotations
 
-from ._client import HonuaGrpcAsyncClient, HonuaGrpcClient, HonuaGrpcError
+from honua_sdk.errors import HonuaGrpcError
+from ._client import HonuaGrpcAsyncClient, HonuaGrpcClient
 from ._models import (
     DistanceUnit,
     Extent,

@@ -103,3 +103,42 @@ def test_non_success_raises_honua_http_error() -> None:
     assert err.status_code == 404
     assert err.message == "Service not found"
     assert isinstance(err.body, dict)
+
+
+def test_does_not_follow_redirects_by_default() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((str(request.url), request.headers.get("x-api-key", "")))
+        if request.url.host == "example.test":
+            return httpx.Response(
+                302,
+                headers={"Location": "https://evil.example/healthz/ready"},
+            )
+        raise AssertionError("Redirect target should not be requested by default")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport, api_key="test-key") as client:
+        response = client.readiness()
+
+    assert response == {}
+    assert len(seen) == 1
+    assert seen[0][0] == "http://example.test/healthz/ready"
+    assert seen[0][1] == "test-key"
+
+
+def test_transport_errors_are_normalized_to_honua_http_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection failed", request=request)
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        with pytest.raises(HonuaHttpError) as exc_info:
+            client.readiness()
+
+    err = exc_info.value
+    assert err.status_code == 0
+    assert err.message == "Transport error: connection failed"
+    assert isinstance(err.body, dict)
+    assert err.body["type"] == "ConnectError"
+    assert err.body["url"] == "http://example.test/healthz/ready"

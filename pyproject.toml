@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 admin = []  # no extra deps needed, uses httpx from core
-grpc = ["grpcio>=1.66", "protobuf>=5.27"]
+grpc = ["grpcio>=1.70.0", "protobuf>=5.27"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

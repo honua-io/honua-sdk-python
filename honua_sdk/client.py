@@ -28,6 +28,7 @@ class HonuaClient:
         timeout: float = 30.0,
         api_key: str | None = None,
         bearer_token: str | None = None,
+        follow_redirects: bool = False,
         client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
@@ -49,7 +50,7 @@ class HonuaClient:
             base_url=_normalize_base_url(base_url),
             timeout=timeout,
             headers=headers,
-            follow_redirects=True,
+            follow_redirects=follow_redirects,
             transport=transport,
         )
 
@@ -198,12 +199,15 @@ class HonuaClient:
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
     ) -> httpx.Response:
-        response = self._client.request(
-            method=method,
-            url=path,
-            params=params,
-            json=json_body,
-        )
+        try:
+            response = self._client.request(
+                method=method,
+                url=path,
+                params=params,
+                json=json_body,
+            )
+        except httpx.HTTPError as exc:
+            raise self._to_transport_error(exc) from exc
         if response.status_code >= 400:
             raise self._to_http_error(response)
         return response
@@ -230,3 +234,12 @@ class HonuaClient:
                     message = candidate
 
         return HonuaHttpError(response.status_code, message, body=body)
+
+    @staticmethod
+    def _to_transport_error(error: httpx.HTTPError) -> HonuaHttpError:
+        message = str(error) or error.__class__.__name__
+        body: dict[str, Any] = {"type": error.__class__.__name__, "message": message}
+        request = getattr(error, "request", None)
+        if request is not None:
+            body["url"] = str(request.url)
+        return HonuaHttpError(0, f"Transport error: {message}", body=body)

@@ -212,3 +212,46 @@ def test_update_protocols_400_raises_http_error(make_client) -> None:
 
     assert exc_info.value.status_code == 400
     assert "Invalid protocol" in exc_info.value.message
+
+
+def test_does_not_follow_redirects_by_default() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((str(request.url), request.headers.get("x-api-key", "")))
+        if request.url.host == "test.honua.io":
+            return httpx.Response(
+                302,
+                headers={"Location": "https://evil.example/api/v1/admin/services/"},
+            )
+        raise AssertionError("Redirect target should not be requested by default")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaAdminClient(
+        "http://test.honua.io",
+        transport=transport,
+        api_key="test-key",
+    ) as client:
+        result = client.list_services()
+
+    assert result == []
+    assert len(seen) == 1
+    assert seen[0][0] == "http://test.honua.io/api/v1/admin/services/"
+    assert seen[0][1] == "test-key"
+
+
+def test_transport_errors_are_normalized_to_honua_http_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("dial failed", request=request)
+
+    transport = httpx.MockTransport(handler)
+    with HonuaAdminClient("http://test.honua.io", transport=transport) as client:
+        with pytest.raises(HonuaHttpError) as exc_info:
+            client.list_services()
+
+    err = exc_info.value
+    assert err.status_code == 0
+    assert err.message == "Transport error: dial failed"
+    assert isinstance(err.body, dict)
+    assert err.body["type"] == "ConnectError"
+    assert err.body["url"] == "http://test.honua.io/api/v1/admin/services/"

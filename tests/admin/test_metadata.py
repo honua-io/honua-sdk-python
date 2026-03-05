@@ -122,6 +122,24 @@ def test_get_metadata_resource_no_etag(make_client) -> None:
     assert etag is None
 
 
+def test_get_metadata_resource_invalid_json_normalizes_error(make_client) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=b"not-json",
+            headers={"Content-Type": "application/json"},
+        )
+
+    with make_client(handler) as client:
+        with pytest.raises(HonuaHttpError) as exc_info:
+            client.get_metadata_resource("Layer", "default", "parcels")
+
+    err = exc_info.value
+    assert err.status_code == 200
+    assert err.message == "Failed to decode metadata resource JSON response"
+    assert err.body == "not-json"
+
+
 def test_create_metadata_resource_sends_body(make_client) -> None:
     seen: dict[str, Any] = {}
 

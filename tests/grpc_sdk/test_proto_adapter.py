@@ -6,9 +6,12 @@ import pytest
 from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
 from honua_sdk.grpc import _proto_adapter as adapter
 from honua_sdk.grpc._models import (
+    DistanceUnit,
     FieldType,
     GeometryType,
     QueryFeaturesRequest,
+    SpatialFilter,
+    SpatialRelationship,
     SpatialReference,
     StatisticDefinition,
     StatisticType,
@@ -122,6 +125,36 @@ class TestToProtoRequest:
 
         assert proto.geometry_precision == 6
         assert proto.max_allowable_offset == pytest.approx(0.001)
+
+    def test_spatial_filter_uses_geometry_spatial_reference_when_explicit_not_set(self) -> None:
+        req = QueryFeaturesRequest(
+            service_id="svc",
+            layer_id=0,
+            spatial_filter=SpatialFilter(
+                geometry={"x": -157.85, "y": 21.30, "spatialReference": {"wkid": 3857}},
+                spatial_relationship=SpatialRelationship.INTERSECTS,
+                distance=10,
+                distance_unit=DistanceUnit.METERS,
+            ),
+        )
+        proto = adapter.to_proto_request(req)
+
+        assert proto.spatial_filter.spatial_reference.wkid == 3857
+
+    def test_spatial_filter_paths_preserve_m_values(self) -> None:
+        req = QueryFeaturesRequest(
+            service_id="svc",
+            layer_id=0,
+            spatial_filter=SpatialFilter(
+                geometry={"paths": [[[0.0, 0.0, None, 5.0], [1.0, 1.0, None, 6.0]]]},
+                spatial_relationship=SpatialRelationship.INTERSECTS,
+            ),
+        )
+        proto = adapter.to_proto_request(req)
+
+        coord = proto.spatial_filter.geometry.polyline.paths[0].coords[0]
+        assert coord.HasField("z") is False
+        assert coord.m == pytest.approx(5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +384,17 @@ class TestConvertGeometry:
 
         assert result == {"points": [[1.0, 2.0], [3.0, 4.0]]}
 
+    def test_multi_point_with_m_only(self) -> None:
+        geom = pb2.Geometry()
+        p = geom.multi_point.points.add()
+        p.x = 1.0
+        p.y = 2.0
+        p.m = 9.0
+
+        result = adapter._convert_geometry(geom)
+
+        assert result == {"points": [[1.0, 2.0, None, 9.0]]}
+
     def test_polyline(self, proto_polyline_feature: pb2.Feature) -> None:
         result = adapter._convert_geometry(proto_polyline_feature.geometry)
 
@@ -358,6 +402,19 @@ class TestConvertGeometry:
         assert "paths" in result
         assert len(result["paths"]) == 1
         assert result["paths"][0] == [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]]
+
+    def test_polyline_with_m_only(self) -> None:
+        geom = pb2.Geometry()
+        path = geom.polyline.paths.add()
+        coord = path.coords.add()
+        coord.x = 0.0
+        coord.y = 0.0
+        coord.m = 3.0
+
+        result = adapter._convert_geometry(geom)
+
+        assert result is not None
+        assert result["paths"][0][0] == [0.0, 0.0, None, 3.0]
 
     def test_polygon(self, proto_polygon_feature: pb2.Feature) -> None:
         result = adapter._convert_geometry(proto_polygon_feature.geometry)

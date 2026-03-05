@@ -54,12 +54,16 @@ def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesR
         msg.spatial_filter.distance_unit = sf.distance_unit.value
         msg.spatial_filter.nearest_count = sf.nearest_count
         msg.spatial_filter.return_distance = sf.return_distance
+        geometry_spatial_reference: pb2.SpatialReference | None = None
         if sf.spatial_reference:
             msg.spatial_filter.spatial_reference.wkid = sf.spatial_reference.wkid
             msg.spatial_filter.spatial_reference.latest_wkid = sf.spatial_reference.latest_wkid
             msg.spatial_filter.spatial_reference.wkt = sf.spatial_reference.wkt
         if sf.geometry:
-            msg.spatial_filter.geometry.CopyFrom(_to_proto_geometry(sf.geometry))
+            proto_geometry, geometry_spatial_reference = _to_proto_geometry(sf.geometry)
+            msg.spatial_filter.geometry.CopyFrom(proto_geometry)
+        if not sf.spatial_reference and geometry_spatial_reference:
+            msg.spatial_filter.spatial_reference.CopyFrom(geometry_spatial_reference)
 
     return msg
 
@@ -168,20 +172,28 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:
         mp = geom.multi_point
         points = []
         for p in mp.points:
-            coords: list[float] = [p.x, p.y]
+            coords: list[Any] = [p.x, p.y]
             if p.HasField("z"):
                 coords.append(p.z)
+            elif p.HasField("m"):
+                coords.append(None)
+            if p.HasField("m"):
+                coords.append(p.m)
             points.append(coords)
         return {"points": points}
     elif which == "polyline":
         pl = geom.polyline
         paths = []
         for path in pl.paths:
-            coords_list: list[list[float]] = []
+            coords_list: list[list[Any]] = []
             for c in path.coords:
                 coords = [c.x, c.y]
                 if c.HasField("z"):
                     coords.append(c.z)
+                elif c.HasField("m"):
+                    coords.append(None)
+                if c.HasField("m"):
+                    coords.append(c.m)
                 coords_list.append(coords)
             paths.append(coords_list)
         return {"paths": paths}
@@ -194,6 +206,10 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:
                 coords = [c.x, c.y]
                 if c.HasField("z"):
                     coords.append(c.z)
+                elif c.HasField("m"):
+                    coords.append(None)
+                if c.HasField("m"):
+                    coords.append(c.m)
                 coords_list.append(coords)
             rings.append(coords_list)
         return {"rings": rings}
@@ -207,17 +223,22 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:
                     coords = [c.x, c.y]
                     if c.HasField("z"):
                         coords.append(c.z)
+                    elif c.HasField("m"):
+                        coords.append(None)
+                    if c.HasField("m"):
+                        coords.append(c.m)
                     coords_list.append(coords)
                 rings.append(coords_list)
         return {"rings": rings}
     return None
 
 
-def _to_proto_geometry(geom: dict[str, Any]) -> Any:
+def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference | None]:
     """Convert an Esri JSON geometry dict to a proto Geometry message."""
     from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
 
     msg = pb2.Geometry()
+    spatial_reference = _extract_spatial_reference(geom, pb2)
 
     if "x" in geom and "y" in geom:
         point = pb2.PointGeometry(x=geom["x"], y=geom["y"])
@@ -239,21 +260,55 @@ def _to_proto_geometry(geom: dict[str, Any]) -> Any:
         points = []
         for pt in geom["points"]:
             p = pb2.PointGeometry(x=pt[0], y=pt[1])
-            if len(pt) > 2:
+            if len(pt) > 2 and pt[2] is not None:
                 p.z = pt[2]
+            if len(pt) > 3 and pt[3] is not None:
+                p.m = pt[3]
             points.append(p)
         msg.multi_point.CopyFrom(pb2.MultiPointGeometry(points=points))
     elif "paths" in geom:
         paths = []
         for path in geom["paths"]:
-            coords = [pb2.Coordinate(x=c[0], y=c[1]) for c in path]
+            coords = [_to_proto_coordinate(c, pb2) for c in path]
             paths.append(pb2.CoordinateSequence(coords=coords))
         msg.polyline.CopyFrom(pb2.PolylineGeometry(paths=paths))
     elif "rings" in geom:
         rings = []
         for ring in geom["rings"]:
-            coords = [pb2.Coordinate(x=c[0], y=c[1]) for c in ring]
+            coords = [_to_proto_coordinate(c, pb2) for c in ring]
             rings.append(pb2.CoordinateSequence(coords=coords))
         msg.polygon.CopyFrom(pb2.PolygonGeometry(rings=rings))
 
-    return msg
+    return msg, spatial_reference
+
+
+def _to_proto_coordinate(values: list[Any], pb2_module: Any) -> Any:
+    coordinate = pb2_module.Coordinate(x=values[0], y=values[1])
+    if len(values) > 2 and values[2] is not None:
+        coordinate.z = values[2]
+    if len(values) > 3 and values[3] is not None:
+        coordinate.m = values[3]
+    return coordinate
+
+
+def _extract_spatial_reference(geom: dict[str, Any], pb2_module: Any) -> pb2.SpatialReference | None:
+    spatial_reference = geom.get("spatialReference")
+    if not isinstance(spatial_reference, dict):
+        return None
+
+    sr = pb2_module.SpatialReference()
+    wkid = spatial_reference.get("wkid")
+    latest_wkid = spatial_reference.get("latestWkid")
+    wkt = spatial_reference.get("wkt")
+
+    if isinstance(wkid, int):
+        sr.wkid = wkid
+    if isinstance(latest_wkid, int):
+        sr.latest_wkid = latest_wkid
+    if isinstance(wkt, str):
+        sr.wkt = wkt
+
+    if sr.wkid == 0 and sr.latest_wkid == 0 and not sr.wkt:
+        return None
+
+    return sr

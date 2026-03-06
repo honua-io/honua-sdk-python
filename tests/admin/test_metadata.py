@@ -57,6 +57,35 @@ def _make_resource() -> MetadataResource:
     )
 
 
+def test_metadata_resource_from_dict_preserves_free_form_payload_keys() -> None:
+    resource = MetadataResource.from_dict(
+        {
+            "apiVersion": "v1",
+            "kind": "Layer",
+            "metadata": {
+                "name": "parcels",
+                "namespace": "default",
+                "labels": {"teamOwner": "geo"},
+                "annotations": {"syncMode": "full"},
+            },
+            "spec": {
+                "tableName": "parcels",
+                "rendererConfig": {"lineColor": "#33AA66"},
+            },
+            "status": {
+                "healthStatus": {"lastCheckedAt": "2026-03-01T00:00:00Z"},
+            },
+        }
+    )
+
+    assert resource.metadata.labels == {"teamOwner": "geo"}
+    assert resource.metadata.annotations == {"syncMode": "full"}
+    assert resource.spec["tableName"] == "parcels"
+    assert resource.spec["rendererConfig"]["lineColor"] == "#33AA66"
+    assert resource.status is not None
+    assert resource.status["healthStatus"]["lastCheckedAt"] == "2026-03-01T00:00:00Z"
+
+
 def test_list_metadata_resources(make_client) -> None:
     seen: dict[str, Any] = {}
 
@@ -108,7 +137,28 @@ def test_get_metadata_resource_returns_etag(make_client) -> None:
     assert isinstance(resource, MetadataResource)
     assert resource.api_version == "v1"
     assert resource.metadata.labels == {"env": "prod"}
+    assert resource.spec["tableName"] == "parcels"
     assert etag == '"abc123"'
+
+
+def test_get_metadata_resource_url_encodes_path_segments(make_client) -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        return httpx.Response(
+            200,
+            json=make_api_response(_RESOURCE_DATA),
+            headers={"ETag": '"abc123"'},
+        )
+
+    with make_client(handler) as client:
+        client.get_metadata_resource("Layer Type", "team/alpha", "parcel #1")
+
+    assert (
+        seen["path"]
+        == "/api/v1/admin/metadata/resources/Layer%20Type/team%2Falpha/parcel%20%231"
+    )
 
 
 def test_get_metadata_resource_no_etag(make_client) -> None:

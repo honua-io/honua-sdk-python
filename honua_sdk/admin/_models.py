@@ -20,31 +20,13 @@ def _to_camel(name: str) -> str:
 
 
 def _snake_keys(d: dict[str, Any]) -> dict[str, Any]:
-    """Recursively convert all dict keys from camelCase to snake_case."""
-    out: dict[str, Any] = {}
-    for k, v in d.items():
-        sk = _to_snake(k)
-        if isinstance(v, dict):
-            out[sk] = _snake_keys(v)
-        elif isinstance(v, list):
-            out[sk] = [_snake_keys(i) if isinstance(i, dict) else i for i in v]
-        else:
-            out[sk] = v
-    return out
+    """Convert top-level dict keys from camelCase to snake_case."""
+    return {_to_snake(k): v for k, v in d.items()}
 
 
 def _camel_keys(d: dict[str, Any]) -> dict[str, Any]:
-    """Recursively convert all dict keys from snake_case to camelCase."""
-    out: dict[str, Any] = {}
-    for k, v in d.items():
-        ck = _to_camel(k)
-        if isinstance(v, dict):
-            out[ck] = _camel_keys(v)
-        elif isinstance(v, list):
-            out[ck] = [_camel_keys(i) if isinstance(i, dict) else i for i in v]
-        else:
-            out[ck] = v
-    return out
+    """Convert top-level dict keys from snake_case to camelCase."""
+    return {_to_camel(k): v for k, v in d.items()}
 
 
 def _extract_fields(cls: type, data: dict[str, Any]) -> dict[str, Any]:

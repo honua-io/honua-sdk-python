@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -36,6 +37,41 @@ def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/") + "/"
 
 
+def _encode_path_segment(value: str) -> str:
+    return quote(value, safe="")
+
+
+def _build_sensitive_auth_headers(
+    *,
+    api_key: str | None,
+    bearer_token: str | None,
+) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+    return headers
+
+
+def _apply_sensitive_auth_headers(
+    request: httpx.Request,
+    *,
+    trusted_host: str | None,
+    auth_headers: Mapping[str, str],
+) -> None:
+    if not auth_headers or trusted_host is None:
+        return
+
+    if request.url.host == trusted_host:
+        for name, value in auth_headers.items():
+            request.headers.setdefault(name, value)
+        return
+
+    for name in auth_headers:
+        request.headers.pop(name, None)
+
+
 class HonuaAdminClient:
     """Synchronous client for the Honua Admin API."""
 
@@ -58,18 +94,23 @@ class HonuaAdminClient:
             self._client = client
             return
 
-        headers: dict[str, str] = {}
-        if api_key:
-            headers["X-API-Key"] = api_key
-        if bearer_token:
-            headers["Authorization"] = f"Bearer {bearer_token}"
+        normalized_base_url = _normalize_base_url(base_url)
+        trusted_host = httpx.URL(normalized_base_url).host
+        auth_headers = _build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
+
+        def _request_hook(request: httpx.Request) -> None:
+            _apply_sensitive_auth_headers(
+                request,
+                trusted_host=trusted_host,
+                auth_headers=auth_headers,
+            )
 
         self._client = httpx.Client(
-            base_url=_normalize_base_url(base_url),
+            base_url=normalized_base_url,
             timeout=timeout,
-            headers=headers,
             follow_redirects=follow_redirects,
             transport=transport,
+            event_hooks={"request": [_request_hook]},
         )
 
     # -- context manager ----------------------------------------------------
@@ -185,14 +226,16 @@ class HonuaAdminClient:
 
     def get_service_settings(self, name: str) -> ServiceSettingsResponse:
         """GET /api/v1/admin/services/{name}/settings"""
-        data = self._request_json("GET", f"/api/v1/admin/services/{name}/settings")
+        service_name = _encode_path_segment(name)
+        data = self._request_json("GET", f"/api/v1/admin/services/{service_name}/settings")
         return ServiceSettingsResponse.from_dict(data)
 
     def update_protocols(self, name: str, protocols: list[str]) -> ServiceSettingsResponse:
         """PUT /api/v1/admin/services/{name}/protocols"""
+        service_name = _encode_path_segment(name)
         data = self._request_json(
             "PUT",
-            f"/api/v1/admin/services/{name}/protocols",
+            f"/api/v1/admin/services/{service_name}/protocols",
             json_body=protocols,
         )
         return ServiceSettingsResponse.from_dict(data)
@@ -201,10 +244,11 @@ class HonuaAdminClient:
         """PUT /api/v1/admin/services/{name}/mapserver"""
         from ._models import _to_camel
 
+        service_name = _encode_path_segment(name)
         body = {_to_camel(k): v for k, v in kwargs.items()}
         data = self._request_json(
             "PUT",
-            f"/api/v1/admin/services/{name}/mapserver",
+            f"/api/v1/admin/services/{service_name}/mapserver",
             json_body=body,
         )
         return ServiceSettingsResponse.from_dict(data)
@@ -244,9 +288,12 @@ class HonuaAdminClient:
         Returns ``(resource, etag)`` where *etag* may be ``None`` if the
         server did not include an ``ETag`` header.
         """
+        kind_segment = _encode_path_segment(kind)
+        namespace_segment = _encode_path_segment(ns)
+        name_segment = _encode_path_segment(name)
         response = self._request(
             "GET",
-            f"/api/v1/admin/metadata/resources/{kind}/{ns}/{name}",
+            f"/api/v1/admin/metadata/resources/{kind_segment}/{namespace_segment}/{name_segment}",
         )
         try:
             payload = response.json()
@@ -280,12 +327,15 @@ class HonuaAdminClient:
         if_match: str | None = None,
     ) -> MetadataResource:
         """PUT /api/v1/admin/metadata/resources/{kind}/{ns}/{name}"""
+        kind_segment = _encode_path_segment(kind)
+        namespace_segment = _encode_path_segment(ns)
+        name_segment = _encode_path_segment(name)
         hdrs: dict[str, str] = {}
         if if_match is not None:
             hdrs["If-Match"] = if_match
         data = self._request_json(
             "PUT",
-            f"/api/v1/admin/metadata/resources/{kind}/{ns}/{name}",
+            f"/api/v1/admin/metadata/resources/{kind_segment}/{namespace_segment}/{name_segment}",
             json_body=resource.to_dict(),
             headers=hdrs or None,
         )
@@ -300,12 +350,15 @@ class HonuaAdminClient:
         if_match: str | None = None,
     ) -> None:
         """DELETE /api/v1/admin/metadata/resources/{kind}/{ns}/{name}"""
+        kind_segment = _encode_path_segment(kind)
+        namespace_segment = _encode_path_segment(ns)
+        name_segment = _encode_path_segment(name)
         hdrs: dict[str, str] = {}
         if if_match is not None:
             hdrs["If-Match"] = if_match
         self._request(
             "DELETE",
-            f"/api/v1/admin/metadata/resources/{kind}/{ns}/{name}",
+            f"/api/v1/admin/metadata/resources/{kind_segment}/{namespace_segment}/{name_segment}",
             headers=hdrs or None,
         )
 
@@ -353,7 +406,8 @@ class HonuaAdminClient:
 
     def get_connection(self, id: str) -> SecureConnectionDetail:
         """GET /api/v1/admin/connections/{id}"""
-        data = self._request_json("GET", f"/api/v1/admin/connections/{id}")
+        connection_id = _encode_path_segment(id)
+        data = self._request_json("GET", f"/api/v1/admin/connections/{connection_id}")
         return SecureConnectionDetail.from_dict(data)
 
     def create_connection(self, request: CreateSecureConnectionRequest) -> SecureConnectionSummary:
@@ -380,24 +434,27 @@ class HonuaAdminClient:
         request: UpdateSecureConnectionRequest,
     ) -> SecureConnectionSummary:
         """PUT /api/v1/admin/connections/{id}"""
+        connection_id = _encode_path_segment(id)
         data = self._request_json(
             "PUT",
-            f"/api/v1/admin/connections/{id}",
+            f"/api/v1/admin/connections/{connection_id}",
             json_body=request.to_dict(),
         )
         return SecureConnectionSummary.from_dict(data)
 
     def test_connection(self, id: str) -> ConnectionTestResult:
         """POST /api/v1/admin/connections/{id}/test"""
+        connection_id = _encode_path_segment(id)
         data = self._request_json(
             "POST",
-            f"/api/v1/admin/connections/{id}/test",
+            f"/api/v1/admin/connections/{connection_id}/test",
         )
         return ConnectionTestResult.from_dict(data)
 
     def delete_connection(self, id: str) -> None:
         """DELETE /api/v1/admin/connections/{id}"""
-        self._request("DELETE", f"/api/v1/admin/connections/{id}")
+        connection_id = _encode_path_segment(id)
+        self._request("DELETE", f"/api/v1/admin/connections/{connection_id}")
 
     def validate_encryption(self) -> EncryptionValidationResult:
         """POST /api/v1/admin/connections/encryption/validate"""
@@ -425,12 +482,13 @@ class HonuaAdminClient:
         service_name: str | None = None,
     ) -> list[PublishedLayerSummary]:
         """GET /api/v1/admin/connections/{conn_id}/layers"""
+        connection_id = _encode_path_segment(conn_id)
         params: dict[str, str] | None = None
         if service_name is not None:
             params = {"serviceName": service_name}
         data = self._request_json(
             "GET",
-            f"/api/v1/admin/connections/{conn_id}/layers",
+            f"/api/v1/admin/connections/{connection_id}/layers",
             params=params,
         )
         if not isinstance(data, list):
@@ -443,9 +501,10 @@ class HonuaAdminClient:
         request: PublishLayerRequest,
     ) -> PublishedLayerSummary:
         """POST /api/v1/admin/connections/{conn_id}/layers"""
+        connection_id = _encode_path_segment(conn_id)
         data = self._request_json(
             "POST",
-            f"/api/v1/admin/connections/{conn_id}/layers",
+            f"/api/v1/admin/connections/{connection_id}/layers",
             json_body=request.to_dict(),
         )
         return PublishedLayerSummary.from_dict(data)
@@ -458,12 +517,13 @@ class HonuaAdminClient:
         service_name: str | None = None,
     ) -> PublishedLayerSummary:
         """PUT /api/v1/admin/connections/{conn_id}/layers/{layer_id}/enabled"""
+        connection_id = _encode_path_segment(conn_id)
         params: dict[str, str] | None = None
         if service_name is not None:
             params = {"serviceName": service_name}
         data = self._request_json(
             "PUT",
-            f"/api/v1/admin/connections/{conn_id}/layers/{layer_id}/enabled",
+            f"/api/v1/admin/connections/{connection_id}/layers/{layer_id}/enabled",
             json_body={"enabled": enabled},
             params=params,
         )
@@ -476,12 +536,13 @@ class HonuaAdminClient:
         service_name: str | None = None,
     ) -> list[PublishedLayerSummary]:
         """PUT /api/v1/admin/connections/{conn_id}/layers/enabled"""
+        connection_id = _encode_path_segment(conn_id)
         params: dict[str, str] | None = None
         if service_name is not None:
             params = {"serviceName": service_name}
         data = self._request_json(
             "PUT",
-            f"/api/v1/admin/connections/{conn_id}/layers/enabled",
+            f"/api/v1/admin/connections/{connection_id}/layers/enabled",
             json_body={"enabled": enabled},
             params=params,
         )
@@ -495,9 +556,10 @@ class HonuaAdminClient:
 
     def discover_tables(self, conn_id: str) -> TableDiscoveryResponse:
         """GET /api/v1/admin/connections/{conn_id}/tables"""
+        connection_id = _encode_path_segment(conn_id)
         data = self._request_json(
             "GET",
-            f"/api/v1/admin/connections/{conn_id}/tables",
+            f"/api/v1/admin/connections/{connection_id}/tables",
         )
         return TableDiscoveryResponse.from_dict(data)
 

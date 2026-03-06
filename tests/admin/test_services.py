@@ -240,6 +240,43 @@ def test_does_not_follow_redirects_by_default() -> None:
     assert seen[0][1] == "test-key"
 
 
+def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host() -> None:
+    seen: list[tuple[str, str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.url.host or "",
+                request.headers.get("x-api-key", ""),
+                request.headers.get("authorization", ""),
+            )
+        )
+        if request.url.host == "test.honua.io":
+            return httpx.Response(
+                302,
+                headers={"Location": "https://evil.example/api/v1/admin/services/"},
+            )
+        return httpx.Response(
+            200,
+            json=make_api_response([]),
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaAdminClient(
+        "http://test.honua.io",
+        transport=transport,
+        api_key="test-key",
+        bearer_token="test-token",
+        follow_redirects=True,
+    ) as client:
+        result = client.list_services()
+
+    assert result == []
+    assert len(seen) == 2
+    assert seen[0] == ("test.honua.io", "test-key", "Bearer test-token")
+    assert seen[1] == ("evil.example", "", "")
+
+
 def test_transport_errors_are_normalized_to_honua_http_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("dial failed", request=request)

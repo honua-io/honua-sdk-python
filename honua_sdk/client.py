@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -16,6 +17,41 @@ def _bool_text(value: bool) -> str:
 
 def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/") + "/"
+
+
+def _encode_path_segment(value: str) -> str:
+    return quote(value, safe="")
+
+
+def _build_sensitive_auth_headers(
+    *,
+    api_key: str | None,
+    bearer_token: str | None,
+) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+    return headers
+
+
+def _apply_sensitive_auth_headers(
+    request: httpx.Request,
+    *,
+    trusted_host: str | None,
+    auth_headers: Mapping[str, str],
+) -> None:
+    if not auth_headers or trusted_host is None:
+        return
+
+    if request.url.host == trusted_host:
+        for name, value in auth_headers.items():
+            request.headers.setdefault(name, value)
+        return
+
+    for name in auth_headers:
+        request.headers.pop(name, None)
 
 
 class HonuaClient:
@@ -40,18 +76,23 @@ class HonuaClient:
             self._client = client
             return
 
-        headers: dict[str, str] = {}
-        if api_key:
-            headers["X-API-Key"] = api_key
-        if bearer_token:
-            headers["Authorization"] = f"Bearer {bearer_token}"
+        normalized_base_url = _normalize_base_url(base_url)
+        trusted_host = httpx.URL(normalized_base_url).host
+        auth_headers = _build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
+
+        def _request_hook(request: httpx.Request) -> None:
+            _apply_sensitive_auth_headers(
+                request,
+                trusted_host=trusted_host,
+                auth_headers=auth_headers,
+            )
 
         self._client = httpx.Client(
-            base_url=_normalize_base_url(base_url),
+            base_url=normalized_base_url,
             timeout=timeout,
-            headers=headers,
             follow_redirects=follow_redirects,
             transport=transport,
+            event_hooks={"request": [_request_hook]},
         )
 
     def __enter__(self) -> "HonuaClient":
@@ -88,6 +129,7 @@ class HonuaClient:
         extra_params: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Query features from a FeatureServer layer."""
+        service_segment = _encode_path_segment(service_id)
         if isinstance(out_fields, Sequence) and not isinstance(out_fields, str):
             out_fields_value = ",".join(str(value) for value in out_fields)
         else:
@@ -104,7 +146,7 @@ class HonuaClient:
 
         return self._request_json(
             "GET",
-            f"/rest/services/{service_id}/FeatureServer/{layer_id}/query",
+            f"/rest/services/{service_segment}/FeatureServer/{layer_id}/query",
             params=params,
         )
 
@@ -119,6 +161,7 @@ class HonuaClient:
         rollback_on_failure: bool = True,
     ) -> dict[str, Any]:
         """Submit a layer-level applyEdits request."""
+        service_segment = _encode_path_segment(service_id)
         payload: dict[str, Any] = {
             "f": "json",
             "rollbackOnFailure": rollback_on_failure,
@@ -135,7 +178,7 @@ class HonuaClient:
 
         return self._request_json(
             "POST",
-            f"/rest/services/{service_id}/FeatureServer/{layer_id}/applyEdits",
+            f"/rest/services/{service_segment}/FeatureServer/{layer_id}/applyEdits",
             json_body=payload,
         )
 
@@ -151,6 +194,7 @@ class HonuaClient:
         extra_params: Mapping[str, Any] | None = None,
     ) -> bytes:
         """Request rendered map bytes from MapServer export."""
+        service_segment = _encode_path_segment(service_id)
         if isinstance(bbox, str):
             bbox_value = bbox
         else:
@@ -167,7 +211,7 @@ class HonuaClient:
         if extra_params:
             params.update(extra_params)
 
-        response = self._request("GET", f"/rest/services/{service_id}/MapServer/export", params=params)
+        response = self._request("GET", f"/rest/services/{service_segment}/MapServer/export", params=params)
         return response.content
 
     def _request_json(

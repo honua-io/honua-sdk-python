@@ -156,6 +156,41 @@ class TestToProtoRequest:
         assert coord.HasField("z") is False
         assert coord.m == pytest.approx(5.0)
 
+    def test_spatial_filter_paths_with_m_only_three_ordinates_use_m_when_has_m_hint(self) -> None:
+        req = QueryFeaturesRequest(
+            service_id="svc",
+            layer_id=0,
+            spatial_filter=SpatialFilter(
+                geometry={
+                    "hasM": True,
+                    "paths": [[[0.0, 0.0, 5.0], [1.0, 1.0, 6.0]]],
+                },
+                spatial_relationship=SpatialRelationship.INTERSECTS,
+            ),
+        )
+        proto = adapter.to_proto_request(req)
+
+        coord = proto.spatial_filter.geometry.polyline.paths[0].coords[0]
+        assert coord.HasField("z") is False
+        assert coord.HasField("m") is True
+        assert coord.m == pytest.approx(5.0)
+
+    def test_spatial_filter_multi_point_with_m_only_three_ordinates_use_m_when_has_m_hint(self) -> None:
+        req = QueryFeaturesRequest(
+            service_id="svc",
+            layer_id=0,
+            spatial_filter=SpatialFilter(
+                geometry={"hasM": True, "points": [[10.0, 20.0, 99.0]]},
+                spatial_relationship=SpatialRelationship.INTERSECTS,
+            ),
+        )
+        proto = adapter.to_proto_request(req)
+
+        point = proto.spatial_filter.geometry.multi_point.points[0]
+        assert point.HasField("z") is False
+        assert point.HasField("m") is True
+        assert point.m == pytest.approx(99.0)
+
 
 # ---------------------------------------------------------------------------
 # from_proto_response

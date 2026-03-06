@@ -258,6 +258,8 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference 
 
     msg = pb2.Geometry()
     spatial_reference = _extract_spatial_reference(geom, pb2)
+    has_z_hint = bool(geom.get("hasZ"))
+    has_m_hint = bool(geom.get("hasM"))
 
     if "x" in geom and "y" in geom:
         point = pb2.PointGeometry(x=geom["x"], y=geom["y"])
@@ -279,34 +281,79 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference 
         points = []
         for pt in geom["points"]:
             p = pb2.PointGeometry(x=pt[0], y=pt[1])
-            if len(pt) > 2 and pt[2] is not None:
-                p.z = pt[2]
-            if len(pt) > 3 and pt[3] is not None:
-                p.m = pt[3]
+            _set_coordinate_ordinates(
+                p,
+                pt,
+                has_z_hint=has_z_hint,
+                has_m_hint=has_m_hint,
+            )
             points.append(p)
         msg.multi_point.CopyFrom(pb2.MultiPointGeometry(points=points))
     elif "paths" in geom:
         paths = []
         for path in geom["paths"]:
-            coords = [_to_proto_coordinate(c, pb2) for c in path]
+            coords = [
+                _to_proto_coordinate(c, pb2, has_z_hint=has_z_hint, has_m_hint=has_m_hint)
+                for c in path
+            ]
             paths.append(pb2.CoordinateSequence(coords=coords))
         msg.polyline.CopyFrom(pb2.PolylineGeometry(paths=paths))
     elif "rings" in geom:
         rings = []
         for ring in geom["rings"]:
-            coords = [_to_proto_coordinate(c, pb2) for c in ring]
+            coords = [
+                _to_proto_coordinate(c, pb2, has_z_hint=has_z_hint, has_m_hint=has_m_hint)
+                for c in ring
+            ]
             rings.append(pb2.CoordinateSequence(coords=coords))
         msg.polygon.CopyFrom(pb2.PolygonGeometry(rings=rings))
 
     return msg, spatial_reference
 
 
-def _to_proto_coordinate(values: list[Any], pb2_module: Any) -> Any:
+def _set_coordinate_ordinates(
+    target: Any,
+    values: list[Any],
+    *,
+    has_z_hint: bool,
+    has_m_hint: bool,
+) -> None:
+    if len(values) <= 2:
+        return
+
+    third = values[2]
+    fourth = values[3] if len(values) > 3 else None
+
+    if len(values) > 3:
+        if third is not None:
+            target.z = third
+        if fourth is not None:
+            target.m = fourth
+        return
+
+    if third is None:
+        return
+
+    if has_m_hint and not has_z_hint:
+        target.m = third
+    else:
+        target.z = third
+
+
+def _to_proto_coordinate(
+    values: list[Any],
+    pb2_module: Any,
+    *,
+    has_z_hint: bool = False,
+    has_m_hint: bool = False,
+) -> Any:
     coordinate = pb2_module.Coordinate(x=values[0], y=values[1])
-    if len(values) > 2 and values[2] is not None:
-        coordinate.z = values[2]
-    if len(values) > 3 and values[3] is not None:
-        coordinate.m = values[3]
+    _set_coordinate_ordinates(
+        coordinate,
+        values,
+        has_z_hint=has_z_hint,
+        has_m_hint=has_m_hint,
+    )
     return coordinate
 
 

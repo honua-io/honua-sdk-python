@@ -57,6 +57,29 @@ def test_get_layer_style(make_client) -> None:
     assert result.drawing_info["renderer"]["type"] == "simple"
 
 
+def test_get_layer_style_preserves_free_form_nested_keys(make_client) -> None:
+    payload = {
+        "mapLibreStyle": {
+            "version": 8,
+            "metadata": {"ownerName": "geo-team"},
+        },
+        "drawingInfo": {
+            "renderer": {"visualVariables": [{"fieldName": "riskScore"}]},
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=make_api_response(payload))
+
+    with make_client(handler) as client:
+        result = client.get_layer_style(42)
+
+    assert result.map_libre_style is not None
+    assert result.map_libre_style["metadata"]["ownerName"] == "geo-team"
+    assert result.drawing_info is not None
+    assert result.drawing_info["renderer"]["visualVariables"][0]["fieldName"] == "riskScore"
+
+
 def test_get_layer_style_both_none(make_client) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

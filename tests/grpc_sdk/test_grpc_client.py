@@ -115,7 +115,7 @@ class TestClientConstruction:
 class TestQueryFeatures:
     """Tests for the unary query_features method."""
 
-    def _make_client(self) -> tuple[HonuaGrpcClient, MagicMock]:
+    def _make_client(self, *, timeout: float | None = 30.0) -> tuple[HonuaGrpcClient, MagicMock]:
         """Create a client with a mocked stub."""
         channel = MagicMock()
         with patch(
@@ -123,7 +123,7 @@ class TestQueryFeatures:
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
-            client = HonuaGrpcClient("localhost:50051", channel=channel)
+            client = HonuaGrpcClient("localhost:50051", channel=channel, timeout=timeout)
         return client, mock_stub
 
     def test_delegates_to_stub_and_converts(self) -> None:
@@ -187,6 +187,26 @@ class TestQueryFeatures:
         assert call_kwargs[1]["metadata"] == metadata
         client.close()
 
+    def test_applies_default_timeout_deadline(self) -> None:
+        client, mock_stub = self._make_client()
+        mock_stub.QueryFeatures.return_value = pb2.QueryFeaturesResponse()
+
+        client.query_features(QueryFeaturesRequest(service_id="svc", layer_id=0))
+
+        call_kwargs = mock_stub.QueryFeatures.call_args[1]
+        assert call_kwargs["timeout"] == pytest.approx(30.0)
+        client.close()
+
+    def test_allows_custom_timeout_deadline(self) -> None:
+        client, mock_stub = self._make_client(timeout=7.5)
+        mock_stub.QueryFeatures.return_value = pb2.QueryFeaturesResponse()
+
+        client.query_features(QueryFeaturesRequest(service_id="svc", layer_id=0))
+
+        call_kwargs = mock_stub.QueryFeatures.call_args[1]
+        assert call_kwargs["timeout"] == pytest.approx(7.5)
+        client.close()
+
 
 # ---------------------------------------------------------------------------
 # query_features_stream
@@ -196,7 +216,7 @@ class TestQueryFeatures:
 class TestQueryFeaturesStream:
     """Tests for the streaming query_features_stream method."""
 
-    def _make_client(self) -> tuple[HonuaGrpcClient, MagicMock]:
+    def _make_client(self, *, timeout: float | None = 30.0) -> tuple[HonuaGrpcClient, MagicMock]:
         """Create a client with a mocked stub."""
         channel = MagicMock()
         with patch(
@@ -204,7 +224,7 @@ class TestQueryFeaturesStream:
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
-            client = HonuaGrpcClient("localhost:50051", channel=channel)
+            client = HonuaGrpcClient("localhost:50051", channel=channel, timeout=timeout)
         return client, mock_stub
 
     def test_yields_pages(self) -> None:
@@ -269,6 +289,16 @@ class TestQueryFeaturesStream:
             list(client.query_features_stream(request))
 
         assert exc_info.value.code == grpc.StatusCode.INTERNAL
+        client.close()
+
+    def test_applies_timeout_deadline(self) -> None:
+        client, mock_stub = self._make_client(timeout=12.0)
+        mock_stub.QueryFeaturesStream.return_value = iter([])
+
+        list(client.query_features_stream(QueryFeaturesRequest(service_id="svc", layer_id=0)))
+
+        call_kwargs = mock_stub.QueryFeaturesStream.call_args[1]
+        assert call_kwargs["timeout"] == pytest.approx(12.0)
         client.close()
 
 
@@ -350,6 +380,23 @@ class TestAsyncClient:
         with patch("honua_sdk.grpc._client.grpc.aio.AioRpcError", _FakeAioRpcError):
             asyncio.run(_run())
 
+    def test_query_features_passes_timeout_deadline(self) -> None:
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            mock_stub.QueryFeatures = AsyncMock(return_value=pb2.QueryFeaturesResponse())
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcAsyncClient("localhost:50051", channel=channel, timeout=9.25)
+
+        async def _run() -> None:
+            await client.query_features(QueryFeaturesRequest(service_id="svc", layer_id=0))
+
+        asyncio.run(_run())
+        call_kwargs = mock_stub.QueryFeatures.call_args[1]
+        assert call_kwargs["timeout"] == pytest.approx(9.25)
+
     def test_query_features_stream_yields_pages(self) -> None:
         channel = MagicMock()
         with patch(
@@ -381,6 +428,27 @@ class TestAsyncClient:
 
         feature_ids = asyncio.run(_run())
         assert feature_ids == [1, 2]
+
+    def test_query_features_stream_passes_timeout_deadline(self) -> None:
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcAsyncClient("localhost:50051", channel=channel, timeout=4.0)
+
+        mock_stub.QueryFeaturesStream.return_value = _AsyncPageStream([])
+
+        async def _run() -> None:
+            async for _ in client.query_features_stream(
+                QueryFeaturesRequest(service_id="svc", layer_id=0)
+            ):
+                pass
+
+        asyncio.run(_run())
+        call_kwargs = mock_stub.QueryFeaturesStream.call_args[1]
+        assert call_kwargs["timeout"] == pytest.approx(4.0)
 
 
 # ---------------------------------------------------------------------------

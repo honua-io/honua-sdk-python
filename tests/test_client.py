@@ -37,6 +37,20 @@ def test_query_features_builds_expected_request() -> None:
     assert seen["query"]["returnGeometry"] == "false"
 
 
+def test_query_features_url_encodes_service_id_path_segment() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        return httpx.Response(200, json={"features": []})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        client.query_features("team alpha/default", 2)
+
+    assert seen["path"] == "/rest/services/team%20alpha%2Fdefault/FeatureServer/2/query"
+
+
 def test_apply_edits_posts_json_payload() -> None:
     seen: dict[str, Any] = {}
 
@@ -125,6 +139,40 @@ def test_does_not_follow_redirects_by_default() -> None:
     assert len(seen) == 1
     assert seen[0][0] == "http://example.test/healthz/ready"
     assert seen[0][1] == "test-key"
+
+
+def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host() -> None:
+    seen: list[tuple[str, str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.url.host or "",
+                request.headers.get("x-api-key", ""),
+                request.headers.get("authorization", ""),
+            )
+        )
+        if request.url.host == "example.test":
+            return httpx.Response(
+                302,
+                headers={"Location": "https://evil.example/healthz/ready"},
+            )
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient(
+        "http://example.test",
+        transport=transport,
+        api_key="test-key",
+        bearer_token="test-token",
+        follow_redirects=True,
+    ) as client:
+        response = client.readiness()
+
+    assert response == {"status": "ready"}
+    assert len(seen) == 2
+    assert seen[0] == ("example.test", "test-key", "Bearer test-token")
+    assert seen[1] == ("evil.example", "", "")
 
 
 def test_transport_errors_are_normalized_to_honua_http_error() -> None:

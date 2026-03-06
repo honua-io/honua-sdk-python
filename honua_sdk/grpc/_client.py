@@ -21,9 +21,11 @@ class HonuaGrpcClient:
         credentials: grpc.ChannelCredentials | None = None,
         insecure: bool = False,
         metadata: list[tuple[str, str]] | None = None,
+        timeout: float | None = 30.0,
         compression: grpc.Compression | None = grpc.Compression.Gzip,
     ) -> None:
         self._metadata = metadata or []
+        self._timeout = timeout
         self._owns_channel = channel is None
 
         if channel is not None:
@@ -58,7 +60,11 @@ class HonuaGrpcClient:
         """Execute a unary feature query and return the full response."""
         proto_request = adapter.to_proto_request(request)
         try:
-            proto_response = self._stub.QueryFeatures(proto_request, metadata=self._metadata)
+            proto_response = self._stub.QueryFeatures(
+                proto_request,
+                metadata=self._metadata,
+                timeout=self._timeout,
+            )
         except grpc.RpcError as e:
             raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
         return adapter.from_proto_response(proto_response)
@@ -69,7 +75,11 @@ class HonuaGrpcClient:
         """Execute a streaming feature query, yielding one page at a time."""
         proto_request = adapter.to_proto_request(request)
         try:
-            stream = self._stub.QueryFeaturesStream(proto_request, metadata=self._metadata)
+            stream = self._stub.QueryFeaturesStream(
+                proto_request,
+                metadata=self._metadata,
+                timeout=self._timeout,
+            )
             for page in stream:
                 yield adapter.from_proto_page(page)
                 if page.is_last_page:
@@ -89,9 +99,11 @@ class HonuaGrpcAsyncClient:
         credentials: grpc.ChannelCredentials | None = None,
         insecure: bool = False,
         metadata: list[tuple[str, str]] | None = None,
+        timeout: float | None = 30.0,
         compression: grpc.Compression | None = grpc.Compression.Gzip,
     ) -> None:
         self._metadata = metadata or []
+        self._timeout = timeout
         self._owns_channel = channel is None
 
         if channel is not None:
@@ -127,7 +139,9 @@ class HonuaGrpcAsyncClient:
         proto_request = adapter.to_proto_request(request)
         try:
             proto_response = await self._stub.QueryFeatures(
-                proto_request, metadata=self._metadata
+                proto_request,
+                metadata=self._metadata,
+                timeout=self._timeout,
             )
         except grpc.aio.AioRpcError as e:
             raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
@@ -139,7 +153,11 @@ class HonuaGrpcAsyncClient:
         """Execute a streaming feature query, yielding one page at a time."""
         proto_request = adapter.to_proto_request(request)
         try:
-            stream = self._stub.QueryFeaturesStream(proto_request, metadata=self._metadata)
+            stream = self._stub.QueryFeaturesStream(
+                proto_request,
+                metadata=self._metadata,
+                timeout=self._timeout,
+            )
             async for page in stream:
                 yield adapter.from_proto_page(page)
                 if page.is_last_page:

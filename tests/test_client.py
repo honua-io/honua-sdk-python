@@ -41,14 +41,14 @@ def test_query_features_url_encodes_service_id_path_segment() -> None:
     seen: dict[str, str] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen["path"] = request.url.path
+        seen["raw_path"] = request.url.raw_path.decode("ascii").split("?")[0]
         return httpx.Response(200, json={"features": []})
 
     transport = httpx.MockTransport(handler)
     with HonuaClient("http://example.test", transport=transport) as client:
         client.query_features("team alpha/default", 2)
 
-    assert seen["path"] == "/rest/services/team%20alpha%2Fdefault/FeatureServer/2/query"
+    assert seen["raw_path"] == "/rest/services/team%20alpha%2Fdefault/FeatureServer/2/query"
 
 
 def test_apply_edits_posts_json_payload() -> None:

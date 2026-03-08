@@ -37,6 +37,13 @@ jobs:
           pip install -e ".[grpc]"
           pip install pytest hatch twine
 
+      - name: Security audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit --strict || {
+            echo "::warning::pip-audit found vulnerabilities. Review before publishing."
+          }
+
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short
 

@@ -1,18 +1,15 @@
-"""Synchronous HTTP client for Honua Server APIs."""
+"""Synchronous HTTP client for Honua GeocodeServer APIs."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
 from .errors import HonuaHttpError
-
-
-def _bool_text(value: bool) -> str:
-    return "true" if value else "false"
 
 
 def _normalize_base_url(base_url: str) -> str:
@@ -54,23 +51,44 @@ def _apply_sensitive_auth_headers(
         request.headers.pop(name, None)
 
 
-class HonuaClient:
-    """Task-oriented client for common Honua workflows."""
+@dataclass
+class GeocodeResult:
+    address: str
+    latitude: float
+    longitude: float
+    score: float
+    attributes: dict[str, str | None]
+
+
+@dataclass
+class ReverseGeocodeResult:
+    address: str
+    latitude: float
+    longitude: float
+    attributes: dict[str, str | None]
+
+
+@dataclass
+class GeocodeSuggestion:
+    text: str
+    magic_key: str
+    is_collection: bool
+
+
+class HonuaGeocodingClient:
+    """Task-oriented client for Honua GeocodeServer workflows."""
 
     def __init__(
         self,
         base_url: str,
         *,
+        locator_name: str = "World",
         timeout: float = 30.0,
         api_key: str | None = None,
         bearer_token: str | None = None,
-        follow_redirects: bool = False,
         client: httpx.Client | None = None,
-        transport: httpx.BaseTransport | None = None,
     ) -> None:
-        if client is not None and transport is not None:
-            raise ValueError("Provide either `client` or `transport`, not both.")
-
+        self._locator_name = locator_name
         self._owns_client = client is None
         if client is not None:
             self._client = client
@@ -90,12 +108,10 @@ class HonuaClient:
         self._client = httpx.Client(
             base_url=normalized_base_url,
             timeout=timeout,
-            follow_redirects=follow_redirects,
-            transport=transport,
             event_hooks={"request": [_request_hook]},
         )
 
-    def __enter__(self) -> "HonuaClient":
+    def __enter__(self) -> "HonuaGeocodingClient":
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
@@ -106,113 +122,114 @@ class HonuaClient:
         if self._owns_client:
             self._client.close()
 
-    def readiness(self) -> dict[str, Any]:
-        """Get readiness status from `/healthz/ready`."""
-        return self._request_json("GET", "/healthz/ready")
-
-    def list_services(self, *, response_format: str = "json") -> dict[str, Any]:
-        """List services from the GeoServices catalog endpoint."""
-        return self._request_json(
-            "GET",
-            "/rest/services",
-            params={"f": response_format},
-        )
-
-    def query_features(
+    def forward_geocode(
         self,
-        service_id: str,
-        layer_id: int,
+        address: str,
         *,
-        where: str = "1=1",
-        out_fields: str | Sequence[str] = "*",
-        return_geometry: bool = True,
-        extra_params: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Query features from a FeatureServer layer."""
-        service_segment = _encode_path_segment(service_id)
-        if isinstance(out_fields, Sequence) and not isinstance(out_fields, str):
-            out_fields_value = ",".join(str(value) for value in out_fields)
-        else:
-            out_fields_value = str(out_fields)
-
+        max_results: int = 10,
+        country_codes: str | None = None,
+        spatial_reference_wkid: int = 4326,
+    ) -> list[GeocodeResult]:
+        """Find address candidates for a single-line address string."""
+        locator_segment = _encode_path_segment(self._locator_name)
         params: dict[str, Any] = {
             "f": "json",
-            "where": where,
-            "outFields": out_fields_value,
-            "returnGeometry": _bool_text(return_geometry),
+            "singleLine": address,
+            "maxLocations": max_results,
+            "outSR": spatial_reference_wkid,
         }
-        if extra_params:
-            params.update(extra_params)
+        if country_codes is not None:
+            params["countryCode"] = country_codes
 
-        return self._request_json(
+        data = self._request_json(
             "GET",
-            f"/rest/services/{service_segment}/FeatureServer/{layer_id}/query",
+            f"/rest/services/{locator_segment}/GeocodeServer/findAddressCandidates",
             params=params,
         )
 
-    def apply_edits(
-        self,
-        service_id: str,
-        layer_id: int,
-        *,
-        adds: Sequence[Mapping[str, Any]] | None = None,
-        updates: Sequence[Mapping[str, Any]] | None = None,
-        deletes: Sequence[int] | str | None = None,
-        rollback_on_failure: bool = True,
-    ) -> dict[str, Any]:
-        """Submit a layer-level applyEdits request."""
-        service_segment = _encode_path_segment(service_id)
-        payload: dict[str, Any] = {
-            "f": "json",
-            "rollbackOnFailure": rollback_on_failure,
-        }
-        if adds is not None:
-            payload["adds"] = list(adds)
-        if updates is not None:
-            payload["updates"] = list(updates)
-        if deletes is not None:
-            if isinstance(deletes, str):
-                payload["deletes"] = deletes
-            else:
-                payload["deletes"] = list(deletes)
+        results: list[GeocodeResult] = []
+        for candidate in data.get("candidates", []):
+            location = candidate.get("location", {})
+            results.append(
+                GeocodeResult(
+                    address=candidate.get("address", ""),
+                    longitude=float(location.get("x", 0)),
+                    latitude=float(location.get("y", 0)),
+                    score=float(candidate.get("score", 0)),
+                    attributes=candidate.get("attributes", {}),
+                )
+            )
+        return results
 
-        return self._request_json(
-            "POST",
-            f"/rest/services/{service_segment}/FeatureServer/{layer_id}/applyEdits",
-            json_body=payload,
+    def reverse_geocode(
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        spatial_reference_wkid: int = 4326,
+    ) -> ReverseGeocodeResult | None:
+        """Reverse-geocode a coordinate pair into an address."""
+        locator_segment = _encode_path_segment(self._locator_name)
+        params: dict[str, Any] = {
+            "f": "json",
+            "location": f"{longitude},{latitude}",
+            "outSR": spatial_reference_wkid,
+        }
+
+        data = self._request_json(
+            "GET",
+            f"/rest/services/{locator_segment}/GeocodeServer/reverseGeocode",
+            params=params,
         )
 
-    def export_map(
+        if not data.get("address") and not data.get("location"):
+            return None
+
+        addr_info = data.get("address", {})
+        location = data.get("location", {})
+        match_addr = addr_info.get("Match_addr", "") if isinstance(addr_info, Mapping) else ""
+        attributes = dict(addr_info) if isinstance(addr_info, Mapping) else {}
+
+        return ReverseGeocodeResult(
+            address=match_addr,
+            longitude=float(location.get("x", 0)),
+            latitude=float(location.get("y", 0)),
+            attributes=attributes,
+        )
+
+    def suggest(
         self,
-        service_id: str,
-        bbox: Sequence[float] | str,
+        text: str,
         *,
-        size: tuple[int, int] = (400, 400),
-        image_format: str = "png",
-        transparent: bool = True,
-        dpi: int = 96,
-        extra_params: Mapping[str, Any] | None = None,
-    ) -> bytes:
-        """Request rendered map bytes from MapServer export."""
-        service_segment = _encode_path_segment(service_id)
-        if isinstance(bbox, str):
-            bbox_value = bbox
-        else:
-            bbox_value = ",".join(str(value) for value in bbox)
-
+        max_suggestions: int = 5,
+        country_codes: str | None = None,
+    ) -> list[GeocodeSuggestion]:
+        """Get typeahead suggestions for partial address text."""
+        locator_segment = _encode_path_segment(self._locator_name)
         params: dict[str, Any] = {
-            "f": "image",
-            "bbox": bbox_value,
-            "size": f"{size[0]},{size[1]}",
-            "format": image_format,
-            "transparent": _bool_text(transparent),
-            "dpi": str(dpi),
+            "f": "json",
+            "text": text,
+            "maxSuggestions": max_suggestions,
         }
-        if extra_params:
-            params.update(extra_params)
+        if country_codes is not None:
+            params["countryCode"] = country_codes
 
-        response = self._request("GET", f"/rest/services/{service_segment}/MapServer/export", params=params)
-        return response.content
+        data = self._request_json(
+            "GET",
+            f"/rest/services/{locator_segment}/GeocodeServer/suggest",
+            params=params,
+        )
+
+        results: list[GeocodeSuggestion] = []
+        for suggestion in data.get("suggestions", []):
+            results.append(
+                GeocodeSuggestion(
+                    text=suggestion.get("text", ""),
+                    magic_key=suggestion.get("magicKey", ""),
+                    is_collection=suggestion.get("isCollection", False),
+                )
+            )
+        return results
 
     def _request_json(
         self,
@@ -243,14 +260,10 @@ class HonuaClient:
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
     ) -> httpx.Response:
-        # Build a full URL so httpx does not re-decode percent-encoded
-        # path segments during base-URL resolution.
-        base = self._client._base_url
-        url = base.copy_with(raw_path=path.encode("ascii"))
         try:
             response = self._client.request(
                 method=method,
-                url=url,
+                url=path,
                 params=params,
                 json=json_body,
             )

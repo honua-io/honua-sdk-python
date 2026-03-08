@@ -145,7 +145,7 @@ def test_get_metadata_resource_url_encodes_path_segments(make_client) -> None:
     seen: dict[str, str] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen["path"] = request.url.path
+        seen["raw_path"] = request.url.raw_path.decode("ascii")
         return httpx.Response(
             200,
             json=make_api_response(_RESOURCE_DATA),
@@ -156,7 +156,7 @@ def test_get_metadata_resource_url_encodes_path_segments(make_client) -> None:
         client.get_metadata_resource("Layer Type", "team/alpha", "parcel #1")
 
     assert (
-        seen["path"]
+        seen["raw_path"]
         == "/api/v1/admin/metadata/resources/Layer%20Type/team%2Falpha/parcel%20%231"
     )
 

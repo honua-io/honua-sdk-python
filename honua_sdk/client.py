@@ -243,10 +243,13 @@ class HonuaClient:
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
     ) -> httpx.Response:
+        # Build the full URL manually so httpx does not re-decode
+        # percent-encoded path segments during URL resolution.
+        url = self._client._base_url.copy_with(raw_path=path.encode("ascii"))
         try:
             response = self._client.request(
                 method=method,
-                url=path,
+                url=url,
                 params=params,
                 json=json_body,
             )

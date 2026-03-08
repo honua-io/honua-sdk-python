@@ -1,31 +1,81 @@
-# Honua Python SDK (Scaffold)
+# Honua Python SDK
 
-This directory contains an initial scaffold for the Honua Python SDK workstream
-tracked by GitHub issue #323.
+Python client library for [Honua Server](https://github.com/honua-io) --
+query geospatial features, geocode addresses, manage services, and stream
+data over gRPC.
 
-The current scope is intentionally minimal:
+## Features
 
-- a synchronous `HonuaClient`,
-- task-oriented methods for `query`, `edit`, `admin/health`, and `map export`,
-- basic auth header support (`X-API-Key`, `Authorization: Bearer ...`),
-- unit tests using `httpx.MockTransport`.
+- **HonuaClient** -- query and edit features, export maps, check server health
+- **HonuaGeocodingClient** -- forward/reverse geocoding and typeahead suggestions
+- **HonuaAdminClient** -- manage services, connections, layers, styles, and metadata
+- **HonuaGrpcClient** -- synchronous and async streaming feature queries via gRPC
+- Auth support for API-key (`X-API-Key`) and Bearer token
+- Typed error hierarchy: `HonuaHttpError`, `HonuaGrpcError`
 
-## Status
-
-This package is an early scaffold and not yet published.
-
-## Local Development
+## Install
 
 ```bash
-python3 -m pytest sdk/python/tests -q
+# Core SDK (REST/HTTP)
+pip install honua-sdk
+
+# With gRPC support
+pip install honua-sdk[grpc]
 ```
 
-## Example
+Requires Python 3.11+. See [INSTALL.md](INSTALL.md) for full details.
+
+## Quick Example
 
 ```python
 from honua_sdk import HonuaClient
 
-with HonuaClient("http://localhost:8080") as client:
+with HonuaClient("https://your-honua-server.com") as client:
+    # List available services
     services = client.list_services()
-    features = client.query_features("default", 1, where="1=1")
+
+    # Query features from a layer
+    result = client.query_features(
+        service_id="natural-earth",
+        layer_id=0,
+        where="status = 'active'",
+        return_geometry=True,
+        out_fields=["*"],
+    )
+
+    features = result.get("features", [])
+    print(f"Found {len(features)} features")
 ```
+
+## Geocoding
+
+```python
+from honua_sdk import HonuaGeocodingClient
+
+with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
+    results = geocoder.forward_geocode("1600 Pennsylvania Ave NW, Washington, DC")
+    for r in results:
+        print(f"{r.address}  ({r.latitude}, {r.longitude})  score={r.score}")
+```
+
+## Documentation
+
+- [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
+- [INSTALL.md](INSTALL.md) -- installation options and version policy
+- [gRPC usage](honua_sdk/grpc/) -- streaming feature queries
+- [Admin client](honua_sdk/admin/) -- server administration
+
+## Status
+
+This package is in **alpha** (`0.x`) and not yet published to PyPI.
+APIs may change before the 1.0 stable release.
+
+## Development
+
+```bash
+python3 -m pytest tests -q
+```
+
+## License
+
+Apache-2.0

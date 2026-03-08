@@ -137,7 +137,8 @@ class HonuaAdminClient:
         json_body: Any | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
-        url = self._client._base_url.copy_with(raw_path=path.encode("ascii"))
+        base = self._client._base_url
+        url = base.copy_with(raw_path=path.encode("ascii"))
         try:
             response = self._client.request(
                 method=method,

@@ -10,6 +10,9 @@ import httpx
 
 from ..errors import HonuaHttpError
 from ._models import (
+    AdminCompatibilityBaseline,
+    AdminCompatibilityCheckResult,
+    AdminCompatibilityFeatureFlags,
     AdminCapabilitiesResponse,
     AdminVersionResponse,
     ConnectionTestResult,
@@ -30,6 +33,8 @@ from ._models import (
     ServiceSummary,
     TableDiscoveryResponse,
     UpdateSecureConnectionRequest,
+    _parse_version_components,
+    get_release_channel_rank,
 )
 
 
@@ -74,6 +79,8 @@ def _apply_sensitive_auth_headers(
 
 class HonuaAdminClient:
     """Synchronous client for the Honua Admin API."""
+
+    MINIMUM_SUPPORTED_SERVER_BASELINE = AdminCompatibilityBaseline()
 
     def __init__(
         self,
@@ -377,6 +384,92 @@ class HonuaAdminClient:
         """GET /api/v1/admin/capabilities"""
         data = self._request_json("GET", "/api/v1/admin/capabilities")
         return AdminCapabilitiesResponse.from_dict(data)
+
+    def get_capability_flags(self) -> AdminCompatibilityFeatureFlags:
+        """Return coarse feature flags from the admin compatibility contract."""
+        compatibility = self.get_capabilities().compatibility
+        if compatibility is None:
+            return AdminCompatibilityFeatureFlags(
+                metadata_resources=False,
+                manifest_export=False,
+                manifest_apply=False,
+                manifest_dry_run=False,
+                manifest_prune=False,
+            )
+        return compatibility.features
+
+    def check_compatibility(self) -> AdminCompatibilityCheckResult:
+        """Evaluate whether the connected server satisfies the admin SDK baseline."""
+        capabilities = self.get_capabilities()
+        compatibility = capabilities.compatibility
+        baseline = self.MINIMUM_SUPPORTED_SERVER_BASELINE
+        reasons: list[str] = []
+        warnings: list[str] = []
+
+        if compatibility is None:
+            reasons.append("Server did not return a compatibility contract.")
+            return AdminCompatibilityCheckResult(
+                supported=False,
+                baseline=baseline,
+                compatibility=None,
+                reasons=reasons,
+                warnings=warnings,
+            )
+
+        actual_version = _parse_version_components(compatibility.server_version)
+        minimum_version = _parse_version_components(baseline.minimum_server_version)
+        if actual_version is None:
+            reasons.append(
+                f"Server version {compatibility.server_version!r} could not be parsed."
+            )
+        elif minimum_version is None:
+            reasons.append(
+                "SDK minimum supported server version baseline could not be parsed."
+            )
+        elif actual_version < minimum_version:
+            reasons.append(
+                "Server version "
+                f"{compatibility.server_version!r} is below required "
+                f"{baseline.minimum_server_version!r}."
+            )
+
+        if compatibility.control_plane_api.major != baseline.control_plane_api_major:
+            reasons.append(
+                "Server control-plane API major "
+                f"{compatibility.control_plane_api.major} does not match required "
+                f"{baseline.control_plane_api_major}."
+            )
+
+        if compatibility.control_plane_api.base_path != baseline.base_path:
+            reasons.append(
+                "Server control-plane base path "
+                f"{compatibility.control_plane_api.base_path!r} does not match "
+                f"required {baseline.base_path!r}."
+            )
+
+        if compatibility.control_plane_api.deprecated:
+            warnings.append("Server control-plane API major is marked deprecated.")
+
+        actual_rank = get_release_channel_rank(compatibility.release_channel)
+        minimum_rank = get_release_channel_rank(baseline.minimum_release_channel)
+        if actual_rank is None:
+            reasons.append(
+                f"Server release channel {compatibility.release_channel!r} is unknown."
+            )
+        elif minimum_rank is None or actual_rank < minimum_rank:
+            reasons.append(
+                "Server release channel "
+                f"{compatibility.release_channel!r} is below required "
+                f"{baseline.minimum_release_channel!r}."
+            )
+
+        return AdminCompatibilityCheckResult(
+            supported=not reasons,
+            baseline=baseline,
+            compatibility=compatibility,
+            reasons=reasons,
+            warnings=warnings,
+        )
 
     def get_manifest(self, namespace: str | None = None) -> MetadataManifest:
         """GET /api/v1/admin/manifest"""

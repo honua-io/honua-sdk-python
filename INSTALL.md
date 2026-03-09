@@ -57,3 +57,35 @@ async for feature in client.stream_features(service_id="my-service", layer_id=0)
 - **Stable** (`1.0.0+`): Published to PyPI as a stable release
 
 All packages follow [Semantic Versioning](https://semver.org/). Major versions are coordinated across all Honua SDKs.
+
+## Admin Compatibility Checks
+
+The admin SDK uses `GET /api/v1/admin/capabilities` as the runtime compatibility
+source of truth. It currently expects:
+
+- server version `>= 2026.3.0`
+- control-plane API major `v1`
+- release channel `preview` or newer
+
+Recommended flow:
+
+```python
+from honua_sdk.admin import HonuaAdminClient
+
+with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
+    compatibility = admin.check_compatibility()
+    if not compatibility.supported:
+        raise RuntimeError("; ".join(compatibility.reasons))
+
+    features = admin.get_capability_flags()
+    if features.metadata_resources:
+        print("Metadata resources are supported on this server.")
+```
+
+The coarse feature flags exposed today are:
+
+- `metadata_resources`
+- `manifest_export`
+- `manifest_apply`
+- `manifest_dry_run`
+- `manifest_prune`

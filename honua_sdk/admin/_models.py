@@ -6,6 +6,24 @@ import re
 from dataclasses import dataclass, field, fields
 from typing import Any
 
+MINIMUM_SUPPORTED_SERVER_VERSION = "2026.3.0"
+MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR = 1
+MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH = "/api/v1/admin"
+MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL = "preview"
+
+_RELEASE_CHANNEL_ORDER = {
+    "nightly": 0,
+    "dev": 1,
+    "alpha": 2,
+    "preview": 3,
+    "beta": 4,
+    "rc": 5,
+    "stable": 6,
+    "lts": 7,
+}
+
+_VERSION_COMPONENT_PATTERN = re.compile(r"\d+")
+
 
 def _to_snake(name: str) -> str:
     """Convert camelCase to snake_case."""
@@ -33,6 +51,16 @@ def _extract_fields(cls: type, data: dict[str, Any]) -> dict[str, Any]:
     """Extract only the fields that exist on *cls* from a snake-cased dict."""
     valid = {f.name for f in fields(cls)}
     return {k: v for k, v in data.items() if k in valid}
+
+
+def _parse_version_components(version: str | None) -> tuple[int, int, int] | None:
+    """Parse a coarse version tuple from semver- or calver-like version strings."""
+    if not version:
+        return None
+    parts = [int(part) for part in _VERSION_COMPONENT_PATTERN.findall(version)]
+    if len(parts) < 3:
+        return None
+    return tuple(parts[:3])
 
 
 # ---------------------------------------------------------------------------
@@ -372,18 +400,140 @@ class AdminVersionResponse:
 
 @dataclass(frozen=True, slots=True)
 class AdminCapabilitiesResponse:
-    metadata_api_versions: list[str]
-    resource_kinds: list[str]
-    manifest_supported: bool
-    manifest_dry_run_supported: bool
-    manifest_prune_supported: bool
+    metadata_api_versions: list[str] = field(default_factory=list)
+    resource_kinds: list[str] = field(default_factory=list)
+    manifest_supported: bool = False
+    manifest_dry_run_supported: bool = False
+    manifest_prune_supported: bool = False
+    compatibility: AdminCompatibilityMetadata | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdminCapabilitiesResponse:
         d = _snake_keys(data)
         d.setdefault("metadata_api_versions", [])
         d.setdefault("resource_kinds", [])
+        d.setdefault("manifest_supported", False)
+        d.setdefault("manifest_dry_run_supported", False)
+        d.setdefault("manifest_prune_supported", False)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            AdminCompatibilityMetadata.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else None
+        )
         return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class AdminControlPlaneApiCompatibility:
+    major: int = 0
+    base_path: str = ""
+    deprecated: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AdminControlPlaneApiCompatibility:
+        d = _snake_keys(data)
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class AdminMetadataSchemaCompatibility:
+    version: str
+    deprecated: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AdminMetadataSchemaCompatibility:
+        d = _snake_keys(data)
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class AdminCompatibilityFeatureFlags:
+    metadata_resources: bool = False
+    manifest_export: bool = False
+    manifest_apply: bool = False
+    manifest_dry_run: bool = False
+    manifest_prune: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AdminCompatibilityFeatureFlags:
+        d = _snake_keys(data)
+        d.setdefault("metadata_resources", False)
+        d.setdefault("manifest_export", False)
+        d.setdefault("manifest_apply", False)
+        d.setdefault("manifest_dry_run", False)
+        d.setdefault("manifest_prune", False)
+        return cls(**_extract_fields(cls, d))
+
+    def supports(self, feature: str) -> bool:
+        return bool(getattr(self, _to_snake(feature).replace("-", "_"), False))
+
+
+@dataclass(frozen=True, slots=True)
+class AdminCompatibilityMetadata:
+    server_version: str = ""
+    release_channel: str = ""
+    control_plane_api: AdminControlPlaneApiCompatibility = field(
+        default_factory=AdminControlPlaneApiCompatibility
+    )
+    metadata_schemas: list[AdminMetadataSchemaCompatibility] = field(default_factory=list)
+    features: AdminCompatibilityFeatureFlags = field(default_factory=AdminCompatibilityFeatureFlags)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AdminCompatibilityMetadata:
+        d = _snake_keys(data)
+        control_plane_api = d.get("control_plane_api")
+        metadata_schemas = d.get("metadata_schemas", [])
+        features = d.get("features")
+        d["control_plane_api"] = (
+            AdminControlPlaneApiCompatibility.from_dict(control_plane_api)
+            if isinstance(control_plane_api, dict)
+            else AdminControlPlaneApiCompatibility(
+                major=0,
+                base_path="",
+                deprecated=False,
+            )
+        )
+        d["metadata_schemas"] = [
+            AdminMetadataSchemaCompatibility.from_dict(item)
+            for item in metadata_schemas
+            if isinstance(item, dict)
+        ]
+        d["features"] = (
+            AdminCompatibilityFeatureFlags.from_dict(features)
+            if isinstance(features, dict)
+            else AdminCompatibilityFeatureFlags(
+                metadata_resources=False,
+                manifest_export=False,
+                manifest_apply=False,
+                manifest_dry_run=False,
+                manifest_prune=False,
+            )
+        )
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class AdminCompatibilityBaseline:
+    minimum_server_version: str = MINIMUM_SUPPORTED_SERVER_VERSION
+    control_plane_api_major: int = MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR
+    base_path: str = MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH
+    minimum_release_channel: str = MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL
+
+
+@dataclass(frozen=True, slots=True)
+class AdminCompatibilityCheckResult:
+    supported: bool
+    baseline: AdminCompatibilityBaseline
+    compatibility: AdminCompatibilityMetadata | None
+    reasons: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+def get_release_channel_rank(channel: str | None) -> int | None:
+    if channel is None:
+        return None
+    return _RELEASE_CHANNEL_ORDER.get(channel.lower())
 
 
 @dataclass(frozen=True, slots=True)

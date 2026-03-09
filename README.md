@@ -58,6 +58,31 @@ with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
         print(f"{r.address}  ({r.latitude}, {r.longitude})  score={r.score}")
 ```
 
+## Admin Compatibility Handshake
+
+```python
+from honua_sdk.admin import HonuaAdminClient, MINIMUM_SUPPORTED_SERVER_VERSION
+
+with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
+    compatibility = admin.check_compatibility()
+    if not compatibility.supported:
+        raise RuntimeError(
+            f"Unsupported server. Minimum supported version is "
+            f"{MINIMUM_SUPPORTED_SERVER_VERSION}. "
+            + "; ".join(compatibility.reasons)
+        )
+
+    features = admin.get_capability_flags()
+    if features.manifest_apply:
+        manifest = admin.get_manifest()
+        print(f"Manifest resources: {len(manifest.resources)}")
+```
+
+The admin SDK currently expects:
+- server version `>= 2026.3.0`
+- control-plane API major `v1`
+- server release channel `preview` or newer
+
 ## Documentation
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot

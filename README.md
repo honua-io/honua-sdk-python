@@ -62,12 +62,14 @@ with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) -- release automation and publishing checklist
 - [gRPC usage](honua_sdk/grpc/) -- streaming feature queries
 - [Admin client](honua_sdk/admin/) -- server administration
 
 ## Status
 
-This package is in **alpha** (`0.x`) and not yet published to PyPI.
+This package is in **alpha** (`0.x`).
+Release automation is configured for PyPI publishing from `python-sdk-v<version>` tags.
 APIs may change before the 1.0 stable release.
 
 ## Development

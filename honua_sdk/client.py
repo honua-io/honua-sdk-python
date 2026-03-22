@@ -4,54 +4,23 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from typing import Any
-from urllib.parse import quote
 
 import httpx
 
-from .errors import HonuaHttpError
+from ._retry import RetryTransport
+from ._http import (
+    _apply_sensitive_auth_headers,
+    _build_sensitive_auth_headers,
+    _encode_path_segment,
+    _extract_trusted_authority,
+    _normalize_base_url,
+    _to_http_error,
+    _to_transport_error,
+)
 
 
 def _bool_text(value: bool) -> str:
     return "true" if value else "false"
-
-
-def _normalize_base_url(base_url: str) -> str:
-    return base_url.rstrip("/") + "/"
-
-
-def _encode_path_segment(value: str) -> str:
-    return quote(value, safe="")
-
-
-def _build_sensitive_auth_headers(
-    *,
-    api_key: str | None,
-    bearer_token: str | None,
-) -> dict[str, str]:
-    headers: dict[str, str] = {}
-    if api_key:
-        headers["X-API-Key"] = api_key
-    if bearer_token:
-        headers["Authorization"] = f"Bearer {bearer_token}"
-    return headers
-
-
-def _apply_sensitive_auth_headers(
-    request: httpx.Request,
-    *,
-    trusted_host: str | None,
-    auth_headers: Mapping[str, str],
-) -> None:
-    if not auth_headers or trusted_host is None:
-        return
-
-    if request.url.host == trusted_host:
-        for name, value in auth_headers.items():
-            request.headers.setdefault(name, value)
-        return
-
-    for name in auth_headers:
-        request.headers.pop(name, None)
 
 
 class HonuaClient:
@@ -67,6 +36,7 @@ class HonuaClient:
         follow_redirects: bool = False,
         client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
+        max_retries: int = 3,
     ) -> None:
         if client is not None and transport is not None:
             raise ValueError("Provide either `client` or `transport`, not both.")
@@ -77,21 +47,26 @@ class HonuaClient:
             return
 
         normalized_base_url = _normalize_base_url(base_url)
-        trusted_host = httpx.URL(normalized_base_url).host
+        trusted_authority = _extract_trusted_authority(httpx.URL(normalized_base_url))
         auth_headers = _build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
 
         def _request_hook(request: httpx.Request) -> None:
             _apply_sensitive_auth_headers(
                 request,
-                trusted_host=trusted_host,
+                trusted_authority=trusted_authority,
                 auth_headers=auth_headers,
             )
+
+        effective_transport = transport
+        if max_retries > 0:
+            inner = effective_transport or httpx.HTTPTransport()
+            effective_transport = RetryTransport(inner, max_retries=max_retries)
 
         self._client = httpx.Client(
             base_url=normalized_base_url,
             timeout=timeout,
             follow_redirects=follow_redirects,
-            transport=transport,
+            transport=effective_transport,
             event_hooks={"request": [_request_hook]},
         )
 
@@ -255,39 +230,7 @@ class HonuaClient:
                 json=json_body,
             )
         except httpx.HTTPError as exc:
-            raise self._to_transport_error(exc) from exc
+            raise _to_transport_error(exc) from exc
         if response.status_code >= 400:
-            raise self._to_http_error(response)
+            raise _to_http_error(response)
         return response
-
-    @staticmethod
-    def _to_http_error(response: httpx.Response) -> HonuaHttpError:
-        body: Any | None = None
-        message = response.reason_phrase or "Request failed"
-
-        if response.content:
-            try:
-                body = response.json()
-            except ValueError:
-                body = response.text
-        if isinstance(body, Mapping):
-            error = body.get("error")
-            if isinstance(error, Mapping):
-                candidate = error.get("message")
-                if isinstance(candidate, str) and candidate:
-                    message = candidate
-            else:
-                candidate = body.get("detail") or body.get("message")
-                if isinstance(candidate, str) and candidate:
-                    message = candidate
-
-        return HonuaHttpError(response.status_code, message, body=body)
-
-    @staticmethod
-    def _to_transport_error(error: httpx.HTTPError) -> HonuaHttpError:
-        message = str(error) or error.__class__.__name__
-        body: dict[str, Any] = {"type": error.__class__.__name__, "message": message}
-        request = getattr(error, "request", None)
-        if request is not None:
-            body["url"] = str(request.url)
-        return HonuaHttpError(0, f"Transport error: {message}", body=body)

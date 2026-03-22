@@ -44,11 +44,11 @@ print(f"Found {len(features)} features")
 ```python
 from honua_sdk.grpc import HonuaGrpcClient
 
-client = HonuaGrpcClient(endpoint="grpc.your-honua-server.com:443")
+client = HonuaGrpcClient(target="grpc.your-honua-server.com:443")
 
 # Stream features
-async for feature in client.stream_features(service_id="my-service", layer_id=0):
-    print(feature.id, feature.geometry)
+for page in client.query_features_stream(request):
+    print(page)
 ```
 
 ## Version Policy

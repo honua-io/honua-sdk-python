@@ -30,6 +30,7 @@ Issues = "https://github.com/honua-io/honua-sdk-python/issues"
 [project.optional-dependencies]
 admin = []  # no extra deps needed, uses httpx from core
 grpc = ["grpcio>=1.70.0", "protobuf>=5.27"]
+geopandas = ["geopandas>=0.14.0", "shapely>=2.0.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

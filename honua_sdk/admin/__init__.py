@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._async_client import AsyncHonuaAdminClient
 from ._client import HonuaAdminClient
 from ._models import (
     AccessPolicyResponse,
@@ -59,6 +60,7 @@ __all__ = [
     "ConnectionTestResult",
     "CreateSecureConnectionRequest",
     "EncryptionValidationResult",
+    "AsyncHonuaAdminClient",
     "HonuaAdminClient",
     "KeyRotationResult",
     "LayerStyleResponse",

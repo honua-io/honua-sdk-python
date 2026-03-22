@@ -1,10 +1,11 @@
 # Installing the Honua Python SDK
 
-## Package
+## Packages
 
 | Package | Description |
 |---------|-------------|
-| `honua-sdk` | Python client for Honua Server — REST admin, gRPC features |
+| `honua-sdk` | Data-plane client for Honua Server -- REST queries, geocoding, gRPC features |
+| `honua-admin` | Control-plane / admin client for Honua Server (depends on `honua-sdk`) |
 
 ## Prerequisites
 
@@ -14,11 +15,20 @@
 ## Install via pip
 
 ```bash
-# Core SDK (REST/HTTP client)
+# Core data client (REST/HTTP, sync + async)
 pip install honua-sdk
 
 # With gRPC support
 pip install honua-sdk[grpc]
+
+# With GeoPandas integration
+pip install honua-sdk[geopandas]
+
+# Admin / control-plane client
+pip install honua-admin
+
+# Everything
+pip install honua-sdk[grpc,geopandas] honua-admin
 ```
 
 ## Quick Start
@@ -51,6 +61,21 @@ for page in client.query_features_stream(request):
     print(page)
 ```
 
+## Admin
+
+```python
+from honua_admin import HonuaAdminClient
+
+with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
+    compatibility = admin.check_compatibility()
+    if not compatibility.supported:
+        raise RuntimeError("; ".join(compatibility.reasons))
+
+    features = admin.get_capability_flags()
+    if features.metadata_resources:
+        print("Metadata resources are supported on this server.")
+```
+
 ## Version Policy
 
 - **Pre-release** (`0.x.xaN`, `0.x.xbN`): Published to PyPI with alpha/beta classifiers
@@ -66,21 +91,6 @@ source of truth. It currently expects:
 - server version `>= 2026.3.0`
 - control-plane API major `v1`
 - release channel `preview` or newer
-
-Recommended flow:
-
-```python
-from honua_sdk.admin import HonuaAdminClient
-
-with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
-    compatibility = admin.check_compatibility()
-    if not compatibility.supported:
-        raise RuntimeError("; ".join(compatibility.reasons))
-
-    features = admin.get_capability_flags()
-    if features.metadata_resources:
-        print("Metadata resources are supported on this server.")
-```
 
 The coarse feature flags exposed today are:
 

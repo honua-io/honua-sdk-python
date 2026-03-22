@@ -1,36 +1,16 @@
+# Workspace root -- individual packages live under packages/.
+# This file configures shared dev tooling only.
+
 [build-system]
 requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "honua-sdk"
-version = "0.0.1a0"
-description = "Python SDK for Honua geospatial server — feature queries, offline sync, and admin operations"
-readme = "README.md"
-license = "Apache-2.0"
+name = "honua-sdk-workspace"
+version = "0.0.0"
+description = "Workspace root for honua-sdk and honua-admin Python packages"
 requires-python = ">=3.11"
-authors = [{ name = "Honua" }]
-keywords = ["geospatial", "mobile", "gis", "offline", "sync", "grpc", "honua"]
-classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
-  "Programming Language :: Python :: 3",
-  "Topic :: Scientific/Engineering :: GIS",
-]
-dependencies = [
-  "httpx>=0.27.0",
-]
-
-[project.urls]
-Homepage = "https://github.com/honua-io"
-Repository = "https://github.com/honua-io/honua-sdk-python"
-Issues = "https://github.com/honua-io/honua-sdk-python/issues"
-
-[project.optional-dependencies]
-admin = []  # no extra deps needed, uses httpx from core
-grpc = ["grpcio>=1.70.0", "protobuf>=5.27"]
-geopandas = ["geopandas>=0.14.0", "shapely>=2.0.0"]
+# Not published -- this is a workspace root only.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,24 +1,17 @@
 # Honua Python SDK
 
-Python client library for [Honua Server](https://github.com/honua-io) --
-query geospatial features, geocode addresses, manage services, and stream
-data over gRPC. Sync and async clients included.
+Monorepo for the Honua Python client libraries. Two independently installable
+packages live under `packages/`:
 
-## Features
-
-- **HonuaClient** / **AsyncHonuaClient** -- query and edit features, export maps, check server health
-- **HonuaGeocodingClient** / **AsyncHonuaGeocodingClient** -- forward/reverse geocoding and typeahead suggestions
-- **HonuaAdminClient** / **AsyncHonuaAdminClient** -- manage services, connections, layers, styles, and metadata
-- **HonuaGrpcClient** / **HonuaGrpcAsyncClient** -- streaming feature queries via gRPC
-- **GeoPandas integration** -- convert query results to/from GeoDataFrames
-- Auth support for API-key (`X-API-Key`) and Bearer token
-- Automatic retry with exponential backoff on 429/502/503
-- Typed error hierarchy: `HonuaHttpError`, `HonuaGrpcError`
+| Package | PyPI name | Description |
+|---------|-----------|-------------|
+| [`packages/honua-sdk`](packages/honua-sdk/) | `honua-sdk` | Data-plane client -- feature queries, geocoding, gRPC streaming, GeoPandas integration |
+| [`packages/honua-admin`](packages/honua-admin/) | `honua-admin` | Control-plane client -- services, connections, layers, styles, metadata, manifests |
 
 ## Install
 
 ```bash
-# Core SDK (REST/HTTP, sync + async)
+# Data / protocol client
 pip install honua-sdk
 
 # With gRPC support
@@ -27,13 +20,18 @@ pip install honua-sdk[grpc]
 # With GeoPandas integration
 pip install honua-sdk[geopandas]
 
+# Admin / control-plane client (depends on honua-sdk)
+pip install honua-admin
+
 # Everything
-pip install honua-sdk[grpc,geopandas]
+pip install honua-sdk[grpc,geopandas] honua-admin
 ```
 
 Requires Python 3.11+. See [INSTALL.md](INSTALL.md) for full details.
 
 ## Quick Example
+
+### Data client
 
 ```python
 from honua_sdk import HonuaClient
@@ -53,6 +51,22 @@ with HonuaClient("https://your-honua-server.com") as client:
 
     features = result.get("features", [])
     print(f"Found {len(features)} features")
+```
+
+### Admin client
+
+```python
+from honua_admin import HonuaAdminClient
+
+with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
+    compatibility = admin.check_compatibility()
+    if not compatibility.supported:
+        raise RuntimeError("; ".join(compatibility.reasons))
+
+    features = admin.get_capability_flags()
+    if features.manifest_apply:
+        manifest = admin.get_manifest()
+        print(f"Manifest resources: {len(manifest.resources)}")
 ```
 
 ## Async
@@ -115,39 +129,29 @@ client = HonuaClient("https://your-server.com")
 client = HonuaClient("https://your-server.com", max_retries=0)
 ```
 
-## Admin
-
-```python
-from honua_sdk.admin import HonuaAdminClient
-
-with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
-    compatibility = admin.check_compatibility()
-    if not compatibility.supported:
-        raise RuntimeError("; ".join(compatibility.reasons))
-
-    features = admin.get_capability_flags()
-    if features.manifest_apply:
-        manifest = admin.get_manifest()
-        print(f"Manifest resources: {len(manifest.resources)}")
-```
-
 ## Documentation
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
-- [gRPC usage](honua_sdk/grpc/) -- streaming feature queries
-- [Admin client](honua_sdk/admin/) -- server administration
+- [gRPC usage](packages/honua-sdk/honua_sdk/grpc/) -- streaming feature queries
+- [Admin client](packages/honua-admin/honua_admin/) -- server administration
 
 ## Status
 
-This package is in **alpha** (`0.x`).
-Release automation is configured for PyPI publishing from `python-sdk-v<version>` tags.
+These packages are in **alpha** (`0.x`).
+Release automation is configured for PyPI publishing from `python-sdk-v<version>`
+and `python-admin-v<version>` tags.
 APIs may change before the 1.0 stable release.
 
 ## Development
 
 ```bash
-python3 -m pytest tests -q
+# Install both packages in editable mode
+pip install -e "packages/honua-sdk[grpc,geopandas]"
+pip install -e "packages/honua-admin"
+
+# Run all tests
+python3 -m pytest tests/ -q
 ```
 
 ## License

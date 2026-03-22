@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "honua-admin"
+version = "0.0.1a0"
+description = "Admin / control-plane client for Honua geospatial server"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "Honua" }]
+keywords = ["geospatial", "admin", "gis", "honua", "control-plane"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = [
+  "honua-sdk>=0.0.1a0",
+]
+
+[project.urls]
+Homepage = "https://github.com/honua-io"
+Repository = "https://github.com/honua-io/honua-sdk-python"
+Issues = "https://github.com/honua-io/honua-sdk-python/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

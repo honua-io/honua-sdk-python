@@ -1,4 +1,4 @@
-"""Honua Python SDK scaffold.
+"""Honua Python SDK -- data-plane and protocol clients.
 
 Optional GeoPandas integration is available via ``honua_sdk.geopandas``::
 
@@ -13,10 +13,9 @@ try:
     from importlib.metadata import version as _meta_version
 
     __version__: str = _meta_version("honua-sdk")
-except Exception:  # pragma: no cover — editable / not-installed fallback
+except Exception:  # pragma: no cover -- editable / not-installed fallback
     __version__ = "0.0.0.dev0"
 
-from .admin import AsyncHonuaAdminClient, HonuaAdminClient
 from .async_client import AsyncHonuaClient
 from .async_geocoding import AsyncHonuaGeocodingClient
 from .client import HonuaClient
@@ -30,12 +29,10 @@ from .geocoding import (
 
 __all__ = [
     "__version__",
-    "AsyncHonuaAdminClient",
     "AsyncHonuaClient",
     "AsyncHonuaGeocodingClient",
     "GeocodeResult",
     "GeocodeSuggestion",
-    "HonuaAdminClient",
     "HonuaClient",
     "HonuaError",
     "HonuaGrpcError",

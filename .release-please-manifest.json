@@ -1,3 +1,4 @@
 {
-  ".": "0.0.1a0"
+  "packages/honua-sdk": "0.0.1a0",
+  "packages/honua-admin": "0.0.1a0"
 }

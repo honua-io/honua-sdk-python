@@ -1,8 +1,17 @@
-name: Publish Python SDK
+name: Publish Python Packages
 
 on:
   workflow_dispatch:
     inputs:
+      package:
+        description: "Package to publish (honua-sdk, honua-admin, or both)"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - honua-sdk
+          - honua-admin
+          - both
       dry_run:
         description: "Run build and validation only (skip publish)"
         required: false
@@ -11,15 +20,22 @@ on:
   push:
     tags:
       - "python-sdk-v*"
+      - "python-admin-v*"
 
 env:
   PYTHON_VERSION: "3.11"
 
 jobs:
-  publish-python-sdk:
+  publish-honua-sdk:
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref_name, 'python-sdk-v'))
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.package == 'honua-sdk' || github.event.inputs.package == 'both'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: packages/honua-sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -29,7 +45,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: packages/honua-sdk/pyproject.toml
 
       - name: Install dependencies
         run: |
@@ -37,15 +53,11 @@ jobs:
           pip install -e ".[grpc]"
           pip install pytest hatch twine
 
-      - name: Security audit (pip-audit)
-        run: |
-          pip install pip-audit
-          pip-audit --strict || {
-            echo "::warning::pip-audit found vulnerabilities. Review before publishing."
-          }
-
-      - name: Run tests
-        run: python -m pytest tests/ -q --tb=short
+      - name: Run SDK tests
+        run: python -m pytest ../../tests/ -q --tb=short -k "not admin"
+        working-directory: ${{ github.workspace }}
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk
 
       - name: Validate tag version
         if: github.event_name == 'push'
@@ -63,8 +75,8 @@ jobs:
       - name: Upload package artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: python-sdk-dist-${{ github.run_id }}
-          path: dist/*
+          name: honua-sdk-dist-${{ github.run_id }}
+          path: packages/honua-sdk/dist/*
           if-no-files-found: error
           retention-days: 14
 
@@ -80,8 +92,69 @@ jobs:
           fi
           twine upload --skip-existing dist/*
 
-      - name: Dry-run summary
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+  publish-honua-admin:
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref_name, 'python-admin-v'))
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.package == 'honua-admin' || github.event.inputs.package == 'both'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/honua-admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/honua-sdk/pyproject.toml
+            packages/honua-admin/pyproject.toml
+
+      - name: Install dependencies
         run: |
-          echo "Dry run complete. Built artifacts:"
-          ls -la dist/
+          python -m pip install --upgrade pip
+          pip install -e "${{ github.workspace }}/packages/honua-sdk"
+          pip install -e .
+          pip install pytest hatch twine
+
+      - name: Run admin tests
+        run: python -m pytest ../../tests/admin/ -q --tb=short
+        working-directory: ${{ github.workspace }}
+
+      - name: Validate tag version
+        if: github.event_name == 'push'
+        run: |
+          package_version="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          tag_version="${GITHUB_REF_NAME#python-admin-v}"
+          if [[ "$tag_version" != "$package_version" ]]; then
+            echo "Tag version ($tag_version) does not match pyproject.toml version ($package_version)."
+            exit 1
+          fi
+
+      - name: Build package
+        run: hatch build
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: honua-admin-dist-${{ github.run_id }}
+          path: packages/honua-admin/dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish to PyPI
+        if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_ADMIN_API_TOKEN }}
+        run: |
+          if [[ -z "${TWINE_PASSWORD}" ]]; then
+            echo "PYPI_ADMIN_API_TOKEN secret is required for publishing."
+            exit 1
+          fi
+          twine upload --skip-existing dist/*

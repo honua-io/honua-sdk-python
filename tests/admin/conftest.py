@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk.admin import HonuaAdminClient
+from honua_admin import HonuaAdminClient
 
 
 def make_api_response(data: Any, message: str | None = None) -> dict[str, Any]:

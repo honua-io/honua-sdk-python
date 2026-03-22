@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from honua_sdk import HonuaHttpError
-from honua_sdk.admin import (
+from honua_admin import (
     HonuaAdminClient,
     ServiceSettingsResponse,
     ServiceSummary,

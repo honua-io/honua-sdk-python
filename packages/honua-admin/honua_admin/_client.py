@@ -7,9 +7,9 @@ from typing import Any
 
 import httpx
 
-from ..errors import HonuaHttpError
-from .._retry import RetryTransport
-from .._http import (
+from honua_sdk.errors import HonuaHttpError
+from honua_sdk._retry import RetryTransport
+from honua_sdk._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
     _encode_path_segment,

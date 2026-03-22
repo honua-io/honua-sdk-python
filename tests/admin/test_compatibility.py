@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from honua_sdk.admin import (
+from honua_admin import (
     MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR,
     MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH,
     MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL,

@@ -2,25 +2,33 @@
 
 Python client library for [Honua Server](https://github.com/honua-io) --
 query geospatial features, geocode addresses, manage services, and stream
-data over gRPC.
+data over gRPC. Sync and async clients included.
 
 ## Features
 
-- **HonuaClient** -- query and edit features, export maps, check server health
-- **HonuaGeocodingClient** -- forward/reverse geocoding and typeahead suggestions
-- **HonuaAdminClient** -- manage services, connections, layers, styles, and metadata
-- **HonuaGrpcClient** -- synchronous and async streaming feature queries via gRPC
+- **HonuaClient** / **AsyncHonuaClient** -- query and edit features, export maps, check server health
+- **HonuaGeocodingClient** / **AsyncHonuaGeocodingClient** -- forward/reverse geocoding and typeahead suggestions
+- **HonuaAdminClient** / **AsyncHonuaAdminClient** -- manage services, connections, layers, styles, and metadata
+- **HonuaGrpcClient** / **HonuaGrpcAsyncClient** -- streaming feature queries via gRPC
+- **GeoPandas integration** -- convert query results to/from GeoDataFrames
 - Auth support for API-key (`X-API-Key`) and Bearer token
+- Automatic retry with exponential backoff on 429/502/503
 - Typed error hierarchy: `HonuaHttpError`, `HonuaGrpcError`
 
 ## Install
 
 ```bash
-# Core SDK (REST/HTTP)
+# Core SDK (REST/HTTP, sync + async)
 pip install honua-sdk
 
 # With gRPC support
 pip install honua-sdk[grpc]
+
+# With GeoPandas integration
+pip install honua-sdk[geopandas]
+
+# Everything
+pip install honua-sdk[grpc,geopandas]
 ```
 
 Requires Python 3.11+. See [INSTALL.md](INSTALL.md) for full details.
@@ -47,6 +55,42 @@ with HonuaClient("https://your-honua-server.com") as client:
     print(f"Found {len(features)} features")
 ```
 
+## Async
+
+Every client has an async counterpart with the same API:
+
+```python
+from honua_sdk import AsyncHonuaClient
+
+async with AsyncHonuaClient("https://your-honua-server.com") as client:
+    result = await client.query_features("natural-earth", layer_id=0)
+    features = result.get("features", [])
+```
+
+Works with FastAPI, asyncio pipelines, Jupyter async, and any other async framework.
+
+## GeoPandas
+
+Convert query results to GeoDataFrames in one call:
+
+```python
+from honua_sdk import HonuaClient
+from honua_sdk.geopandas import features_to_geodataframe, geodataframe_to_features
+
+with HonuaClient("https://your-honua-server.com") as client:
+    result = client.query_features("natural-earth", layer_id=0)
+    gdf = features_to_geodataframe(result)
+
+    # gdf is a GeoDataFrame with geometry column + CRS set
+    print(gdf.head())
+    print(gdf.crs)
+
+    # Convert back for edits
+    features = geodataframe_to_features(gdf)
+```
+
+Requires `pip install honua-sdk[geopandas]`.
+
 ## Geocoding
 
 ```python
@@ -58,19 +102,28 @@ with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
         print(f"{r.address}  ({r.latitude}, {r.longitude})  score={r.score}")
 ```
 
-## Admin Compatibility Handshake
+## Retry
+
+All clients retry automatically on transient failures (429, 502, 503) with
+exponential backoff and `Retry-After` header support. Configurable:
 
 ```python
-from honua_sdk.admin import HonuaAdminClient, MINIMUM_SUPPORTED_SERVER_VERSION
+# Default: 3 retries with exponential backoff
+client = HonuaClient("https://your-server.com")
+
+# Disable retry
+client = HonuaClient("https://your-server.com", max_retries=0)
+```
+
+## Admin
+
+```python
+from honua_sdk.admin import HonuaAdminClient
 
 with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
     compatibility = admin.check_compatibility()
     if not compatibility.supported:
-        raise RuntimeError(
-            f"Unsupported server. Minimum supported version is "
-            f"{MINIMUM_SUPPORTED_SERVER_VERSION}. "
-            + "; ".join(compatibility.reasons)
-        )
+        raise RuntimeError("; ".join(compatibility.reasons))
 
     features = admin.get_capability_flags()
     if features.manifest_apply:
@@ -78,16 +131,10 @@ with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") 
         print(f"Manifest resources: {len(manifest.resources)}")
 ```
 
-The admin SDK currently expects:
-- server version `>= 2026.3.0`
-- control-plane API major `v1`
-- server release channel `preview` or newer
-
 ## Documentation
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
-- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) -- release automation and publishing checklist
 - [gRPC usage](honua_sdk/grpc/) -- streaming feature queries
 - [Admin client](honua_sdk/admin/) -- server administration
 

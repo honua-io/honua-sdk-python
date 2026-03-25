@@ -122,6 +122,46 @@ if results:
 score. Each result exposes `address`, `latitude`, `longitude`, `score`,
 and `attributes`.
 
+## Step 6: Query via gRPC (optional, 60 seconds)
+
+If your Honua server exposes a gRPC endpoint, you can use `HonuaGrpcClient`
+for high-throughput streaming queries. Install the gRPC extras first:
+
+```bash
+pip install honua-sdk[grpc]
+```
+
+```python
+from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
+
+with HonuaGrpcClient("your-honua-server.com:50051", insecure=True) as grpc_client:
+    # Unary query
+    request = QueryFeaturesRequest(
+        service_id="natural-earth",
+        layer_id=0,
+        return_geometry=True,
+    )
+    response = grpc_client.query_features(request)
+    print(f"Received {len(response.features)} features via gRPC")
+
+    # Streaming query (pages arrive incrementally)
+    for page in grpc_client.query_features_stream(request):
+        print(f"Page with {len(page.features)} features")
+```
+
+For async usage, swap in `HonuaGrpcAsyncClient`:
+
+```python
+from honua_sdk.grpc import HonuaGrpcAsyncClient, QueryFeaturesRequest
+
+async with HonuaGrpcAsyncClient("your-honua-server.com:50051", insecure=True) as grpc_client:
+    request = QueryFeaturesRequest(service_id="natural-earth", layer_id=0)
+    response = await grpc_client.query_features(request)
+
+    async for page in grpc_client.query_features_stream(request):
+        print(f"Streamed {len(page.features)} features")
+```
+
 ## Full script
 
 Here is the complete example in one copy-pasteable block:

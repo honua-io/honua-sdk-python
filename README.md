@@ -133,7 +133,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
-- [gRPC usage](packages/honua-sdk/honua_sdk/grpc/) -- streaming feature queries
+- See `honua_sdk.grpc.HonuaGrpcClient` for gRPC usage -- streaming feature queries
 - [Admin client](packages/honua-admin/honua_admin/) -- server administration
 
 ## Status

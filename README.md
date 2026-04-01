@@ -132,6 +132,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 ## Documentation
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
+- [Geospatial ETL demo](examples/geospatial_etl/README.md) -- script-first extract, validate, `apply_edits`, and reconciliation workflow
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
 - See `honua_sdk.grpc.HonuaGrpcClient` for gRPC usage -- streaming feature queries
 - [Admin client](packages/honua-admin/honua_admin/) -- server administration

@@ -1,0 +1,10 @@
+uid,name,status,count,x_3857,y_3857
+demo_etl_001,Pier 39 Sensor,Active,12,-13626596.60,4552436.67
+demo_etl_002,Ferry Building Depot,Planned,8,-13624804.36,4550576.96
+demo_etl_003,Mission Creek Gauge, Needs Review ,5,-13624058.52,4547069.78
+demo_etl_004,Alamo Square Relay,ACTIVE,3,-13629357.33,4547886.61
+demo_etl_005,Golden Gate Park Staging,planned,11,-13635101.41,4546900.79
+demo_etl_006,Presidio Gate Counter,Retired,2,-13632875.02,4551055.95
+demo_etl_003,Mission Creek Duplicate,active,99,-13624314.55,4548196.46
+demo_etl_007,Noe Valley Missing Y,active,4,-13629257.14,
+demo_etl_008,,active,6,-13624314.55,4548196.46

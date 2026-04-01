@@ -229,6 +229,7 @@ plt.show()
 
 ## What's Next
 
+- [Geospatial ETL demo](../examples/geospatial_etl/README.md) -- read, validate, write, and reconcile a demo-owned layer slice
 - [INSTALL.md](../INSTALL.md) -- installation options including gRPC extras
 - [gRPC client](../honua_sdk/grpc/) -- streaming feature queries via `HonuaGrpcClient`
 - [Admin client](../honua_sdk/admin/) -- server administration with `HonuaAdminClient`

@@ -171,6 +171,8 @@ On `success`, the summary stores `successful_edits` plus the raw `apply_edits` r
 
 When a pre-load or post-load `query_features(...)` call fails with `HonuaHttpError`, the workflow still writes `load-summary.json` and adds `workflow_error` with `stage`, `status_code`, `message`, and `body`. `stage` is `pre_load_query` or `post_load_query`, and the summary preserves the already-computed source, plan, and `apply_edits` details that were available before the failure.
 
+Input/setup failures before the first network call also still write `load-summary.json`. In that case `workflow_error.stage` is `source_setup`, `apply_edits.status` is `skipped`, and `source.source_row_count` is populated when the CSV was readable before the failure.
+
 `post_load` is present only when the workflow reaches the post-load re-query after a non-error `apply_edits` response. `post-load-preview.png` is the analyst-facing map for that same reconciled slice, even when `successful_edits` is `0`.
 
 ## Notebook Walkthrough

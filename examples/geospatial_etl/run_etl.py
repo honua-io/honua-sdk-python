@@ -113,10 +113,10 @@ def main() -> int:
     if result.post_load is not None:
         print(f"Queried {result.post_load.feature_count} demo-owned target features after load")
     elif result.error_summary is not None and result.error_stage != "apply_edits":
-        print(
-            f"{_format_stage_name(result.error_stage)} failed: "
-            f"{result.error_summary.get('status_code')} {result.error_summary.get('message')}"
-        )
+        message = result.error_summary.get("message")
+        status_code = result.error_summary.get("status_code")
+        details = f"{status_code} {message}" if status_code is not None else str(message)
+        print(f"{_format_stage_name(result.error_stage)} failed: {details}")
 
     print(f"Summary artifact: {result.summary_path}")
     if result.preview_path is not None:
@@ -126,6 +126,8 @@ def main() -> int:
 
 
 def _format_stage_name(stage: str | None) -> str:
+    if stage == "source_setup":
+        return "Source setup"
     if stage == "pre_load_query":
         return "Pre-load query"
     if stage == "post_load_query":

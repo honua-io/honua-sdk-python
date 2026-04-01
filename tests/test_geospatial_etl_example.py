@@ -198,6 +198,77 @@ def test_run_workflow_queries_then_loads_then_requeries(
     ]
 
 
+def test_run_workflow_writes_summary_on_source_setup_error(tmp_path: Path) -> None:
+    bad_csv = tmp_path / "bad.csv"
+    bad_csv.write_text(
+        "uid,status,count,x_3857,y_3857\n"
+        "demo-etl-001,active,1,-13626453.24,4548393.64\n",
+        encoding="utf-8",
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def query_features(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            where: str = "1=1",
+            out_fields: str | list[str] = "*",
+            return_geometry: bool = True,
+        ) -> dict[str, object]:
+            self.calls.append("query_features")
+            raise AssertionError("query_features should not be called when source setup fails")
+
+        def apply_edits(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            adds: list[dict[str, object]] | None = None,
+            updates: list[dict[str, object]] | None = None,
+            rollback_on_failure: bool = True,
+        ) -> dict[str, object]:
+            self.calls.append("apply_edits")
+            raise AssertionError("apply_edits should not be called when source setup fails")
+
+    client = FakeClient()
+    result = workflow.run_workflow(
+        client,
+        input_path=bad_csv,
+        output_dir=tmp_path,
+    )
+
+    summary = json.loads(result.summary_path.read_text(encoding="utf-8"))
+
+    assert result.exit_code == 1
+    assert result.pre_load is None
+    assert result.post_load is None
+    assert result.plan is None
+    assert result.preview_path is None
+    assert result.validation.source_row_count == 1
+    assert result.validation.valid_count == 0
+    assert result.validation.rejected_count == 0
+    assert result.error_stage == "source_setup"
+    assert result.error_summary is not None
+    assert result.error_summary["status"] == "input_error"
+    assert result.error_summary["message"] == "Input CSV is missing expected columns: name"
+    assert result.apply_edits_result["status"] == "skipped"
+    assert result.apply_edits_result["reason"] == "source_setup_error"
+    assert summary["source"]["source_row_count"] == 1
+    assert summary["source"]["valid_row_count"] is None
+    assert summary["source"]["rejected_row_count"] is None
+    assert summary["source"]["rejected_rows"] == []
+    assert summary["pre_load"]["matching_feature_count"] is None
+    assert summary["artifacts"]["post_load_preview"] is None
+    assert summary["workflow_error"]["stage"] == "source_setup"
+    assert summary["workflow_error"]["status"] == "input_error"
+    assert summary["workflow_error"]["error_type"] == "ValueError"
+    assert client.calls == []
+
+
 def test_run_workflow_writes_summary_on_pre_load_query_http_error(tmp_path: Path) -> None:
     class FakeClient:
         def __init__(self) -> None:
@@ -333,3 +404,18 @@ def test_run_workflow_writes_summary_on_post_load_query_http_error(tmp_path: Pat
         ("apply_edits", "6/0"),
         ("query_features", "uid LIKE 'demo-etl-%'"),
     ]
+
+
+def test_prepare_preview_geodataframe_reprojects_to_longitude_latitude() -> None:
+    source_frame = workflow.load_source_dataframe(DEMO_CSV)
+    source_gdf = workflow.dataframe_to_source_geodataframe(source_frame)
+
+    preview_gdf, x_label, y_label = workflow._prepare_preview_geodataframe(source_gdf)
+
+    assert preview_gdf.crs is not None
+    assert preview_gdf.crs.to_epsg() == 4326
+    first_point = preview_gdf.geometry.iloc[0]
+    assert first_point.x == pytest.approx(-122.4098, abs=1e-4)
+    assert first_point.y == pytest.approx(37.8087, abs=1e-4)
+    assert x_label == "Longitude"
+    assert y_label == "Latitude"

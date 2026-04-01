@@ -135,11 +135,8 @@ def build_demo_where(uid_prefix: str = DEFAULT_UID_PREFIX) -> str:
 
 
 def load_source_dataframe(input_path: str | Path) -> pd.DataFrame:
-    path = Path(input_path).expanduser().resolve()
-    frame = pd.read_csv(path)
-    _require_columns(frame, REQUIRED_SOURCE_COLUMNS, context="Input CSV")
-    frame["_source_row"] = range(2, len(frame) + 2)
-    return frame
+    frame = _read_source_dataframe(input_path)
+    return _prepare_source_dataframe(frame, context="Input CSV")
 
 
 def dataframe_to_source_geodataframe(
@@ -341,46 +338,53 @@ def run_workflow(
     output_dir: str | Path,
     uid_prefix: str = DEFAULT_UID_PREFIX,
 ) -> WorkflowRun:
-    source_frame = load_source_dataframe(input_path)
-    source_gdf = dataframe_to_source_geodataframe(source_frame)
-
     output_path = Path(output_dir).expanduser().resolve()
     output_path.mkdir(parents=True, exist_ok=True)
     summary_path = output_path / "load-summary.json"
     preview_path = output_path / "post-load-preview.png"
 
+    input_path = _resolve_path(input_path)
     where = build_demo_where(uid_prefix)
-    summary: dict[str, Any] = {
-        "schema_version": 1,
-        "started_at": _utc_now(),
-        "target": {
-            "base_url": base_url,
-            "service_id": service_id,
-            "layer_id": layer_id,
-            "where": where,
-            "target_crs": None,
-        },
-        "source": {
-            "input_path": str(Path(input_path).expanduser().resolve()),
-            "source_row_count": len(source_gdf),
-            "valid_row_count": None,
-            "rejected_row_count": None,
-            "rejected_rows": [],
-        },
-        "pre_load": {
-            "matching_feature_count": None,
-            "target_crs": None,
-        },
-        "plan": {
-            "adds": 0,
-            "updates": 0,
-        },
-        "artifacts": {
-            "load_summary": str(summary_path),
-            "post_load_preview": None,
-        },
-        "apply_edits": _skipped_apply_edits_summary(reason="not_started"),
-    }
+    summary = _build_summary_scaffold(
+        base_url=base_url,
+        service_id=service_id,
+        layer_id=layer_id,
+        input_path=input_path,
+        summary_path=summary_path,
+        where=where,
+    )
+
+    source_gdf = _empty_geodataframe()
+    transformed_gdf = _empty_geodataframe()
+    validation = _empty_validation_result()
+    try:
+        source_frame = _read_source_dataframe(input_path)
+        summary["source"]["source_row_count"] = len(source_frame)
+        source_frame = _prepare_source_dataframe(source_frame, context="Input CSV")
+        source_gdf = dataframe_to_source_geodataframe(source_frame)
+    except (OSError, ValueError, pd.errors.EmptyDataError, pd.errors.ParserError) as exc:
+        validation = _empty_validation_result(
+            source_row_count=int(summary["source"]["source_row_count"] or 0)
+        )
+        summary["workflow_error"] = _input_error_summary(exc, stage="source_setup")
+        summary["apply_edits"] = _skipped_apply_edits_summary(reason="source_setup_error")
+        summary["completed_at"] = _utc_now()
+        write_summary_artifact(summary, summary_path)
+        return WorkflowRun(
+            source_gdf=source_gdf,
+            transformed_gdf=transformed_gdf,
+            validation=validation,
+            pre_load=None,
+            post_load=None,
+            plan=None,
+            apply_edits_result=summary["apply_edits"],
+            summary=summary,
+            summary_path=summary_path,
+            preview_path=None,
+            exit_code=1,
+            error_stage="source_setup",
+            error_summary=summary["workflow_error"],
+        )
 
     try:
         pre_load = query_target_snapshot(
@@ -565,22 +569,23 @@ def write_post_load_preview(
 
     path = Path(output_path).expanduser().resolve()
     figure, axis = plt.subplots(figsize=(8, 6))
+    preview_gdf, x_label, y_label = _prepare_preview_geodataframe(gdf)
 
-    if len(gdf) == 0:
+    if len(preview_gdf) == 0:
         axis.text(0.5, 0.5, "No demo features returned", ha="center", va="center")
         axis.set_axis_off()
     else:
         plot_kwargs: dict[str, Any] = {"ax": axis, "markersize": 90}
-        if "status" in gdf.columns and gdf["status"].notna().any():
+        if "status" in preview_gdf.columns and preview_gdf["status"].notna().any():
             plot_kwargs.update({"column": "status", "categorical": True, "legend": True})
         else:
             plot_kwargs.update({"color": "#0f766e"})
 
-        gdf.plot(**plot_kwargs)
+        preview_gdf.plot(**plot_kwargs)
 
-        label_column = "name" if "name" in gdf.columns else "uid"
-        if label_column in gdf.columns:
-            for _, row in gdf.iterrows():
+        label_column = "name" if "name" in preview_gdf.columns else "uid"
+        if label_column in preview_gdf.columns:
+            for _, row in preview_gdf.iterrows():
                 if row.geometry is None:
                     continue
                 axis.annotate(
@@ -592,8 +597,8 @@ def write_post_load_preview(
                 )
 
     axis.set_title(title)
-    axis.set_xlabel("Longitude")
-    axis.set_ylabel("Latitude")
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
     figure.tight_layout()
     figure.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(figure)
@@ -629,6 +634,46 @@ def _serialize_source_record(row: pd.Series, geometry_name: str) -> dict[str, An
             continue
         record[key] = _json_safe(value)
     return record
+
+
+def _resolve_path(path: str | Path) -> Path:
+    return Path(path).expanduser().resolve()
+
+
+def _read_source_dataframe(input_path: str | Path) -> pd.DataFrame:
+    return pd.read_csv(_resolve_path(input_path))
+
+
+def _prepare_source_dataframe(frame: pd.DataFrame, *, context: str) -> pd.DataFrame:
+    prepared = frame.copy()
+    _require_columns(prepared, REQUIRED_SOURCE_COLUMNS, context=context)
+    prepared["_source_row"] = range(2, len(prepared) + 2)
+    return prepared
+
+
+def _empty_geodataframe(*, crs: str | None = None) -> "gpd.GeoDataFrame":
+    return gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=crs)
+
+
+def _empty_validation_result(*, source_row_count: int = 0) -> ValidationResult:
+    return ValidationResult(
+        source_row_count=source_row_count,
+        valid_gdf=_empty_geodataframe(),
+        rejected_rows=[],
+    )
+
+
+def _prepare_preview_geodataframe(
+    gdf: "gpd.GeoDataFrame",
+) -> tuple["gpd.GeoDataFrame", str, str]:
+    if gdf.crs is None:
+        return gdf, "X", "Y"
+
+    current_crs = gdf.crs.to_string()
+    if current_crs != DEFAULT_TARGET_CRS:
+        gdf = gdf.to_crs(DEFAULT_TARGET_CRS)
+
+    return gdf, "Longitude", "Latitude"
 
 
 def _normalize_text(value: Any) -> str | None:
@@ -681,11 +726,66 @@ def _json_safe(value: Any) -> Any:
 
 def _build_source_summary(validation: ValidationResult, input_path: str | Path) -> dict[str, Any]:
     return {
-        "input_path": str(Path(input_path).expanduser().resolve()),
+        "input_path": str(_resolve_path(input_path)),
         "source_row_count": validation.source_row_count,
         "valid_row_count": validation.valid_count,
         "rejected_row_count": validation.rejected_count,
         "rejected_rows": [issue.to_dict() for issue in validation.rejected_rows],
+    }
+
+
+def _build_summary_scaffold(
+    *,
+    base_url: str,
+    service_id: str,
+    layer_id: int,
+    input_path: str | Path,
+    summary_path: str | Path,
+    where: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "started_at": _utc_now(),
+        "target": {
+            "base_url": base_url,
+            "service_id": service_id,
+            "layer_id": layer_id,
+            "where": where,
+            "target_crs": None,
+        },
+        "source": {
+            "input_path": str(_resolve_path(input_path)),
+            "source_row_count": None,
+            "valid_row_count": None,
+            "rejected_row_count": None,
+            "rejected_rows": [],
+        },
+        "pre_load": {
+            "matching_feature_count": None,
+            "target_crs": None,
+        },
+        "plan": {
+            "adds": 0,
+            "updates": 0,
+        },
+        "artifacts": {
+            "load_summary": str(_resolve_path(summary_path)),
+            "post_load_preview": None,
+        },
+        "apply_edits": _skipped_apply_edits_summary(reason="not_started"),
+    }
+
+
+def _input_error_summary(exc: Exception, *, stage: str) -> dict[str, Any]:
+    return {
+        "stage": stage,
+        "status": "input_error",
+        "status_code": None,
+        "message": str(exc),
+        "body": None,
+        "error_type": type(exc).__name__,
+        "successful_edits": 0,
+        "response": None,
     }
 
 

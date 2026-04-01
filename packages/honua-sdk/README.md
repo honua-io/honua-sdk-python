@@ -31,6 +31,12 @@ with HonuaClient("https://your-honua-server.com") as client:
     print(f"Found {len(result.get('features', []))} features")
 ```
 
+## Documentation
+
+- [5-Minute Quickstart](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/quickstart.md) - query features, convert them to a GeoDataFrame, and plot them
+- [Geospatial ETL demo](https://github.com/honua-io/honua-sdk-python/blob/trunk/examples/geospatial_etl/README.md) - canonical script-first extract/validate/write/reconcile flow with the notebook companion and `load-summary.json` / `post-load-preview.png` contract
+- [Monorepo README](https://github.com/honua-io/honua-sdk-python) - install options and package overview
+
 ## License
 
 Apache-2.0

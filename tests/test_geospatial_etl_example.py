@@ -63,7 +63,7 @@ def test_build_upsert_plan_preserves_add_and_update_payloads() -> None:
             {
                 "attributes": {
                     "objectid": 41,
-                    "uid": "demo_etl_001",
+                    "uid": "demo-etl-001",
                     "name": "Pier 39 Sensor",
                     "status": "active",
                     "count": 12,
@@ -80,11 +80,11 @@ def test_build_upsert_plan_preserves_add_and_update_payloads() -> None:
     assert plan.update_count == 1
 
     add_feature = plan.add_features[0]
-    assert add_feature["attributes"]["uid"] == "demo_etl_002"
+    assert add_feature["attributes"]["uid"] == "demo-etl-002"
     assert "objectid" not in add_feature["attributes"]
 
     update_feature = plan.update_features[0]
-    assert update_feature["attributes"]["uid"] == "demo_etl_001"
+    assert update_feature["attributes"]["uid"] == "demo-etl-001"
     assert update_feature["attributes"]["objectid"] == 41
     assert update_feature["geometry"]["x"] == pytest.approx(-122.4098, abs=1e-4)
     assert update_feature["geometry"]["y"] == pytest.approx(37.8087, abs=1e-4)
@@ -191,7 +191,7 @@ def test_run_workflow_queries_then_loads_then_requeries(
     assert result.summary_path.exists()
     assert preview_writes == [tmp_path / "post-load-preview.png"]
     assert client.calls == [
-        ("query_features", "uid LIKE 'demo_etl_%'"),
+        ("query_features", "uid LIKE 'demo-etl-%'"),
         ("apply_edits", "6/0"),
-        ("query_features", "uid LIKE 'demo_etl_%'"),
+        ("query_features", "uid LIKE 'demo-etl-%'"),
     ]

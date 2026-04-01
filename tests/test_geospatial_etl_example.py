@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -190,6 +191,143 @@ def test_run_workflow_queries_then_loads_then_requeries(
     assert result.apply_edits_result["successful_edits"] == 6
     assert result.summary_path.exists()
     assert preview_writes == [tmp_path / "post-load-preview.png"]
+    assert client.calls == [
+        ("query_features", "uid LIKE 'demo-etl-%'"),
+        ("apply_edits", "6/0"),
+        ("query_features", "uid LIKE 'demo-etl-%'"),
+    ]
+
+
+def test_run_workflow_writes_summary_on_pre_load_query_http_error(tmp_path: Path) -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def query_features(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            where: str = "1=1",
+            out_fields: str | list[str] = "*",
+            return_geometry: bool = True,
+        ) -> dict[str, object]:
+            self.calls.append(("query_features", where))
+            raise workflow.HonuaHttpError(503, "down", body={"detail": "bootstrap query failed"})
+
+        def apply_edits(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            adds: list[dict[str, object]] | None = None,
+            updates: list[dict[str, object]] | None = None,
+            rollback_on_failure: bool = True,
+        ) -> dict[str, object]:
+            raise AssertionError("apply_edits should not be called when the pre-load query fails")
+
+    client = FakeClient()
+    result = workflow.run_workflow(
+        client,
+        input_path=DEMO_CSV,
+        output_dir=tmp_path,
+    )
+
+    summary = json.loads(result.summary_path.read_text(encoding="utf-8"))
+
+    assert result.exit_code == 1
+    assert result.pre_load is None
+    assert result.post_load is None
+    assert result.plan is None
+    assert result.preview_path is None
+    assert result.error_stage == "pre_load_query"
+    assert result.error_summary is not None
+    assert result.error_summary["status"] == "http_error"
+    assert result.error_summary["status_code"] == 503
+    assert result.apply_edits_result["status"] == "skipped"
+    assert result.apply_edits_result["reason"] == "pre_load_query_http_error"
+    assert result.validation.valid_count == 6
+    assert result.validation.rejected_count == 3
+    assert summary["source"]["source_row_count"] == 9
+    assert summary["source"]["valid_row_count"] == 6
+    assert summary["source"]["rejected_row_count"] == 3
+    assert summary["pre_load"]["matching_feature_count"] is None
+    assert summary["artifacts"]["post_load_preview"] is None
+    assert summary["workflow_error"]["stage"] == "pre_load_query"
+    assert summary["workflow_error"]["status_code"] == 503
+    assert client.calls == [("query_features", "uid LIKE 'demo-etl-%'")]
+
+
+def test_run_workflow_writes_summary_on_post_load_query_http_error(tmp_path: Path) -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+            self.loaded_features: list[dict[str, object]] | None = None
+
+        def query_features(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            where: str = "1=1",
+            out_fields: str | list[str] = "*",
+            return_geometry: bool = True,
+        ) -> dict[str, object]:
+            self.calls.append(("query_features", where))
+            if self.loaded_features is None:
+                return {
+                    "spatialReference": {"wkid": 4326},
+                    "features": [],
+                }
+            raise workflow.HonuaHttpError(503, "down", body={"detail": "reconcile query failed"})
+
+        def apply_edits(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            adds: list[dict[str, object]] | None = None,
+            updates: list[dict[str, object]] | None = None,
+            rollback_on_failure: bool = True,
+        ) -> dict[str, object]:
+            self.calls.append(("apply_edits", f"{len(adds or [])}/{len(updates or [])}"))
+            assert adds is not None
+            self.loaded_features = adds
+            return {
+                "addResults": [
+                    {"success": True, "objectId": 1001 + index}
+                    for index in range(len(adds))
+                ],
+                "updateResults": [],
+            }
+
+    client = FakeClient()
+    result = workflow.run_workflow(
+        client,
+        input_path=DEMO_CSV,
+        output_dir=tmp_path,
+    )
+
+    summary = json.loads(result.summary_path.read_text(encoding="utf-8"))
+
+    assert result.exit_code == 1
+    assert result.pre_load is not None
+    assert result.post_load is None
+    assert result.plan is not None
+    assert result.plan.add_count == 6
+    assert result.plan.update_count == 0
+    assert result.preview_path is None
+    assert result.apply_edits_result["status"] == "success"
+    assert result.apply_edits_result["successful_edits"] == 6
+    assert result.error_stage == "post_load_query"
+    assert result.error_summary is not None
+    assert result.error_summary["status"] == "http_error"
+    assert result.error_summary["status_code"] == 503
+    assert summary["apply_edits"]["status"] == "success"
+    assert summary["post_load"]["matching_feature_count"] is None
+    assert summary["workflow_error"]["stage"] == "post_load_query"
+    assert summary["workflow_error"]["status_code"] == 503
+    assert summary["artifacts"]["post_load_preview"] is None
     assert client.calls == [
         ("query_features", "uid LIKE 'demo-etl-%'"),
         ("apply_edits", "6/0"),

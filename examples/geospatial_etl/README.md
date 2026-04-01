@@ -167,7 +167,9 @@ Every run writes `examples/geospatial_etl/output/load-summary.json`.
 - `skipped`
 - `http_error`
 
-On `success`, the summary stores `successful_edits` plus the raw `apply_edits` response under `apply_edits.response`. This status means the HTTP request completed; it does not guarantee that any add/update/delete result entry succeeded. Use `successful_edits` or the CLI exit code to tell whether the run actually applied edits. On `skipped`, the summary records `reason: "all_rows_rejected"` and does not call `apply_edits`. On `http_error`, the summary captures `status_code`, `message`, and `body`.
+On `success`, the summary stores `successful_edits` plus the raw `apply_edits` response under `apply_edits.response`. This status means the HTTP request completed; it does not guarantee that any add/update/delete result entry succeeded. Use `successful_edits` or the CLI exit code to tell whether the run actually applied edits. On `skipped`, the summary records a `reason` and does not call `apply_edits`; validation-only skips use `reason: "all_rows_rejected"`. On `http_error`, the summary captures `status_code`, `message`, and `body`.
+
+When a pre-load or post-load `query_features(...)` call fails with `HonuaHttpError`, the workflow still writes `load-summary.json` and adds `workflow_error` with `stage`, `status_code`, `message`, and `body`. `stage` is `pre_load_query` or `post_load_query`, and the summary preserves the already-computed source, plan, and `apply_edits` details that were available before the failure.
 
 `post_load` is present only when the workflow reaches the post-load re-query after a non-error `apply_edits` response. `post-load-preview.png` is the analyst-facing map for that same reconciled slice, even when `successful_edits` is `0`.
 

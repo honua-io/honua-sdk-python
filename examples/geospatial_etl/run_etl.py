@@ -86,10 +86,11 @@ def main() -> int:
         f"Validated {result.validation.valid_count} rows and rejected "
         f"{result.validation.rejected_count}"
     )
-    print(
-        f"Queried {result.pre_load.feature_count} demo-owned target features before load "
-        f"({result.pre_load.target_crs})"
-    )
+    if result.pre_load is not None:
+        print(
+            f"Queried {result.pre_load.feature_count} demo-owned target features before load "
+            f"({result.pre_load.target_crs})"
+        )
 
     if result.plan is not None:
         print(f"Planned {result.plan.add_count} adds and {result.plan.update_count} updates")
@@ -100,9 +101,9 @@ def main() -> int:
             f"apply_edits succeeded with "
             f"{result.apply_edits_result.get('successful_edits', 0)} successful edits"
         )
-    elif apply_status == "skipped":
+    elif apply_status == "skipped" and result.apply_edits_result.get("reason") == "all_rows_rejected":
         print("apply_edits was skipped because every source row was rejected during validation")
-    else:
+    elif apply_status == "http_error":
         print(
             "apply_edits failed: "
             f"{result.apply_edits_result.get('status_code')} "
@@ -111,12 +112,25 @@ def main() -> int:
 
     if result.post_load is not None:
         print(f"Queried {result.post_load.feature_count} demo-owned target features after load")
+    elif result.error_summary is not None and result.error_stage != "apply_edits":
+        print(
+            f"{_format_stage_name(result.error_stage)} failed: "
+            f"{result.error_summary.get('status_code')} {result.error_summary.get('message')}"
+        )
 
     print(f"Summary artifact: {result.summary_path}")
     if result.preview_path is not None:
         print(f"Preview artifact: {result.preview_path}")
 
     return result.exit_code
+
+
+def _format_stage_name(stage: str | None) -> str:
+    if stage == "pre_load_query":
+        return "Pre-load query"
+    if stage == "post_load_query":
+        return "Post-load query"
+    return "Workflow stage"
 
 
 if __name__ == "__main__":

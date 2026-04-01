@@ -117,7 +117,7 @@ class WorkflowRun:
     source_gdf: "gpd.GeoDataFrame"
     transformed_gdf: "gpd.GeoDataFrame"
     validation: ValidationResult
-    pre_load: TargetSnapshot
+    pre_load: TargetSnapshot | None
     post_load: TargetSnapshot | None
     plan: UpsertPlan | None
     apply_edits_result: dict[str, Any]
@@ -125,6 +125,8 @@ class WorkflowRun:
     summary_path: Path
     preview_path: Path | None
     exit_code: int
+    error_stage: str | None = None
+    error_summary: dict[str, Any] | None = None
 
 
 def build_demo_where(uid_prefix: str = DEFAULT_UID_PREFIX) -> str:
@@ -342,21 +344,12 @@ def run_workflow(
     source_frame = load_source_dataframe(input_path)
     source_gdf = dataframe_to_source_geodataframe(source_frame)
 
-    where = build_demo_where(uid_prefix)
-    pre_load = query_target_snapshot(
-        client,
-        service_id=service_id,
-        layer_id=layer_id,
-        where=where,
-    )
-    transformed_gdf = normalize_source_geodataframe(source_gdf, target_crs=pre_load.target_crs)
-    validation = validate_source_geodataframe(transformed_gdf)
-
     output_path = Path(output_dir).expanduser().resolve()
     output_path.mkdir(parents=True, exist_ok=True)
     summary_path = output_path / "load-summary.json"
     preview_path = output_path / "post-load-preview.png"
 
+    where = build_demo_where(uid_prefix)
     summary: dict[str, Any] = {
         "schema_version": 1,
         "started_at": _utc_now(),
@@ -365,18 +358,18 @@ def run_workflow(
             "service_id": service_id,
             "layer_id": layer_id,
             "where": where,
-            "target_crs": pre_load.target_crs,
+            "target_crs": None,
         },
         "source": {
             "input_path": str(Path(input_path).expanduser().resolve()),
-            "source_row_count": validation.source_row_count,
-            "valid_row_count": validation.valid_count,
-            "rejected_row_count": validation.rejected_count,
-            "rejected_rows": [issue.to_dict() for issue in validation.rejected_rows],
+            "source_row_count": len(source_gdf),
+            "valid_row_count": None,
+            "rejected_row_count": None,
+            "rejected_rows": [],
         },
         "pre_load": {
-            "matching_feature_count": pre_load.feature_count,
-            "target_crs": pre_load.target_crs,
+            "matching_feature_count": None,
+            "target_crs": None,
         },
         "plan": {
             "adds": 0,
@@ -386,15 +379,51 @@ def run_workflow(
             "load_summary": str(summary_path),
             "post_load_preview": None,
         },
+        "apply_edits": _skipped_apply_edits_summary(reason="not_started"),
+    }
+
+    try:
+        pre_load = query_target_snapshot(
+            client,
+            service_id=service_id,
+            layer_id=layer_id,
+            where=where,
+        )
+    except HonuaHttpError as exc:
+        transformed_gdf = normalize_source_geodataframe(source_gdf, target_crs=DEFAULT_TARGET_CRS)
+        validation = validate_source_geodataframe(transformed_gdf)
+        summary["source"] = _build_source_summary(validation, input_path)
+        summary["workflow_error"] = _http_error_summary(exc, stage="pre_load_query")
+        summary["apply_edits"] = _skipped_apply_edits_summary(reason="pre_load_query_http_error")
+        summary["completed_at"] = _utc_now()
+        write_summary_artifact(summary, summary_path)
+        return WorkflowRun(
+            source_gdf=source_gdf,
+            transformed_gdf=transformed_gdf,
+            validation=validation,
+            pre_load=None,
+            post_load=None,
+            plan=None,
+            apply_edits_result=summary["apply_edits"],
+            summary=summary,
+            summary_path=summary_path,
+            preview_path=None,
+            exit_code=1,
+            error_stage="pre_load_query",
+            error_summary=summary["workflow_error"],
+        )
+
+    transformed_gdf = normalize_source_geodataframe(source_gdf, target_crs=pre_load.target_crs)
+    validation = validate_source_geodataframe(transformed_gdf)
+    summary["target"]["target_crs"] = pre_load.target_crs
+    summary["source"] = _build_source_summary(validation, input_path)
+    summary["pre_load"] = {
+        "matching_feature_count": pre_load.feature_count,
+        "target_crs": pre_load.target_crs,
     }
 
     if validation.valid_count == 0:
-        apply_summary = {
-            "status": "skipped",
-            "reason": "all_rows_rejected",
-            "successful_edits": 0,
-            "response": None,
-        }
+        apply_summary = _skipped_apply_edits_summary(reason="all_rows_rejected")
         summary["apply_edits"] = apply_summary
         summary["completed_at"] = _utc_now()
         write_summary_artifact(summary, summary_path)
@@ -431,14 +460,7 @@ def run_workflow(
             rollback_on_failure=True,
         )
     except HonuaHttpError as exc:
-        apply_summary = {
-            "status": "http_error",
-            "status_code": exc.status_code,
-            "message": exc.message,
-            "body": _json_safe(exc.body),
-            "successful_edits": 0,
-            "response": None,
-        }
+        apply_summary = _http_error_summary(exc, stage="apply_edits")
         summary["apply_edits"] = apply_summary
         summary["completed_at"] = _utc_now()
         write_summary_artifact(summary, summary_path)
@@ -454,6 +476,8 @@ def run_workflow(
             summary_path=summary_path,
             preview_path=None,
             exit_code=1,
+            error_stage="apply_edits",
+            error_summary=apply_summary,
         )
 
     apply_summary = {
@@ -463,13 +487,37 @@ def run_workflow(
     }
     summary["apply_edits"] = apply_summary
 
-    post_load = query_target_snapshot(
-        client,
-        service_id=service_id,
-        layer_id=layer_id,
-        where=where,
-        fallback_target_crs=pre_load.target_crs,
-    )
+    summary["post_load"] = {
+        "matching_feature_count": None,
+        "target_crs": pre_load.target_crs,
+    }
+    try:
+        post_load = query_target_snapshot(
+            client,
+            service_id=service_id,
+            layer_id=layer_id,
+            where=where,
+            fallback_target_crs=pre_load.target_crs,
+        )
+    except HonuaHttpError as exc:
+        summary["workflow_error"] = _http_error_summary(exc, stage="post_load_query")
+        summary["completed_at"] = _utc_now()
+        write_summary_artifact(summary, summary_path)
+        return WorkflowRun(
+            source_gdf=source_gdf,
+            transformed_gdf=transformed_gdf,
+            validation=validation,
+            pre_load=pre_load,
+            post_load=None,
+            plan=plan,
+            apply_edits_result=apply_summary,
+            summary=summary,
+            summary_path=summary_path,
+            preview_path=None,
+            exit_code=1,
+            error_stage="post_load_query",
+            error_summary=summary["workflow_error"],
+        )
     write_post_load_preview(
         post_load.geodataframe,
         preview_path,
@@ -629,6 +677,37 @@ def _json_safe(value: Any) -> Any:
     if _is_missing(value):
         return None
     return value
+
+
+def _build_source_summary(validation: ValidationResult, input_path: str | Path) -> dict[str, Any]:
+    return {
+        "input_path": str(Path(input_path).expanduser().resolve()),
+        "source_row_count": validation.source_row_count,
+        "valid_row_count": validation.valid_count,
+        "rejected_row_count": validation.rejected_count,
+        "rejected_rows": [issue.to_dict() for issue in validation.rejected_rows],
+    }
+
+
+def _http_error_summary(exc: HonuaHttpError, *, stage: str) -> dict[str, Any]:
+    return {
+        "stage": stage,
+        "status": "http_error",
+        "status_code": exc.status_code,
+        "message": exc.message,
+        "body": _json_safe(exc.body),
+        "successful_edits": 0,
+        "response": None,
+    }
+
+
+def _skipped_apply_edits_summary(*, reason: str) -> dict[str, Any]:
+    return {
+        "status": "skipped",
+        "reason": reason,
+        "successful_edits": 0,
+        "response": None,
+    }
 
 
 def _utc_now() -> str:

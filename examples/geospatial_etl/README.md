@@ -10,6 +10,7 @@ This example shows the buyer-facing ETL loop for the Python SDK:
 6. Re-query the same slice and emit demo artifacts
 
 The script is the canonical fast path. The notebook reuses the same workflow module for analyst walkthroughs.
+See [../../docs/troubleshooting.md](../../docs/troubleshooting.md) for staging base URL, auth, seeded contract, and cleanup guidance.
 
 ## Prerequisites
 
@@ -29,6 +30,9 @@ From the repo root:
 ```bash
 pip install -e "packages/honua-sdk[geopandas]" matplotlib jupyter
 ```
+
+The core staging smoke lane does not install these extras. It exercises the
+same SDK data-plane calls with only `honua-sdk` and `pytest`.
 
 ## Fast Path
 
@@ -184,3 +188,4 @@ jupyter notebook examples/geospatial_etl/analyst_notebook.ipynb
 ```
 
 The notebook imports `examples.geospatial_etl.workflow` and calls the same shared `run_workflow(...)` entrypoint, so the notebook stays on the exact same ETL implementation and artifact contract as the CLI.
+CI validates that shared workflow module and the staging smoke harness rather than maintaining a second notebook-only execution path.

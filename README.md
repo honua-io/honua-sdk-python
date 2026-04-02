@@ -133,6 +133,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [Geospatial ETL demo](examples/geospatial_etl/README.md) -- canonical script-first ETL flow plus notebook companion, with `load-summary.json` / `post-load-preview.png` artifacts and the `apply_edits` contract
+- [Troubleshooting](docs/troubleshooting.md) -- staging smoke env vars, auth expectations, seeded `test_service` / layer `0` assumptions, optional example dependencies, and cleanup guidance
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
 - See `honua_sdk.grpc.HonuaGrpcClient` for gRPC usage -- streaming feature queries
 - [Admin client](packages/honua-admin/honua_admin/) -- server administration
@@ -151,8 +152,14 @@ APIs may change before the 1.0 stable release.
 pip install -e "packages/honua-sdk[grpc,geopandas]"
 pip install -e "packages/honua-admin"
 
-# Run all tests
+# Run the deterministic local suite
 python3 -m pytest tests/ -q
+
+# Run the opt-in staging smoke suite
+python3 -m pytest tests/integration -q --run-integration -m "integration and staging and smoke"
+
+# Run the release smoke helper against an installed SDK build
+python3 scripts/release_smoke.py
 ```
 
 ## License

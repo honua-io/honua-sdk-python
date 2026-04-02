@@ -180,8 +180,86 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
 
     assert result["uid"] == str(expected_uid)
     assert result["description"] == f"sdk-python-smoke:{expected_uid}"
+    assert result["added_geometry"] == smoke.INITIAL_GEOMETRY
+    assert result["updated_geometry"] == smoke.UPDATED_GEOMETRY
     assert result["cleanup"]["deleted_objectids"] == [1001]
     assert result["cleanup"]["remaining_feature_count"] == 0
+
+
+def test_probe_apply_edits_roundtrip_rejects_geometry_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected_uid = UUID("12345678-1234-5678-1234-567812345678")
+    monkeypatch.setattr(smoke, "uuid4", lambda: expected_uid)
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.feature: dict[str, object] | None = None
+
+        def query_features(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            where: str,
+            out_fields: list[str],
+            return_geometry: bool,
+            extra_params: dict[str, int],
+        ) -> dict[str, object]:
+            assert service_id == "test_service"
+            assert layer_id == 0
+            assert where == smoke.build_uid_where(str(expected_uid))
+            assert extra_params["resultRecordCount"] in {2, smoke.WRITE_QUERY_LIMIT}
+            return {
+                "spatialReference": {"wkid": 4326},
+                "features": [] if self.feature is None else [self.feature],
+            }
+
+        def apply_edits(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            adds: list[dict[str, object]] | None = None,
+            updates: list[dict[str, object]] | None = None,
+            deletes: list[int] | None = None,
+            rollback_on_failure: bool = True,
+        ) -> dict[str, object]:
+            assert service_id == "test_service"
+            assert layer_id == 0
+            assert rollback_on_failure is True
+
+            if adds is not None:
+                attributes = dict(adds[0]["attributes"])
+                self.feature = {
+                    "attributes": {
+                        **attributes,
+                        "objectid": 1001,
+                    },
+                    "geometry": dict(adds[0]["geometry"]),
+                }
+                return {"addResults": [{"success": True, "objectId": 1001}]}
+
+            if updates is not None:
+                attributes = dict(updates[0]["attributes"])
+                self.feature = {
+                    "attributes": dict(attributes),
+                    "geometry": {
+                        "x": smoke.UPDATED_GEOMETRY["x"] + 0.01,
+                        "y": smoke.UPDATED_GEOMETRY["y"],
+                    },
+                }
+                return {"updateResults": [{"success": True, "objectId": 1001}]}
+
+            assert deletes == [1001]
+            self.feature = None
+            return {"deleteResults": [{"success": True, "objectId": 1001}]}
+
+    with pytest.raises(AssertionError, match="Expected geometry x"):
+        smoke.probe_apply_edits_roundtrip(
+            FakeClient(),
+            smoke.SmokeConfig(base_url="https://staging.example.test"),
+        )
 
 
 def test_probe_apply_edits_roundtrip_preserves_http_error_when_cleanup_also_fails() -> None:

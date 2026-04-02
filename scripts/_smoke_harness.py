@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
+from math import isclose
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -22,6 +23,7 @@ READ_QUERY_LIMIT = 2
 WRITE_QUERY_LIMIT = 25
 INITIAL_GEOMETRY = {"x": -122.4013, "y": 37.7925}
 UPDATED_GEOMETRY = {"x": -122.4008, "y": 37.7931}
+POINT_GEOMETRY_ABS_TOLERANCE = 1e-6
 
 
 class SmokeConfigError(ValueError):
@@ -402,6 +404,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
 
         added_feature = _query_single_feature(client, config, uid)
         added_attributes = _feature_attributes(added_feature)
+        added_geometry = _feature_geometry(added_feature)
         queried_objectid = _extract_objectid(added_attributes)
         if queried_objectid is None:
             raise AssertionError("Added smoke feature did not expose an objectid field.")
@@ -414,6 +417,8 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
             status="active",
             count=1,
         )
+        _assert_point_geometry(added_geometry, expected=INITIAL_GEOMETRY)
+        details["added_geometry"] = _point_geometry_summary(added_geometry)
 
         update_feature = _make_smoke_feature(
             uid=uid,
@@ -435,6 +440,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
 
         updated_feature = _query_single_feature(client, config, uid)
         updated_attributes = _feature_attributes(updated_feature)
+        updated_geometry = _feature_geometry(updated_feature)
         _assert_feature_fields(
             updated_attributes,
             uid=uid,
@@ -443,6 +449,8 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
             status="inactive",
             count=2,
         )
+        _assert_point_geometry(updated_geometry, expected=UPDATED_GEOMETRY)
+        details["updated_geometry"] = _point_geometry_summary(updated_geometry)
     except Exception as exc:
         main_error = exc
     finally:
@@ -621,6 +629,13 @@ def _feature_attributes(feature: Mapping[str, Any]) -> Mapping[str, Any]:
     return attributes
 
 
+def _feature_geometry(feature: Mapping[str, Any]) -> Mapping[str, Any]:
+    geometry = feature.get("geometry")
+    if not isinstance(geometry, Mapping):
+        raise AssertionError("Feature query result did not include a 'geometry' object.")
+    return geometry
+
+
 def _make_smoke_feature(
     *,
     uid: str,
@@ -669,6 +684,42 @@ def _assert_feature_fields(
         raise AssertionError(f"Expected status {status!r}, got {attributes.get('status')!r}.")
     if int(attributes.get("count")) != count:
         raise AssertionError(f"Expected count {count!r}, got {attributes.get('count')!r}.")
+
+
+def _assert_point_geometry(
+    geometry: Mapping[str, Any],
+    *,
+    expected: Mapping[str, float],
+) -> None:
+    expected_x = float(expected["x"])
+    expected_y = float(expected["y"])
+    actual_x = _coerce_geometry_coord(geometry, "x")
+    actual_y = _coerce_geometry_coord(geometry, "y")
+
+    if not isclose(actual_x, expected_x, rel_tol=0.0, abs_tol=POINT_GEOMETRY_ABS_TOLERANCE):
+        raise AssertionError(f"Expected geometry x {expected_x!r}, got {actual_x!r}.")
+    if not isclose(actual_y, expected_y, rel_tol=0.0, abs_tol=POINT_GEOMETRY_ABS_TOLERANCE):
+        raise AssertionError(f"Expected geometry y {expected_y!r}, got {actual_y!r}.")
+
+
+def _coerce_geometry_coord(geometry: Mapping[str, Any], key: str) -> float:
+    value = geometry.get(key)
+    if value is None:
+        raise AssertionError(f"Feature geometry did not include {key!r}.")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise AssertionError(f"Feature geometry {key!r} was not numeric: {value!r}.") from exc
+
+
+def _point_geometry_summary(geometry: Mapping[str, Any]) -> dict[str, Any]:
+    summary = {
+        "x": _coerce_geometry_coord(geometry, "x"),
+        "y": _coerce_geometry_coord(geometry, "y"),
+    }
+    if "spatialReference" in geometry:
+        summary["spatialReference"] = geometry["spatialReference"]
+    return summary
 
 
 def _first_success_result(response: Mapping[str, Any], key: str) -> Mapping[str, Any]:

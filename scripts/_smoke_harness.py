@@ -153,6 +153,34 @@ def load_smoke_config_from_env(*, require_base_url: bool = True) -> SmokeConfig:
     )
 
 
+def _serialize_probe_exception(exc: Exception) -> dict[str, Any]:
+    message = exc.message if isinstance(exc, HonuaHttpError) else str(exc)
+    payload = {
+        "type": type(exc).__name__,
+        "message": message,
+    }
+    if isinstance(exc, HonuaHttpError):
+        payload["status_code"] = exc.status_code
+        payload["body"] = exc.body
+    return payload
+
+
+def _probe_error_context(
+    context: Mapping[str, Any] | None,
+    exc: Exception,
+) -> dict[str, Any]:
+    error_context = dict(context or {})
+    cleanup_error = getattr(exc, "_smoke_cleanup_error", None)
+    if cleanup_error is not None:
+        error_context["cleanup_error"] = dict(cleanup_error)
+    return error_context
+
+
+def _attach_cleanup_error(main_error: Exception, cleanup_error: Exception) -> Exception:
+    setattr(main_error, "_smoke_cleanup_error", _serialize_probe_exception(cleanup_error))
+    return main_error
+
+
 def run_probe(
     name: str,
     func: Callable[[], dict[str, Any]],
@@ -161,28 +189,19 @@ def run_probe(
     context: Mapping[str, Any] | None = None,
 ) -> ProbeResult:
     started_at = utc_now()
-    probe_context = dict(context or {})
     try:
         details = func()
         error = None
         status: ProbeStatus = "passed"
     except HonuaHttpError as exc:
         details = {}
-        error = {
-            "type": "HonuaHttpError",
-            "message": exc.message,
-            "status_code": exc.status_code,
-            "body": exc.body,
-            "context": probe_context,
-        }
+        error = _serialize_probe_exception(exc)
+        error["context"] = _probe_error_context(context, exc)
         status = "failed"
     except Exception as exc:  # pragma: no cover - exercised through callers
         details = {}
-        error = {
-            "type": type(exc).__name__,
-            "message": str(exc),
-            "context": probe_context,
-        }
+        error = _serialize_probe_exception(exc)
+        error["context"] = _probe_error_context(context, exc)
         status = "failed"
 
     return ProbeResult(
@@ -438,7 +457,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
             cleanup_error = exc
 
     if main_error is not None and cleanup_error is not None:
-        raise RuntimeError(f"{main_error}; cleanup failed: {cleanup_error}") from main_error
+        raise _attach_cleanup_error(main_error, cleanup_error)
     if main_error is not None:
         raise main_error
     if cleanup_error is not None:

@@ -1,3 +1,5 @@
+__pycache__/
+*.py[cod]
 release-smoke-results.json
 staging-smoke-results.json
 staging-smoke-junit.xml

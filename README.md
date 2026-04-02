@@ -162,6 +162,10 @@ python3 -m pytest tests/integration -q --run-integration -m "integration and sta
 python3 scripts/release_smoke.py
 ```
 
+The staging smoke command and `scripts/release_smoke.py` both require
+`HONUA_BASE_URL`. Set `HONUA_ENABLE_WRITE_SMOKE=true` when you want the
+add/query/update/delete roundtrip enabled outside the default read-only local run.
+
 The staging smoke suite writes `staging-smoke-results.json` by default.
 `scripts/release_smoke.py` writes `release-smoke-results.json` unless `--results-path` overrides it.
 The dedicated GitHub staging lane in `.github/workflows/staging-integration.yml`

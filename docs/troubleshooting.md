@@ -18,7 +18,7 @@ Set these environment variables for the staging smoke lane and release smoke run
 - `HONUA_SERVICE_ID` defaults to `test_service`
 - `HONUA_LAYER_ID` defaults to `0`
 - `HONUA_API_KEY` optional, for staging environments that do not allow anonymous access
-- `HONUA_ENABLE_WRITE_SMOKE` defaults to `false` locally and should be `true` in the staging CI environment
+- `HONUA_ENABLE_WRITE_SMOKE` defaults to `false` locally; set it to `true` when you want the add/query/update/delete roundtrip enabled in local or release smoke runs, and keep it `true` in the staging CI environment
 - `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke` and is recorded as a human-readable write-smoke tag in the feature `description`
 - `HONUA_SMOKE_RESULTS_PATH` defaults to `staging-smoke-results.json` for the pytest-driven staging lane
 
@@ -60,10 +60,10 @@ The smoke probes assume the same seeded data-plane contract used by the server t
 
 - service id: `test_service`
 - layer id: `0`
-- expected query field surface: `objectid`, `name`, `status`, `count`, `ratio`
+- minimum read-smoke field subset asserted by `query_seeded_layer`: `objectid`, `name`, `status`, `count`, `ratio`
 
 The read smoke checks `readiness()`, `list_services()`, and `query_features(...)`.
-The write smoke uses the same service/layer for a minimal add -> query -> update -> query -> delete cycle and validates the `uid` UUID field on the smoke-created record instead of assuming seeded rows already populate it.
+The same seeded layer also exposes `description` and `uid`. The write smoke uses that same service/layer for a minimal add -> query -> update -> query -> delete cycle, records a human-readable tag in `description`, and validates the `uid` UUID field on the smoke-created record instead of assuming seeded rows already populate it.
 
 If staging no longer exposes that contract, treat it as a bounded `honua-server` follow-on instead of changing the SDK smoke target inside this repo.
 

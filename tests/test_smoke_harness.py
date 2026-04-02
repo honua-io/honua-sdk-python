@@ -184,6 +184,66 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
     assert result["cleanup"]["remaining_feature_count"] == 0
 
 
+def test_probe_apply_edits_roundtrip_preserves_http_error_when_cleanup_also_fails() -> None:
+    config = smoke.SmokeConfig(base_url="https://staging.example.test")
+
+    class FakeClient:
+        def query_features(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            where: str,
+            out_fields: list[str],
+            return_geometry: bool,
+            extra_params: dict[str, int],
+        ) -> dict[str, object]:
+            assert service_id == "test_service"
+            assert layer_id == 0
+            assert where.startswith("uid = '")
+            assert out_fields == ["objectid", "uid"]
+            assert return_geometry is False
+            assert extra_params == {"resultRecordCount": smoke.WRITE_QUERY_LIMIT}
+            raise HonuaHttpError(500, "cleanup denied", body={"stage": "cleanup"})
+
+        def apply_edits(
+            self,
+            service_id: str,
+            layer_id: int,
+            *,
+            adds: list[dict[str, object]] | None = None,
+            updates: list[dict[str, object]] | None = None,
+            deletes: list[int] | None = None,
+            rollback_on_failure: bool = True,
+        ) -> dict[str, object]:
+            assert service_id == "test_service"
+            assert layer_id == 0
+            assert rollback_on_failure is True
+            assert adds is not None
+            assert updates is None
+            assert deletes is None
+            raise HonuaHttpError(403, "write denied", body={"stage": "write"})
+
+    result = smoke.run_probe(
+        "apply_edits_roundtrip",
+        lambda: smoke.probe_apply_edits_roundtrip(FakeClient(), config),
+        context=config.target_dict(),
+    )
+
+    assert result.status == "failed"
+    assert result.error is not None
+    assert result.error["type"] == "HonuaHttpError"
+    assert result.error["message"] == "write denied"
+    assert result.error["status_code"] == 403
+    assert result.error["body"] == {"stage": "write"}
+    assert result.error["context"]["cleanup_error"] == {
+        "type": "HonuaHttpError",
+        "message": "cleanup denied",
+        "status_code": 500,
+        "body": {"stage": "cleanup"},
+    }
+
+
 def test_smoke_report_writes_json_and_renders_summary(tmp_path: Path) -> None:
     config = smoke.SmokeConfig(
         base_url="https://staging.example.test",

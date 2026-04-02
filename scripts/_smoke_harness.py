@@ -17,7 +17,7 @@ DEFAULT_SERVICE_ID = "test_service"
 DEFAULT_LAYER_ID = 0
 DEFAULT_UID_PREFIX = "sdk-python-smoke"
 DEFAULT_RESULTS_PATH = Path("staging-smoke-results.json")
-EXPECTED_QUERY_FIELDS = frozenset({"objectid", "name", "status", "count", "uid"})
+EXPECTED_QUERY_FIELDS = frozenset({"objectid", "name", "status", "count", "ratio"})
 READ_QUERY_LIMIT = 2
 WRITE_QUERY_LIMIT = 25
 INITIAL_GEOMETRY = {"x": -122.4013, "y": 37.7925}
@@ -350,9 +350,11 @@ def probe_query_seeded_layer(client: HonuaClient, config: SmokeConfig) -> dict[s
 
 
 def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dict[str, Any]:
-    uid = f"{config.uid_prefix}-{uuid4().hex[:12]}"
+    uid = str(uuid4())
+    description = build_smoke_description(config.uid_prefix, uid)
     details: dict[str, Any] = {
         "uid": uid,
+        "description": description,
         "where": build_uid_where(uid),
     }
     known_objectids: set[int] = set()
@@ -363,6 +365,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
         add_feature = _make_smoke_feature(
             uid=uid,
             name="SDK smoke add",
+            description=description,
             status="active",
             count=1,
             geometry=INITIAL_GEOMETRY,
@@ -388,6 +391,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
             added_attributes,
             uid=uid,
             name="SDK smoke add",
+            description=description,
             status="active",
             count=1,
         )
@@ -395,6 +399,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
         update_feature = _make_smoke_feature(
             uid=uid,
             name="SDK smoke updated",
+            description=description,
             status="inactive",
             count=2,
             geometry=UPDATED_GEOMETRY,
@@ -415,6 +420,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
             updated_attributes,
             uid=uid,
             name="SDK smoke updated",
+            description=description,
             status="inactive",
             count=2,
         )
@@ -520,6 +526,10 @@ def build_uid_where(uid: str) -> str:
     return f"uid = '{escaped_uid}'"
 
 
+def build_smoke_description(uid_prefix: str, uid: str) -> str:
+    return f"{uid_prefix}:{uid}"
+
+
 def load_smoke_report(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -596,6 +606,7 @@ def _make_smoke_feature(
     *,
     uid: str,
     name: str,
+    description: str | None = None,
     status: str,
     count: int,
     geometry: Mapping[str, float],
@@ -607,6 +618,8 @@ def _make_smoke_feature(
         "status": status,
         "count": count,
     }
+    if description is not None:
+        attributes["description"] = description
     if objectid is not None:
         attributes["objectid"] = objectid
 
@@ -621,6 +634,7 @@ def _assert_feature_fields(
     *,
     uid: str,
     name: str,
+    description: str | None = None,
     status: str,
     count: int,
 ) -> None:
@@ -628,6 +642,10 @@ def _assert_feature_fields(
         raise AssertionError(f"Expected uid {uid!r}, got {attributes.get('uid')!r}.")
     if attributes.get("name") != name:
         raise AssertionError(f"Expected name {name!r}, got {attributes.get('name')!r}.")
+    if description is not None and attributes.get("description") != description:
+        raise AssertionError(
+            f"Expected description {description!r}, got {attributes.get('description')!r}."
+        )
     if attributes.get("status") != status:
         raise AssertionError(f"Expected status {status!r}, got {attributes.get('status')!r}.")
     if int(attributes.get("count")) != count:

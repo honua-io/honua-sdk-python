@@ -137,7 +137,8 @@ Exit behavior is also fixed:
 
 - exit code `0` only when `apply_edits` reports at least one successful add/update/delete result
 - exit code `1` when every source row is rejected before load
-- exit code `1` on `HonuaHttpError`
+- exit code `1` on source/setup failures before the first network call
+- exit code `1` when the pre-load query, `apply_edits`, or post-load query raises `HonuaHttpError`
 - exit code `1` when `apply_edits` returns but none of its result entries are successful
 
 ## Artifacts And Response Shape
@@ -161,7 +162,7 @@ Every run writes `examples/geospatial_etl/output/load-summary.json`.
 - `artifacts`
   with the JSON path and either a PNG path or `null`
 - `apply_edits`
-  with a normalized status summary
+  with a normalized status summary including `status`, `successful_edits`, and `response`
 
 `source.rejected_rows[]` records the source line number, normalized `uid`, rejection reasons, and the original non-geometry source fields for that row.
 
@@ -171,13 +172,13 @@ Every run writes `examples/geospatial_etl/output/load-summary.json`.
 - `skipped`
 - `http_error`
 
-On `success`, the summary stores `successful_edits` plus the raw `apply_edits` response under `apply_edits.response`. This status means the HTTP request completed; it does not guarantee that any add/update/delete result entry succeeded. Use `successful_edits` or the CLI exit code to tell whether the run actually applied edits. On `skipped`, the summary records a `reason` and does not call `apply_edits`; validation-only skips use `reason: "all_rows_rejected"`. On `http_error`, the summary captures `status_code`, `message`, and `body`.
+`apply_edits` always carries `status`, `successful_edits`, and `response`. On `success`, `response` is the raw `apply_edits` payload. This status means the HTTP request completed; it does not guarantee that any add/update/delete result entry succeeded. Use `successful_edits` or the CLI exit code to tell whether the run actually applied edits. On `skipped`, the summary records a `reason` and does not call `apply_edits`; validation-only skips use `reason: "all_rows_rejected"`. On `http_error`, the summary also records `stage`, `status_code`, `message`, and `body`.
 
-When a pre-load or post-load `query_features(...)` call fails with `HonuaHttpError`, the workflow still writes `load-summary.json` and adds `workflow_error` with `stage`, `status_code`, `message`, and `body`. `stage` is `pre_load_query` or `post_load_query`, and the summary preserves the already-computed source, plan, and `apply_edits` details that were available before the failure.
+When a pre-load or post-load `query_features(...)` call fails with `HonuaHttpError`, the workflow still writes `load-summary.json` and adds `workflow_error`. That object reuses the same error envelope shape as `apply_edits.http_error`: `stage`, `status`, `status_code`, `message`, `body`, `successful_edits`, and `response`. `stage` is `pre_load_query` or `post_load_query`, and the summary preserves the already-computed source, plan, and `apply_edits` details that were available before the failure.
 
-Input/setup failures before the first network call also still write `load-summary.json`. In that case `workflow_error.stage` is `source_setup`, `apply_edits.status` is `skipped`, and `source.source_row_count` is populated when the CSV was readable before the failure.
+Input/setup failures before the first network call also still write `load-summary.json`. In that case `workflow_error.stage` is `source_setup`, `workflow_error.status` is `input_error`, `workflow_error.error_type` records the Python exception class, `apply_edits.status` is `skipped`, and `source.source_row_count` is populated when the CSV was readable before the failure.
 
-`post_load` is present only when the workflow reaches the post-load re-query after a non-error `apply_edits` response. `post-load-preview.png` is the analyst-facing map for that same reconciled slice, even when `successful_edits` is `0`.
+`post_load` is initialized once the workflow reaches post-load reconciliation after a non-error `apply_edits` response. When the re-query succeeds it records the reconciled `matching_feature_count` and `target_crs`. When that re-query fails, `post_load.matching_feature_count` stays `null`, `workflow_error.stage` is `post_load_query`, and `artifacts.post_load_preview` remains `null`. `post-load-preview.png` is the analyst-facing map for the reconciled slice whenever the post-load query succeeds, even when `successful_edits` is `0`.
 
 ## Notebook Walkthrough
 

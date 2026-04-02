@@ -20,8 +20,10 @@ and the notebook companion imports that same shared workflow module.
 ## Step 1: Install (30 seconds)
 
 ```bash
-pip install honua-sdk geopandas matplotlib shapely
+pip install "honua-sdk[geopandas]" matplotlib
 ```
+
+The `geopandas` extra installs the GeoPandas and Shapely stack used later in this quickstart.
 
 ## Step 2: Query features (60 seconds)
 

@@ -133,7 +133,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [Geospatial ETL demo](examples/geospatial_etl/README.md) -- canonical script-first ETL flow plus notebook companion, with `load-summary.json` / `post-load-preview.png` artifacts and the `apply_edits` contract
-- [Troubleshooting](docs/troubleshooting.md) -- staging smoke env vars, auth expectations, seeded `test_service` / layer `0` assumptions, optional example dependencies, and cleanup guidance
+- [Troubleshooting](docs/troubleshooting.md) -- staging smoke env vars and result artifacts, auth expectations, seeded `test_service` / layer `0` assumptions, optional example dependencies, and cleanup guidance
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
 - See `honua_sdk.grpc.HonuaGrpcClient` for gRPC usage -- streaming feature queries
 - [Admin client](packages/honua-admin/honua_admin/) -- server administration
@@ -161,6 +161,12 @@ python3 -m pytest tests/integration -q --run-integration -m "integration and sta
 # Run the release smoke helper against an installed SDK build
 python3 scripts/release_smoke.py
 ```
+
+The staging smoke suite writes `staging-smoke-results.json` by default.
+`scripts/release_smoke.py` writes `release-smoke-results.json` unless `--results-path` overrides it.
+The dedicated GitHub staging lane in `.github/workflows/staging-integration.yml`
+uploads both `staging-smoke-results.json` and `staging-smoke-junit.xml`, then
+renders the JSON report into the workflow step summary.
 
 ## License
 

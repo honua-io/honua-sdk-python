@@ -19,7 +19,8 @@ Set these environment variables for the staging smoke lane and release smoke run
 - `HONUA_LAYER_ID` defaults to `0`
 - `HONUA_API_KEY` optional, for staging environments that do not allow anonymous access
 - `HONUA_ENABLE_WRITE_SMOKE` defaults to `false` locally and should be `true` in the staging CI environment
-- `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke`
+- `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke` and is recorded as a human-readable write-smoke tag in the feature `description`
+- `HONUA_SMOKE_RESULTS_PATH` defaults to `staging-smoke-results.json` for the pytest-driven staging lane
 
 The opted-in staging suite and `scripts/release_smoke.py` both fail fast when `HONUA_BASE_URL` is unset so CI cannot silently pass without exercising a real deployment.
 
@@ -38,16 +39,31 @@ Run the release smoke helper against an already-installed SDK artifact with:
 python scripts/release_smoke.py
 ```
 
+The release smoke helper writes `release-smoke-results.json` by default and accepts `--results-path` when you need a different artifact path.
+
+## Smoke Result Artifacts
+
+The shared smoke harness writes a machine-readable JSON report with `schema_version: 1`.
+
+- The staging pytest lane writes to `HONUA_SMOKE_RESULTS_PATH` or `staging-smoke-results.json`.
+- `scripts/release_smoke.py` writes to `release-smoke-results.json` unless `--results-path` overrides it.
+- Top-level fields include `started_at`, `completed_at`, `overall_status`, `target`, `probe_counts`, and `probes`.
+- `target` records `base_url`, `service_id`, `layer_id`, `write_smoke_enabled`, and `uid_prefix` (the configured write-smoke description tag).
+- Each `probes[]` entry records `name`, `status`, `required`, `started_at`, `completed_at`, `details`, and an optional `error`.
+- When present, `error` records `type`, `message`, `context`, and, for `HonuaHttpError`, `status_code` plus `body`.
+- `overall_status` becomes `failed` only when a required probe fails. With `HONUA_ENABLE_WRITE_SMOKE=false`, the write roundtrip probe is recorded as `skipped` and does not fail the run.
+- `.github/workflows/staging-integration.yml` also uploads `staging-smoke-junit.xml` and writes a short step summary rendered from the JSON report.
+
 ## Seeded Staging Contract
 
 The smoke probes assume the same seeded data-plane contract used by the server test seed:
 
 - service id: `test_service`
 - layer id: `0`
-- expected query field surface: `objectid`, `name`, `status`, `count`, `uid`
+- expected query field surface: `objectid`, `name`, `status`, `count`, `ratio`
 
 The read smoke checks `readiness()`, `list_services()`, and `query_features(...)`.
-The write smoke uses the same service/layer for a minimal add -> query -> update -> query -> delete cycle.
+The write smoke uses the same service/layer for a minimal add -> query -> update -> query -> delete cycle and validates the `uid` UUID field on the smoke-created record instead of assuming seeded rows already populate it.
 
 If staging no longer exposes that contract, treat it as a bounded `honua-server` follow-on instead of changing the SDK smoke target inside this repo.
 
@@ -68,7 +84,7 @@ The notebook is a companion walkthrough, not a second implementation. CI and smo
 
 ## Cleaning Up Staging Smoke Data
 
-The smoke harness writes records under `HONUA_SMOKE_UID_PREFIX` and always attempts cleanup in a `finally` block. If a run is interrupted mid-flight, query and delete the leftover records with the same prefix.
+The smoke harness stores a real UUID in `uid`, tags each write-smoke record `description` as `<HONUA_SMOKE_UID_PREFIX>:<uuid>`, and always attempts cleanup in a `finally` block. If a run is interrupted mid-flight, query and delete leftover records by the description prefix.
 
 Example cleanup snippet:
 
@@ -78,10 +94,15 @@ import os
 from honua_sdk import HonuaClient
 
 prefix = os.environ.get("HONUA_SMOKE_UID_PREFIX", "sdk-python-smoke")
-where = f"uid LIKE '{prefix.replace(\"'\", \"''\")}%'"  # simple SQL-style filter
+where = f"description LIKE '{prefix.replace(\"'\", \"''\")}:%'"  # simple SQL-style filter
 
 with HonuaClient(os.environ["HONUA_BASE_URL"], api_key=os.environ.get("HONUA_API_KEY")) as client:
-    response = client.query_features("test_service", 0, where=where, out_fields=["objectid", "uid"])
+    response = client.query_features(
+        "test_service",
+        0,
+        where=where,
+        out_fields=["objectid", "uid", "description"],
+    )
     objectids = [
         feature["attributes"]["objectid"]
         for feature in response.get("features", [])

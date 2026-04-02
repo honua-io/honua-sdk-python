@@ -22,6 +22,15 @@ Set these environment variables for the staging smoke lane and release smoke run
 - `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke` and is recorded as a human-readable write-smoke tag in the feature `description`
 - `HONUA_SMOKE_RESULTS_PATH` defaults to `staging-smoke-results.json` for the pytest-driven staging lane
 
+The GitHub Actions live smoke lane only requires `HONUA_BASE_URL`. Set it in the repo or the
+`staging` environment before enabling the workflow as a required PR check. `HONUA_SERVICE_ID`
+and `HONUA_LAYER_ID` stay optional and fall back to `test_service` / `0`; set `HONUA_API_KEY`
+as a secret when the target deployment requires auth.
+
+Same-repo pull requests skip the live smoke lane until `HONUA_BASE_URL` is configured so the
+branch does not fail purely on missing GitHub Actions setup. `trunk`, scheduled, and manual
+runs still fail fast when that required base URL is absent.
+
 The opted-in staging suite and `scripts/release_smoke.py` both fail fast when `HONUA_BASE_URL` is unset so CI cannot silently pass without exercising a real deployment.
 
 Run the opt-in staging suite locally with:
@@ -94,7 +103,8 @@ import os
 from honua_sdk import HonuaClient
 
 prefix = os.environ.get("HONUA_SMOKE_UID_PREFIX", "sdk-python-smoke")
-where = f"description LIKE '{prefix.replace(\"'\", \"''\")}:%'"  # simple SQL-style filter
+escaped_prefix = prefix.replace("'", "''")
+where = f"description LIKE '{escaped_prefix}:%'"  # simple SQL-style filter
 
 with HonuaClient(os.environ["HONUA_BASE_URL"], api_key=os.environ.get("HONUA_API_KEY")) as client:
     response = client.query_features(

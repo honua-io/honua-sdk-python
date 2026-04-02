@@ -19,7 +19,7 @@ Set these environment variables for the staging smoke lane and release smoke run
 - `HONUA_LAYER_ID` defaults to `0`
 - `HONUA_API_KEY` optional, for staging environments that do not allow anonymous access
 - `HONUA_ENABLE_WRITE_SMOKE` defaults to `false` locally; set it to `true` when you want the add/query/update/delete roundtrip enabled in local or release smoke runs, and keep it `true` in the staging CI environment
-- `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke` and is recorded as a human-readable write-smoke tag in the feature `description`
+- `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke` and is used as the human-readable prefix in the feature `description` tag
 - `HONUA_SMOKE_RESULTS_PATH` defaults to `staging-smoke-results.json` for the pytest-driven staging lane
 
 The GitHub Actions live smoke lane only requires `HONUA_BASE_URL`. Set it in the repo or the
@@ -57,7 +57,7 @@ The shared smoke harness writes a machine-readable JSON report with `schema_vers
 - The staging pytest lane writes to `HONUA_SMOKE_RESULTS_PATH` or `staging-smoke-results.json`.
 - `scripts/release_smoke.py` writes to `release-smoke-results.json` unless `--results-path` overrides it.
 - Top-level fields include `started_at`, `completed_at`, `overall_status`, `target`, `probe_counts`, and `probes`.
-- `target` records `base_url`, `service_id`, `layer_id`, `write_smoke_enabled`, and `uid_prefix` (the configured write-smoke description tag).
+- `target` records `base_url`, `service_id`, `layer_id`, `write_smoke_enabled`, and `uid_prefix` (the configured write-smoke description prefix).
 - Each `probes[]` entry records `name`, `status`, `required`, `started_at`, `completed_at`, `details`, and an optional `error`.
 - When present, `error` records `type`, `message`, `context`, and, for `HonuaHttpError`, `status_code` plus `body`.
 - `overall_status` becomes `failed` only when a required probe fails. With `HONUA_ENABLE_WRITE_SMOKE=false`, the write roundtrip probe is recorded as `skipped` and does not fail the run.
@@ -69,10 +69,10 @@ The smoke probes assume the same seeded data-plane contract used by the server t
 
 - service id: `test_service`
 - layer id: `0`
-- minimum read-smoke field subset asserted by `query_seeded_layer`: `objectid`, `name`, `status`, `count`, `ratio`
+- minimum read-smoke field subset asserted by `query_seeded_layer`: `objectid`, `name`, `status`, `count`, `ratio`, `uid`
 
 The read smoke checks `readiness()`, `list_services()`, and `query_features(...)`.
-The same seeded layer also exposes `description` and `uid`. The write smoke uses that same service/layer for a minimal add -> query -> update -> query -> delete cycle, records a human-readable tag in `description`, validates the `uid` UUID field on the smoke-created record, and now verifies that the queried point geometry matches both the add and update payloads.
+The same seeded layer also exposes `description`. The write smoke uses that same service/layer for a minimal add -> query -> update -> query -> delete cycle, records a human-readable tag in `description`, validates the `uid` UUID field on the smoke-created record, and now verifies that the queried point geometry matches both the add and update payloads.
 
 If staging no longer exposes that contract, treat it as a bounded `honua-server` follow-on instead of changing the SDK smoke target inside this repo.
 

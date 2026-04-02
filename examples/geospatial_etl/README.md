@@ -44,7 +44,7 @@ python examples/geospatial_etl/run_etl.py
 
 The demo defaults to:
 
-- base URL: `http://localhost:8080`
+- base URL: `HONUA_BASE_URL` when set, otherwise `http://localhost:8080`
 - service id: `test_service`
 - layer id: `0`
 - target filter: `uid LIKE 'demo-etl-%'`
@@ -65,6 +65,7 @@ python examples/geospatial_etl/run_etl.py \
 ```
 
 For non-anonymous environments, pass `--api-key ...` or set `HONUA_API_KEY`.
+The CLI also defaults `--base-url` from `HONUA_BASE_URL` before falling back to `http://localhost:8080`.
 
 ## What The Script Demonstrates
 

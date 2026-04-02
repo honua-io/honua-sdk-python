@@ -85,6 +85,7 @@ def test_probe_query_seeded_layer_matches_current_seed_contract() -> None:
                             "count": 10,
                             "ratio": 1.5,
                             "status": "active",
+                            "uid": "11111111-1111-1111-1111-111111111111",
                         },
                         "geometry": {"x": -122.45, "y": 37.75},
                     }
@@ -97,7 +98,14 @@ def test_probe_query_seeded_layer_matches_current_seed_contract() -> None:
     )
 
     assert result["sample_objectid"] == 10
-    assert result["observed_fields"] == ["count", "name", "objectid", "ratio", "status"]
+    assert result["observed_fields"] == [
+        "count",
+        "name",
+        "objectid",
+        "ratio",
+        "status",
+        "uid",
+    ]
 
 
 def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(

@@ -8,6 +8,10 @@ converts them to a GeoDataFrame, and plots them with matplotlib.
 By the end you will have a map saved as `features.png` and a geocoded
 point overlaid on top of it.
 
+This quickstart is the smallest tour of the SDK surface. The maintained
+script-first example remains the [Geospatial ETL demo](../examples/geospatial_etl/README.md),
+and the notebook companion imports that same shared workflow module.
+
 ## Prerequisites
 
 - Python 3.11+
@@ -16,8 +20,10 @@ point overlaid on top of it.
 ## Step 1: Install (30 seconds)
 
 ```bash
-pip install honua-sdk geopandas matplotlib shapely
+pip install "honua-sdk[geopandas]" matplotlib
 ```
+
+The `geopandas` extra installs the GeoPandas and Shapely stack used later in this quickstart.
 
 ## Step 2: Query features (60 seconds)
 
@@ -230,6 +236,7 @@ plt.show()
 ## What's Next
 
 - [Geospatial ETL demo](../examples/geospatial_etl/README.md) -- canonical script-first ETL flow plus notebook companion, including the `load-summary.json` and `post-load-preview.png` output contract
+- [Troubleshooting](./troubleshooting.md) -- base URL selection, auth, staging smoke env vars, optional ETL dependencies, and cleanup guidance
 - [INSTALL.md](../INSTALL.md) -- installation options including gRPC extras
-- [gRPC client](../honua_sdk/grpc/) -- streaming feature queries via `HonuaGrpcClient`
-- [Admin client](../honua_sdk/admin/) -- server administration with `HonuaAdminClient`
+- [gRPC client](../packages/honua-sdk/honua_sdk/grpc/) -- streaming feature queries via `HonuaGrpcClient`
+- [Admin client](../packages/honua-admin/honua_admin/) -- server administration with `HonuaAdminClient`

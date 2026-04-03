@@ -9,8 +9,14 @@
 ## Validation
 
 - Run `python -m pytest tests/ -q --tb=short` on Python 3.11+.
+- Export `HONUA_BASE_URL` for staging validation, and set `HONUA_ENABLE_WRITE_SMOKE=true` when the release candidate should exercise the add/query/update/delete smoke roundtrip.
+- Run `python -m pytest tests/integration -q --run-integration -m "integration and staging and smoke" --tb=short` against staging when validating a release candidate.
 - Build the package with `hatch build`.
+- Create a clean virtual environment, install the built `honua-sdk` artifact, and run `python scripts/release_smoke.py --results-path release-smoke-results.json`.
+- Review `release-smoke-results.json` for `overall_status`, `probe_counts`, and any per-probe `error` payloads before publish.
 - Dry-run the `Publish Python SDK` workflow when validating a release candidate.
+
+Use [docs/troubleshooting.md](docs/troubleshooting.md) for the `HONUA_*` environment contract, seeded staging assumptions, and manual cleanup guidance.
 
 ## Publish
 

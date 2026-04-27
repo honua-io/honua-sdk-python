@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 import sys
 
 from _smoke_harness import (
-    SmokeConfig,
     SmokeConfigError,
     load_smoke_config_from_env,
     render_smoke_summary,
@@ -32,15 +32,7 @@ def main() -> int:
     except SmokeConfigError as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
-    config = SmokeConfig(
-        base_url=config.base_url,
-        service_id=config.service_id,
-        layer_id=config.layer_id,
-        api_key=config.api_key,
-        enable_write_smoke=config.enable_write_smoke,
-        uid_prefix=config.uid_prefix,
-        results_path=Path(args.results_path),
-    )
+    config = replace(config, results_path=Path(args.results_path))
 
     report = run_smoke_suite(config)
     report_path = report.write()

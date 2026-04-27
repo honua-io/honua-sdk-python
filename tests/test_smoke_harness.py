@@ -17,6 +17,14 @@ def test_load_smoke_config_from_env_uses_defaults(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delenv("HONUA_ENABLE_WRITE_SMOKE", raising=False)
     monkeypatch.delenv("HONUA_SMOKE_UID_PREFIX", raising=False)
     monkeypatch.delenv("HONUA_SMOKE_RESULTS_PATH", raising=False)
+    monkeypatch.delenv("HONUA_SERVER_COMMIT", raising=False)
+    monkeypatch.delenv("HONUA_SERVER_IMAGE", raising=False)
+    monkeypatch.delenv("HONUA_SEED_PROFILE", raising=False)
+    monkeypatch.delenv("HONUA_OGC_COLLECTION_ID", raising=False)
+    monkeypatch.delenv("HONUA_STAC_COLLECTION_ID", raising=False)
+    monkeypatch.delenv("HONUA_OGC_PROCESS_ID", raising=False)
+    monkeypatch.delenv("HONUA_OGC_PROCESS_PAYLOAD_JSON", raising=False)
+    monkeypatch.delenv("HONUA_PROTOCOL_BBOX", raising=False)
 
     config = smoke.load_smoke_config_from_env()
 
@@ -27,6 +35,14 @@ def test_load_smoke_config_from_env_uses_defaults(monkeypatch: pytest.MonkeyPatc
     assert config.enable_write_smoke is False
     assert config.uid_prefix == smoke.DEFAULT_UID_PREFIX
     assert config.results_path == smoke.DEFAULT_RESULTS_PATH
+    assert config.server_commit is None
+    assert config.server_image is None
+    assert config.seed_profile is None
+    assert config.ogc_collection_id is None
+    assert config.stac_collection_id is None
+    assert config.ogc_process_id is None
+    assert config.ogc_process_payload is None
+    assert config.protocol_bbox == smoke.DEFAULT_PROTOCOL_BBOX
 
 
 def test_load_smoke_config_from_env_requires_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -44,6 +60,41 @@ def test_load_smoke_config_from_env_rejects_bad_layer_id(monkeypatch: pytest.Mon
         smoke.load_smoke_config_from_env()
 
 
+def test_load_smoke_config_from_env_records_protocol_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HONUA_BASE_URL", "https://staging.example.test")
+    monkeypatch.setenv("HONUA_SERVER_COMMIT", "abc123")
+    monkeypatch.setenv("HONUA_SERVER_IMAGE", "ghcr.io/honua/server:staging")
+    monkeypatch.setenv("HONUA_SEED_PROFILE", "sdk-smoke")
+    monkeypatch.setenv("HONUA_OGC_COLLECTION_ID", "parcels")
+    monkeypatch.setenv("HONUA_STAC_COLLECTION_ID", "imagery")
+    monkeypatch.setenv("HONUA_OGC_PROCESS_ID", "buffer")
+    monkeypatch.setenv("HONUA_OGC_PROCESS_PAYLOAD_JSON", '{"inputs":{"distance":10}}')
+    monkeypatch.setenv("HONUA_PROTOCOL_BBOX", "-158,21,-157,22")
+
+    config = smoke.load_smoke_config_from_env()
+    target = config.target_dict()
+
+    assert config.server_commit == "abc123"
+    assert config.server_image == "ghcr.io/honua/server:staging"
+    assert config.seed_profile == "sdk-smoke"
+    assert config.ogc_collection_id == "parcels"
+    assert config.stac_collection_id == "imagery"
+    assert config.ogc_process_id == "buffer"
+    assert config.ogc_process_payload == {"inputs": {"distance": 10}}
+    assert config.protocol_bbox == (-158.0, 21.0, -157.0, 22.0)
+    assert target["sdk_package_version"]
+    assert target["server_commit"] == "abc123"
+    assert target["protocol_bbox"] == [-158.0, 21.0, -157.0, 22.0]
+
+
+def test_load_smoke_config_from_env_rejects_bad_protocol_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HONUA_BASE_URL", "https://staging.example.test")
+    monkeypatch.setenv("HONUA_OGC_PROCESS_PAYLOAD_JSON", "[1, 2]")
+
+    with pytest.raises(smoke.SmokeConfigError, match="must be a JSON object"):
+        smoke.load_smoke_config_from_env()
+
+
 def test_run_probe_captures_honua_http_error() -> None:
     result = smoke.run_probe(
         "readiness",
@@ -56,7 +107,190 @@ def test_run_probe_captures_honua_http_error() -> None:
     assert result.error["status_code"] == 503
     assert result.error["message"] == "staging unavailable"
     assert result.error["body"] == {"retry": True}
+    assert result.error["body_summary"] == '{"retry": true}'
     assert result.error["context"]["base_url"] == "https://staging.example.test"
+
+
+def test_run_probe_can_skip_optional_unsupported_http_status() -> None:
+    result = smoke.run_probe(
+        "map_server_metadata",
+        lambda: (_ for _ in ()).throw(HonuaHttpError(404, "not found", body={"detail": "missing"})),
+        required=False,
+        context={
+            "protocol_surface": "GeoServices MapServer",
+            "sdk_method": "HonuaClient.map_server(...).metadata",
+            "request_path": "/rest/services/test_service/MapServer",
+        },
+        skip_http_statuses=smoke.OPTIONAL_PROTOCOL_SKIP_HTTP_STATUSES,
+    )
+
+    assert result.status == "skipped"
+    assert result.error is None
+    assert result.details["error"]["status_code"] == 404
+    assert result.details["context"]["sdk_method"] == "HonuaClient.map_server(...).metadata"
+
+
+def test_run_protocol_surface_smoke_records_public_sdk_probe_metadata() -> None:
+    class FakeFeatureServer:
+        def metadata(self) -> dict[str, object]:
+            return {"name": "test_service", "currentVersion": 11.3}
+
+        def layer_metadata(self, layer_id: int) -> dict[str, object]:
+            assert layer_id == 0
+            return {"id": 0, "name": "parcels"}
+
+    class FakeMapServer:
+        def metadata(self) -> dict[str, object]:
+            return {"name": "test_service"}
+
+        def export(self, bbox, *, size: tuple[int, int], image_format: str) -> bytes:
+            assert list(bbox) == list(smoke.DEFAULT_PROTOCOL_BBOX)
+            assert size == (256, 256)
+            assert image_format == "png"
+            return b"map"
+
+        def identify(
+            self,
+            *,
+            geometry: dict[str, float],
+            map_extent,
+            image_display: str,
+            layers: str,
+            return_geometry: bool,
+        ) -> dict[str, object]:
+            assert geometry == smoke.INITIAL_GEOMETRY
+            assert list(map_extent) == list(smoke.DEFAULT_PROTOCOL_BBOX)
+            assert image_display == smoke.DEFAULT_IMAGE_DISPLAY
+            assert layers == "all:0"
+            assert return_geometry is False
+            return {"results": []}
+
+    class FakeImageServer:
+        def metadata(self) -> dict[str, object]:
+            return {"name": "imagery"}
+
+        def export_image(self, bbox, *, size: tuple[int, int], image_format: str) -> bytes:
+            assert list(bbox) == list(smoke.DEFAULT_PROTOCOL_BBOX)
+            assert size == (256, 256)
+            assert image_format == "png"
+            return b"image"
+
+        def identify(self, geometry: dict[str, float]) -> dict[str, object]:
+            assert geometry == smoke.INITIAL_GEOMETRY
+            return {"value": 1}
+
+    class FakeOgcFeatureCollection:
+        def metadata(self) -> dict[str, object]:
+            return {"id": "parcels"}
+
+        def items(self, *, limit: int) -> dict[str, object]:
+            assert limit == smoke.READ_QUERY_LIMIT
+            return {"features": [{"id": "1"}]}
+
+    class FakeOgcFeatures:
+        def landing(self) -> dict[str, object]:
+            return {"title": "Features"}
+
+        def collections(self) -> dict[str, object]:
+            return {"collections": [{"id": "parcels"}]}
+
+        def collection(self, collection_id: str) -> FakeOgcFeatureCollection:
+            assert collection_id == "parcels"
+            return FakeOgcFeatureCollection()
+
+    class FakeOgcMaps:
+        def landing(self) -> dict[str, object]:
+            return {"title": "Maps"}
+
+        def collection_map(self, collection_id: str, *, bbox) -> bytes:
+            assert collection_id == "parcels"
+            assert list(bbox) == list(smoke.DEFAULT_PROTOCOL_BBOX)
+            return b"map"
+
+    class FakeOgcTiles:
+        def collections(self) -> dict[str, object]:
+            return {"collections": [{"id": "parcels"}]}
+
+        def collection_tilesets(self, collection_id: str) -> dict[str, object]:
+            assert collection_id == "parcels"
+            return {"tilesets": [{"tileMatrixSetURI": "WebMercatorQuad"}]}
+
+    class FakeOgcProcesses:
+        def processes(self) -> dict[str, object]:
+            return {"processes": [{"id": "buffer"}]}
+
+    class FakeStac:
+        def catalog(self) -> dict[str, object]:
+            return {"type": "Catalog"}
+
+        def collections(self) -> dict[str, object]:
+            return {"collections": [{"id": "imagery"}]}
+
+        def items(self, collection_id: str, *, extra_params: dict[str, int]) -> dict[str, object]:
+            assert collection_id == "imagery"
+            assert extra_params == {"limit": smoke.READ_QUERY_LIMIT}
+            return {"features": [{"id": "scene-1"}]}
+
+    class FakeOData:
+        def service_document(self) -> dict[str, object]:
+            return {"value": [{"name": "Layers"}]}
+
+        def features(self, *, layer_id: int, extra_params: dict[str, int]) -> dict[str, object]:
+            assert layer_id == 0
+            assert extra_params == {"$top": smoke.READ_QUERY_LIMIT}
+            return {"value": [{"ObjectId": 1}]}
+
+    class FakeClient:
+        def feature_server(self, service_id: str) -> FakeFeatureServer:
+            assert service_id == "test_service"
+            return FakeFeatureServer()
+
+        def map_server(self, service_id: str) -> FakeMapServer:
+            assert service_id == "test_service"
+            return FakeMapServer()
+
+        def image_server(self, service_id: str) -> FakeImageServer:
+            assert service_id == "test_service"
+            return FakeImageServer()
+
+        def ogc_features(self) -> FakeOgcFeatures:
+            return FakeOgcFeatures()
+
+        def ogc_maps(self) -> FakeOgcMaps:
+            return FakeOgcMaps()
+
+        def ogc_tiles(self) -> FakeOgcTiles:
+            return FakeOgcTiles()
+
+        def ogc_processes(self) -> FakeOgcProcesses:
+            return FakeOgcProcesses()
+
+        def stac(self) -> FakeStac:
+            return FakeStac()
+
+        def odata(self) -> FakeOData:
+            return FakeOData()
+
+    config = smoke.SmokeConfig(
+        base_url="https://staging.example.test",
+        server_commit="abc123",
+        server_image="ghcr.io/honua/server:staging",
+        seed_profile="sdk-smoke",
+        ogc_collection_id="parcels",
+        stac_collection_id="imagery",
+    )
+    report = smoke.SmokeReport(config=config)
+
+    results = smoke.run_protocol_surface_smoke(FakeClient(), config, report)
+    by_name = {result.name: result for result in results}
+
+    assert by_name["feature_server_metadata"].status == "passed"
+    assert by_name["feature_server_metadata"].details["protocol_surface"] == "GeoServices FeatureServer"
+    assert by_name["feature_server_metadata"].details["server_commit"] == "abc123"
+    assert by_name["feature_server_metadata"].details["sdk_package_version"]
+    assert by_name["ogc_features_collection_items"].details["collection_id"] == "parcels"
+    assert by_name["stac_collection_items"].details["collection_id"] == "imagery"
+    assert by_name["ogc_processes_execute"].status == "skipped"
 
 
 def test_probe_query_seeded_layer_matches_current_seed_contract() -> None:
@@ -327,6 +561,7 @@ def test_probe_apply_edits_roundtrip_preserves_http_error_when_cleanup_also_fail
         "message": "cleanup denied",
         "status_code": 500,
         "body": {"stage": "cleanup"},
+        "body_summary": '{"stage": "cleanup"}',
     }
 
 

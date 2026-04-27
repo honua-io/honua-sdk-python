@@ -25,3 +25,9 @@ The Python clients intentionally return protocol-native JSON, XML text, or bytes
 instead of introducing heavy local models. That keeps parity focused on endpoint
 coverage, auth, retries, timeouts, and normalized errors while preserving standard
 payloads for GeoPandas, PySTAC, GDAL/OGR, and analyst workflows.
+
+The staging smoke lane backs this parity table with SDK-owned live probes for the
+public protocol clients. The smoke report records the SDK package version, server
+commit/image metadata, seed profile, protocol surface, SDK method, request path,
+and bounded HTTP error body summaries for each probe. Optional surfaces are
+reported as skipped when a deployment does not advertise or enable them.

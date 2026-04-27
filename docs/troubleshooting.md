@@ -21,11 +21,16 @@ Set these environment variables for the staging smoke lane and release smoke run
 - `HONUA_ENABLE_WRITE_SMOKE` defaults to `false` locally; set it to `true` when you want the add/query/update/delete roundtrip enabled in local or release smoke runs, and keep it `true` in the staging CI environment
 - `HONUA_SMOKE_UID_PREFIX` defaults to `sdk-python-smoke` and is used as the human-readable prefix in the feature `description` tag
 - `HONUA_SMOKE_RESULTS_PATH` defaults to `staging-smoke-results.json` for the pytest-driven staging lane
+- `HONUA_SERVER_COMMIT`, `HONUA_SERVER_IMAGE`, and `HONUA_SEED_PROFILE` are optional metadata fields recorded in the smoke artifact for traceability
+- `HONUA_OGC_COLLECTION_ID` and `HONUA_STAC_COLLECTION_ID` optionally pin the deterministic collection used by OGC and STAC collection-item probes
+- `HONUA_OGC_PROCESS_ID` plus `HONUA_OGC_PROCESS_PAYLOAD_JSON` opt in to OGC Processes execution coverage; without both, the process execution probe is recorded as skipped
+- `HONUA_PROTOCOL_BBOX` optionally overrides the render/export bbox as four comma-separated numbers and defaults to `-180,-90,180,90`
 
 The GitHub Actions live smoke lane only requires `HONUA_BASE_URL`. Set it in the repo or the
 `staging` environment before enabling the workflow as a required PR check. `HONUA_SERVICE_ID`
-and `HONUA_LAYER_ID` stay optional and fall back to `test_service` / `0`; set `HONUA_API_KEY`
-as a secret when the target deployment requires auth.
+and `HONUA_LAYER_ID` stay optional and fall back to `test_service` / `0`; set protocol-specific
+variables only when staging uses non-default seed IDs. Set `HONUA_API_KEY` as a secret when the
+target deployment requires auth.
 
 Same-repo pull requests skip the live smoke lane until `HONUA_BASE_URL` is configured so the
 branch does not fail purely on missing GitHub Actions setup. `trunk`, scheduled, and manual
@@ -57,9 +62,10 @@ The shared smoke harness writes a machine-readable JSON report with `schema_vers
 - The staging pytest lane writes to `HONUA_SMOKE_RESULTS_PATH` or `staging-smoke-results.json`.
 - `scripts/release_smoke.py` writes to `release-smoke-results.json` unless `--results-path` overrides it.
 - Top-level fields include `started_at`, `completed_at`, `overall_status`, `target`, `probe_counts`, and `probes`.
-- `target` records `base_url`, `service_id`, `layer_id`, `write_smoke_enabled`, and `uid_prefix` (the configured write-smoke description prefix).
+- `target` records `base_url`, `service_id`, `layer_id`, `sdk_package_version`, server commit/image metadata, seed profile, protocol collection IDs, bbox, `write_smoke_enabled`, and `uid_prefix` (the configured write-smoke description prefix).
 - Each `probes[]` entry records `name`, `status`, `required`, `started_at`, `completed_at`, `details`, and an optional `error`.
-- When present, `error` records `type`, `message`, `context`, and, for `HonuaHttpError`, `status_code` plus `body`.
+- Protocol probe `details` and failure `context` include `protocol_surface`, `sdk_method`, and `request_path`.
+- When present, `error` records `type`, `message`, `context`, and, for `HonuaHttpError`, `status_code`, `body`, and a bounded `body_summary`.
 - `overall_status` becomes `failed` only when a required probe fails. With `HONUA_ENABLE_WRITE_SMOKE=false`, the write roundtrip probe is recorded as `skipped` and does not fail the run.
 - `.github/workflows/staging-integration.yml` also uploads `staging-smoke-junit.xml` and writes a short step summary rendered from the JSON report.
 
@@ -73,6 +79,12 @@ The smoke probes assume the same seeded data-plane contract used by the server t
 
 The read smoke checks `readiness()`, `list_services()`, and `query_features(...)`.
 The same seeded layer also exposes `description`. The write smoke uses that same service/layer for a minimal add -> query -> update -> query -> delete cycle, records a human-readable tag in `description`, validates the `uid` UUID field on the smoke-created record, and now verifies that the queried point geometry matches both the add and update payloads.
+
+The protocol smoke extension also records public-SDK probes for FeatureServer metadata, optional
+MapServer rendering and identify, optional ImageServer metadata/export/identify, OGC Features,
+OGC Maps, OGC Tiles, OGC Processes list/optional execution, STAC, and OData. Optional protocol
+surfaces that return HTTP 400, 404, 405, or 501 are recorded as skipped so one deployment can
+exercise the surfaces it supports without masking required FeatureServer regressions.
 
 If staging no longer exposes that contract, treat it as a bounded `honua-server` follow-on instead of changing the SDK smoke target inside this repo.
 

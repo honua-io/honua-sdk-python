@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import httpx
 
+from .auth import AuthProvider, SENSITIVE_AUTH_HEADER_NAMES, normalize_auth_headers
 from .errors import HonuaHttpError
 
 
@@ -32,6 +33,15 @@ def _build_sensitive_auth_headers(
     return headers
 
 
+def _validate_auth_configuration(
+    *,
+    bearer_token: str | None,
+    auth_provider: AuthProvider | None,
+) -> None:
+    if bearer_token is not None and auth_provider is not None:
+        raise ValueError("Provide either `bearer_token` or `auth_provider`, not both.")
+
+
 def _extract_trusted_authority(url: httpx.URL) -> tuple[str, int | None]:
     """Return ``(host, port)`` from *url* for use as a trusted-origin key.
 
@@ -47,6 +57,7 @@ def _apply_sensitive_auth_headers(
     *,
     trusted_authority: tuple[str, int | None] | None,
     auth_headers: Mapping[str, str],
+    auth_provider: AuthProvider | None = None,
 ) -> None:
     """Attach or strip sensitive headers depending on the request target.
 
@@ -54,17 +65,26 @@ def _apply_sensitive_auth_headers(
     *trusted_authority* exactly; otherwise they are stripped to prevent
     credential leakage on redirects.
     """
-    if not auth_headers or trusted_authority is None:
+    if trusted_authority is None:
         return
 
     request_authority = (request.url.host, request.url.port)
     if request_authority == trusted_authority:
+        dynamic_headers = _auth_provider_headers(auth_provider)
         for name, value in auth_headers.items():
+            request.headers.setdefault(name, value)
+        for name, value in dynamic_headers.items():
             request.headers.setdefault(name, value)
         return
 
-    for name in auth_headers:
+    for name in SENSITIVE_AUTH_HEADER_NAMES:
         request.headers.pop(name, None)
+
+
+def _auth_provider_headers(auth_provider: AuthProvider | None) -> dict[str, str]:
+    if auth_provider is None:
+        return {}
+    return normalize_auth_headers(auth_provider.auth_headers())
 
 
 def _to_http_error(response: httpx.Response) -> HonuaHttpError:

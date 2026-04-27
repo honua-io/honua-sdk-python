@@ -162,6 +162,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [Geospatial ETL demo](examples/geospatial_etl/README.md) -- canonical script-first ETL flow plus notebook companion, with `load-summary.json` / `post-load-preview.png` artifacts and the `apply_edits` contract
+- [Authentication](docs/auth.md) -- refreshable bearer tokens, secure storage guidance, revocation, rotation, and failure modes
 - [Troubleshooting](docs/troubleshooting.md) -- staging smoke env vars and result artifacts, auth expectations, seeded `test_service` / layer `0` assumptions, optional example dependencies, and cleanup guidance
 - [Operating Cadence](docs/operating-cadence.md) -- weekly backlog review, scope gate, and done/close hygiene
 - [INSTALL.md](INSTALL.md) -- installation options and version policy

@@ -16,6 +16,15 @@ try:
 except Exception:  # pragma: no cover -- editable / not-installed fallback
     __version__ = "0.0.0.dev0"
 
+from .auth import (
+    AuthProvider,
+    BearerToken,
+    CallableAuthProvider,
+    InMemoryTokenStore,
+    RefreshableBearerTokenProvider,
+    StaticAuthProvider,
+    TokenStore,
+)
 from .async_client import AsyncHonuaClient
 from .async_geocoding import AsyncHonuaGeocodingClient
 from .client import HonuaClient
@@ -50,10 +59,13 @@ from .protocols import (
 
 __all__ = [
     "__version__",
+    "AuthProvider",
     "AsyncHonuaClient",
     "AsyncHonuaGeocodingClient",
     "AsyncHonuaOgcFeatureCollection",
     "AsyncHonuaOgcFeatures",
+    "BearerToken",
+    "CallableAuthProvider",
     "GeocodeResult",
     "GeocodeSuggestion",
     "GeoServicesFeatureServerClient",
@@ -67,13 +79,17 @@ __all__ = [
     "HonuaGeocodingClient",
     "HonuaOgcFeatureCollection",
     "HonuaOgcFeatures",
+    "InMemoryTokenStore",
     "ODataClient",
     "OgcCoveragesClient",
     "OgcMapsClient",
     "OgcProcessesClient",
     "OgcTilesClient",
+    "RefreshableBearerTokenProvider",
     "ReverseGeocodeResult",
     "StacClient",
+    "StaticAuthProvider",
+    "TokenStore",
     "WfsClient",
     "WmsClient",
     "WmtsClient",

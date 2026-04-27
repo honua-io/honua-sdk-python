@@ -33,6 +33,18 @@ with HonuaAdminClient("https://your-honua-server.com", api_key="key") as admin:
         print(f"{svc.service_name}: {svc.layer_count} layers")
 ```
 
+Refreshable SDK auth providers are also accepted:
+
+```python
+from honua_admin import HonuaAdminClient
+from honua_sdk import RefreshableBearerTokenProvider
+
+auth = RefreshableBearerTokenProvider(lambda: {"access_token": "token", "expires_in": 3600})
+
+with HonuaAdminClient("https://your-honua-server.com", auth_provider=auth) as admin:
+    services = admin.list_services()
+```
+
 ## License
 
 Apache-2.0

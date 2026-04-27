@@ -31,6 +31,17 @@ with HonuaClient("https://your-honua-server.com") as client:
     print(f"Found {len(result.get('features', []))} features")
 ```
 
+## Refreshable Auth
+
+```python
+from honua_sdk import HonuaClient, RefreshableBearerTokenProvider
+
+auth = RefreshableBearerTokenProvider(lambda: {"access_token": "token", "expires_in": 3600})
+
+with HonuaClient("https://your-honua-server.com", auth_provider=auth) as client:
+    services = client.list_services()
+```
+
 ## OGC API Features
 
 ```python
@@ -60,6 +71,7 @@ with HonuaClient("https://your-honua-server.com") as client:
 
 - [5-Minute Quickstart](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/quickstart.md) - query features, convert them to a GeoDataFrame, and plot them
 - [Geospatial ETL demo](https://github.com/honua-io/honua-sdk-python/blob/trunk/examples/geospatial_etl/README.md) - canonical script-first extract/validate/write/reconcile flow with the notebook companion and `load-summary.json` / `post-load-preview.png` contract
+- [Authentication](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/auth.md) - refreshable bearer tokens, secure storage guidance, revocation, rotation, and failure modes
 - [Troubleshooting](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/troubleshooting.md) - base URL selection, auth, staging smoke env vars, JSON/JUnit artifacts, and cleanup guidance
 - [Monorepo README](https://github.com/honua-io/honua-sdk-python) - install options and package overview
 

@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import HonuaClient, HonuaHttpError
+from honua_sdk import CallableAuthProvider, HonuaClient, HonuaHttpError
 
 
 def test_query_features_builds_expected_request() -> None:
@@ -224,6 +224,38 @@ def test_auth_headers_are_attached() -> None:
     assert seen["authorization"] == "Bearer test-token"
 
 
+def test_auth_provider_headers_are_resolved_per_request() -> None:
+    seen: list[str] = []
+    api_keys = iter(["rotated-key-1", "rotated-key-2"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("x-api-key", ""))
+        if request.url.path == "/healthz/ready":
+            return httpx.Response(200, json={"status": "ready"})
+        return httpx.Response(200, json={"services": []})
+
+    transport = httpx.MockTransport(handler)
+    auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
+
+    with HonuaClient("http://example.test", transport=transport, auth_provider=auth_provider) as client:
+        client.readiness()
+        client.list_services()
+
+    assert seen == ["rotated-key-1", "rotated-key-2"]
+
+
+def test_auth_provider_cannot_be_combined_with_static_bearer_token() -> None:
+    auth_provider = CallableAuthProvider(lambda: {"Authorization": "Bearer dynamic"})
+
+    with pytest.raises(ValueError, match="bearer_token.*auth_provider"):
+        HonuaClient(
+            "http://example.test",
+            bearer_token="static",
+            auth_provider=auth_provider,
+            transport=httpx.MockTransport(lambda request: httpx.Response(200)),
+        )
+
+
 def test_non_success_raises_honua_http_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -296,6 +328,46 @@ def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host()
     assert len(seen) == 2
     assert seen[0] == ("example.test", "test-key", "Bearer test-token")
     assert seen[1] == ("evil.example", "", "")
+
+
+def test_follow_redirects_does_not_forward_auth_provider_headers_to_different_host() -> None:
+    seen: list[tuple[str, str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.url.host or "",
+                request.headers.get("x-api-key", ""),
+                request.headers.get("authorization", ""),
+            )
+        )
+        if request.url.host == "example.test":
+            return httpx.Response(
+                302,
+                headers={"Location": "https://evil.example/healthz/ready"},
+            )
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    auth_provider = CallableAuthProvider(
+        lambda: {
+            "Authorization": "Bearer dynamic-token",
+            "X-API-Key": "dynamic-key",
+        }
+    )
+    with HonuaClient(
+        "http://example.test",
+        transport=transport,
+        auth_provider=auth_provider,
+        follow_redirects=True,
+    ) as client:
+        response = client.readiness()
+
+    assert response == {"status": "ready"}
+    assert seen == [
+        ("example.test", "dynamic-key", "Bearer dynamic-token"),
+        ("evil.example", "", ""),
+    ]
 
 
 def test_transport_errors_are_normalized_to_honua_http_error() -> None:

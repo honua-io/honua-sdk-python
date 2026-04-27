@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
+from honua_sdk import CallableAuthProvider
 from honua_sdk.async_client import AsyncHonuaClient
 from honua_sdk.errors import HonuaHttpError
 
@@ -127,6 +128,26 @@ async def test_auth_headers_are_attached() -> None:
     assert response["status"] == "ready"
     assert seen["x_api_key"] == "test-key"
     assert seen["authorization"] == "Bearer test-token"
+
+
+async def test_auth_provider_headers_are_resolved_per_request() -> None:
+    seen: list[str] = []
+    api_keys = iter(["async-key-1", "async-key-2"])
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("x-api-key", ""))
+        if request.url.path == "/healthz/ready":
+            return httpx.Response(200, json={"status": "ready"})
+        return httpx.Response(200, json={"services": []})
+
+    transport = httpx.MockTransport(handler)
+    auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
+
+    async with AsyncHonuaClient("http://example.test", transport=transport, auth_provider=auth_provider) as client:
+        await client.readiness()
+        await client.list_services()
+
+    assert seen == ["async-key-1", "async-key-2"]
 
 
 async def test_non_success_raises_honua_http_error() -> None:

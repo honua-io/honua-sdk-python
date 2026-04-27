@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import HonuaHttpError
+from honua_sdk import CallableAuthProvider, HonuaHttpError
 from honua_admin import (
     HonuaAdminClient,
     ServiceSettingsResponse,
@@ -275,6 +275,24 @@ def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host()
     assert len(seen) == 2
     assert seen[0] == ("test.honua.io", "test-key", "Bearer test-token")
     assert seen[1] == ("evil.example", "", "")
+
+
+def test_admin_client_auth_provider_headers_are_resolved_per_request() -> None:
+    seen: list[str] = []
+    api_keys = iter(["admin-key-1", "admin-key-2"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("x-api-key", ""))
+        return httpx.Response(200, json=make_api_response([]))
+
+    transport = httpx.MockTransport(handler)
+    auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
+
+    with HonuaAdminClient("http://test.honua.io", transport=transport, auth_provider=auth_provider) as client:
+        client.list_services()
+        client.list_services()
+
+    assert seen == ["admin-key-1", "admin-key-2"]
 
 
 def test_transport_errors_are_normalized_to_honua_http_error() -> None:

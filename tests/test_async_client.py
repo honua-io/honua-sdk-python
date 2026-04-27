@@ -59,6 +59,48 @@ async def test_list_services_returns_json() -> None:
     assert response == {"services": [{"name": "s1"}]}
 
 
+async def test_list_service_summaries_returns_typed_catalog_entries() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/rest/services"
+        return httpx.Response(
+            200,
+            json={"services": [{"name": "parcels", "type": "FeatureServer"}]},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        services = await client.list_service_summaries()
+
+    assert services[0].name == "parcels"
+    assert services[0].type == "FeatureServer"
+
+
+async def test_query_features_all_returns_typed_paginated_features() -> None:
+    seen: list[tuple[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append((query["resultOffset"], query["resultRecordCount"]))
+        offset = int(query["resultOffset"])
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {"attributes": {"objectid": offset + 1}},
+                    {"attributes": {"objectid": offset + 2}},
+                ],
+                "exceededTransferLimit": offset == 0,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = await client.query_features_all("parcels", 0, page_size=2, limit=3)
+
+    assert [feature.object_id for feature in features] == [1, 2, 3]
+    assert seen == [("0", "2"), ("2", "1")]
+
+
 async def test_ogc_features_items_builds_expected_request() -> None:
     seen: dict[str, Any] = {}
 
@@ -234,6 +276,19 @@ async def test_apply_edits_posts_json_payload() -> None:
     assert seen["payload"]["rollbackOnFailure"] is True
     assert seen["payload"]["adds"][0]["attributes"]["name"] == "A"
     assert seen["payload"]["deletes"] == [1, 3]
+
+
+async def test_apply_edits_result_returns_typed_operation_results() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"addResults": [{"success": True, "objectId": 10}]})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        result = await client.apply_edits_result("parcels", 0, adds=[{"attributes": {"name": "A"}}])
+
+    assert result.add_results[0].success is True
+    assert result.add_results[0].object_id == 10
+    assert result.all_succeeded is True
 
 
 async def test_client_rejects_both_client_and_transport() -> None:

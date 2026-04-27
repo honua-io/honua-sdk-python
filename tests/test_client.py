@@ -51,6 +51,83 @@ def test_query_features_url_encodes_service_id_path_segment() -> None:
     assert seen["raw_path"] == "/rest/services/team%20alpha%2Fdefault/FeatureServer/2/query"
 
 
+def test_list_service_summaries_returns_typed_catalog_entries() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/rest/services"
+        return httpx.Response(
+            200,
+            json={
+                "services": [
+                    {"name": "parcels", "type": "FeatureServer", "url": "/rest/services/parcels/FeatureServer"}
+                ]
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        services = client.list_service_summaries()
+
+    assert len(services) == 1
+    assert services[0].name == "parcels"
+    assert services[0].type == "FeatureServer"
+    assert services[0].raw["url"] == "/rest/services/parcels/FeatureServer"
+
+
+def test_query_feature_set_returns_typed_features() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/rest/services/parcels/FeatureServer/0/query"
+        return httpx.Response(
+            200,
+            json={
+                "geometryType": "esriGeometryPoint",
+                "spatialReference": {"wkid": 4326},
+                "fields": [{"name": "objectid", "type": "esriFieldTypeOID"}],
+                "features": [
+                    {
+                        "attributes": {"objectid": 10, "name": "A"},
+                        "geometry": {"x": -157.8, "y": 21.3},
+                    }
+                ],
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        feature_set = client.query_feature_set("parcels", 0)
+
+    assert feature_set.geometry_type == "esriGeometryPoint"
+    assert feature_set.spatial_reference == {"wkid": 4326}
+    assert feature_set.features[0].object_id == 10
+    assert feature_set.features[0].attributes["name"] == "A"
+
+
+def test_query_features_all_pages_until_transfer_limit_clears() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append((query["resultOffset"], query["resultRecordCount"]))
+        offset = int(query["resultOffset"])
+        features = [
+            {"attributes": {"objectid": offset + 1}},
+            {"attributes": {"objectid": offset + 2}},
+        ]
+        return httpx.Response(
+            200,
+            json={
+                "features": features,
+                "exceededTransferLimit": offset == 0,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.query_features_all("parcels", 0, page_size=2, limit=3)
+
+    assert [feature.object_id for feature in features] == [1, 2, 3]
+    assert seen == [("0", "2"), ("2", "1")]
+
+
 def test_ogc_features_metadata_and_items_build_expected_requests() -> None:
     seen: list[dict[str, Any]] = []
 
@@ -200,6 +277,27 @@ def test_apply_edits_posts_json_payload() -> None:
     assert seen["payload"]["rollbackOnFailure"] is True
     assert seen["payload"]["adds"][0]["attributes"]["name"] == "A"
     assert seen["payload"]["deletes"] == [1, 3]
+
+
+def test_apply_edits_result_returns_typed_operation_results() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "addResults": [{"success": True, "objectId": 10}],
+                "updateResults": [{"success": True, "objectId": 11}],
+                "deleteResults": [{"success": False, "objectId": 12, "error": {"message": "locked"}}],
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        result = client.apply_edits_result("parcels", 0, deletes=[12])
+
+    assert result.add_results[0].object_id == 10
+    assert result.update_results[0].success is True
+    assert result.delete_results[0].error == {"message": "locked"}
+    assert result.all_succeeded is False
 
 
 def test_auth_headers_are_attached() -> None:

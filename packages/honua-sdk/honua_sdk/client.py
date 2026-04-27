@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -17,6 +17,24 @@ from ._http import (
     _to_http_error,
     _to_transport_error,
 )
+
+if TYPE_CHECKING:
+    from .ogc import HonuaOgcFeatures
+    from .protocols import (
+        GeoServicesFeatureServerClient,
+        GeoServicesGeometryServerClient,
+        GeoServicesImageServerClient,
+        GeoServicesMapServerClient,
+        ODataClient,
+        OgcCoveragesClient,
+        OgcMapsClient,
+        OgcProcessesClient,
+        OgcTilesClient,
+        StacClient,
+        WfsClient,
+        WmsClient,
+        WmtsClient,
+    )
 
 
 def _bool_text(value: bool) -> str:
@@ -92,6 +110,90 @@ class HonuaClient:
             "/rest/services",
             params={"f": response_format},
         )
+
+    def ogc_features(self) -> "HonuaOgcFeatures":
+        """Return an OGC API Features wrapper bound to this client."""
+        from .ogc import HonuaOgcFeatures
+
+        return HonuaOgcFeatures(self)
+
+    def feature_server(self, service_id: str) -> "GeoServicesFeatureServerClient":
+        """Return a GeoServices FeatureServer wrapper for a service."""
+        from .protocols import GeoServicesFeatureServerClient
+
+        return GeoServicesFeatureServerClient(self, service_id)
+
+    def map_server(self, service_id: str) -> "GeoServicesMapServerClient":
+        """Return a GeoServices MapServer wrapper for a service."""
+        from .protocols import GeoServicesMapServerClient
+
+        return GeoServicesMapServerClient(self, service_id)
+
+    def image_server(self, service_id: str | None = None) -> "GeoServicesImageServerClient":
+        """Return a GeoServices ImageServer wrapper."""
+        from .protocols import GeoServicesImageServerClient
+
+        return GeoServicesImageServerClient(self, service_id)
+
+    def geometry_server(self) -> "GeoServicesGeometryServerClient":
+        """Return the GeoServices GeometryServer wrapper."""
+        from .protocols import GeoServicesGeometryServerClient
+
+        return GeoServicesGeometryServerClient(self)
+
+    def ogc_maps(self) -> "OgcMapsClient":
+        """Return an OGC API Maps wrapper."""
+        from .protocols import OgcMapsClient
+
+        return OgcMapsClient(self)
+
+    def ogc_tiles(self) -> "OgcTilesClient":
+        """Return an OGC API Tiles wrapper."""
+        from .protocols import OgcTilesClient
+
+        return OgcTilesClient(self)
+
+    def ogc_coverages(self) -> "OgcCoveragesClient":
+        """Return an OGC API Coverages wrapper."""
+        from .protocols import OgcCoveragesClient
+
+        return OgcCoveragesClient(self)
+
+    def ogc_processes(self) -> "OgcProcessesClient":
+        """Return an OGC API Processes wrapper."""
+        from .protocols import OgcProcessesClient
+
+        return OgcProcessesClient(self)
+
+    def stac(self) -> "StacClient":
+        """Return a STAC API wrapper."""
+        from .protocols import StacClient
+
+        return StacClient(self)
+
+    def wfs(self) -> "WfsClient":
+        """Return a WFS 2.0 wrapper."""
+        from .protocols import WfsClient
+
+        return WfsClient(self)
+
+    def wms(self, service_id: str) -> "WmsClient":
+        """Return a service-scoped WMS wrapper."""
+        from .protocols import WmsClient
+
+        return WmsClient(self, service_id)
+
+    def wmts(self, service_id: str) -> "WmtsClient":
+        """Return a service-scoped WMTS wrapper."""
+        from .protocols import WmtsClient
+
+        return WmtsClient(self, service_id)
+
+    def odata(self) -> "ODataClient":
+        """Return an OData v4 wrapper."""
+        from .protocols import ODataClient
+
+        return ODataClient(self)
 
     def query_features(
         self,
@@ -196,8 +298,9 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
-        response = self._request(method, path, params=params, json_body=json_body)
+        response = self._request(method, path, params=params, json_body=json_body, headers=headers)
         if not response.content:
             return {}
 
@@ -217,6 +320,7 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
         # Build a full URL so httpx does not re-decode percent-encoded
         # path segments during base-URL resolution.
@@ -228,6 +332,7 @@ class HonuaClient:
                 url=url,
                 params=params,
                 json=json_body,
+                headers=headers,
             )
         except httpx.HTTPError as exc:
             raise _to_transport_error(exc) from exc

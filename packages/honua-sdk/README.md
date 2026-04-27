@@ -31,6 +31,31 @@ with HonuaClient("https://your-honua-server.com") as client:
     print(f"Found {len(result.get('features', []))} features")
 ```
 
+## OGC API Features
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://your-honua-server.com") as client:
+    parcels = client.ogc_features().collection("parcels")
+    items = parcels.items(limit=100, filter="status = 'active'")
+    all_items = parcels.items_all(page_size=500, max_pages=20)
+    feature = parcels.item("123")
+```
+
+## Protocol Clients
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://your-honua-server.com") as client:
+    image = client.ogc_maps().collection_map("parcels", bbox=[-180, -90, 180, 90])
+    tile = client.ogc_tiles().tile("WebMercatorQuad", "0", 0, 0, collection_id="parcels")
+    stac_items = client.stac().items("imagery")
+    wms_capabilities = client.wms("basemap").capabilities()
+    odata_features = client.odata().features(layer_id=0)
+```
+
 ## Documentation
 
 - [5-Minute Quickstart](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/quickstart.md) - query features, convert them to a GeoDataFrame, and plot them

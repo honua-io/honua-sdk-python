@@ -53,6 +53,35 @@ with HonuaClient("https://your-honua-server.com") as client:
     print(f"Found {len(features)} features")
 ```
 
+### OGC API Features
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://your-honua-server.com") as client:
+    ogc = client.ogc_features()
+    collections = ogc.collections()
+
+    parcels = ogc.collection("parcels")
+    items = parcels.items(limit=100, filter="status = 'active'")
+    all_items = parcels.items_all(page_size=500, max_pages=20)
+    feature = parcels.item("123")
+```
+
+### Protocol clients
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://your-honua-server.com") as client:
+    map_png = client.ogc_maps().collection_map("parcels", bbox=[-180, -90, 180, 90])
+    stac_items = client.stac().items("imagery")
+    wfs_xml = client.wfs().get_feature(type_names="parcels")
+    odata_features = client.odata().features(layer_id=0)
+```
+
+See [Protocol Parity](docs/protocol-parity.md) for the Python/JS coverage map.
+
 ### Admin client
 
 ```python

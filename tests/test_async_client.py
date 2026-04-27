@@ -58,6 +58,55 @@ async def test_list_services_returns_json() -> None:
     assert response == {"services": [{"name": "s1"}]}
 
 
+async def test_ogc_features_items_builds_expected_request() -> None:
+    seen: dict[str, Any] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["raw_path"] = request.url.raw_path.decode("ascii").split("?")[0]
+        seen["query"] = dict(request.url.params.multi_items())
+        return httpx.Response(200, json={"type": "FeatureCollection", "features": [{"type": "Feature"}]})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        response = await client.ogc_features().collection("team alpha/parcels").items(
+            limit=25,
+            offset=5,
+            bbox="-158,21,-157,22",
+            filter="status = 'active'",
+            properties=["name", "status"],
+        )
+
+    assert response["features"] == [{"type": "Feature"}]
+    assert seen["method"] == "GET"
+    assert seen["raw_path"] == "/ogc/features/collections/team%20alpha%2Fparcels/items"
+    assert seen["query"]["f"] == "json"
+    assert seen["query"]["limit"] == "25"
+    assert seen["query"]["offset"] == "5"
+    assert seen["query"]["bbox"] == "-158,21,-157,22"
+    assert seen["query"]["filter"] == "status = 'active'"
+    assert seen["query"]["properties"] == "name,status"
+
+
+async def test_ogc_features_items_all_paginates() -> None:
+    seen: list[tuple[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append((query["limit"], query["offset"]))
+        offset = int(query["offset"])
+        limit = int(query["limit"])
+        page = [{"type": "Feature", "id": value} for value in range(offset + 1, offset + limit + 1)]
+        return httpx.Response(200, json={"type": "FeatureCollection", "features": page})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = await client.ogc_features().collection("parcels").items_all(page_size=2, limit=3)
+
+    assert [feature["id"] for feature in features] == [1, 2, 3]
+    assert seen == [("2", "0"), ("1", "2")]
+
+
 async def test_auth_headers_are_attached() -> None:
     seen: dict[str, str] = {}
 

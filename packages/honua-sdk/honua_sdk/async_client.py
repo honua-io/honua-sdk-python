@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -17,6 +17,9 @@ from ._http import (
     _to_http_error,
     _to_transport_error,
 )
+
+if TYPE_CHECKING:
+    from .ogc import AsyncHonuaOgcFeatures
 
 
 def _bool_text(value: bool) -> str:
@@ -92,6 +95,12 @@ class AsyncHonuaClient:
             "/rest/services",
             params={"f": response_format},
         )
+
+    def ogc_features(self) -> "AsyncHonuaOgcFeatures":
+        """Return an async OGC API Features wrapper bound to this client."""
+        from .ogc import AsyncHonuaOgcFeatures
+
+        return AsyncHonuaOgcFeatures(self)
 
     async def query_features(
         self,
@@ -196,8 +205,9 @@ class AsyncHonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
-        response = await self._request(method, path, params=params, json_body=json_body)
+        response = await self._request(method, path, params=params, json_body=json_body, headers=headers)
         if not response.content:
             return {}
 
@@ -217,6 +227,7 @@ class AsyncHonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
         # Build a full URL so httpx does not re-decode percent-encoded
         # path segments during base-URL resolution.
@@ -228,6 +239,7 @@ class AsyncHonuaClient:
                 url=url,
                 params=params,
                 json=json_body,
+                headers=headers,
             )
         except httpx.HTTPError as exc:
             raise _to_transport_error(exc) from exc

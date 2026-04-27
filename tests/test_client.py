@@ -51,6 +51,129 @@ def test_query_features_url_encodes_service_id_path_segment() -> None:
     assert seen["raw_path"] == "/rest/services/team%20alpha%2Fdefault/FeatureServer/2/query"
 
 
+def test_ogc_features_metadata_and_items_build_expected_requests() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        query = dict(request.url.params.multi_items())
+        seen.append({"method": request.method, "raw_path": raw_path, "query": query})
+
+        if raw_path == "/ogc/features":
+            return httpx.Response(200, json={"title": "Honua OGC API Features"})
+        if raw_path == "/ogc/features/collections":
+            return httpx.Response(200, json={"collections": [{"id": "team alpha/parcels"}]})
+        if raw_path == "/ogc/features/collections/team%20alpha%2Fparcels":
+            return httpx.Response(200, json={"id": "team alpha/parcels"})
+        if raw_path == "/ogc/features/collections/team%20alpha%2Fparcels/queryables":
+            return httpx.Response(200, json={"properties": {"status": {"type": "string"}}})
+        if raw_path == "/ogc/features/collections/team%20alpha%2Fparcels/items":
+            return httpx.Response(200, json={"type": "FeatureCollection", "features": [{"type": "Feature"}]})
+        raise AssertionError(f"Unexpected OGC path: {raw_path}")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        ogc = client.ogc_features()
+        assert ogc.landing()["title"] == "Honua OGC API Features"
+        assert ogc.collections()["collections"][0]["id"] == "team alpha/parcels"
+
+        parcels = ogc.collection("team alpha/parcels")
+        assert parcels.metadata()["id"] == "team alpha/parcels"
+        assert parcels.queryables()["properties"]["status"]["type"] == "string"
+        response = parcels.items(
+            limit=50,
+            offset=10,
+            bbox=[-158, 21, -157, 22],
+            datetime="2026-01-01T00:00:00Z/..",
+            filter="status = 'active'",
+            ids=["p1", "p2"],
+            properties=["name", "status"],
+            sortby="-updated",
+            crs="http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+            extra_params={"profile": "seed"},
+        )
+
+    assert response["features"] == [{"type": "Feature"}]
+    assert [entry["raw_path"] for entry in seen] == [
+        "/ogc/features",
+        "/ogc/features/collections",
+        "/ogc/features/collections/team%20alpha%2Fparcels",
+        "/ogc/features/collections/team%20alpha%2Fparcels/queryables",
+        "/ogc/features/collections/team%20alpha%2Fparcels/items",
+    ]
+    item_query = seen[-1]["query"]
+    assert item_query["f"] == "json"
+    assert item_query["profile"] == "seed"
+    assert item_query["limit"] == "50"
+    assert item_query["offset"] == "10"
+    assert item_query["bbox"] == "-158,21,-157,22"
+    assert item_query["datetime"] == "2026-01-01T00:00:00Z/.."
+    assert item_query["filter"] == "status = 'active'"
+    assert item_query["ids"] == "p1,p2"
+    assert item_query["properties"] == "name,status"
+    assert item_query["sortby"] == "-updated"
+    assert item_query["crs"] == "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+
+
+def test_ogc_features_items_all_paginates_with_limit() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append((query["limit"], query["offset"]))
+        offset = int(query["offset"])
+        limit = int(query["limit"])
+        page = [{"type": "Feature", "id": value} for value in range(offset + 1, offset + limit + 1)]
+        return httpx.Response(200, json={"type": "FeatureCollection", "features": page})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.ogc_features().collection("parcels").items_all(page_size=2, limit=5)
+
+    assert [feature["id"] for feature in features] == [1, 2, 3, 4, 5]
+    assert seen == [("2", "0"), ("2", "2"), ("1", "4")]
+
+
+def test_ogc_features_item_crud_uses_geojson_endpoints() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        payload = json.loads(request.content.decode("utf-8")) if request.content else None
+        seen.append(
+            {
+                "method": request.method,
+                "raw_path": raw_path,
+                "content_type": request.headers.get("content-type", ""),
+                "payload": payload,
+            }
+        )
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(200, json={"type": "Feature", "id": "p/1"})
+
+    transport = httpx.MockTransport(handler)
+    feature = {"type": "Feature", "geometry": None, "properties": {"status": "active"}}
+    with HonuaClient("http://example.test", transport=transport) as client:
+        parcels = client.ogc_features().collection("parcels")
+        assert parcels.create_item(feature)["id"] == "p/1"
+        assert parcels.replace_item("p/1", feature)["id"] == "p/1"
+        assert parcels.patch_item("p/1", {"properties": {"status": "retired"}})["id"] == "p/1"
+        parcels.delete_item("p/1")
+
+    assert [(entry["method"], entry["raw_path"]) for entry in seen] == [
+        ("POST", "/ogc/features/collections/parcels/items"),
+        ("PUT", "/ogc/features/collections/parcels/items/p%2F1"),
+        ("PATCH", "/ogc/features/collections/parcels/items/p%2F1"),
+        ("DELETE", "/ogc/features/collections/parcels/items/p%2F1"),
+    ]
+    assert seen[0]["content_type"] == "application/geo+json"
+    assert seen[0]["payload"] == feature
+    assert seen[1]["content_type"] == "application/geo+json"
+    assert seen[2]["content_type"] == "application/merge-patch+json"
+    assert seen[2]["payload"] == {"properties": {"status": "retired"}}
+
+
 def test_apply_edits_posts_json_payload() -> None:
     seen: dict[str, Any] = {}
 

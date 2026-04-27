@@ -19,3 +19,13 @@ markers = [
     "staging: tests intended for the staging smoke lane",
     "smoke: lightweight release and CI smoke coverage",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [
+  "packages/honua-sdk/honua_sdk/grpc/_generated",
+]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

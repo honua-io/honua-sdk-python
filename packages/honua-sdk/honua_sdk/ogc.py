@@ -1,0 +1,977 @@
+"""OGC API Features wrappers for Honua Server."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from ._http import _encode_path_segment
+
+FeatureId = str | int
+JsonObject = dict[str, Any]
+CsvValue = str | Sequence[str | int | float]
+BboxValue = str | Sequence[int | float]
+
+
+def _metadata_params(
+    *,
+    response_format: str = "json",
+    extra_params: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {"f": response_format}
+    if extra_params:
+        params.update(extra_params)
+    return params
+
+
+def _comma_text(value: CsvValue) -> str:
+    if isinstance(value, str):
+        return value
+    return ",".join(str(item) for item in value)
+
+
+def _items_params(
+    *,
+    response_format: str = "json",
+    extra_params: Mapping[str, Any] | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    bbox: BboxValue | None = None,
+    datetime: str | None = None,
+    filter: str | None = None,
+    ids: CsvValue | None = None,
+    properties: CsvValue | None = None,
+    sortby: str | None = None,
+    crs: str | None = None,
+) -> dict[str, Any]:
+    params = _metadata_params(response_format=response_format, extra_params=extra_params)
+    if limit is not None:
+        params["limit"] = limit
+    if offset is not None:
+        params["offset"] = offset
+    if bbox is not None:
+        params["bbox"] = _comma_text(bbox)
+    if datetime is not None:
+        params["datetime"] = datetime
+    if filter is not None:
+        params["filter"] = filter
+    if ids is not None:
+        params["ids"] = _comma_text(ids)
+    if properties is not None:
+        params["properties"] = _comma_text(properties)
+    if sortby is not None:
+        params["sortby"] = sortby
+    if crs is not None:
+        params["crs"] = crs
+    return params
+
+
+def _item_params(
+    *,
+    response_format: str = "json",
+    extra_params: Mapping[str, Any] | None = None,
+    crs: str | None = None,
+) -> dict[str, Any]:
+    params = _metadata_params(response_format=response_format, extra_params=extra_params)
+    if crs is not None:
+        params["crs"] = crs
+    return params
+
+
+def _collection_path(collection_id: FeatureId) -> str:
+    return f"/ogc/features/collections/{_encode_path_segment(str(collection_id))}"
+
+
+def _item_path(collection_id: FeatureId, feature_id: FeatureId) -> str:
+    return f"{_collection_path(collection_id)}/items/{_encode_path_segment(str(feature_id))}"
+
+
+def _features_from_collection(response: Mapping[str, Any]) -> list[JsonObject]:
+    features = response.get("features")
+    if not isinstance(features, list):
+        return []
+    return [feature for feature in features if isinstance(feature, dict)]
+
+
+def _normalize_page_size(page_size: int | None, limit: int | None) -> int:
+    if isinstance(page_size, int) and page_size > 0:
+        return page_size
+    if isinstance(limit, int) and limit > 0:
+        return limit
+    return 100
+
+
+def _normalize_max_pages(max_pages: int | None) -> int:
+    if isinstance(max_pages, int) and max_pages > 0:
+        return max_pages
+    return 100
+
+
+def _normalize_offset(offset: int | None) -> int:
+    if not isinstance(offset, int):
+        return 0
+    return max(0, offset)
+
+
+def _normalize_total_limit(limit: int | None) -> int | None:
+    if isinstance(limit, int) and limit > 0:
+        return limit
+    return None
+
+
+class HonuaOgcFeatures:
+    """Synchronous OGC API Features entry point."""
+
+    def __init__(self, client: Any) -> None:
+        self.client = client
+
+    def collection(self, collection_id: FeatureId) -> "HonuaOgcFeatureCollection":
+        """Return a collection-bound OGC Features wrapper."""
+        return HonuaOgcFeatureCollection(self.client, collection_id)
+
+    def landing(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        """Get the OGC API Features landing page."""
+        return self.client._request_json(
+            "GET",
+            "/ogc/features",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    def conformance(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        """Get OGC API conformance classes."""
+        return self.client._request_json(
+            "GET",
+            "/ogc/features/conformance",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    def collections(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        """List OGC API Features collections."""
+        return self.client._request_json(
+            "GET",
+            "/ogc/features/collections",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    def get_collection(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        """Get metadata for one OGC API Features collection."""
+        return self.client._request_json(
+            "GET",
+            _collection_path(collection_id),
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    def queryables(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        """Get queryable property metadata for one collection."""
+        return self.client._request_json(
+            "GET",
+            f"{_collection_path(collection_id)}/queryables",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    def items(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        """List GeoJSON items for one collection."""
+        return self.client._request_json(
+            "GET",
+            f"{_collection_path(collection_id)}/items",
+            params=_items_params(
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=limit,
+                offset=offset,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                crs=crs,
+            ),
+        )
+
+    def items_all(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> list[JsonObject]:
+        """Page through collection items and return all fetched features."""
+        return self.collection(collection_id).items_all(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        )
+
+    def item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        """Get one GeoJSON feature by id."""
+        return self.client._request_json(
+            "GET",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+        )
+
+    def create_item(
+        self,
+        collection_id: FeatureId,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        """Create one GeoJSON feature in a collection."""
+        return self.client._request_json(
+            "POST",
+            f"{_collection_path(collection_id)}/items",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+            json_body=feature,
+            headers={"Content-Type": "application/geo+json"},
+        )
+
+    def replace_item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        """Replace one GeoJSON feature in a collection."""
+        return self.client._request_json(
+            "PUT",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+            json_body=feature,
+            headers={"Content-Type": "application/geo+json"},
+        )
+
+    def patch_item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        patch: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        """Patch one GeoJSON feature in a collection."""
+        return self.client._request_json(
+            "PATCH",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+            json_body=patch,
+            headers={"Content-Type": "application/merge-patch+json"},
+        )
+
+    def delete_item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> None:
+        """Delete one GeoJSON feature from a collection."""
+        self.client._request_json(
+            "DELETE",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+        )
+
+
+class HonuaOgcFeatureCollection:
+    """Collection-bound synchronous OGC API Features wrapper."""
+
+    def __init__(self, client: Any, collection_id: FeatureId) -> None:
+        self.client = client
+        self.collection_id = collection_id
+
+    def metadata(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).get_collection(
+            self.collection_id,
+            response_format=response_format,
+            extra_params=extra_params,
+        )
+
+    def queryables(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).queryables(
+            self.collection_id,
+            response_format=response_format,
+            extra_params=extra_params,
+        )
+
+    def items(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).items(
+            self.collection_id,
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        )
+
+    def items_all(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> list[JsonObject]:
+        effective_page_size = _normalize_page_size(page_size, limit)
+        effective_max_pages = _normalize_max_pages(max_pages)
+        start_offset = _normalize_offset(offset)
+        total_limit = _normalize_total_limit(limit)
+        features: list[JsonObject] = []
+
+        for page in range(effective_max_pages):
+            if total_limit is not None and len(features) >= total_limit:
+                break
+            remaining = effective_page_size if total_limit is None else max(0, total_limit - len(features))
+            if remaining < 1:
+                break
+
+            page_limit = min(effective_page_size, remaining)
+            response = self.items(
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=page_limit,
+                offset=start_offset + page * effective_page_size,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                crs=crs,
+            )
+            page_features = _features_from_collection(response)
+            if not page_features:
+                break
+
+            features.extend(page_features)
+            if len(page_features) < page_limit:
+                break
+
+        if total_limit is not None and len(features) > total_limit:
+            return features[:total_limit]
+        return features
+
+    def item(
+        self,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).item(
+            self.collection_id,
+            feature_id,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+    def create_item(
+        self,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).create_item(
+            self.collection_id,
+            feature,
+            response_format=response_format,
+            extra_params=extra_params,
+        )
+
+    def replace_item(
+        self,
+        feature_id: FeatureId,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).replace_item(
+            self.collection_id,
+            feature_id,
+            feature,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+    def patch_item(
+        self,
+        feature_id: FeatureId,
+        patch: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return HonuaOgcFeatures(self.client).patch_item(
+            self.collection_id,
+            feature_id,
+            patch,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+    def delete_item(
+        self,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> None:
+        HonuaOgcFeatures(self.client).delete_item(
+            self.collection_id,
+            feature_id,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+
+class AsyncHonuaOgcFeatures:
+    """Asynchronous OGC API Features entry point."""
+
+    def __init__(self, client: Any) -> None:
+        self.client = client
+
+    def collection(self, collection_id: FeatureId) -> "AsyncHonuaOgcFeatureCollection":
+        """Return a collection-bound async OGC Features wrapper."""
+        return AsyncHonuaOgcFeatureCollection(self.client, collection_id)
+
+    async def landing(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            "/ogc/features",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    async def conformance(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            "/ogc/features/conformance",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    async def collections(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            "/ogc/features/collections",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    async def get_collection(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            _collection_path(collection_id),
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    async def queryables(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            f"{_collection_path(collection_id)}/queryables",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+        )
+
+    async def items(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            f"{_collection_path(collection_id)}/items",
+            params=_items_params(
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=limit,
+                offset=offset,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                crs=crs,
+            ),
+        )
+
+    async def items_all(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> list[JsonObject]:
+        return await self.collection(collection_id).items_all(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        )
+
+    async def item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "GET",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+        )
+
+    async def create_item(
+        self,
+        collection_id: FeatureId,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "POST",
+            f"{_collection_path(collection_id)}/items",
+            params=_metadata_params(response_format=response_format, extra_params=extra_params),
+            json_body=feature,
+            headers={"Content-Type": "application/geo+json"},
+        )
+
+    async def replace_item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "PUT",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+            json_body=feature,
+            headers={"Content-Type": "application/geo+json"},
+        )
+
+    async def patch_item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        patch: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await self.client._request_json(
+            "PATCH",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+            json_body=patch,
+            headers={"Content-Type": "application/merge-patch+json"},
+        )
+
+    async def delete_item(
+        self,
+        collection_id: FeatureId,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> None:
+        await self.client._request_json(
+            "DELETE",
+            _item_path(collection_id, feature_id),
+            params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+        )
+
+
+class AsyncHonuaOgcFeatureCollection:
+    """Collection-bound asynchronous OGC API Features wrapper."""
+
+    def __init__(self, client: Any, collection_id: FeatureId) -> None:
+        self.client = client
+        self.collection_id = collection_id
+
+    async def metadata(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).get_collection(
+            self.collection_id,
+            response_format=response_format,
+            extra_params=extra_params,
+        )
+
+    async def queryables(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).queryables(
+            self.collection_id,
+            response_format=response_format,
+            extra_params=extra_params,
+        )
+
+    async def items(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).items(
+            self.collection_id,
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        )
+
+    async def items_all(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> list[JsonObject]:
+        effective_page_size = _normalize_page_size(page_size, limit)
+        effective_max_pages = _normalize_max_pages(max_pages)
+        start_offset = _normalize_offset(offset)
+        total_limit = _normalize_total_limit(limit)
+        features: list[JsonObject] = []
+
+        for page in range(effective_max_pages):
+            if total_limit is not None and len(features) >= total_limit:
+                break
+            remaining = effective_page_size if total_limit is None else max(0, total_limit - len(features))
+            if remaining < 1:
+                break
+
+            page_limit = min(effective_page_size, remaining)
+            response = await self.items(
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=page_limit,
+                offset=start_offset + page * effective_page_size,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                crs=crs,
+            )
+            page_features = _features_from_collection(response)
+            if not page_features:
+                break
+
+            features.extend(page_features)
+            if len(page_features) < page_limit:
+                break
+
+        if total_limit is not None and len(features) > total_limit:
+            return features[:total_limit]
+        return features
+
+    async def item(
+        self,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).item(
+            self.collection_id,
+            feature_id,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+    async def create_item(
+        self,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).create_item(
+            self.collection_id,
+            feature,
+            response_format=response_format,
+            extra_params=extra_params,
+        )
+
+    async def replace_item(
+        self,
+        feature_id: FeatureId,
+        feature: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).replace_item(
+            self.collection_id,
+            feature_id,
+            feature,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+    async def patch_item(
+        self,
+        feature_id: FeatureId,
+        patch: Mapping[str, Any],
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> JsonObject:
+        return await AsyncHonuaOgcFeatures(self.client).patch_item(
+            self.collection_id,
+            feature_id,
+            patch,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )
+
+    async def delete_item(
+        self,
+        feature_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        crs: str | None = None,
+    ) -> None:
+        await AsyncHonuaOgcFeatures(self.client).delete_item(
+            self.collection_id,
+            feature_id,
+            response_format=response_format,
+            extra_params=extra_params,
+            crs=crs,
+        )

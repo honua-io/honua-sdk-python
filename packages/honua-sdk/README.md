@@ -27,8 +27,8 @@ Requires Python 3.11+.
 from honua_sdk import HonuaClient
 
 with HonuaClient("https://your-honua-server.com") as client:
-    result = client.query_features("natural-earth", layer_id=0)
-    print(f"Found {len(result.get('features', []))} features")
+    result = client.query_feature_set("natural-earth", layer_id=0)
+    print(f"Found {len(result.features)} features")
 ```
 
 ## Refreshable Auth
@@ -70,6 +70,7 @@ with HonuaClient("https://your-honua-server.com") as client:
 ## Documentation
 
 - [5-Minute Quickstart](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/quickstart.md) - query features, convert them to a GeoDataFrame, and plot them
+- [Core Client](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/core-client.md) - typed service, FeatureServer, applyEdits, pagination, and error handling helpers
 - [Geospatial ETL demo](https://github.com/honua-io/honua-sdk-python/blob/trunk/examples/geospatial_etl/README.md) - canonical script-first extract/validate/write/reconcile flow with the notebook companion and `load-summary.json` / `post-load-preview.png` contract
 - [Authentication](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/auth.md) - refreshable bearer tokens, secure storage guidance, revocation, rotation, and failure modes
 - [Troubleshooting](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/troubleshooting.md) - base URL selection, auth, staging smoke env vars, JSON/JUnit artifacts, and cleanup guidance

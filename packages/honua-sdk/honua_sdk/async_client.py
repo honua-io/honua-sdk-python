@@ -18,6 +18,7 @@ from ._http import (
     _to_transport_error,
     _validate_auth_configuration,
 )
+from .models import ApplyEditsResult, Feature, FeatureSet, ServiceSummary
 
 if TYPE_CHECKING:
     from .auth import AuthProvider
@@ -101,6 +102,14 @@ class AsyncHonuaClient:
             params={"f": response_format},
         )
 
+    async def list_service_summaries(self, *, response_format: str = "json") -> list[ServiceSummary]:
+        """List services as typed catalog summaries."""
+        response = await self.list_services(response_format=response_format)
+        services = response.get("services")
+        if not isinstance(services, list):
+            return []
+        return [ServiceSummary.from_dict(service) for service in services if isinstance(service, Mapping)]
+
     def ogc_features(self) -> "AsyncHonuaOgcFeatures":
         """Return an async OGC API Features wrapper bound to this client."""
         from .ogc import AsyncHonuaOgcFeatures
@@ -139,6 +148,67 @@ class AsyncHonuaClient:
             params=params,
         )
 
+    async def query_feature_set(
+        self,
+        service_id: str,
+        layer_id: int,
+        **kwargs: Any,
+    ) -> FeatureSet:
+        """Query a FeatureServer layer and return a typed feature set."""
+        return FeatureSet.from_dict(await self.query_features(service_id, layer_id, **kwargs))
+
+    async def query_features_all(
+        self,
+        service_id: str,
+        layer_id: int,
+        *,
+        where: str = "1=1",
+        out_fields: str | Sequence[str] = "*",
+        return_geometry: bool = True,
+        page_size: int = 1000,
+        limit: int | None = None,
+        max_pages: int = 100,
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> list[Feature]:
+        """Page through FeatureServer query results and return typed features."""
+        if page_size <= 0:
+            raise ValueError("page_size must be greater than zero.")
+        if max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero.")
+        if limit is not None and limit <= 0:
+            return []
+
+        features: list[Feature] = []
+        offset = int((extra_params or {}).get("resultOffset", 0))
+        base_extra_params = dict(extra_params or {})
+        for _ in range(max_pages):
+            remaining = None if limit is None else limit - len(features)
+            if remaining is not None and remaining <= 0:
+                break
+            record_count = page_size if remaining is None else min(page_size, remaining)
+            page_extra_params = {
+                **base_extra_params,
+                "resultOffset": offset,
+                "resultRecordCount": record_count,
+            }
+            page = await self.query_feature_set(
+                service_id,
+                layer_id,
+                where=where,
+                out_fields=out_fields,
+                return_geometry=return_geometry,
+                extra_params=page_extra_params,
+            )
+            page_features = list(page.features)
+            if remaining is not None:
+                page_features = page_features[:remaining]
+            features.extend(page_features)
+            if len(page.features) < record_count or not page.exceeded_transfer_limit:
+                break
+            offset += len(page.features)
+
+        return features
+
     async def apply_edits(
         self,
         service_id: str,
@@ -170,6 +240,15 @@ class AsyncHonuaClient:
             f"/rest/services/{service_segment}/FeatureServer/{layer_id}/applyEdits",
             json_body=payload,
         )
+
+    async def apply_edits_result(
+        self,
+        service_id: str,
+        layer_id: int,
+        **kwargs: Any,
+    ) -> ApplyEditsResult:
+        """Submit applyEdits and return typed operation results."""
+        return ApplyEditsResult.from_dict(await self.apply_edits(service_id, layer_id, **kwargs))
 
     async def export_map(
         self,

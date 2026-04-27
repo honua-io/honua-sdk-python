@@ -35,6 +35,7 @@ from .geocoding import (
     HonuaGeocodingClient,
     ReverseGeocodeResult,
 )
+from .models import ApplyEditsResult, EditOperationResult, Feature, FeatureSet, ServiceSummary
 from .ogc import (
     AsyncHonuaOgcFeatureCollection,
     AsyncHonuaOgcFeatures,
@@ -64,8 +65,12 @@ __all__ = [
     "AsyncHonuaGeocodingClient",
     "AsyncHonuaOgcFeatureCollection",
     "AsyncHonuaOgcFeatures",
+    "ApplyEditsResult",
     "BearerToken",
     "CallableAuthProvider",
+    "EditOperationResult",
+    "Feature",
+    "FeatureSet",
     "GeocodeResult",
     "GeocodeSuggestion",
     "GeoServicesFeatureServerClient",
@@ -87,6 +92,7 @@ __all__ = [
     "OgcTilesClient",
     "RefreshableBearerTokenProvider",
     "ReverseGeocodeResult",
+    "ServiceSummary",
     "StacClient",
     "StaticAuthProvider",
     "TokenStore",

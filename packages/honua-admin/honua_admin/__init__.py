@@ -54,6 +54,7 @@ from ._models import (
     MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR,
     MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH,
     MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL,
+    evaluate_admin_compatibility,
 )
 
 __all__ = [
@@ -99,4 +100,5 @@ __all__ = [
     "TableInfo",
     "TimeInfoResponse",
     "UpdateSecureConnectionRequest",
+    "evaluate_admin_compatibility",
 ]

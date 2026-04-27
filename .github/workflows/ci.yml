@@ -66,6 +66,29 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short
 
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/honua-sdk/pyproject.toml
+            packages/honua-admin/pyproject.toml
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "packages/honua-sdk[grpc]"
+          pip install -e "packages/honua-admin"
+
+      - name: Run compatibility gate
+        run: python scripts/compatibility_gate.py
+
   package:
     runs-on: ubuntu-latest
     steps:

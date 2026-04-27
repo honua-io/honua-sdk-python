@@ -164,6 +164,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 - [Core Client](docs/core-client.md) -- typed service, FeatureServer, applyEdits, pagination, and error handling helpers
 - [Geospatial ETL demo](examples/geospatial_etl/README.md) -- canonical script-first ETL flow plus notebook companion, with `load-summary.json` / `post-load-preview.png` artifacts and the `apply_edits` contract
 - [Authentication](docs/auth.md) -- refreshable bearer tokens, secure storage guidance, revocation, rotation, and failure modes
+- [Compatibility](docs/compatibility.md) -- supported server matrix, public API snapshot gate, and release blocking policy
 - [Troubleshooting](docs/troubleshooting.md) -- staging smoke env vars and result artifacts, auth expectations, seeded `test_service` / layer `0` assumptions, optional example dependencies, and cleanup guidance
 - [Operating Cadence](docs/operating-cadence.md) -- weekly backlog review, scope gate, and done/close hygiene
 - [INSTALL.md](INSTALL.md) -- installation options and version policy
@@ -186,6 +187,9 @@ pip install -e "packages/honua-admin"
 
 # Run the deterministic local suite
 python3 -m pytest tests/ -q
+
+# Run the compatibility gate
+python3 scripts/compatibility_gate.py
 
 # Run the opt-in staging smoke suite
 python3 -m pytest tests/integration -q --run-integration -m "integration and staging and smoke"

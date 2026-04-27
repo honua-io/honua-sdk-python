@@ -18,6 +18,9 @@ and error types).
 
 Requires Python 3.11+.
 
+The server compatibility baseline and release gate policy are documented in the
+monorepo [compatibility guide](../../docs/compatibility.md).
+
 ## Quick Example
 
 ```python

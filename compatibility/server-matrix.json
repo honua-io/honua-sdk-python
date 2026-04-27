@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "minimumServerVersion": "2026.3.0",
+    "controlPlaneApiMajor": 1,
+    "basePath": "/api/v1/admin",
+    "minimumReleaseChannel": "preview"
+  },
+  "cases": [
+    {
+      "name": "minimum-preview-server",
+      "description": "The lowest supported public-preview server line remains compatible.",
+      "compatibility": {
+        "serverVersion": "2026.3.0-preview.0",
+        "releaseChannel": "preview",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "v1",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      },
+      "expected": {
+        "supported": true,
+        "features": {
+          "metadataResources": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      }
+    },
+    {
+      "name": "current-stable-server",
+      "description": "A newer stable server on the same control-plane major is compatible.",
+      "compatibility": {
+        "serverVersion": "2026.4.0",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "v1",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      },
+      "expected": {
+        "supported": true,
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true
+        }
+      }
+    },
+    {
+      "name": "deprecated-compatible-control-plane",
+      "description": "Deprecated but still matching control-plane majors warn without blocking.",
+      "compatibility": {
+        "serverVersion": "2026.3.8",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": true
+        },
+        "metadataSchemas": [
+          {
+            "version": "v1",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": false,
+          "manifestPrune": false
+        }
+      },
+      "expected": {
+        "supported": true,
+        "warningsContain": [
+          "deprecated"
+        ],
+        "features": {
+          "manifestDryRun": false,
+          "manifestPrune": false
+        }
+      }
+    },
+    {
+      "name": "server-version-below-baseline",
+      "description": "Servers older than the minimum supported line are blocked.",
+      "compatibility": {
+        "serverVersion": "2026.2.28-preview.1",
+        "releaseChannel": "preview",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "v1beta1",
+            "deprecated": true
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      },
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "below required"
+        ]
+      }
+    },
+    {
+      "name": "unsupported-control-plane-major",
+      "description": "A different control-plane major is a breaking server contract.",
+      "compatibility": {
+        "serverVersion": "2026.4.0",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 2,
+          "basePath": "/api/v2/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "v2",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      },
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "API major",
+          "base path"
+        ]
+      }
+    },
+    {
+      "name": "legacy-control-plane-base-path",
+      "description": "The expected control-plane major must also be mounted at the supported path.",
+      "compatibility": {
+        "serverVersion": "2026.3.2",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "v1",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      },
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "base path"
+        ]
+      }
+    },
+    {
+      "name": "pre-preview-release-channel",
+      "description": "Nightly/dev/alpha server channels are not supported by release builds.",
+      "compatibility": {
+        "serverVersion": "2026.3.4-alpha.2",
+        "releaseChannel": "alpha",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "v1",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": true,
+          "manifestApply": true,
+          "manifestDryRun": true,
+          "manifestPrune": true
+        }
+      },
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "release channel"
+        ]
+      }
+    },
+    {
+      "name": "missing-compatibility-contract",
+      "description": "Servers must publish the nested compatibility contract.",
+      "compatibility": null,
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "compatibility contract"
+        ]
+      }
+    }
+  ]
+}

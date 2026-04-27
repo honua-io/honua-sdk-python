@@ -536,6 +536,75 @@ def get_release_channel_rank(channel: str | None) -> int | None:
     return _RELEASE_CHANNEL_ORDER.get(channel.lower())
 
 
+def evaluate_admin_compatibility(
+    compatibility: AdminCompatibilityMetadata | None,
+    baseline: AdminCompatibilityBaseline | None = None,
+) -> AdminCompatibilityCheckResult:
+    """Evaluate a server compatibility contract against the SDK baseline."""
+    baseline = baseline or AdminCompatibilityBaseline()
+    reasons: list[str] = []
+    warnings: list[str] = []
+
+    if compatibility is None:
+        reasons.append("Server did not return a compatibility contract.")
+        return AdminCompatibilityCheckResult(
+            supported=False,
+            baseline=baseline,
+            compatibility=None,
+            reasons=reasons,
+            warnings=warnings,
+        )
+
+    actual_version = _parse_version_components(compatibility.server_version)
+    minimum_version = _parse_version_components(baseline.minimum_server_version)
+    if actual_version is None:
+        reasons.append(f"Server version {compatibility.server_version!r} could not be parsed.")
+    elif minimum_version is None:
+        reasons.append("SDK minimum supported server version baseline could not be parsed.")
+    elif actual_version < minimum_version:
+        reasons.append(
+            "Server version "
+            f"{compatibility.server_version!r} is below required "
+            f"{baseline.minimum_server_version!r}."
+        )
+
+    if compatibility.control_plane_api.major != baseline.control_plane_api_major:
+        reasons.append(
+            "Server control-plane API major "
+            f"{compatibility.control_plane_api.major} does not match required "
+            f"{baseline.control_plane_api_major}."
+        )
+
+    if compatibility.control_plane_api.base_path != baseline.base_path:
+        reasons.append(
+            "Server control-plane base path "
+            f"{compatibility.control_plane_api.base_path!r} does not match "
+            f"required {baseline.base_path!r}."
+        )
+
+    if compatibility.control_plane_api.deprecated:
+        warnings.append("Server control-plane API major is marked deprecated.")
+
+    actual_rank = get_release_channel_rank(compatibility.release_channel)
+    minimum_rank = get_release_channel_rank(baseline.minimum_release_channel)
+    if actual_rank is None:
+        reasons.append(f"Server release channel {compatibility.release_channel!r} is unknown.")
+    elif minimum_rank is None or actual_rank < minimum_rank:
+        reasons.append(
+            "Server release channel "
+            f"{compatibility.release_channel!r} is below required "
+            f"{baseline.minimum_release_channel!r}."
+        )
+
+    return AdminCompatibilityCheckResult(
+        supported=not reasons,
+        baseline=baseline,
+        compatibility=compatibility,
+        reasons=reasons,
+        warnings=warnings,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ColumnInfo:
     name: str

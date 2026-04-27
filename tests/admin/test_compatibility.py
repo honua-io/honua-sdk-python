@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import httpx
 
 from honua_admin import (
+    AdminCompatibilityBaseline,
+    AdminCompatibilityMetadata,
     MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR,
     MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH,
     MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL,
     MINIMUM_SUPPORTED_SERVER_VERSION,
+    evaluate_admin_compatibility,
 )
 
 from .conftest import make_api_response
+
+ROOT = Path(__file__).resolve().parents[2]
+SERVER_MATRIX_PATH = ROOT / "compatibility" / "server-matrix.json"
 
 
 def _make_capabilities_payload(
@@ -163,3 +172,19 @@ def test_get_capability_flags_returns_coarse_feature_support(make_client) -> Non
     assert features.manifest_apply is False
     assert features.manifest_dry_run is False
     assert features.manifest_prune is False
+
+
+def test_server_compatibility_matrix_matches_admin_evaluator() -> None:
+    matrix = json.loads(SERVER_MATRIX_PATH.read_text(encoding="utf-8"))
+    baseline = AdminCompatibilityBaseline()
+
+    for case in matrix["cases"]:
+        raw_compatibility = case["compatibility"]
+        compatibility = (
+            None
+            if raw_compatibility is None
+            else AdminCompatibilityMetadata.from_dict(raw_compatibility)
+        )
+        result = evaluate_admin_compatibility(compatibility, baseline)
+
+        assert result.supported is case["expected"]["supported"], case["name"]

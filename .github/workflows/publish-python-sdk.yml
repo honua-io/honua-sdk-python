@@ -53,6 +53,10 @@ jobs:
           pip install -e ".[grpc]"
           pip install pytest hatch twine
 
+      - name: Run compatibility gate
+        run: python scripts/compatibility_gate.py
+        working-directory: ${{ github.workspace }}
+
       - name: Run SDK tests
         run: python -m pytest ../../tests/ -q --tb=short -k "not admin"
         working-directory: ${{ github.workspace }}
@@ -118,9 +122,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e "${{ github.workspace }}/packages/honua-sdk"
+          pip install -e "${{ github.workspace }}/packages/honua-sdk[grpc]"
           pip install -e .
           pip install pytest hatch twine
+
+      - name: Run compatibility gate
+        run: python scripts/compatibility_gate.py
+        working-directory: ${{ github.workspace }}
 
       - name: Run admin tests
         run: python -m pytest ../../tests/admin/ -q --tb=short

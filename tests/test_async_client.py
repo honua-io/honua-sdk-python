@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import CallableAuthProvider
+from honua_sdk import CallableAuthProvider, FeatureQuery
 from honua_sdk.async_client import AsyncHonuaClient
 from honua_sdk.errors import HonuaHttpError
 
@@ -164,6 +164,117 @@ async def test_query_features_all_returns_typed_paginated_features() -> None:
 
     assert [feature.object_id for feature in features] == [1, 2, 3]
     assert seen == [("0", "2"), ("2", "1")]
+
+
+async def test_shared_query_feature_server_normalizes_common_args() -> None:
+    seen: dict[str, str] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params.multi_items()))
+        assert request.url.path == "/rest/services/parcels/FeatureServer/0/query"
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {
+                        "attributes": {"objectid": 10, "name": "A"},
+                        "geometry": {"x": -157.8, "y": 21.3},
+                    }
+                ],
+                "exceededTransferLimit": False,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        result = await client.query(
+            FeatureQuery(
+                source="parcels",
+                where="status = 'active'",
+                fields=["objectid", "name"],
+                bbox=[-158, 21, -157, 22],
+                limit=1,
+            )
+        )
+
+    assert result.protocol == "feature-server"
+    assert len(result.features) == 1
+    feature = result.features[0]
+    assert feature.id == 10
+    assert feature.properties == {"objectid": 10, "name": "A"}
+    assert feature.geometry == {"x": -157.8, "y": 21.3}
+    assert seen["where"] == "status = 'active'"
+    assert seen["outFields"] == "objectid,name"
+    assert seen["resultRecordCount"] == "1"
+    assert seen["geometryType"] == "esriGeometryEnvelope"
+
+
+async def test_shared_query_routes_async_ogc_and_odata() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        query = dict(request.url.params.multi_items())
+        seen.append({"path": raw_path, "query": query})
+        if raw_path == "/ogc/features/collections/parcels/items":
+            return httpx.Response(
+                200,
+                json={
+                    "type": "FeatureCollection",
+                    "features": [{"type": "Feature", "id": "p1", "properties": {"name": "Parcel 1"}}],
+                },
+            )
+        if raw_path == "/odata/Layers(4)/Features":
+            return httpx.Response(200, json={"value": [{"ObjectId": 7, "Name": "Road"}]})
+        raise AssertionError(f"unexpected path {raw_path}")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        ogc_items = [
+            item
+            async for item in client.iter_query(
+                "parcels",
+                protocol="ogc-features",
+                filter="status = 'active'",
+                fields=["name"],
+                limit=1,
+            )
+        ]
+        odata = await client.query(
+            FeatureQuery(
+                source="4",
+                protocol="odata",
+                filter="Status eq 'active'",
+                fields=["ObjectId", "Name"],
+                limit=1,
+            )
+        )
+
+    assert ogc_items[0].id == "p1"
+    assert ogc_items[0].properties == {"name": "Parcel 1"}
+    assert odata.features[0].id == 7
+    assert odata.features[0].properties == {"ObjectId": 7, "Name": "Road"}
+    assert seen == [
+        {
+            "path": "/ogc/features/collections/parcels/items",
+            "query": {
+                "f": "json",
+                "limit": "1",
+                "offset": "0",
+                "filter": "status = 'active'",
+                "properties": "name",
+            },
+        },
+        {
+            "path": "/odata/Layers(4)/Features",
+            "query": {
+                "$filter": "Status eq 'active'",
+                "$select": "ObjectId,Name",
+                "$top": "1",
+                "$skip": "0",
+            },
+        },
+    ]
 
 
 async def test_ogc_features_items_builds_expected_request() -> None:

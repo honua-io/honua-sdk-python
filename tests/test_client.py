@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import CallableAuthProvider, DataPlaneCapabilities, HonuaClient, HonuaHttpError
+from honua_sdk import CallableAuthProvider, DataPlaneCapabilities, FeatureQuery, HonuaClient, HonuaHttpError
 
 
 def test_query_features_builds_expected_request() -> None:
@@ -210,6 +210,164 @@ def test_query_features_all_pages_until_transfer_limit_clears() -> None:
 
     assert [feature.object_id for feature in features] == [1, 2, 3]
     assert seen == [("0", "2"), ("2", "1")]
+
+
+def test_shared_query_feature_server_normalizes_common_args() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params.multi_items()))
+        assert request.url.path == "/rest/services/parcels/FeatureServer/0/query"
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {
+                        "attributes": {"objectid": 10, "name": "A"},
+                        "geometry": {"x": -157.8, "y": 21.3},
+                    }
+                ],
+                "exceededTransferLimit": False,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        result = client.query(
+            "parcels",
+            where="status = 'active'",
+            fields=["objectid", "name"],
+            bbox=[-158, 21, -157, 22],
+            limit=1,
+        )
+
+    assert result.protocol == "feature-server"
+    assert result.source == "parcels"
+    assert len(result.features) == 1
+    feature = result.features[0]
+    assert feature.id == 10
+    assert feature.properties == {"objectid": 10, "name": "A"}
+    assert feature.geometry == {"x": -157.8, "y": 21.3}
+    assert feature.protocol == "feature-server"
+    assert seen["where"] == "status = 'active'"
+    assert seen["outFields"] == "objectid,name"
+    assert seen["returnGeometry"] == "true"
+    assert seen["resultOffset"] == "0"
+    assert seen["resultRecordCount"] == "1"
+    assert seen["geometryType"] == "esriGeometryEnvelope"
+    assert seen["spatialRel"] == "esriSpatialRelIntersects"
+
+
+def test_shared_query_routes_ogc_stac_and_odata() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        query = dict(request.url.params.multi_items())
+        seen.append({"path": raw_path, "query": query})
+        if raw_path == "/ogc/features/collections/parcels/items":
+            return httpx.Response(
+                200,
+                json={
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "id": "p1",
+                            "properties": {"name": "Parcel 1"},
+                            "geometry": {"type": "Point", "coordinates": [0, 0]},
+                        }
+                    ],
+                },
+            )
+        if raw_path == "/stac/collections/imagery/items":
+            return httpx.Response(
+                200,
+                json={
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "id": "scene-1",
+                            "properties": {"datetime": "2026-01-01T00:00:00Z"},
+                            "geometry": {"type": "Point", "coordinates": [1, 1]},
+                        }
+                    ],
+                },
+            )
+        if raw_path == "/odata/Layers(4)/Features":
+            return httpx.Response(200, json={"value": [{"ObjectId": 7, "Name": "Road", "Geometry": {"x": 1}}]})
+        raise AssertionError(f"unexpected path {raw_path}")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        ogc = client.query(
+            "parcels",
+            protocol="ogc-features",
+            filter="status = 'active'",
+            fields=["name"],
+            bbox=[-158, 21, -157, 22],
+            limit=1,
+        )
+        stac = client.query(
+            FeatureQuery(
+                source="imagery",
+                protocol="stac",
+                filter="eo:cloud_cover < 10",
+                bbox=[-158, 21, -157, 22],
+                fields=["datetime"],
+                limit=1,
+            )
+        )
+        odata = client.query(
+            FeatureQuery(
+                source="4",
+                protocol="odata",
+                filter="Status eq 'active'",
+                fields=["ObjectId", "Name"],
+                limit=1,
+            )
+        )
+
+    assert ogc.features[0].id == "p1"
+    assert ogc.features[0].properties == {"name": "Parcel 1"}
+    assert stac.features[0].id == "scene-1"
+    assert stac.features[0].properties == {"datetime": "2026-01-01T00:00:00Z"}
+    assert odata.features[0].id == 7
+    assert odata.features[0].properties == {"ObjectId": 7, "Name": "Road"}
+    assert odata.features[0].geometry == {"x": 1}
+    assert seen == [
+        {
+            "path": "/ogc/features/collections/parcels/items",
+            "query": {
+                "f": "json",
+                "limit": "1",
+                "offset": "0",
+                "bbox": "-158,21,-157,22",
+                "filter": "status = 'active'",
+                "properties": "name",
+            },
+        },
+        {
+            "path": "/stac/collections/imagery/items",
+            "query": {
+                "filter": "eo:cloud_cover < 10",
+                "bbox": "-158,21,-157,22",
+                "fields": "datetime",
+                "limit": "1",
+                "offset": "0",
+            },
+        },
+        {
+            "path": "/odata/Layers(4)/Features",
+            "query": {
+                "$filter": "Status eq 'active'",
+                "$select": "ObjectId,Name",
+                "$top": "1",
+                "$skip": "0",
+            },
+        },
+    ]
 
 
 def test_ogc_features_metadata_and_items_build_expected_requests() -> None:

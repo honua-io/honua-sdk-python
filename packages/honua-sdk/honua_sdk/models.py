@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, TypeAlias
+
+QueryProtocol: TypeAlias = Literal["feature-server", "featureserver", "ogc-features", "ogc_features", "stac", "odata"] | str
 
 
 @dataclass(frozen=True)
@@ -141,6 +143,46 @@ class FeatureSet:
             exceeded_transfer_limit=bool(payload.get("exceededTransferLimit", False)),
             raw=dict(payload),
         )
+
+
+@dataclass(frozen=True)
+class FeatureQuery:
+    """Protocol-neutral feature query request."""
+
+    source: str
+    protocol: QueryProtocol = "feature-server"
+    layer_id: int | None = None
+    where: str | None = None
+    filter: str | None = None
+    bbox: str | Sequence[int | float] | None = None
+    fields: str | Sequence[str] | None = None
+    return_geometry: bool = True
+    page_size: int | None = None
+    limit: int | None = None
+    max_pages: int | None = None
+    extra_params: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class QueryFeature:
+    """Protocol-neutral feature returned by the shared query API."""
+
+    id: str | int | None
+    properties: Mapping[str, Any]
+    geometry: Mapping[str, Any] | None = None
+    protocol: str = ""
+    source: str = ""
+    raw: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FeatureQueryResult:
+    """Collected result returned by the shared query API."""
+
+    features: tuple[QueryFeature, ...]
+    protocol: str
+    source: str
+    query: FeatureQuery
 
 
 @dataclass(frozen=True)

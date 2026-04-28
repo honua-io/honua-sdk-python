@@ -22,6 +22,13 @@ HTTP protocol wrappers, geocoding, and gRPC also have async clients. Async HTTP
 wrappers use the same factory and method names; await methods that issue
 requests.
 
+For application code that wants one feature-query shape across data protocols,
+use `HonuaClient.query()` or `HonuaClient.iter_query()` first. Those helpers
+normalize FeatureServer, OGC API Features, STAC, and OData results into
+`QueryFeature` entries. The protocol wrappers below remain the escape hatch for
+native payloads, exact protocol options, maps, tiles, XML metadata, and response
+headers.
+
 The snippets use these placeholders:
 
 ```python

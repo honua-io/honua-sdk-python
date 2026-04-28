@@ -47,31 +47,74 @@ with HonuaClient("https://honua.example") as client:
 Older servers that do not expose `/api/v1/capabilities` fall back to readiness
 and GeoServices catalog discovery.
 
-## FeatureServer Queries
+## Shared Source Queries
 
 For application code that wants the same shape across data protocols, prefer
-the shared feature query API. `query()` collects normalized `QueryFeature`
-entries from FeatureServer, OGC API Features, STAC, or OData; `iter_query()`
-streams the same normalized features:
+the shared Source/Query/Result API. `client.source(...)` binds a
+`SourceDescriptor` to a reusable facade; `source.query()` collects normalized
+`QueryFeature` entries, and `source.stream()`/`source.iter_features()` streams
+the same normalized features:
+
+```python
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+
+with HonuaClient("https://honua.example") as client:
+    parcels = client.source(
+        SourceDescriptor(
+            id="parcels",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="parcels", layer_id=0),
+        )
+    )
+
+    result = parcels.query(
+        Query(
+            where="status = 'active'",
+            out_fields=["objectid", "name", "status"],
+            pagination={"limit": 2000},
+        )
+    )
+
+    for feature in result.features:
+        print(feature.id, feature.properties, feature.geometry)
+
+    native = parcels.protocol()
+    metadata = native.layer_metadata(0)
+```
+
+The source facade uses canonical cross-SDK protocol ids such as
+`geoservices-feature-service`, `ogc-features`, `stac`, and `odata`; common
+aliases such as `feature-server` and `ogc_api_features` are accepted. Python
+uses snake_case for query fields (`out_fields`, `return_geometry`,
+`query_all()`), while TypeScript and .NET use their idiomatic casing.
+`SourceDescriptor.supports(...)` reflects protocol-advertised capabilities;
+`source.supports(...)` reflects the normalized operations this Python facade can
+execute directly. Use `source.protocol(...)` for native protocol operations that
+are advertised but not normalized by the shared facade.
+
+The compact client-level helpers remain available for existing callers and for
+one-off queries. `client.query()` returns a `FeatureQueryResult`; `iter_query()`
+streams normalized features from FeatureServer, OGC API Features, STAC, or
+OData:
 
 ```python
 from honua_sdk import FeatureQuery, HonuaClient
 
 with HonuaClient("https://honua.example") as client:
-    feature_server = client.query(
-        "parcels",
-        layer_id=0,
-        where="status = 'active'",
-        fields=["objectid", "name", "status"],
-        limit=2000,
-    )
-
     ogc_features = client.query(
         "parcels",
         protocol="ogc-features",
         filter="status = 'active'",
         bbox=[-180, -90, 180, 90],
         fields=["name", "status"],
+        limit=2000,
+    )
+
+    odata_features = client.query(
+        "4",
+        protocol="odata",
+        filter="Status eq 'active'",
+        fields=["ObjectId", "Name"],
         limit=2000,
     )
 
@@ -84,17 +127,6 @@ with HonuaClient("https://honua.example") as client:
             limit=500,
         )
     )
-
-    odata_features = client.query(
-        "4",
-        protocol="odata",
-        filter="Status eq 'active'",
-        fields=["ObjectId", "Name"],
-        limit=2000,
-    )
-
-    for feature in feature_server.features:
-        print(feature.id, feature.properties, feature.geometry)
 ```
 
 Use the protocol-specific clients below when you need exact native payloads,

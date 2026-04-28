@@ -28,7 +28,7 @@ from .auth import (
 from .async_client import AsyncHonuaClient
 from .async_geocoding import AsyncHonuaGeocodingClient
 from .client import HonuaClient
-from .errors import HonuaError, HonuaGrpcError, HonuaHttpError
+from .errors import HonuaCapabilityNotSupportedError, HonuaError, HonuaGrpcError, HonuaHttpError
 from .geocoding import (
     GeocodeResult,
     GeocodeSuggestion,
@@ -37,15 +37,31 @@ from .geocoding import (
 )
 from .models import (
     ApplyEditsResult,
+    CAPABILITIES,
+    DEFAULT_CAPABILITIES,
+    PROTOCOLS,
+    PROTOCOL_ALIASES,
+    Capability,
     DataPlaneCapabilities,
+    DegradedReason,
     EditOperationResult,
     Feature,
     FeatureQuery,
     FeatureQueryResult,
     FeatureSet,
+    Pagination,
+    Protocol,
+    Query,
     QueryFeature,
     QueryProtocol,
+    Result,
     ServiceSummary,
+    SourceDescriptor,
+    SourceLocator,
+    capability_set,
+    default_capabilities,
+    normalize_capability,
+    normalize_protocol,
 )
 from .ogc import (
     AsyncHonuaOgcFeatureCollection,
@@ -93,6 +109,7 @@ from .protocols import (
     WmtsClient,
     WmtsVersion,
 )
+from .source import AsyncSource, Source
 
 __all__ = [
     "__version__",
@@ -110,6 +127,7 @@ __all__ = [
     "AsyncOgcMapsClient",
     "AsyncOgcProcessesClient",
     "AsyncOgcTilesClient",
+    "AsyncSource",
     "AsyncStacClient",
     "AsyncWfsClient",
     "AsyncWmsClient",
@@ -118,9 +136,13 @@ __all__ = [
     "BboxValue",
     "BearerToken",
     "BinaryResponse",
+    "CAPABILITIES",
+    "DEFAULT_CAPABILITIES",
+    "Capability",
     "CallableAuthProvider",
     "CsvValue",
     "DataPlaneCapabilities",
+    "DegradedReason",
     "EditOperationResult",
     "Feature",
     "FeatureQuery",
@@ -134,6 +156,7 @@ __all__ = [
     "GeoServicesImageServerClient",
     "GeoServicesMapServerClient",
     "HonuaClient",
+    "HonuaCapabilityNotSupportedError",
     "HonuaError",
     "HonuaGrpcError",
     "HonuaHttpError",
@@ -151,11 +174,20 @@ __all__ = [
     "OgcMapsClient",
     "OgcProcessesClient",
     "OgcTilesClient",
+    "PROTOCOLS",
+    "PROTOCOL_ALIASES",
+    "Pagination",
+    "Protocol",
+    "Query",
     "QueryFeature",
     "QueryProtocol",
     "RefreshableBearerTokenProvider",
     "ReverseGeocodeResult",
+    "Result",
     "ServiceSummary",
+    "Source",
+    "SourceDescriptor",
+    "SourceLocator",
     "StacClient",
     "StaticAuthProvider",
     "TokenStore",
@@ -165,4 +197,8 @@ __all__ = [
     "WmsVersion",
     "WmtsClient",
     "WmtsVersion",
+    "capability_set",
+    "default_capabilities",
+    "normalize_capability",
+    "normalize_protocol",
 ]

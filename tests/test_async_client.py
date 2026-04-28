@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import CallableAuthProvider, FeatureQuery
+from honua_sdk import CallableAuthProvider, FeatureQuery, Pagination, Query, SourceDescriptor, SourceLocator
 from honua_sdk.async_client import AsyncHonuaClient
 from honua_sdk.errors import HonuaHttpError
 
@@ -207,6 +207,47 @@ async def test_shared_query_feature_server_normalizes_common_args() -> None:
     assert seen["outFields"] == "objectid,name"
     assert seen["resultRecordCount"] == "1"
     assert seen["geometryType"] == "esriGeometryEnvelope"
+
+
+async def test_source_query_facade_returns_canonical_async_result() -> None:
+    seen: dict[str, str] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params.multi_items()))
+        assert request.url.path == "/rest/services/Parcels/FeatureServer/0/query"
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {
+                        "attributes": {"OBJECTID": 1, "NAME": "Ala Wai"},
+                        "geometry": {"x": -157.836, "y": 21.284},
+                    }
+                ],
+                "exceededTransferLimit": False,
+            },
+        )
+
+    descriptor = SourceDescriptor(
+        id="parcels-fs",
+        protocol="geoservices-feature-service",
+        locator=SourceLocator(service_id="Parcels", layer_id=0),
+        capabilities=frozenset(("query", "stream")),
+    )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        result = await client.source(descriptor).query(
+            Query(where="1=1", out_fields=["OBJECTID", "NAME"], pagination=Pagination(limit=1))
+        )
+
+    assert result.protocol == "geoservices-feature-service"
+    assert result.source_id == "parcels-fs"
+    assert result.features[0].protocol == "geoservices-feature-service"
+    assert result.features[0].source == "parcels-fs"
+    assert result.features[0].properties == {"OBJECTID": 1, "NAME": "Ala Wai"}
+    assert seen["outFields"] == "OBJECTID,NAME"
+    assert seen["resultRecordCount"] == "1"
 
 
 async def test_shared_query_routes_async_ogc_and_odata() -> None:

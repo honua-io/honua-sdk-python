@@ -1747,6 +1747,7 @@
         "AsyncOgcMapsClient",
         "AsyncOgcProcessesClient",
         "AsyncOgcTilesClient",
+        "AsyncSource",
         "AsyncStacClient",
         "AsyncWfsClient",
         "AsyncWmsClient",
@@ -1755,9 +1756,13 @@
         "BboxValue",
         "BearerToken",
         "BinaryResponse",
+        "CAPABILITIES",
         "CallableAuthProvider",
+        "Capability",
         "CsvValue",
+        "DEFAULT_CAPABILITIES",
         "DataPlaneCapabilities",
+        "DegradedReason",
         "EditOperationResult",
         "Feature",
         "FeatureId",
@@ -1770,6 +1775,7 @@
         "GeoServicesMapServerClient",
         "GeocodeResult",
         "GeocodeSuggestion",
+        "HonuaCapabilityNotSupportedError",
         "HonuaClient",
         "HonuaError",
         "HonuaGeocodingClient",
@@ -1788,11 +1794,20 @@
         "OgcMapsClient",
         "OgcProcessesClient",
         "OgcTilesClient",
+        "PROTOCOLS",
+        "PROTOCOL_ALIASES",
+        "Pagination",
+        "Protocol",
+        "Query",
         "QueryFeature",
         "QueryProtocol",
         "RefreshableBearerTokenProvider",
+        "Result",
         "ReverseGeocodeResult",
         "ServiceSummary",
+        "Source",
+        "SourceDescriptor",
+        "SourceLocator",
         "StacClient",
         "StaticAuthProvider",
         "TokenStore",
@@ -1802,7 +1817,11 @@
         "WmsVersion",
         "WmtsClient",
         "WmtsVersion",
-        "__version__"
+        "__version__",
+        "capability_set",
+        "default_capabilities",
+        "normalize_capability",
+        "normalize_protocol"
       ],
       "symbols": {
         "ApplyEditsResult": {
@@ -2111,6 +2130,10 @@
               "async": true,
               "kind": "method",
               "signature": "(self) -> 'dict[str, Any]'"
+            },
+            "source": {
+              "kind": "method",
+              "signature": "(self, descriptor: \"'SourceDescriptor | Mapping[str, Any]'\") -> \"'AsyncSource'\""
             },
             "stac": {
               "kind": "method",
@@ -2557,6 +2580,51 @@
           "qualname": "AsyncOgcTilesClient",
           "signature": "(client: 'Any') -> 'None'"
         },
+        "AsyncSource": {
+          "kind": "class",
+          "methods": {
+            "apply_edits": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'ApplyEditsResult'"
+            },
+            "id": {
+              "kind": "property"
+            },
+            "iter_features": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'AsyncIterator[QueryFeature]'"
+            },
+            "protocol": {
+              "kind": "method",
+              "signature": "(self, kind: 'Protocol | None' = None) -> 'Any'"
+            },
+            "protocol_id": {
+              "kind": "property"
+            },
+            "query": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Result'"
+            },
+            "query_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'tuple[QueryFeature, ...]'"
+            },
+            "stream": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'AsyncIterator[QueryFeature]'"
+            },
+            "supports": {
+              "kind": "method",
+              "signature": "(self, capability: 'Capability') -> 'bool'"
+            }
+          },
+          "module": "honua_sdk.source",
+          "qualname": "AsyncSource",
+          "signature": "(client: 'Any', descriptor: 'SourceDescriptor | Mapping[str, Any]') -> 'None'"
+        },
         "AsyncStacClient": {
           "kind": "class",
           "methods": {
@@ -2835,6 +2903,11 @@
           "qualname": "BinaryResponse",
           "signature": "(content: 'bytes', content_type: 'str | None' = None, cache_control: 'str | None' = None, etag: 'str | None' = None, last_modified: 'str | None' = None, expires: 'str | None' = None, headers: 'Mapping[str, str] | None' = None, status_code: 'int' = 200) -> None"
         },
+        "CAPABILITIES": {
+          "kind": "constant",
+          "type": "tuple",
+          "value": "('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'render', 'tiles', 'sql', 'stream', 'pbf', 'connect', 'image', 'geometry', 'geoprocess', 'processes')"
+        },
         "CallableAuthProvider": {
           "kind": "class",
           "methods": {
@@ -2847,10 +2920,20 @@
           "qualname": "CallableAuthProvider",
           "signature": "(callback: 'Callable[[], Mapping[str, str]]') -> 'None'"
         },
+        "Capability": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'render', 'tiles', 'sql', 'stream', 'pbf', 'connect', 'image', 'geometry', 'geoprocess', 'processes'], str]"
+        },
         "CsvValue": {
           "kind": "constant",
           "type": "UnionType",
           "value": "str | collections.abc.Sequence[str | int | float]"
+        },
+        "DEFAULT_CAPABILITIES": {
+          "kind": "constant",
+          "type": "dict",
+          "value": "{'geoservices-feature-service': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'sql', 'stream', 'pbf', 'connect'), 'geoservices-map-service': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'render', 'tiles', 'sql', 'stream'), 'geoservices-image-service': ('query', 'queryExtent', 'queryObjectIds', 'image', 'render', 'tiles', 'connect'), 'geoservices-geometry-service': ('geometry', 'connect'), 'geoservices-gp-service': ('geoprocess', 'connect'), 'ogc-features': ('query', 'queryObjectIds', 'applyEdits', 'stream'), 'ogc-tiles': ('render', 'tiles'), 'ogc-maps': ('render',), 'stac': ('query', 'queryObjectIds', 'stream'), 'wfs': ('query', 'queryExtent', 'queryObjectIds', 'applyEdits', 'stream'), 'wms': ('render', 'tiles', 'query'), 'wmts': ('render', 'tiles'), 'odata': ('query', 'queryObjectIds', 'stream', 'applyEdits'), 'maplibre-vector': ('render', 'tiles'), 'maplibre-raster': ('render', 'tiles'), 'maplibre-geojson': ('render',)}"
         },
         "DataPlaneCapabilities": {
           "fields": [
@@ -2898,6 +2981,32 @@
           "module": "honua_sdk.models",
           "qualname": "DataPlaneCapabilities",
           "signature": "(server_version: 'str | None' = None, release_channel: 'str | None' = None, protocols: 'frozenset[str]' = frozenset(), features: 'Mapping[str, bool]' = <factory>, raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "DegradedReason": {
+          "fields": [
+            {
+              "annotation": "Capability",
+              "name": "capability"
+            },
+            {
+              "annotation": "Protocol",
+              "name": "protocol"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "source_id"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "reason"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.models",
+          "qualname": "DegradedReason",
+          "signature": "(capability: 'Capability', protocol: 'Protocol', source_id: 'str | None' = None, reason: 'str' = '') -> None"
         },
         "EditOperationResult": {
           "fields": [
@@ -3292,6 +3401,12 @@
           "qualname": "GeocodeSuggestion",
           "signature": "(text: 'str', magic_key: 'str', is_collection: 'bool') -> None"
         },
+        "HonuaCapabilityNotSupportedError": {
+          "kind": "class",
+          "module": "honua_sdk.errors",
+          "qualname": "HonuaCapabilityNotSupportedError",
+          "signature": "(capability: 'str', protocol: 'str', *, source_id: 'str | None' = None, reason: 'str | None' = None) -> 'None'"
+        },
         "HonuaClient": {
           "kind": "class",
           "methods": {
@@ -3390,6 +3505,10 @@
             "readiness": {
               "kind": "method",
               "signature": "(self) -> 'dict[str, Any]'"
+            },
+            "source": {
+              "kind": "method",
+              "signature": "(self, descriptor: \"'SourceDescriptor | Mapping[str, Any]'\") -> \"'Source'\""
             },
             "stac": {
               "kind": "method",
@@ -3867,6 +3986,131 @@
           "qualname": "OgcTilesClient",
           "signature": "(client: 'Any') -> 'None'"
         },
+        "PROTOCOLS": {
+          "kind": "constant",
+          "type": "tuple",
+          "value": "('geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson')"
+        },
+        "PROTOCOL_ALIASES": {
+          "kind": "constant",
+          "type": "dict",
+          "value": "{'feature-server': 'geoservices-feature-service', 'featureserver': 'geoservices-feature-service', 'feature-service': 'geoservices-feature-service', 'geoservices-featureserver': 'geoservices-feature-service', 'map-server': 'geoservices-map-service', 'mapserver': 'geoservices-map-service', 'image-server': 'geoservices-image-service', 'imageserver': 'geoservices-image-service', 'geometry-server': 'geoservices-geometry-service', 'geometryserver': 'geoservices-geometry-service', 'gp-server': 'geoservices-gp-service', 'gpserver': 'geoservices-gp-service', 'ogc-api-features': 'ogc-features', 'ogc_features': 'ogc-features', 'odata-v4': 'odata', 'wfs-2.0': 'wfs', 'wms-1.3.0': 'wms', 'wmts-1.0.0': 'wmts'}"
+        },
+        "Pagination": {
+          "fields": [
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "limit"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "page_size"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "max_pages"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "offset"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'Pagination'\""
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "Pagination",
+          "signature": "(limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, offset: 'int | None' = None) -> None"
+        },
+        "Protocol": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
+        },
+        "Query": {
+          "fields": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "where"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "spatial_filter"
+            },
+            {
+              "annotation": "str | Sequence[int | float] | None",
+              "default": "None",
+              "name": "bbox"
+            },
+            {
+              "annotation": "str | Sequence[str] | None",
+              "default": "None",
+              "name": "out_fields"
+            },
+            {
+              "annotation": "str | Sequence[str] | None",
+              "default": "None",
+              "name": "order_by"
+            },
+            {
+              "annotation": "Pagination",
+              "defaultFactory": "honua_sdk.models.Pagination",
+              "name": "pagination"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "aggregation"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "return_geometry"
+            },
+            {
+              "annotation": "int | str | None",
+              "default": "None",
+              "name": "out_sr"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "extra_params"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'Query'\""
+            },
+            "limit": {
+              "kind": "property"
+            },
+            "max_pages": {
+              "kind": "property"
+            },
+            "offset": {
+              "kind": "property"
+            },
+            "page_size": {
+              "kind": "property"
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "Query",
+          "signature": "(where: 'str | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, bbox: 'str | Sequence[int | float] | None' = None, out_fields: 'str | Sequence[str] | None' = None, order_by: 'str | Sequence[str] | None' = None, pagination: 'Pagination' = <factory>, aggregation: 'Mapping[str, Any] | None' = None, return_geometry: 'bool' = True, out_sr: 'int | str | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
+        },
         "QueryFeature": {
           "fields": [
             {
@@ -3906,7 +4150,7 @@
         "QueryProtocol": {
           "kind": "constant",
           "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['feature-server', 'featureserver', 'ogc-features', 'ogc_features', 'stac', 'odata'], str]"
+          "value": "typing.Union[typing.Literal['geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
         },
         "RefreshableBearerTokenProvider": {
           "kind": "class",
@@ -3931,6 +4175,69 @@
           "module": "honua_sdk.auth",
           "qualname": "RefreshableBearerTokenProvider",
           "signature": "(refresh: 'Callable[[], BearerToken | Mapping[str, Any] | str]', *, initial_token: 'BearerToken | Mapping[str, Any] | str | None' = None, token_store: 'TokenStore | None' = None, refresh_window_seconds: 'int | float' = 60, revoke: 'Callable[[BearerToken], None] | None' = None) -> 'None'"
+        },
+        "Result": {
+          "fields": [
+            {
+              "annotation": "tuple['QueryFeature', ...]",
+              "default": "()",
+              "name": "features"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "exceeded_transfer_limit"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "total_count"
+            },
+            {
+              "annotation": "tuple[Mapping[str, Any], ...]",
+              "default": "()",
+              "name": "aggregate_rows"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "extent"
+            },
+            {
+              "annotation": "tuple[Mapping[str, Any], ...]",
+              "default": "()",
+              "name": "fields"
+            },
+            {
+              "annotation": "tuple[DegradedReason, ...]",
+              "default": "()",
+              "name": "degraded"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "protocol"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "source_id"
+            },
+            {
+              "annotation": "Query | None",
+              "default": "None",
+              "name": "query"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.models",
+          "qualname": "Result",
+          "signature": "(features: \"tuple['QueryFeature', ...]\" = (), exceeded_transfer_limit: 'bool' = False, total_count: 'int | None' = None, aggregate_rows: 'tuple[Mapping[str, Any], ...]' = (), extent: 'Mapping[str, Any] | None' = None, fields: 'tuple[Mapping[str, Any], ...]' = (), degraded: 'tuple[DegradedReason, ...]' = (), protocol: 'str' = '', source_id: 'str' = '', query: 'Query | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "ReverseGeocodeResult": {
           "fields": [
@@ -3988,6 +4295,128 @@
           "module": "honua_sdk.models",
           "qualname": "ServiceSummary",
           "signature": "(name: 'str', type: 'str | None' = None, url: 'str | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "Source": {
+          "kind": "class",
+          "methods": {
+            "apply_edits": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'ApplyEditsResult'"
+            },
+            "id": {
+              "kind": "property"
+            },
+            "iter_features": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Iterator[QueryFeature]'"
+            },
+            "protocol": {
+              "kind": "method",
+              "signature": "(self, kind: 'Protocol | None' = None) -> 'Any'"
+            },
+            "protocol_id": {
+              "kind": "property"
+            },
+            "query": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Result'"
+            },
+            "query_all": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'tuple[QueryFeature, ...]'"
+            },
+            "stream": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Iterator[QueryFeature]'"
+            },
+            "supports": {
+              "kind": "method",
+              "signature": "(self, capability: 'Capability') -> 'bool'"
+            }
+          },
+          "module": "honua_sdk.source",
+          "qualname": "Source",
+          "signature": "(client: 'Any', descriptor: 'SourceDescriptor | Mapping[str, Any]') -> 'None'"
+        },
+        "SourceDescriptor": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "Protocol",
+              "name": "protocol"
+            },
+            {
+              "annotation": "SourceLocator",
+              "defaultFactory": "honua_sdk.models.SourceLocator",
+              "name": "locator"
+            },
+            {
+              "annotation": "frozenset[str]",
+              "defaultFactory": "frozenset",
+              "name": "capabilities"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'SourceDescriptor'\""
+            },
+            "supports": {
+              "kind": "method",
+              "signature": "(self, capability: 'Capability') -> 'bool'"
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "SourceDescriptor",
+          "signature": "(id: 'str', protocol: 'Protocol', locator: 'SourceLocator' = <factory>, capabilities: 'frozenset[str]' = <factory>, raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "SourceLocator": {
+          "fields": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "service_id"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "layer_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "collection_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "entity_set"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "type_name"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'SourceLocator'\""
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "SourceLocator",
+          "signature": "(service_id: 'str | None' = None, layer_id: 'int | None' = None, collection_id: 'str | None' = None, entity_set: 'str | None' = None, type_name: 'str | None' = None) -> None"
         },
         "StacClient": {
           "kind": "class",
@@ -4187,6 +4616,30 @@
         "__version__": {
           "kind": "constant",
           "type": "str"
+        },
+        "capability_set": {
+          "kind": "function",
+          "module": "honua_sdk.models",
+          "qualname": "capability_set",
+          "signature": "(values: 'Iterable[Capability] | None') -> 'frozenset[str]'"
+        },
+        "default_capabilities": {
+          "kind": "function",
+          "module": "honua_sdk.models",
+          "qualname": "default_capabilities",
+          "signature": "(protocol: 'Protocol') -> 'frozenset[str]'"
+        },
+        "normalize_capability": {
+          "kind": "function",
+          "module": "honua_sdk.models",
+          "qualname": "normalize_capability",
+          "signature": "(value: 'Capability') -> 'str'"
+        },
+        "normalize_protocol": {
+          "kind": "function",
+          "module": "honua_sdk.models",
+          "qualname": "normalize_protocol",
+          "signature": "(value: 'Protocol') -> 'str'"
         }
       }
     },

@@ -5,16 +5,16 @@ HTTP protocol wrappers return protocol-native payloads:
 
 | Surface | Wrapper | Return shape |
 | --- | --- | --- |
-| OGC API Features | `client.ogc_features()` | JSON `dict` GeoJSON documents, or `list[dict]` from `items_all()` |
+| OGC API Features | `client.ogc_features()` | JSON `dict` GeoJSON documents, paged iterators, or `list[dict]` from `items_all()` |
 | OGC API Maps | `client.ogc_maps()` | JSON `dict` metadata and `bytes` map images |
 | OGC API Tiles | `client.ogc_tiles()` | JSON `dict` metadata and `bytes` tiles |
 | OGC API Coverages | `client.ogc_coverages()` | JSON `dict` metadata and `bytes` coverage payloads |
 | OGC API Processes | `client.ogc_processes()` | JSON `dict`; `dismiss_job()` returns `None` |
-| STAC | `client.stac()` | JSON `dict` STAC Catalog, Collection, Item, and search payloads |
+| STAC | `client.stac()` | JSON `dict` STAC Catalog, Collection, Item, search payloads, and paged iterators |
 | WFS | `client.wfs()` | XML `str` |
-| WMS | `client.wms(service_id)` | XML `str` capabilities and `bytes` map or feature-info payloads |
-| WMTS | `client.wmts(service_id)` | XML `str` capabilities and `bytes` tiles |
-| OData | `client.odata()` | JSON `dict` resources and XML `str` metadata |
+| WMS | `client.wms(service_id)` | XML `str` capabilities, `bytes` payloads, or `BinaryResponse` metadata |
+| WMTS | `client.wmts(service_id)` | XML `str` capabilities, `bytes` tiles, or `BinaryResponse` metadata |
+| OData | `client.odata()` | JSON `dict` resources, XML `str` metadata, query helpers, and paged iterators |
 | Geocoding | `client.geocoder()`, `HonuaGeocodingClient` | SDK dataclass models |
 | gRPC | `HonuaGrpcClient` | SDK dataclass models |
 
@@ -36,8 +36,9 @@ BBOX = [-180, -90, 180, 90]
 
 ## OGC API Features
 
-`ogc_features()` returns GeoJSON-style JSON dictionaries. `items_all()` pages
-through item results and returns a list of feature dictionaries.
+`ogc_features()` returns GeoJSON-style JSON dictionaries. `items_pages()`
+streams FeatureCollection pages, `iter_items()` streams individual feature
+dictionaries, and `items_all()` collects features into a list.
 
 ```python
 from honua_sdk import HonuaClient
@@ -51,6 +52,9 @@ with HonuaClient(SERVER) as client:
 
     parcels = ogc.collection(COLLECTION_ID)
     items = parcels.items(limit=100, bbox=BBOX)     # dict GeoJSON FeatureCollection
+    first_pages = list(parcels.items_pages(page_size=500, max_pages=2))
+    for feature in parcels.iter_items(page_size=500, limit=1000):
+        print(feature["id"])
     all_items = parcels.items_all(page_size=500, limit=1000)  # list[dict]
     feature = parcels.item("123")                   # dict GeoJSON Feature
 ```
@@ -72,6 +76,8 @@ from honua_sdk import AsyncHonuaClient
 async with AsyncHonuaClient(SERVER) as client:
     parcels = client.ogc_features().collection(COLLECTION_ID)
     items = await parcels.items(limit=100)           # dict GeoJSON FeatureCollection
+    async for feature in parcels.iter_items(page_size=500, limit=1000):
+        print(feature["id"])
     all_items = await parcels.items_all(page_size=500, limit=1000)
 ```
 
@@ -173,8 +179,15 @@ with HonuaClient(SERVER) as client:
     collections = stac.collections()                # dict JSON
     collection = stac.collection(STAC_COLLECTION_ID)
     items = stac.items(STAC_COLLECTION_ID, extra_params={"limit": 10})
+    item_pages = list(stac.item_pages(STAC_COLLECTION_ID, page_size=100, max_pages=2))
+    item_list = stac.items_all(STAC_COLLECTION_ID, page_size=100, limit=500)
     item = stac.item(STAC_COLLECTION_ID, "scene-001")
     search = stac.search(json_body={"collections": [STAC_COLLECTION_ID], "limit": 10})
+    search_items = stac.search_items(
+        json_body={"collections": [STAC_COLLECTION_ID]},
+        page_size=100,
+        limit=500,
+    )
 ```
 
 With `geopandas` installed, STAC ItemCollection/search JSON can be converted to
@@ -211,8 +224,9 @@ with HonuaClient(SERVER) as client:
 
 ## WMS
 
-WMS capabilities are decoded to XML text. Map and feature-info requests return
-bytes because servers can return images, XML, HTML, or another requested format.
+WMS capabilities are decoded to XML text. Existing map and feature-info helpers
+return bytes. Use the `*_response()` variants when you also need HTTP metadata
+such as `Content-Type`, `ETag`, or cache headers.
 
 ```python
 from honua_sdk import HonuaClient
@@ -228,6 +242,12 @@ with HonuaClient(SERVER) as client:
         height=512,
         crs="EPSG:4326",
     )
+    map_response = wms.map_response(
+        layers=COLLECTION_ID,
+        bbox=BBOX,
+        width=512,
+        height=512,
+    )
     info = wms.feature_info(
         layers=COLLECTION_ID,
         query_layers=COLLECTION_ID,
@@ -239,11 +259,13 @@ with HonuaClient(SERVER) as client:
     )
 
 print(len(map_png), len(info))                      # bytes
+print(map_response.content_type, map_response.etag)
 ```
 
 ## WMTS
 
-WMTS capabilities are XML text. Tile requests return bytes.
+WMTS capabilities are XML text. Existing tile helpers return bytes. Use
+`tile_response()` when tile payload metadata is needed.
 
 ```python
 from honua_sdk import HonuaClient
@@ -259,26 +281,46 @@ with HonuaClient(SERVER) as client:
         tile_row=0,
         tile_col=0,
     )
+    tile_response = wmts.tile_response(
+        layer=COLLECTION_ID,
+        tile_matrix_set="WebMercatorQuad",
+        tile_matrix="0",
+        tile_row=0,
+        tile_col=0,
+    )
 
 print(len(tile_png))                                # bytes
+print(tile_response.content_type, tile_response.cache_control)
 ```
 
 ## OData
 
 OData service, layer, and feature resources return JSON dictionaries. The
-`$metadata` endpoint returns XML text.
+`$metadata` endpoint returns XML text. Common OData parameters can be passed as
+direct keyword arguments or grouped in `ODataQuery`.
 
 ```python
-from honua_sdk import HonuaClient
+from honua_sdk import HonuaClient, ODataQuery
 
 with HonuaClient(SERVER) as client:
     odata = client.odata()
 
     service_document = odata.service_document()     # dict JSON
     metadata_xml = odata.metadata()                 # str XML
-    layers = odata.layers()                         # dict JSON
+    layers = odata.layers(
+        query=ODataQuery(select=["Id", "Name"], orderby=["Name"], count=True),
+        top=50,
+    )
+    for layer in odata.iter_layers(page_size=100, limit=500):
+        print(layer["Id"])
     layer = odata.layer(LAYER_ID)                   # dict JSON
-    features = odata.features(layer_id=LAYER_ID)    # dict JSON
+    features = odata.features(
+        layer_id=LAYER_ID,
+        filter="Status eq 'active'",
+        select=["ObjectId", "Name"],
+    )
+    feature_pages = list(odata.features_pages(layer_id=LAYER_ID, page_size=500, max_pages=2))
+    feature_list = odata.features_all(layer_id=LAYER_ID, page_size=500, limit=2000)
     feature = odata.feature(LAYER_ID, 123)          # dict JSON
 ```
 
@@ -297,8 +339,15 @@ async with AsyncHonuaClient(SERVER) as client:
     coverage = await client.ogc_coverages().coverage("elevation", response_format="tiff")
     processes = await client.ogc_processes().processes()
     stac_items = await client.stac().items(STAC_COLLECTION_ID, extra_params={"limit": 10})
+    stac_item_list = await client.stac().items_all(STAC_COLLECTION_ID, page_size=100, limit=500)
     wfs_xml = await client.wfs().get_feature(type_names=COLLECTION_ID)
     wms_png = await client.wms(SERVICE_ID).map(layers=COLLECTION_ID, bbox=BBOX, width=512, height=512)
+    wms_response = await client.wms(SERVICE_ID).map_response(
+        layers=COLLECTION_ID,
+        bbox=BBOX,
+        width=512,
+        height=512,
+    )
     wmts_tile = await client.wmts(SERVICE_ID).tile(
         layer=COLLECTION_ID,
         tile_matrix_set="WebMercatorQuad",
@@ -306,7 +355,7 @@ async with AsyncHonuaClient(SERVER) as client:
         tile_row=0,
         tile_col=0,
     )
-    odata_features = await client.odata().features(layer_id=LAYER_ID)
+    odata_features = await client.odata().features_all(layer_id=LAYER_ID, page_size=500, limit=2000)
 ```
 
 ## Geocoding

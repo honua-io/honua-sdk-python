@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 from ._http import _encode_path_segment
 
@@ -91,6 +92,24 @@ def _features_from_collection(response: Mapping[str, Any]) -> list[JsonObject]:
     if not isinstance(features, list):
         return []
     return [feature for feature in features if isinstance(feature, dict)]
+
+
+def _next_link(response: Mapping[str, Any]) -> str | None:
+    links = response.get("links")
+    if not isinstance(links, Sequence) or isinstance(links, str):
+        return None
+    for link in links:
+        if not isinstance(link, Mapping):
+            continue
+        if link.get("rel") == "next" and isinstance(link.get("href"), str):
+            return str(link["href"])
+    return None
+
+
+def _path_and_params_from_href(href: str) -> tuple[str, dict[str, str]]:
+    parsed = urlsplit(href)
+    path = parsed.path or href
+    return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
 
 
 def _normalize_page_size(page_size: int | None, limit: int | None) -> int:
@@ -250,7 +269,78 @@ class HonuaOgcFeatures:
         crs: str | None = None,
     ) -> list[JsonObject]:
         """Page through collection items and return all fetched features."""
-        return self.collection(collection_id).items_all(
+        return list(
+            self.iter_items(
+                collection_id,
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=limit,
+                offset=offset,
+                page_size=page_size,
+                max_pages=max_pages,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                crs=crs,
+            )
+        )
+
+    def items_pages(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> Iterator[JsonObject]:
+        yield from self.collection(collection_id).items_pages(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        )
+
+    def iter_items(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> Iterator[JsonObject]:
+        yield from self.collection(collection_id).iter_items(
             response_format=response_format,
             extra_params=extra_params,
             limit=limit,
@@ -432,25 +522,14 @@ class HonuaOgcFeatureCollection:
         sortby: str | None = None,
         crs: str | None = None,
     ) -> list[JsonObject]:
-        effective_page_size = _normalize_page_size(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
-        start_offset = _normalize_offset(offset)
-        total_limit = _normalize_total_limit(limit)
-        features: list[JsonObject] = []
-
-        for page in range(effective_max_pages):
-            if total_limit is not None and len(features) >= total_limit:
-                break
-            remaining = effective_page_size if total_limit is None else max(0, total_limit - len(features))
-            if remaining < 1:
-                break
-
-            page_limit = min(effective_page_size, remaining)
-            response = self.items(
+        return list(
+            self.iter_items(
                 response_format=response_format,
                 extra_params=extra_params,
-                limit=page_limit,
-                offset=start_offset + page * effective_page_size,
+                limit=limit,
+                offset=offset,
+                page_size=page_size,
+                max_pages=max_pages,
                 bbox=bbox,
                 datetime=datetime,
                 filter=filter,
@@ -459,17 +538,102 @@ class HonuaOgcFeatureCollection:
                 sortby=sortby,
                 crs=crs,
             )
+        )
+
+    def items_pages(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> Iterator[JsonObject]:
+        effective_page_size = _normalize_page_size(page_size, limit)
+        effective_max_pages = _normalize_max_pages(max_pages)
+        start_offset = _normalize_offset(offset)
+        total_limit = _normalize_total_limit(limit)
+        if total_limit == 0:
+            return
+
+        fetched = 0
+        next_href: str | None = None
+        for page in range(effective_max_pages):
+            remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
+            if remaining < 1:
+                break
+
+            page_limit = min(effective_page_size, remaining)
+            if next_href is not None:
+                path, params = _path_and_params_from_href(next_href)
+                response = self.client._request_json("GET", path, params=params)
+            else:
+                response = self.items(
+                    response_format=response_format,
+                    extra_params=extra_params,
+                    limit=page_limit,
+                    offset=start_offset + page * effective_page_size,
+                    bbox=bbox,
+                    datetime=datetime,
+                    filter=filter,
+                    ids=ids,
+                    properties=properties,
+                    sortby=sortby,
+                    crs=crs,
+                )
+            yield response
             page_features = _features_from_collection(response)
-            if not page_features:
+            fetched += len(page_features)
+            next_href = _next_link(response)
+            if next_href is None and len(page_features) < page_limit:
                 break
 
-            features.extend(page_features)
-            if len(page_features) < page_limit:
-                break
-
-        if total_limit is not None and len(features) > total_limit:
-            return features[:total_limit]
-        return features
+    def iter_items(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> Iterator[JsonObject]:
+        emitted = 0
+        for page in self.items_pages(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        ):
+            for item in _features_from_collection(page):
+                if limit is not None and emitted >= limit:
+                    return
+                yield item
+                emitted += 1
 
     def item(
         self,
@@ -678,7 +842,45 @@ class AsyncHonuaOgcFeatures:
         sortby: str | None = None,
         crs: str | None = None,
     ) -> list[JsonObject]:
-        return await self.collection(collection_id).items_all(
+        return [
+            item
+            async for item in self.iter_items(
+                collection_id,
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=limit,
+                offset=offset,
+                page_size=page_size,
+                max_pages=max_pages,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                crs=crs,
+            )
+        ]
+
+    async def items_pages(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> AsyncIterator[JsonObject]:
+        async for page in self.collection(collection_id).items_pages(
             response_format=response_format,
             extra_params=extra_params,
             limit=limit,
@@ -692,7 +894,43 @@ class AsyncHonuaOgcFeatures:
             properties=properties,
             sortby=sortby,
             crs=crs,
-        )
+        ):
+            yield page
+
+    async def iter_items(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> AsyncIterator[JsonObject]:
+        async for item in self.collection(collection_id).iter_items(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        ):
+            yield item
 
     async def item(
         self,
@@ -855,25 +1093,15 @@ class AsyncHonuaOgcFeatureCollection:
         sortby: str | None = None,
         crs: str | None = None,
     ) -> list[JsonObject]:
-        effective_page_size = _normalize_page_size(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
-        start_offset = _normalize_offset(offset)
-        total_limit = _normalize_total_limit(limit)
-        features: list[JsonObject] = []
-
-        for page in range(effective_max_pages):
-            if total_limit is not None and len(features) >= total_limit:
-                break
-            remaining = effective_page_size if total_limit is None else max(0, total_limit - len(features))
-            if remaining < 1:
-                break
-
-            page_limit = min(effective_page_size, remaining)
-            response = await self.items(
+        return [
+            item
+            async for item in self.iter_items(
                 response_format=response_format,
                 extra_params=extra_params,
-                limit=page_limit,
-                offset=start_offset + page * effective_page_size,
+                limit=limit,
+                offset=offset,
+                page_size=page_size,
+                max_pages=max_pages,
                 bbox=bbox,
                 datetime=datetime,
                 filter=filter,
@@ -882,17 +1110,102 @@ class AsyncHonuaOgcFeatureCollection:
                 sortby=sortby,
                 crs=crs,
             )
+        ]
+
+    async def items_pages(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> AsyncIterator[JsonObject]:
+        effective_page_size = _normalize_page_size(page_size, limit)
+        effective_max_pages = _normalize_max_pages(max_pages)
+        start_offset = _normalize_offset(offset)
+        total_limit = _normalize_total_limit(limit)
+        if total_limit == 0:
+            return
+
+        fetched = 0
+        next_href: str | None = None
+        for page in range(effective_max_pages):
+            remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
+            if remaining < 1:
+                break
+
+            page_limit = min(effective_page_size, remaining)
+            if next_href is not None:
+                path, params = _path_and_params_from_href(next_href)
+                response = await self.client._request_json("GET", path, params=params)
+            else:
+                response = await self.items(
+                    response_format=response_format,
+                    extra_params=extra_params,
+                    limit=page_limit,
+                    offset=start_offset + page * effective_page_size,
+                    bbox=bbox,
+                    datetime=datetime,
+                    filter=filter,
+                    ids=ids,
+                    properties=properties,
+                    sortby=sortby,
+                    crs=crs,
+                )
+            yield response
             page_features = _features_from_collection(response)
-            if not page_features:
+            fetched += len(page_features)
+            next_href = _next_link(response)
+            if next_href is None and len(page_features) < page_limit:
                 break
 
-            features.extend(page_features)
-            if len(page_features) < page_limit:
-                break
-
-        if total_limit is not None and len(features) > total_limit:
-            return features[:total_limit]
-        return features
+    async def iter_items(
+        self,
+        *,
+        response_format: str = "json",
+        extra_params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        crs: str | None = None,
+    ) -> AsyncIterator[JsonObject]:
+        emitted = 0
+        async for page in self.items_pages(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            crs=crs,
+        ):
+            for item in _features_from_collection(page):
+                if limit is not None and emitted >= limit:
+                    return
+                yield item
+                emitted += 1
 
     async def item(
         self,

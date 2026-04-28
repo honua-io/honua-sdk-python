@@ -72,8 +72,9 @@ that are not lifted into typed attributes.
 
 ## Pagination
 
-Use `query_features_all()` to page a FeatureServer layer with
-`resultOffset` and `resultRecordCount`:
+Use `query_features_all()` to collect a FeatureServer layer with `resultOffset`
+and `resultRecordCount`. Use `client.feature_server(service_id).query_pages()`
+or `query_items()` when you want to stream pages or individual typed features:
 
 ```python
 from honua_sdk import HonuaClient
@@ -86,6 +87,13 @@ with HonuaClient("https://honua.example") as client:
         page_size=500,
         limit=2000,
     )
+
+    feature_server = client.feature_server("parcels")
+    for page in feature_server.query_pages(0, page_size=500, limit=2000):
+        print(len(page.features), page.exceeded_transfer_limit)
+
+    for feature in feature_server.query_items(0, page_size=500, limit=2000):
+        print(feature.object_id)
 ```
 
 The helper stops when:
@@ -105,6 +113,9 @@ from honua_sdk import AsyncHonuaClient
 
 async with AsyncHonuaClient("https://honua.example") as client:
     features = await client.query_features_all("parcels", 0, page_size=500)
+
+    async for feature in client.feature_server("parcels").query_items(0, page_size=500):
+        print(feature.object_id)
 ```
 
 ## Edits

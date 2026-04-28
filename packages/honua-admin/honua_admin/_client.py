@@ -7,9 +7,10 @@ from typing import Any
 
 import httpx
 
-from honua_sdk.errors import HonuaHttpError
-from honua_sdk._retry import RetryTransport
-from honua_sdk._http import (
+from honua_sdk._shared import (
+    AuthProvider,
+    HonuaHttpError,
+    RetryTransport,
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
     _encode_path_segment,
@@ -20,7 +21,6 @@ from honua_sdk._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
 )
-from honua_sdk.auth import AuthProvider
 from ._models import (
     AdminCompatibilityBaseline,
     AdminCompatibilityCheckResult,

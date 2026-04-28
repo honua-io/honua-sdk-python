@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import AsyncHonuaClient, HonuaClient
+from honua_sdk import AsyncHonuaClient, BinaryResponse, HonuaClient, ODataQuery
 
 
 @pytest.fixture
@@ -155,3 +155,95 @@ async def test_async_stac_classic_ogc_and_odata_build_expected_paths() -> None:
     ]
     assert seen[3]["query"] == {"service": "WFS", "version": "2.0.0", "request": "GetCapabilities"}
     assert seen[5]["query"]["request"] == "GetTile"
+
+
+async def test_async_stac_iter_items_follow_next_links_and_clip_limit() -> None:
+    seen: list[dict[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append(query)
+        offset = int(query.get("offset", "0"))
+        page = [{"type": "Feature", "id": f"scene-{value}"} for value in range(offset + 1, offset + 3)]
+        links = []
+        if offset == 0:
+            links.append(
+                {
+                    "rel": "next",
+                    "href": "http://example.test/stac/collections/imagery/items?offset=2&limit=2",
+                }
+            )
+        return httpx.Response(200, json={"type": "FeatureCollection", "features": page, "links": links})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        items = [item async for item in client.stac().iter_items("imagery", page_size=2, limit=3)]
+
+    assert [item["id"] for item in items] == ["scene-1", "scene-2", "scene-3"]
+    assert seen == [{"limit": "2", "offset": "0"}, {"offset": "2", "limit": "2"}]
+
+
+async def test_async_odata_query_helpers_and_iterators() -> None:
+    seen: list[dict[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append(query)
+        skip = int(query.get("$skip", "0"))
+        payload: dict[str, Any] = {
+            "value": [{"ObjectId": skip + 1}, {"ObjectId": skip + 2}],
+        }
+        if skip == 0:
+            payload["@odata.nextLink"] = "http://example.test/odata/Layers(4)/Features?$skip=2&$top=2"
+        return httpx.Response(200, json=payload)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = [
+            feature
+            async for feature in client.odata().iter_features(
+                layer_id=4,
+                query=ODataQuery(filter="Status eq 'active'", select=["ObjectId"], count=True),
+                page_size=2,
+                limit=3,
+            )
+        ]
+
+    assert [feature["ObjectId"] for feature in features] == [1, 2, 3]
+    assert seen == [
+        {
+            "$filter": "Status eq 'active'",
+            "$select": "ObjectId",
+            "$top": "2",
+            "$skip": "0",
+            "$count": "true",
+        },
+        {"$skip": "2", "$top": "2"},
+    ]
+
+
+async def test_async_wms_response_helper_returns_binary_metadata() -> None:
+    seen: dict[str, str] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params.multi_items()))
+        return httpx.Response(
+            200,
+            content=b"image-bytes",
+            headers={"content-type": "image/png", "etag": '"map-v1"'},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        response = await client.wms("basemap").map_response(
+            layers="roads",
+            bbox=[-158, 21, -157, 22],
+            width=256,
+            height=256,
+        )
+
+    assert isinstance(response, BinaryResponse)
+    assert response.content == b"image-bytes"
+    assert response.content_type == "image/png"
+    assert response.etag == '"map-v1"'
+    assert seen["request"] == "GetMap"

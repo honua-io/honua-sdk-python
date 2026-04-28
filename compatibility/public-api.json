@@ -1752,11 +1752,15 @@
         "AsyncWmsClient",
         "AsyncWmtsClient",
         "AuthProvider",
+        "BboxValue",
         "BearerToken",
+        "BinaryResponse",
         "CallableAuthProvider",
+        "CsvValue",
         "DataPlaneCapabilities",
         "EditOperationResult",
         "Feature",
+        "FeatureId",
         "FeatureSet",
         "GeoServicesFeatureServerClient",
         "GeoServicesGeometryServerClient",
@@ -1772,8 +1776,13 @@
         "HonuaOgcFeatureCollection",
         "HonuaOgcFeatures",
         "InMemoryTokenStore",
+        "JsonObject",
+        "JsonResponseFormat",
         "ODataClient",
+        "ODataOrderBy",
+        "ODataQuery",
         "OgcCoveragesClient",
+        "OgcImageFormat",
         "OgcMapsClient",
         "OgcProcessesClient",
         "OgcTilesClient",
@@ -1784,8 +1793,11 @@
         "StaticAuthProvider",
         "TokenStore",
         "WfsClient",
+        "WfsVersion",
         "WmsClient",
+        "WmsVersion",
         "WmtsClient",
+        "WmtsVersion",
         "__version__"
       ],
       "symbols": {
@@ -1851,6 +1863,19 @@
               "async": true,
               "kind": "method",
               "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "query_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'list[Feature]'"
+            },
+            "query_items": {
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'AsyncIterator[Feature]'"
+            },
+            "query_pages": {
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'AsyncIterator[FeatureSet]'"
             },
             "query_related_records": {
               "async": true,
@@ -2156,6 +2181,14 @@
               "kind": "method",
               "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
             },
+            "items_pages": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
             "metadata": {
               "async": true,
               "kind": "method",
@@ -2228,6 +2261,14 @@
               "kind": "method",
               "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
             },
+            "items_pages": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
             "landing": {
               "async": true,
               "kind": "method",
@@ -2261,20 +2302,50 @@
               "kind": "method",
               "signature": "(self, layer_id: 'int', object_id: 'int') -> 'JsonObject'"
             },
+            "feature_pages": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
+            },
             "features": {
               "async": true,
               "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "features_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
+            },
+            "features_pages": {
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
+            },
+            "iter_features": {
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
+            },
+            "iter_layers": {
+              "kind": "method",
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
             },
             "layer": {
               "async": true,
               "kind": "method",
               "signature": "(self, layer_id: 'int', *, extra_params: 'Params' = None) -> 'JsonObject'"
             },
+            "layer_pages": {
+              "kind": "method",
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
+            },
             "layers": {
               "async": true,
               "kind": "method",
-              "signature": "(self, *, extra_params: 'Params' = None) -> 'JsonObject'"
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "layers_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
             },
             "metadata": {
               "async": true,
@@ -2496,15 +2567,41 @@
               "kind": "method",
               "signature": "(self, collection_id: 'FeatureId', item_id: 'FeatureId') -> 'JsonObject'"
             },
+            "item_pages": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
             "items": {
               "async": true,
               "kind": "method",
               "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None) -> 'JsonObject'"
             },
+            "items_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
+            "iter_search_items": {
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
             "search": {
               "async": true,
               "kind": "method",
               "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            },
+            "search_items": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
+            },
+            "search_pages": {
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
             }
           },
           "module": "honua_sdk.protocols",
@@ -2557,15 +2654,30 @@
               "kind": "method",
               "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'bytes'"
             },
+            "feature_info_response": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'BinaryResponse'"
+            },
             "map": {
               "async": true,
               "kind": "method",
               "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
             },
+            "map_response": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
+            },
             "request": {
               "async": true,
               "kind": "method",
               "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
+            },
+            "request_response": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
             }
           },
           "module": "honua_sdk.protocols",
@@ -2585,10 +2697,20 @@
               "kind": "method",
               "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
             },
+            "request_response": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
+            },
             "tile": {
               "async": true,
               "kind": "method",
               "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "tile_response": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
             }
           },
           "module": "honua_sdk.protocols",
@@ -2606,6 +2728,11 @@
           "module": "honua_sdk.auth",
           "qualname": "AuthProvider",
           "signature": "(*args, **kwargs)"
+        },
+        "BboxValue": {
+          "kind": "constant",
+          "type": "UnionType",
+          "value": "str | collections.abc.Sequence[int | float]"
         },
         "BearerToken": {
           "fields": [
@@ -2642,6 +2769,59 @@
           "qualname": "BearerToken",
           "signature": "(access_token: 'str', expires_at: 'datetime | None' = None, token_type: 'str' = 'Bearer') -> None"
         },
+        "BinaryResponse": {
+          "fields": [
+            {
+              "annotation": "bytes",
+              "name": "content"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "content_type"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "cache_control"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "etag"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "last_modified"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "expires"
+            },
+            {
+              "annotation": "Mapping[str, str] | None",
+              "default": "None",
+              "name": "headers"
+            },
+            {
+              "annotation": "int",
+              "default": "200",
+              "name": "status_code"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_httpx": {
+              "kind": "classmethod",
+              "signature": "(cls, response: 'httpx.Response') -> \"'BinaryResponse'\""
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "BinaryResponse",
+          "signature": "(content: 'bytes', content_type: 'str | None' = None, cache_control: 'str | None' = None, etag: 'str | None' = None, last_modified: 'str | None' = None, expires: 'str | None' = None, headers: 'Mapping[str, str] | None' = None, status_code: 'int' = 200) -> None"
+        },
         "CallableAuthProvider": {
           "kind": "class",
           "methods": {
@@ -2653,6 +2833,11 @@
           "module": "honua_sdk.auth",
           "qualname": "CallableAuthProvider",
           "signature": "(callback: 'Callable[[], Mapping[str, str]]') -> 'None'"
+        },
+        "CsvValue": {
+          "kind": "constant",
+          "type": "UnionType",
+          "value": "str | collections.abc.Sequence[str | int | float]"
         },
         "DataPlaneCapabilities": {
           "fields": [
@@ -2770,6 +2955,11 @@
           "qualname": "Feature",
           "signature": "(attributes: 'Mapping[str, Any]', geometry: 'Mapping[str, Any] | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
+        "FeatureId": {
+          "kind": "constant",
+          "type": "UnionType",
+          "value": "str | int"
+        },
         "FeatureSet": {
           "fields": [
             {
@@ -2834,6 +3024,18 @@
             "query": {
               "kind": "method",
               "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "query_all": {
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'list[Feature]'"
+            },
+            "query_items": {
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'Iterator[Feature]'"
+            },
+            "query_pages": {
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'Iterator[FeatureSet]'"
             },
             "query_related_records": {
               "kind": "method",
@@ -3166,6 +3368,14 @@
               "kind": "method",
               "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
             },
+            "items_pages": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
+            },
             "metadata": {
               "kind": "method",
               "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
@@ -3226,6 +3436,14 @@
               "kind": "method",
               "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
             },
+            "items_pages": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
+            },
             "landing": {
               "kind": "method",
               "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
@@ -3267,6 +3485,16 @@
           "qualname": "InMemoryTokenStore",
           "signature": "(token: 'BearerToken | Mapping[str, Any] | str | None' = None) -> 'None'"
         },
+        "JsonObject": {
+          "kind": "constant",
+          "type": "GenericAlias",
+          "value": "dict[str, typing.Any]"
+        },
+        "JsonResponseFormat": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['json', 'pjson'], str]"
+        },
         "ODataClient": {
           "kind": "class",
           "methods": {
@@ -3274,17 +3502,45 @@
               "kind": "method",
               "signature": "(self, layer_id: 'int', object_id: 'int') -> 'JsonObject'"
             },
+            "feature_pages": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'Iterator[JsonObject]'"
+            },
             "features": {
               "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "features_all": {
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
+            },
+            "features_pages": {
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
+            },
+            "iter_features": {
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
+            },
+            "iter_layers": {
+              "kind": "method",
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
             },
             "layer": {
               "kind": "method",
               "signature": "(self, layer_id: 'int', *, extra_params: 'Params' = None) -> 'JsonObject'"
             },
+            "layer_pages": {
+              "kind": "method",
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
+            },
             "layers": {
               "kind": "method",
-              "signature": "(self, *, extra_params: 'Params' = None) -> 'JsonObject'"
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "layers_all": {
+              "kind": "method",
+              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
             },
             "metadata": {
               "kind": "method",
@@ -3298,6 +3554,49 @@
           "module": "honua_sdk.protocols",
           "qualname": "ODataClient",
           "signature": "(client: 'Any') -> 'None'"
+        },
+        "ODataOrderBy": {
+          "kind": "constant",
+          "type": "UnionType",
+          "value": "str | collections.abc.Sequence[str]"
+        },
+        "ODataQuery": {
+          "fields": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "filter"
+            },
+            {
+              "annotation": "CsvValue | None",
+              "default": "None",
+              "name": "select"
+            },
+            {
+              "annotation": "ODataOrderBy | None",
+              "default": "None",
+              "name": "orderby"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "top"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "skip"
+            },
+            {
+              "annotation": "bool | None",
+              "default": "None",
+              "name": "count"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.protocols",
+          "qualname": "ODataQuery",
+          "signature": "(filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None) -> None"
         },
         "OgcCoveragesClient": {
           "kind": "class",
@@ -3322,6 +3621,11 @@
           "module": "honua_sdk.protocols",
           "qualname": "OgcCoveragesClient",
           "signature": "(client: 'Any') -> 'None'"
+        },
+        "OgcImageFormat": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['png', 'jpeg', 'jpg', 'webp', 'image/png', 'image/jpeg', 'image/webp'], str]"
         },
         "OgcMapsClient": {
           "kind": "class",
@@ -3551,13 +3855,37 @@
               "kind": "method",
               "signature": "(self, collection_id: 'FeatureId', item_id: 'FeatureId') -> 'JsonObject'"
             },
+            "item_pages": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
+            },
             "items": {
               "kind": "method",
               "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None) -> 'JsonObject'"
             },
+            "items_all": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
+            },
+            "iter_search_items": {
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
+            },
             "search": {
               "kind": "method",
               "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            },
+            "search_items": {
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
+            },
+            "search_pages": {
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
             }
           },
           "module": "honua_sdk.protocols",
@@ -3624,6 +3952,11 @@
           "qualname": "WfsClient",
           "signature": "(client: 'Any') -> 'None'"
         },
+        "WfsVersion": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['2.0.0', '1.1.0', '1.0.0'], str]"
+        },
         "WmsClient": {
           "kind": "class",
           "methods": {
@@ -3635,18 +3968,35 @@
               "kind": "method",
               "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'bytes'"
             },
+            "feature_info_response": {
+              "kind": "method",
+              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'BinaryResponse'"
+            },
             "map": {
               "kind": "method",
               "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
             },
+            "map_response": {
+              "kind": "method",
+              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
+            },
             "request": {
               "kind": "method",
               "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
+            },
+            "request_response": {
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
             }
           },
           "module": "honua_sdk.protocols",
           "qualname": "WmsClient",
           "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+        },
+        "WmsVersion": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['1.3.0', '1.1.1'], str]"
         },
         "WmtsClient": {
           "kind": "class",
@@ -3659,14 +4009,27 @@
               "kind": "method",
               "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
             },
+            "request_response": {
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
+            },
             "tile": {
               "kind": "method",
               "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "tile_response": {
+              "kind": "method",
+              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
             }
           },
           "module": "honua_sdk.protocols",
           "qualname": "WmtsClient",
           "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+        },
+        "WmtsVersion": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['1.0.0'], str]"
         },
         "__version__": {
           "kind": "constant",

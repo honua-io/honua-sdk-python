@@ -57,12 +57,13 @@ with HonuaClient("https://your-honua-server.com") as client:
 ## Protocol Clients
 
 ```python
-from honua_sdk import HonuaClient
+from honua_sdk import HonuaClient, ODataQuery
 
 with HonuaClient("https://your-honua-server.com") as client:
     capabilities = client.capabilities()
     if capabilities.supports("stac"):
         stac_items = client.stac().items("imagery")
+        stac_item_list = client.stac().items_all("imagery", page_size=100, limit=500)
 
     image = client.ogc_maps().collection_map("parcels", bbox=[-180, -90, 180, 90])
     tile = client.ogc_tiles().tile("WebMercatorQuad", "0", 0, 0, collection_id="parcels")
@@ -70,6 +71,12 @@ with HonuaClient("https://your-honua-server.com") as client:
     processes = client.ogc_processes().processes()
     wfs_xml = client.wfs().get_feature(type_names="parcels")
     wms_capabilities = client.wms("basemap").capabilities()
+    wms_response = client.wms("basemap").map_response(
+        layers="parcels",
+        bbox=[-180, -90, 180, 90],
+        width=512,
+        height=512,
+    )
     wmts_tile = client.wmts("basemap").tile(
         layer="parcels",
         tile_matrix_set="WebMercatorQuad",
@@ -77,12 +84,20 @@ with HonuaClient("https://your-honua-server.com") as client:
         tile_row=0,
         tile_col=0,
     )
-    odata_features = client.odata().features(layer_id=0)
+    odata_features = client.odata().features_all(
+        layer_id=0,
+        query=ODataQuery(select=["ObjectId", "Name"], count=True),
+        page_size=500,
+        limit=2000,
+    )
 ```
 
 Protocol helpers return protocol-native JSON `dict`, XML `str`, raw `bytes`,
-or SDK models for geocoding and gRPC. `client.capabilities()` and
-`client.supports("stac")` expose advertised data-plane capabilities.
+`BinaryResponse` metadata wrappers for WMS/WMTS payloads, or SDK models for
+geocoding and gRPC. Collection-style surfaces also expose paged iterators and
+collect-all helpers such as `iter_items()`, `query_items()`, `items_all()`, and
+`features_all()`. `client.capabilities()` and `client.supports("stac")` expose
+advertised data-plane capabilities.
 
 ## Documentation
 

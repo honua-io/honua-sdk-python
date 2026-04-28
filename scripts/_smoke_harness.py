@@ -229,7 +229,7 @@ def _probe_error_context(
 
 
 def _attach_cleanup_error(main_error: Exception, cleanup_error: Exception) -> Exception:
-    setattr(main_error, "_smoke_cleanup_error", _serialize_probe_exception(cleanup_error))
+    main_error._smoke_cleanup_error = _serialize_probe_exception(cleanup_error)  # type: ignore[attr-defined]
     return main_error
 
 

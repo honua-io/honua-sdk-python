@@ -295,6 +295,18 @@ def test_admin_client_auth_provider_headers_are_resolved_per_request() -> None:
     assert seen == ["admin-key-1", "admin-key-2"]
 
 
+def test_custom_http_client_rejects_sdk_auth_options() -> None:
+    client = httpx.Client(
+        base_url="http://test.honua.io",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200)),
+    )
+    try:
+        with pytest.raises(ValueError, match="supplied `client`"):
+            HonuaAdminClient("http://ignored.test", client=client, api_key="test-key")
+    finally:
+        client.close()
+
+
 def test_transport_errors_are_normalized_to_honua_http_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("dial failed", request=request)

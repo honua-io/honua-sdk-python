@@ -7,10 +7,12 @@ This module requires the optional ``geopandas`` extra::
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 try:
     import geopandas as gpd
+    import pandas as pd
     from shapely.geometry import (
         LinearRing,
         MultiLineString,
@@ -145,7 +147,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:
         return MultiPolygon(
             [
                 (ext, holes)
-                for ext, holes in zip(exteriors, holes_for)
+                for ext, holes in zip(exteriors, holes_for, strict=True)
             ]
         )
 
@@ -280,7 +282,7 @@ def geodataframe_to_features(
     features: list[dict[str, Any]] = []
     for idx in range(len(gdf)):
         row = gdf.iloc[idx]
-        attrs = {col: row[col] for col in attr_columns}
+        attrs = {col: _json_safe_value(row[col]) for col in attr_columns}
         geom_obj = row[gdf.geometry.name]
         esri_geom = _shapely_to_esri_geometry(geom_obj)
         feat: dict[str, Any] = {"attributes": attrs}
@@ -289,3 +291,27 @@ def geodataframe_to_features(
         features.append(feat)
 
     return features
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_value(item) for item in value]
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except (TypeError, ValueError):
+            pass
+    return value

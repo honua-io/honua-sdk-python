@@ -279,6 +279,18 @@ def test_auth_headers_bearer_token() -> None:
     assert seen["authorization"] == "Bearer geo-test-token"
 
 
+def test_custom_http_client_rejects_sdk_auth_options() -> None:
+    client = httpx.Client(
+        base_url="http://example.test",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200)),
+    )
+    try:
+        with pytest.raises(ValueError, match="supplied `client`"):
+            HonuaGeocodingClient("http://ignored.test", client=client, api_key="geo-test-key")
+    finally:
+        client.close()
+
+
 # ---------------------------------------------------------------------------
 # HTTP errors
 # ---------------------------------------------------------------------------

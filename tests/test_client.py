@@ -211,6 +211,17 @@ def test_ogc_features_items_all_paginates_with_limit() -> None:
     assert seen == [("2", "0"), ("2", "2"), ("1", "4")]
 
 
+def test_ogc_features_items_all_zero_limit_does_not_request() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("items_all(limit=0) should not issue a request")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.ogc_features().collection("parcels").items_all(limit=0)
+
+    assert features == []
+
+
 def test_ogc_features_item_crud_uses_geojson_endpoints() -> None:
     seen: list[dict[str, Any]] = []
 
@@ -352,6 +363,26 @@ def test_auth_provider_cannot_be_combined_with_static_bearer_token() -> None:
             auth_provider=auth_provider,
             transport=httpx.MockTransport(lambda request: httpx.Response(200)),
         )
+
+
+@pytest.mark.parametrize(
+    "auth_kwargs",
+    [
+        {"api_key": "test-key"},
+        {"bearer_token": "test-token"},
+        {"auth_provider": CallableAuthProvider(lambda: {"X-API-Key": "test-key"})},
+    ],
+)
+def test_custom_http_client_rejects_sdk_auth_options(auth_kwargs: dict[str, object]) -> None:
+    client = httpx.Client(
+        base_url="http://example.test",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200)),
+    )
+    try:
+        with pytest.raises(ValueError, match="supplied `client`"):
+            HonuaClient("http://ignored.test", client=client, **auth_kwargs)
+    finally:
+        client.close()
 
 
 def test_non_success_raises_honua_http_error() -> None:

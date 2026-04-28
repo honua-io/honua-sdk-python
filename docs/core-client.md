@@ -25,6 +25,28 @@ with HonuaClient("https://honua.example") as client:
         print(service.name, service.type)
 ```
 
+## Capability Discovery
+
+Use `capabilities()` when you need the advertised data-plane protocols and
+feature flags before choosing an optional surface. `supports()` checks a single
+protocol or feature name:
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://honua.example") as client:
+    capabilities = client.capabilities()
+
+    if capabilities.supports("stac"):
+        items = client.stac().items("imagery")
+
+    if client.supports("feature-server"):
+        services = client.list_service_summaries()
+```
+
+Older servers that do not expose `/api/v1/capabilities` fall back to readiness
+and GeoServices catalog discovery.
+
 ## FeatureServer Queries
 
 `query_features()` returns the raw FeatureServer response. `query_feature_set()`

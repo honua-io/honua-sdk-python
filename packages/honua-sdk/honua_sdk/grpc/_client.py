@@ -2,12 +2,33 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from collections.abc import Mapping
 
 import grpc
 
+from honua_sdk._http import _build_sensitive_auth_headers, _validate_auth_configuration
+from honua_sdk.auth import AuthProvider, normalize_auth_headers
 from honua_sdk.errors import HonuaGrpcError
 from . import _models as models
 from . import _proto_adapter as adapter
+
+
+def build_grpc_metadata(
+    *,
+    api_key: str | None = None,
+    bearer_token: str | None = None,
+    auth_provider: AuthProvider | None = None,
+    extra_metadata: Mapping[str, str] | None = None,
+) -> list[tuple[str, str]]:
+    """Build gRPC metadata entries from SDK auth options."""
+    _validate_auth_configuration(bearer_token=bearer_token, auth_provider=auth_provider)
+    headers = _build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
+    if auth_provider is not None:
+        for name, value in normalize_auth_headers(auth_provider.auth_headers()).items():
+            headers.setdefault(name, value)
+    if extra_metadata:
+        headers.update(extra_metadata)
+    return [(name.lower(), value) for name, value in headers.items()]
 
 
 class HonuaGrpcClient:

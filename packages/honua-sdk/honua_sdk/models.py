@@ -27,6 +27,66 @@ class ServiceSummary:
 
 
 @dataclass(frozen=True)
+class DataPlaneCapabilities:
+    """Data-plane capability discovery result."""
+
+    server_version: str | None = None
+    release_channel: str | None = None
+    protocols: frozenset[str] = frozenset()
+    features: Mapping[str, bool] = field(default_factory=dict)
+    raw: Mapping[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "DataPlaneCapabilities":
+        features = _capability_flags(_first_present(payload, "features", "featureFlags"))
+        compatibility = payload.get("compatibility")
+        if isinstance(compatibility, Mapping):
+            features = {**_capability_flags(compatibility.get("features")), **features}
+
+        return cls(
+            server_version=_optional_str(_first_present(payload, "serverVersion", "server_version", "version")),
+            release_channel=_optional_str(_first_present(payload, "releaseChannel", "release_channel", "channel")),
+            protocols=frozenset(_capability_names(_first_present(payload, "protocols", "dataProtocols", "surfaces"))),
+            features=features,
+            raw=dict(payload),
+        )
+
+    @classmethod
+    def from_discovery(
+        cls,
+        *,
+        readiness: Mapping[str, Any],
+        catalog: Mapping[str, Any],
+    ) -> "DataPlaneCapabilities":
+        protocols: set[str] = set(_capability_names(readiness.get("protocols")))
+        services = catalog.get("services")
+        if isinstance(services, Sequence) and not isinstance(services, str):
+            protocols.add("geoservices")
+            for service in services:
+                if not isinstance(service, Mapping):
+                    continue
+                service_type = _optional_str(service.get("type"))
+                if service_type is not None:
+                    protocols.add(_normalize_capability_name(service_type))
+
+        return cls(
+            server_version=_optional_str(_first_present(readiness, "serverVersion", "server_version", "version")),
+            release_channel=_optional_str(_first_present(readiness, "releaseChannel", "release_channel", "channel")),
+            protocols=frozenset(protocols),
+            features={
+                "readiness": bool(readiness),
+                "service-catalog": isinstance(services, Sequence) and not isinstance(services, str),
+            },
+            raw={"readiness": dict(readiness), "catalog": dict(catalog)},
+        )
+
+    def supports(self, capability: str) -> bool:
+        """Return whether a named protocol or feature is advertised."""
+        key = _normalize_capability_name(capability)
+        return key in self.protocols or bool(self.features.get(key, False))
+
+
+@dataclass(frozen=True)
 class Feature:
     """FeatureServer feature with attributes and optional geometry."""
 
@@ -147,3 +207,64 @@ def _first_present(payload: Mapping[str, Any], *keys: str) -> Any:
         if key in payload:
             return payload[key]
     return None
+
+
+def _capability_flags(value: Any) -> dict[str, bool]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {_normalize_capability_name(str(key)): bool(flag) for key, flag in value.items()}
+
+
+def _capability_names(value: Any) -> set[str]:
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        if isinstance(value, Mapping):
+            return {
+                _normalize_capability_name(str(key))
+                for key, enabled in value.items()
+                if _capability_enabled(enabled)
+            }
+        return set()
+
+    names: set[str] = set()
+    for item in value:
+        if isinstance(item, str):
+            names.add(_normalize_capability_name(item))
+            continue
+        if not isinstance(item, Mapping) or not _capability_enabled(item):
+            continue
+        name = _first_present(item, "id", "name", "protocol", "surface")
+        if name is not None:
+            names.add(_normalize_capability_name(str(name)))
+    return names
+
+
+def _capability_enabled(value: Any) -> bool:
+    if isinstance(value, Mapping):
+        enabled = value.get("enabled", True)
+        return bool(enabled)
+    return bool(value)
+
+
+def _normalize_capability_name(value: str) -> str:
+    normalized = value.strip().lower().replace("_", "-").replace("/", "-").replace(" ", "-")
+    aliases = {
+        "feature-server": "featureserver",
+        "feature-service": "featureserver",
+        "geo-services": "geoservices",
+        "geocode-server": "geocodeserver",
+        "geocoding": "geocodeserver",
+        "geometry-server": "geometryserver",
+        "image-server": "imageserver",
+        "map-server": "mapserver",
+        "ogc-features": "ogc-features",
+        "ogc-api-features": "ogc-features",
+        "ogc-maps": "ogc-maps",
+        "ogc-api-maps": "ogc-maps",
+        "ogc-tiles": "ogc-tiles",
+        "ogc-api-tiles": "ogc-tiles",
+        "ogc-coverages": "ogc-coverages",
+        "ogc-api-coverages": "ogc-coverages",
+        "ogc-processes": "ogc-processes",
+        "ogc-api-processes": "ogc-processes",
+    }
+    return aliases.get(normalized, normalized)

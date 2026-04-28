@@ -1,4 +1,4 @@
-"""GeoPandas integration for converting between Esri JSON and GeoDataFrames.
+"""GeoPandas integration for converting geospatial responses to GeoDataFrames.
 
 This module requires the optional ``geopandas`` extra::
 
@@ -7,6 +7,8 @@ This module requires the optional ``geopandas`` extra::
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
@@ -45,6 +47,7 @@ _WKID_TO_EPSG: dict[int, str] = {
     3857: "EPSG:3857",
     4326: "EPSG:4326",
 }
+_GEOJSON_DEFAULT_CRS = "EPSG:4326"
 
 
 def _crs_from_spatial_reference(
@@ -65,6 +68,50 @@ def _crs_from_spatial_reference(
             return f"EPSG:{wkid}"
 
     return None
+
+
+def _crs_from_geojson(feature_collection: Mapping[str, Any]) -> str | None:
+    """Derive a CRS string from a GeoJSON feature collection."""
+    raw_crs = feature_collection.get("crs") or feature_collection.get("coordRefSys")
+    if raw_crs is None:
+        return _GEOJSON_DEFAULT_CRS
+
+    if isinstance(raw_crs, str):
+        return _normalize_geojson_crs_identifier(raw_crs)
+
+    if isinstance(raw_crs, Mapping):
+        properties = raw_crs.get("properties")
+        if isinstance(properties, Mapping):
+            for key in ("name", "href", "code"):
+                value = properties.get(key)
+                if isinstance(value, str):
+                    return _normalize_geojson_crs_identifier(value)
+
+        for key in ("name", "href", "code"):
+            value = raw_crs.get(key)
+            if isinstance(value, str):
+                return _normalize_geojson_crs_identifier(value)
+
+    return None
+
+
+def _normalize_geojson_crs_identifier(identifier: str) -> str | None:
+    value = identifier.strip()
+    if not value:
+        return None
+
+    upper_value = value.upper()
+    if upper_value in {"CRS84", "OGC:CRS84"} or upper_value.endswith(("/CRS84", ":CRS84")):
+        return _GEOJSON_DEFAULT_CRS
+
+    parts = [part for part in re.split(r"[:/]+", value) if part]
+    for idx, part in enumerate(parts):
+        if part.upper() == "EPSG":
+            epsg_codes = [candidate for candidate in parts[idx + 1 :] if candidate.isdigit()]
+            if epsg_codes:
+                return f"EPSG:{epsg_codes[-1]}"
+
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +295,100 @@ def features_to_geodataframe(
 
     gdf = gpd.GeoDataFrame(rows, geometry=geometries)
 
+    if crs is not None:
+        gdf = gdf.set_crs(crs)
+
+    return gdf
+
+
+def ogc_features_to_geodataframe(
+    response: dict[str, Any],
+) -> "gpd.GeoDataFrame":
+    """Convert an OGC API Features GeoJSON response to a GeoDataFrame.
+
+    Parameters
+    ----------
+    response:
+        A GeoJSON ``FeatureCollection`` dict, such as the response from
+        ``HonuaOgcFeatureCollection.items``.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        A GeoDataFrame with feature ``properties`` as columns, a
+        ``geometry`` column built from GeoJSON geometries, top-level
+        feature ``id`` values preserved when they do not collide with
+        property names, and CRS set from GeoJSON CRS metadata when
+        present. GeoJSON responses without explicit CRS metadata default
+        to ``EPSG:4326``.
+    """
+    return _geojson_feature_collection_to_geodataframe(
+        response,
+        feature_fields=("id",),
+    )
+
+
+def stac_items_to_geodataframe(
+    response: dict[str, Any],
+) -> "gpd.GeoDataFrame":
+    """Convert a STAC ItemCollection or search response to a GeoDataFrame.
+
+    Parameters
+    ----------
+    response:
+        A STAC ``ItemCollection`` or search result dict. STAC item
+        collections and search results are GeoJSON ``FeatureCollection``
+        objects whose features are STAC Items.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        A GeoDataFrame with item ``properties`` as columns, a
+        ``geometry`` column built from item geometries, and common STAC
+        item fields such as ``id``, ``collection``, ``bbox``, ``assets``,
+        and item ``links`` preserved when they do not collide with
+        property names. STAC geometries are treated as ``EPSG:4326`` when
+        no explicit CRS metadata is present.
+    """
+    return _geojson_feature_collection_to_geodataframe(
+        response,
+        feature_fields=(
+            "id",
+            "collection",
+            "bbox",
+            "assets",
+            "links",
+            "stac_version",
+            "stac_extensions",
+        ),
+    )
+
+
+def _geojson_feature_collection_to_geodataframe(
+    feature_collection: Mapping[str, Any],
+    *,
+    feature_fields: tuple[str, ...],
+) -> "gpd.GeoDataFrame":
+    _ensure_deps()
+
+    rows: list[dict[str, Any]] = []
+    geometries: list[Any] = []
+
+    for feature in feature_collection.get("features", []):
+        properties = feature.get("properties")
+        row = dict(properties) if isinstance(properties, Mapping) else {}
+
+        for field in feature_fields:
+            if field in feature and field not in row:
+                row[field] = feature[field]
+
+        geometry = feature.get("geometry")
+        rows.append(row)
+        geometries.append(_shape(geometry) if geometry else None)
+
+    frame = pd.DataFrame(rows, dtype=object)
+    gdf = gpd.GeoDataFrame(frame, geometry=geometries)
+    crs = _crs_from_geojson(feature_collection)
     if crs is not None:
         gdf = gdf.set_crs(crs)
 

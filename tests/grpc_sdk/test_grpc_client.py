@@ -7,8 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import grpc
 import pytest
 
+from honua_sdk import CallableAuthProvider
 from honua_sdk import HonuaGrpcError as RootHonuaGrpcError
 from honua_sdk.grpc import HonuaGrpcError as GrpcModuleHonuaGrpcError
+from honua_sdk.grpc import build_grpc_metadata
 from honua_sdk.grpc._client import HonuaGrpcAsyncClient, HonuaGrpcClient
 from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
 from honua_sdk.grpc._models import (
@@ -186,6 +188,26 @@ class TestQueryFeatures:
         call_kwargs = mock_stub.QueryFeatures.call_args
         assert call_kwargs[1]["metadata"] == metadata
         client.close()
+
+    def test_build_grpc_metadata_from_sdk_auth_options(self) -> None:
+        assert build_grpc_metadata(api_key="key123", bearer_token="token123") == [
+            ("x-api-key", "key123"),
+            ("authorization", "Bearer token123"),
+        ]
+
+    def test_build_grpc_metadata_from_auth_provider(self) -> None:
+        provider = CallableAuthProvider(lambda: {"Authorization": "Bearer dynamic"})
+
+        assert build_grpc_metadata(auth_provider=provider, extra_metadata={"tenant": "alpha"}) == [
+            ("authorization", "Bearer dynamic"),
+            ("tenant", "alpha"),
+        ]
+
+    def test_build_grpc_metadata_rejects_conflicting_auth(self) -> None:
+        provider = CallableAuthProvider(lambda: {"Authorization": "Bearer dynamic"})
+
+        with pytest.raises(ValueError, match="bearer_token"):
+            build_grpc_metadata(bearer_token="token123", auth_provider=provider)
 
     def test_applies_default_timeout_deadline(self) -> None:
         client, mock_stub = self._make_client()

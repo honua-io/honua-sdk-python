@@ -17,7 +17,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 API_SNAPSHOT_PATH = ROOT / "compatibility" / "public-api.json"
 MATRIX_PATH = ROOT / "compatibility" / "server-matrix.json"
+PROTOCOL_FACTORY_SNAPSHOT_PATH = ROOT / "compatibility" / "protocol-factories.json"
 PUBLIC_MODULES = ("honua_sdk", "honua_sdk.grpc", "honua_admin")
+PROTOCOL_FACTORY_RETURN_SUFFIXES = ("Client", "Features")
 
 
 def _add_source_paths() -> None:
@@ -206,6 +208,240 @@ def check_public_api_snapshot(path: Path = API_SNAPSHOT_PATH) -> list[str]:
         "after reviewing any intentional public API change.\n"
         f"{diff}"
     ]
+
+
+def _strip_forward_ref_quotes(value: str) -> str:
+    result = value.strip()
+    while len(result) >= 2 and result[0] == result[-1] and result[0] in {"'", '"'}:
+        result = result[1:-1].strip()
+    return result
+
+
+def _return_annotation_name(signature: inspect.Signature) -> str | None:
+    if signature.return_annotation is inspect.Signature.empty:
+        return None
+    return _strip_forward_ref_quotes(_annotation(signature.return_annotation))
+
+
+def _is_protocol_factory_return(return_name: str | None) -> bool:
+    if return_name is None:
+        return False
+    base_name = return_name.rsplit(".", maxsplit=1)[-1]
+    if base_name in {"HonuaClient", "AsyncHonuaClient"}:
+        return False
+    return base_name.endswith(PROTOCOL_FACTORY_RETURN_SUFFIXES)
+
+
+def _parameters_signature(signature: inspect.Signature) -> str:
+    return str(signature.replace(return_annotation=inspect.Signature.empty))
+
+
+def _collect_client_protocol_factories(cls: type[Any]) -> dict[str, dict[str, Any]]:
+    factories: dict[str, dict[str, Any]] = {}
+    for name, value in sorted(cls.__dict__.items()):
+        if name.startswith("_") or not inspect.isfunction(value):
+            continue
+        signature = inspect.signature(value)
+        return_name = _return_annotation_name(signature)
+        if not _is_protocol_factory_return(return_name):
+            continue
+
+        factory: dict[str, Any] = {
+            "parameters": _parameters_signature(signature),
+            "returns": return_name,
+            "signature": str(signature),
+        }
+        if inspect.iscoroutinefunction(value):
+            factory["async"] = True
+        factories[name] = factory
+    return factories
+
+
+def collect_protocol_factory_surface() -> dict[str, Any]:
+    from honua_sdk.async_client import AsyncHonuaClient
+    from honua_sdk.client import HonuaClient
+
+    return {
+        "schemaVersion": 1,
+        "clients": {
+            "async": _collect_client_protocol_factories(AsyncHonuaClient),
+            "sync": _collect_client_protocol_factories(HonuaClient),
+        },
+    }
+
+
+def _string_map(data: Mapping[str, Any], key: str, scope: str) -> tuple[dict[str, str], list[str]]:
+    raw_value = data.get(key, {})
+    if not isinstance(raw_value, Mapping):
+        return {}, [f"{scope}: {key} must be an object mapping factory names to reasons."]
+
+    failures = []
+    values: dict[str, str] = {}
+    for raw_name, raw_reason in raw_value.items():
+        if not isinstance(raw_name, str) or not raw_name:
+            failures.append(f"{scope}: {key} entries must use non-empty string keys.")
+            continue
+        if not isinstance(raw_reason, str) or not raw_reason:
+            failures.append(f"{scope}: {key}.{raw_name} must be a non-empty reason string.")
+            continue
+        values[raw_name] = raw_reason
+    return values, failures
+
+
+def _protocol_factory_snapshot_with_allowlists(
+    surface: Mapping[str, Any],
+    source: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    result = dict(surface)
+    result["allowedAsyncMissing"] = {}
+    result["allowedSyncMissing"] = {}
+    if source is None:
+        return result
+
+    for key in ("allowedAsyncMissing", "allowedSyncMissing"):
+        value = source.get(key, {})
+        if isinstance(value, Mapping):
+            result[key] = dict(value)
+    return result
+
+
+def update_protocol_factory_snapshot(path: Path = PROTOCOL_FACTORY_SNAPSHOT_PATH) -> None:
+    existing: Mapping[str, Any] | None
+    try:
+        existing_data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        existing = None
+    else:
+        existing = existing_data if isinstance(existing_data, Mapping) else None
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        _json_dumps(_protocol_factory_snapshot_with_allowlists(collect_protocol_factory_surface(), existing)),
+        encoding="utf-8",
+    )
+
+
+def _normalized_factory_return(return_name: Any) -> str:
+    if not isinstance(return_name, str):
+        return repr(return_name)
+    return _strip_forward_ref_quotes(return_name).removeprefix("Async")
+
+
+def check_protocol_factory_parity(data: Mapping[str, Any]) -> list[str]:
+    failures = []
+    if data.get("schemaVersion") != 1:
+        failures.append("Protocol factory snapshot schemaVersion must be 1.")
+
+    clients = data.get("clients")
+    if not isinstance(clients, Mapping):
+        return [*failures, "Protocol factory snapshot clients must be an object."]
+    sync_factories = clients.get("sync")
+    async_factories = clients.get("async")
+    if not isinstance(sync_factories, Mapping) or not isinstance(async_factories, Mapping):
+        return [*failures, "Protocol factory snapshot clients.sync and clients.async must be objects."]
+
+    allowed_async_missing, allowlist_failures = _string_map(
+        data,
+        "allowedAsyncMissing",
+        "Protocol factory snapshot",
+    )
+    failures.extend(allowlist_failures)
+    allowed_sync_missing, allowlist_failures = _string_map(
+        data,
+        "allowedSyncMissing",
+        "Protocol factory snapshot",
+    )
+    failures.extend(allowlist_failures)
+
+    sync_names = set(sync_factories)
+    async_names = set(async_factories)
+    missing_async = sync_names - async_names
+    missing_sync = async_names - sync_names
+
+    unexpected_missing_async = sorted(missing_async - set(allowed_async_missing))
+    if unexpected_missing_async:
+        failures.append(
+            "Protocol factories missing from AsyncHonuaClient without an allowlist entry: "
+            f"{', '.join(unexpected_missing_async)}."
+        )
+
+    unexpected_missing_sync = sorted(missing_sync - set(allowed_sync_missing))
+    if unexpected_missing_sync:
+        failures.append(
+            "Protocol factories missing from HonuaClient without an allowlist entry: "
+            f"{', '.join(unexpected_missing_sync)}."
+        )
+
+    stale_async_allowlist = sorted(set(allowed_async_missing) - missing_async)
+    if stale_async_allowlist:
+        failures.append(
+            "Protocol factory allowedAsyncMissing entries are stale because async factories now exist: "
+            f"{', '.join(stale_async_allowlist)}."
+        )
+
+    stale_sync_allowlist = sorted(set(allowed_sync_missing) - missing_sync)
+    if stale_sync_allowlist:
+        failures.append(
+            "Protocol factory allowedSyncMissing entries are stale because sync factories now exist: "
+            f"{', '.join(stale_sync_allowlist)}."
+        )
+
+    for name in sorted(sync_names & async_names):
+        sync_factory = sync_factories[name]
+        async_factory = async_factories[name]
+        if not isinstance(sync_factory, Mapping) or not isinstance(async_factory, Mapping):
+            failures.append(f"Protocol factory {name!r} entries must be objects.")
+            continue
+        if sync_factory.get("parameters") != async_factory.get("parameters"):
+            failures.append(
+                f"Protocol factory {name!r} has different sync/async parameters: "
+                f"sync={sync_factory.get('parameters')!r}, async={async_factory.get('parameters')!r}."
+            )
+        if _normalized_factory_return(sync_factory.get("returns")) != _normalized_factory_return(
+            async_factory.get("returns")
+        ):
+            failures.append(
+                f"Protocol factory {name!r} returns different sync/async wrapper families: "
+                f"sync={sync_factory.get('returns')!r}, async={async_factory.get('returns')!r}."
+            )
+
+    return failures
+
+
+def check_protocol_factory_snapshot(path: Path = PROTOCOL_FACTORY_SNAPSHOT_PATH) -> list[str]:
+    actual = collect_protocol_factory_surface()
+    try:
+        expected = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [f"Protocol factory snapshot is missing: {path}"]
+
+    if not isinstance(expected, Mapping):
+        return ["Protocol factory snapshot must be a JSON object."]
+
+    failures = []
+    expected_with_allowlists = _protocol_factory_snapshot_with_allowlists(expected, expected)
+    actual_with_allowlists = _protocol_factory_snapshot_with_allowlists(actual, expected)
+    if actual_with_allowlists != expected_with_allowlists:
+        expected_text = _json_dumps(expected_with_allowlists).splitlines()
+        actual_text = _json_dumps(actual_with_allowlists).splitlines()
+        diff = "\n".join(
+            difflib.unified_diff(
+                expected_text,
+                actual_text,
+                fromfile=str(path),
+                tofile="current protocol factories",
+                lineterm="",
+            )
+        )
+        failures.append(
+            "Protocol factory snapshot drift detected. "
+            "Run `python scripts/compatibility_gate.py --update-protocol-factory-snapshot` "
+            "after reviewing any intentional factory change.\n"
+            f"{diff}"
+        )
+
+    failures.extend(check_protocol_factory_parity(actual_with_allowlists))
+    return failures
 
 
 def _required_str(data: Mapping[str, Any], key: str, scope: str) -> tuple[str | None, str | None]:
@@ -402,6 +638,7 @@ def check_server_matrix(path: Path = MATRIX_PATH) -> list[str]:
 def run_gate() -> list[str]:
     failures = []
     failures.extend(check_public_api_snapshot())
+    failures.extend(check_protocol_factory_snapshot())
     failures.extend(check_server_matrix())
     return failures
 
@@ -413,6 +650,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Rewrite compatibility/public-api.json from the current public SDK surface.",
     )
+    parser.add_argument(
+        "--update-protocol-factory-snapshot",
+        action="store_true",
+        help="Rewrite compatibility/protocol-factories.json from current client factory methods.",
+    )
     return parser.parse_args()
 
 
@@ -421,6 +663,10 @@ def main() -> int:
     if args.update_api_snapshot:
         update_api_snapshot()
         print(f"Updated {API_SNAPSHOT_PATH.relative_to(ROOT)}")
+        return 0
+    if args.update_protocol_factory_snapshot:
+        update_protocol_factory_snapshot()
+        print(f"Updated {PROTOCOL_FACTORY_SNAPSHOT_PATH.relative_to(ROOT)}")
         return 0
 
     failures = run_gate()

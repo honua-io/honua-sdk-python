@@ -19,11 +19,28 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
 )
-from .models import ApplyEditsResult, Feature, FeatureSet, ServiceSummary
+from .errors import HonuaHttpError
+from .models import ApplyEditsResult, DataPlaneCapabilities, Feature, FeatureSet, ServiceSummary
 
 if TYPE_CHECKING:
     from .auth import AuthProvider
+    from .async_geocoding import AsyncHonuaGeocodingClient
     from .ogc import AsyncHonuaOgcFeatures
+    from .protocols import (
+        AsyncGeoServicesFeatureServerClient,
+        AsyncGeoServicesGeometryServerClient,
+        AsyncGeoServicesImageServerClient,
+        AsyncGeoServicesMapServerClient,
+        AsyncODataClient,
+        AsyncOgcCoveragesClient,
+        AsyncOgcMapsClient,
+        AsyncOgcProcessesClient,
+        AsyncOgcTilesClient,
+        AsyncStacClient,
+        AsyncWfsClient,
+        AsyncWmsClient,
+        AsyncWmtsClient,
+    )
 
 
 def _bool_text(value: bool) -> str:
@@ -101,6 +118,23 @@ class AsyncHonuaClient:
         """Get readiness status from ``/healthz/ready``."""
         return await self._request_json("GET", "/healthz/ready")
 
+    async def capabilities(self) -> DataPlaneCapabilities:
+        """Discover server-advertised data-plane protocols and feature flags."""
+        try:
+            payload = await self._request_json("GET", "/api/v1/capabilities")
+        except HonuaHttpError as exc:
+            if exc.status_code != 404:
+                raise
+            return DataPlaneCapabilities.from_discovery(
+                readiness=await self.readiness(),
+                catalog=await self.list_services(),
+            )
+        return DataPlaneCapabilities.from_dict(payload)
+
+    async def supports(self, capability: str) -> bool:
+        """Return whether a data-plane protocol or feature is advertised."""
+        return (await self.capabilities()).supports(capability)
+
     async def list_services(self, *, response_format: str = "json") -> dict[str, Any]:
         """List services from the GeoServices catalog endpoint."""
         return await self._request_json(
@@ -122,6 +156,90 @@ class AsyncHonuaClient:
         from .ogc import AsyncHonuaOgcFeatures
 
         return AsyncHonuaOgcFeatures(self)
+
+    def geocoder(self, locator: str = "World") -> "AsyncHonuaGeocodingClient":
+        """Return an async GeocodeServer wrapper that reuses this client's HTTP session."""
+        from .async_geocoding import AsyncHonuaGeocodingClient
+
+        return AsyncHonuaGeocodingClient(str(self._client._base_url), locator_name=locator, client=self._client)
+
+    def feature_server(self, service_id: str) -> "AsyncGeoServicesFeatureServerClient":
+        """Return an async GeoServices FeatureServer wrapper for a service."""
+        from .protocols import AsyncGeoServicesFeatureServerClient
+
+        return AsyncGeoServicesFeatureServerClient(self, service_id)
+
+    def map_server(self, service_id: str) -> "AsyncGeoServicesMapServerClient":
+        """Return an async GeoServices MapServer wrapper for a service."""
+        from .protocols import AsyncGeoServicesMapServerClient
+
+        return AsyncGeoServicesMapServerClient(self, service_id)
+
+    def image_server(self, service_id: str | None = None) -> "AsyncGeoServicesImageServerClient":
+        """Return an async GeoServices ImageServer wrapper."""
+        from .protocols import AsyncGeoServicesImageServerClient
+
+        return AsyncGeoServicesImageServerClient(self, service_id)
+
+    def geometry_server(self) -> "AsyncGeoServicesGeometryServerClient":
+        """Return the async GeoServices GeometryServer wrapper."""
+        from .protocols import AsyncGeoServicesGeometryServerClient
+
+        return AsyncGeoServicesGeometryServerClient(self)
+
+    def ogc_maps(self) -> "AsyncOgcMapsClient":
+        """Return an async OGC API Maps wrapper."""
+        from .protocols import AsyncOgcMapsClient
+
+        return AsyncOgcMapsClient(self)
+
+    def ogc_tiles(self) -> "AsyncOgcTilesClient":
+        """Return an async OGC API Tiles wrapper."""
+        from .protocols import AsyncOgcTilesClient
+
+        return AsyncOgcTilesClient(self)
+
+    def ogc_coverages(self) -> "AsyncOgcCoveragesClient":
+        """Return an async OGC API Coverages wrapper."""
+        from .protocols import AsyncOgcCoveragesClient
+
+        return AsyncOgcCoveragesClient(self)
+
+    def ogc_processes(self) -> "AsyncOgcProcessesClient":
+        """Return an async OGC API Processes wrapper."""
+        from .protocols import AsyncOgcProcessesClient
+
+        return AsyncOgcProcessesClient(self)
+
+    def stac(self) -> "AsyncStacClient":
+        """Return an async STAC API wrapper."""
+        from .protocols import AsyncStacClient
+
+        return AsyncStacClient(self)
+
+    def wfs(self) -> "AsyncWfsClient":
+        """Return an async WFS 2.0 wrapper."""
+        from .protocols import AsyncWfsClient
+
+        return AsyncWfsClient(self)
+
+    def wms(self, service_id: str) -> "AsyncWmsClient":
+        """Return an async service-scoped WMS wrapper."""
+        from .protocols import AsyncWmsClient
+
+        return AsyncWmsClient(self, service_id)
+
+    def wmts(self, service_id: str) -> "AsyncWmtsClient":
+        """Return an async service-scoped WMTS wrapper."""
+        from .protocols import AsyncWmtsClient
+
+        return AsyncWmtsClient(self, service_id)
+
+    def odata(self) -> "AsyncODataClient":
+        """Return an async OData v4 wrapper."""
+        from .protocols import AsyncODataClient
+
+        return AsyncODataClient(self)
 
     async def query_features(
         self,

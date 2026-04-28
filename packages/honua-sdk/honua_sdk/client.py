@@ -19,10 +19,12 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
 )
-from .models import ApplyEditsResult, Feature, FeatureSet, ServiceSummary
+from .errors import HonuaHttpError
+from .models import ApplyEditsResult, DataPlaneCapabilities, Feature, FeatureSet, ServiceSummary
 
 if TYPE_CHECKING:
     from .auth import AuthProvider
+    from .geocoding import HonuaGeocodingClient
     from .ogc import HonuaOgcFeatures
     from .protocols import (
         GeoServicesFeatureServerClient,
@@ -116,6 +118,23 @@ class HonuaClient:
         """Get readiness status from `/healthz/ready`."""
         return self._request_json("GET", "/healthz/ready")
 
+    def capabilities(self) -> DataPlaneCapabilities:
+        """Discover server-advertised data-plane protocols and feature flags."""
+        try:
+            payload = self._request_json("GET", "/api/v1/capabilities")
+        except HonuaHttpError as exc:
+            if exc.status_code != 404:
+                raise
+            return DataPlaneCapabilities.from_discovery(
+                readiness=self.readiness(),
+                catalog=self.list_services(),
+            )
+        return DataPlaneCapabilities.from_dict(payload)
+
+    def supports(self, capability: str) -> bool:
+        """Return whether a data-plane protocol or feature is advertised."""
+        return self.capabilities().supports(capability)
+
     def list_services(self, *, response_format: str = "json") -> dict[str, Any]:
         """List services from the GeoServices catalog endpoint."""
         return self._request_json(
@@ -137,6 +156,12 @@ class HonuaClient:
         from .ogc import HonuaOgcFeatures
 
         return HonuaOgcFeatures(self)
+
+    def geocoder(self, locator: str = "World") -> "HonuaGeocodingClient":
+        """Return a GeocodeServer wrapper that reuses this client's HTTP session."""
+        from .geocoding import HonuaGeocodingClient
+
+        return HonuaGeocodingClient(str(self._client._base_url), locator_name=locator, client=self._client)
 
     def feature_server(self, service_id: str) -> "GeoServicesFeatureServerClient":
         """Return a GeoServices FeatureServer wrapper for a service."""

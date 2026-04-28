@@ -60,17 +60,35 @@ with HonuaClient("https://your-honua-server.com") as client:
 from honua_sdk import HonuaClient
 
 with HonuaClient("https://your-honua-server.com") as client:
+    capabilities = client.capabilities()
+    if capabilities.supports("stac"):
+        stac_items = client.stac().items("imagery")
+
     image = client.ogc_maps().collection_map("parcels", bbox=[-180, -90, 180, 90])
     tile = client.ogc_tiles().tile("WebMercatorQuad", "0", 0, 0, collection_id="parcels")
-    stac_items = client.stac().items("imagery")
+    coverage = client.ogc_coverages().coverage("elevation", response_format="tiff")
+    processes = client.ogc_processes().processes()
+    wfs_xml = client.wfs().get_feature(type_names="parcels")
     wms_capabilities = client.wms("basemap").capabilities()
+    wmts_tile = client.wmts("basemap").tile(
+        layer="parcels",
+        tile_matrix_set="WebMercatorQuad",
+        tile_matrix="0",
+        tile_row=0,
+        tile_col=0,
+    )
     odata_features = client.odata().features(layer_id=0)
 ```
+
+Protocol helpers return protocol-native JSON `dict`, XML `str`, raw `bytes`,
+or SDK models for geocoding and gRPC. `client.capabilities()` and
+`client.supports("stac")` expose advertised data-plane capabilities.
 
 ## Documentation
 
 - [5-Minute Quickstart](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/quickstart.md) - query features, convert them to a GeoDataFrame, and plot them
 - [Core Client](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/core-client.md) - typed service, FeatureServer, applyEdits, pagination, and error handling helpers
+- [Protocol Examples](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/protocol-examples.md) - OGC, STAC, WFS, WMS, WMTS, OData, geocoding, and gRPC examples with response shapes
 - [Geospatial ETL demo](https://github.com/honua-io/honua-sdk-python/blob/trunk/examples/geospatial_etl/README.md) - canonical script-first extract/validate/write/reconcile flow with the notebook companion and `load-summary.json` / `post-load-preview.png` contract
 - [Authentication](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/auth.md) - refreshable bearer tokens, secure storage guidance, revocation, rotation, and failure modes
 - [Troubleshooting](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/troubleshooting.md) - base URL selection, auth, staging smoke env vars, JSON/JUnit artifacts, and cleanup guidance

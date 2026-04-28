@@ -1734,13 +1734,27 @@
     "honua_sdk": {
       "exports": [
         "ApplyEditsResult",
+        "AsyncGeoServicesFeatureServerClient",
+        "AsyncGeoServicesGeometryServerClient",
+        "AsyncGeoServicesImageServerClient",
+        "AsyncGeoServicesMapServerClient",
         "AsyncHonuaClient",
         "AsyncHonuaGeocodingClient",
         "AsyncHonuaOgcFeatureCollection",
         "AsyncHonuaOgcFeatures",
+        "AsyncODataClient",
+        "AsyncOgcCoveragesClient",
+        "AsyncOgcMapsClient",
+        "AsyncOgcProcessesClient",
+        "AsyncOgcTilesClient",
+        "AsyncStacClient",
+        "AsyncWfsClient",
+        "AsyncWmsClient",
+        "AsyncWmtsClient",
         "AuthProvider",
         "BearerToken",
         "CallableAuthProvider",
+        "DataPlaneCapabilities",
         "EditOperationResult",
         "Feature",
         "FeatureSet",
@@ -1812,6 +1826,152 @@
           "qualname": "ApplyEditsResult",
           "signature": "(add_results: 'tuple[EditOperationResult, ...]' = (), update_results: 'tuple[EditOperationResult, ...]' = (), delete_results: 'tuple[EditOperationResult, ...]' = (), raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
+        "AsyncGeoServicesFeatureServerClient": {
+          "kind": "class",
+          "methods": {
+            "apply_edits": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "layer_metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "path": {
+              "kind": "property"
+            },
+            "query": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "query_related_records": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, object_ids: 'CsvValue', relationship_id: 'int', response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncGeoServicesFeatureServerClient",
+          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+        },
+        "AsyncGeoServicesGeometryServerClient": {
+          "kind": "class",
+          "methods": {
+            "buffer": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, geometries: 'Any', *, in_sr: 'int | str', distances: 'CsvValue', unit: 'str | None' = None, **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "operation": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, name: 'str', *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, method: 'str' = 'GET', response_format: 'str' = 'json') -> 'JsonObject'"
+            },
+            "project": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, geometries: 'Any', *, in_sr: 'int | str', out_sr: 'int | str', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "simplify": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, geometries: 'Any', *, sr: 'int | str | None' = None, **kwargs: 'Any') -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncGeoServicesGeometryServerClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncGeoServicesImageServerClient": {
+          "kind": "class",
+          "methods": {
+            "export_image": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, bbox: 'BboxValue', *, size: 'tuple[int, int] | None' = None, image_format: 'str' = 'png', response_format: 'str' = 'image', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "identify": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, geometry: 'Mapping[str, Any] | str', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "legend": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "path": {
+              "kind": "property"
+            },
+            "query": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "tile": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, level: 'int', row: 'int', col: 'int') -> 'bytes'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncGeoServicesImageServerClient",
+          "signature": "(client: 'Any', service_id: 'str | None' = None) -> 'None'"
+        },
+        "AsyncGeoServicesMapServerClient": {
+          "kind": "class",
+          "methods": {
+            "export": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, bbox: 'BboxValue', **kwargs: 'Any') -> 'bytes'"
+            },
+            "identify": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, geometry: 'Mapping[str, Any] | str', map_extent: 'BboxValue', image_display: 'str', tolerance: 'int' = 3, layers: 'str | None' = None, return_geometry: 'bool' = True, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "layer_metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "path": {
+              "kind": "property"
+            },
+            "tile": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, level: 'int', row: 'int', col: 'int') -> 'bytes'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncGeoServicesMapServerClient",
+          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+        },
         "AsyncHonuaClient": {
           "kind": "class",
           "methods": {
@@ -1825,6 +1985,11 @@
               "kind": "method",
               "signature": "(self, service_id: 'str', layer_id: 'int', **kwargs: 'Any') -> 'ApplyEditsResult'"
             },
+            "capabilities": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'DataPlaneCapabilities'"
+            },
             "close": {
               "async": true,
               "kind": "method",
@@ -1834,6 +1999,22 @@
               "async": true,
               "kind": "method",
               "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None) -> 'bytes'"
+            },
+            "feature_server": {
+              "kind": "method",
+              "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesFeatureServerClient'\""
+            },
+            "geocoder": {
+              "kind": "method",
+              "signature": "(self, locator: 'str' = 'World') -> \"'AsyncHonuaGeocodingClient'\""
+            },
+            "geometry_server": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncGeoServicesGeometryServerClient'\""
+            },
+            "image_server": {
+              "kind": "method",
+              "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
             },
             "list_service_summaries": {
               "async": true,
@@ -1845,9 +2026,33 @@
               "kind": "method",
               "signature": "(self, *, response_format: 'str' = 'json') -> 'dict[str, Any]'"
             },
+            "map_server": {
+              "kind": "method",
+              "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesMapServerClient'\""
+            },
+            "odata": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncODataClient'\""
+            },
+            "ogc_coverages": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncOgcCoveragesClient'\""
+            },
             "ogc_features": {
               "kind": "method",
               "signature": "(self) -> \"'AsyncHonuaOgcFeatures'\""
+            },
+            "ogc_maps": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncOgcMapsClient'\""
+            },
+            "ogc_processes": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncOgcProcessesClient'\""
+            },
+            "ogc_tiles": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncOgcTilesClient'\""
             },
             "query_feature_set": {
               "async": true,
@@ -1868,6 +2073,27 @@
               "async": true,
               "kind": "method",
               "signature": "(self) -> 'dict[str, Any]'"
+            },
+            "stac": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncStacClient'\""
+            },
+            "supports": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, capability: 'str') -> 'bool'"
+            },
+            "wfs": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncWfsClient'\""
+            },
+            "wms": {
+              "kind": "method",
+              "signature": "(self, service_id: 'str') -> \"'AsyncWmsClient'\""
+            },
+            "wmts": {
+              "kind": "method",
+              "signature": "(self, service_id: 'str') -> \"'AsyncWmtsClient'\""
             }
           },
           "module": "honua_sdk.async_client",
@@ -2027,6 +2253,348 @@
           "qualname": "AsyncHonuaOgcFeatures",
           "signature": "(client: 'Any') -> 'None'"
         },
+        "AsyncODataClient": {
+          "kind": "class",
+          "methods": {
+            "feature": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', object_id: 'int') -> 'JsonObject'"
+            },
+            "features": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layer_id: 'int | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "layer": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int', *, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "layers": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'str'"
+            },
+            "service_document": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncODataClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncOgcCoveragesClient": {
+          "kind": "class",
+          "methods": {
+            "collection": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "collections": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "coverage": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "landing": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncOgcCoveragesClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncOgcMapsClient": {
+          "kind": "class",
+          "methods": {
+            "collection_map": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "collection_tileset": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', tile_matrix_set_id: 'str') -> 'JsonObject'"
+            },
+            "collection_tilesets": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
+            },
+            "conformance": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "landing": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "map": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, collections: 'CsvValue', bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "openapi": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "styled_collection_map": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', style_id: 'str', *, bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncOgcMapsClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncOgcProcessesClient": {
+          "kind": "class",
+          "methods": {
+            "conformance": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "dismiss_job": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'None'"
+            },
+            "execute": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', payload: 'Mapping[str, Any]') -> 'JsonObject'"
+            },
+            "job": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'JsonObject'"
+            },
+            "job_results": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'JsonObject'"
+            },
+            "jobs": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "landing": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "process": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str') -> 'JsonObject'"
+            },
+            "processes": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncOgcProcessesClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncOgcTilesClient": {
+          "kind": "class",
+          "methods": {
+            "collection": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "collection_tilesets": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
+            },
+            "collections": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "conformance": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "dataset_tilesets": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "landing": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "tile": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, tile_matrix_set_id: 'str', tile_matrix: 'str', row: 'int', col: 'int', *, collection_id: 'FeatureId | None' = None) -> 'bytes'"
+            },
+            "tile_matrix_set": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, tile_matrix_set_id: 'str') -> 'JsonObject'"
+            },
+            "tile_matrix_sets": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncOgcTilesClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncStacClient": {
+          "kind": "class",
+          "methods": {
+            "catalog": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "collection": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
+            },
+            "collections": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "item": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', item_id: 'FeatureId') -> 'JsonObject'"
+            },
+            "items": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "search": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncStacClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncWfsClient": {
+          "kind": "class",
+          "methods": {
+            "capabilities": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'str'"
+            },
+            "describe_feature_type": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, type_names: 'CsvValue | None' = None) -> 'str'"
+            },
+            "get_feature": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, type_names: 'CsvValue | None' = None, extra_params: 'Params' = None) -> 'str'"
+            },
+            "request": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'str'"
+            },
+            "transaction": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, xml: 'str | bytes') -> 'str'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncWfsClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncWmsClient": {
+          "kind": "class",
+          "methods": {
+            "capabilities": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'str'"
+            },
+            "feature_info": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "map": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
+            },
+            "request": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncWmsClient",
+          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+        },
+        "AsyncWmtsClient": {
+          "kind": "class",
+          "methods": {
+            "capabilities": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'str'"
+            },
+            "request": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
+            },
+            "tile": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncWmtsClient",
+          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+        },
         "AuthProvider": {
           "kind": "class",
           "methods": {
@@ -2085,6 +2653,53 @@
           "module": "honua_sdk.auth",
           "qualname": "CallableAuthProvider",
           "signature": "(callback: 'Callable[[], Mapping[str, str]]') -> 'None'"
+        },
+        "DataPlaneCapabilities": {
+          "fields": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "server_version"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "release_channel"
+            },
+            {
+              "annotation": "frozenset[str]",
+              "default": "frozenset()",
+              "name": "protocols"
+            },
+            {
+              "annotation": "Mapping[str, bool]",
+              "defaultFactory": "dict",
+              "name": "features"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'DataPlaneCapabilities'\""
+            },
+            "from_discovery": {
+              "kind": "classmethod",
+              "signature": "(cls, *, readiness: 'Mapping[str, Any]', catalog: 'Mapping[str, Any]') -> \"'DataPlaneCapabilities'\""
+            },
+            "supports": {
+              "kind": "method",
+              "signature": "(self, capability: 'str') -> 'bool'"
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "DataPlaneCapabilities",
+          "signature": "(server_version: 'str | None' = None, release_channel: 'str | None' = None, protocols: 'frozenset[str]' = frozenset(), features: 'Mapping[str, bool]' = <factory>, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "EditOperationResult": {
           "fields": [
@@ -2382,6 +2997,10 @@
               "kind": "method",
               "signature": "(self, service_id: 'str', layer_id: 'int', **kwargs: 'Any') -> 'ApplyEditsResult'"
             },
+            "capabilities": {
+              "kind": "method",
+              "signature": "(self) -> 'DataPlaneCapabilities'"
+            },
             "close": {
               "kind": "method",
               "signature": "(self) -> 'None'"
@@ -2393,6 +3012,10 @@
             "feature_server": {
               "kind": "method",
               "signature": "(self, service_id: 'str') -> \"'GeoServicesFeatureServerClient'\""
+            },
+            "geocoder": {
+              "kind": "method",
+              "signature": "(self, locator: 'str' = 'World') -> \"'HonuaGeocodingClient'\""
             },
             "geometry_server": {
               "kind": "method",
@@ -2457,6 +3080,10 @@
             "stac": {
               "kind": "method",
               "signature": "(self) -> \"'StacClient'\""
+            },
+            "supports": {
+              "kind": "method",
+              "signature": "(self, capability: 'str') -> 'bool'"
             },
             "wfs": {
               "kind": "method",
@@ -3065,7 +3692,8 @@
         "SpatialReference",
         "SpatialRelationship",
         "StatisticDefinition",
-        "StatisticType"
+        "StatisticType",
+        "build_grpc_metadata"
       ],
       "symbols": {
         "DistanceUnit": {
@@ -3566,6 +4194,12 @@
           },
           "module": "honua_sdk.grpc._models",
           "qualname": "StatisticType"
+        },
+        "build_grpc_metadata": {
+          "kind": "function",
+          "module": "honua_sdk.grpc._client",
+          "qualname": "build_grpc_metadata",
+          "signature": "(*, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, extra_metadata: 'Mapping[str, str] | None' = None) -> 'list[tuple[str, str]]'"
         }
       }
     }

@@ -8,7 +8,7 @@ protocol adapters.
 | GeoServices FeatureServer | `client.feature_server(id)`, `query_features`, `apply_edits` | Partial | Read/query/edit and metadata wrappers are available. |
 | GeoServices MapServer | `client.map_server(id)`, `export_map` | Partial | Metadata, export, identify, and tile helpers are available. |
 | GeoServices ImageServer | `client.image_server(id)` | New in Python | Metadata, exportImage, identify, query, tile, and legend helpers are available. |
-| GeoServices GeocodeServer | `HonuaGeocodingClient` | Python-specific | Forward, reverse, and suggest helpers are available. |
+| GeoServices GeocodeServer | `client.geocoder()`, `HonuaGeocodingClient` | Python-specific | Forward, reverse, and suggest helpers are available. |
 | GeoServices GeometryServer | `client.geometry_server()` | New in Python | Discovery plus project, buffer, simplify, and generic operation helpers are available. |
 | OGC API Features | `client.ogc_features()` | Matches core JS shape | Landing, conformance, collections, queryables, items, paging, and item CRUD are available. |
 | OGC API Maps | `client.ogc_maps()` | New in Python | Landing, conformance, OpenAPI, map, styled map, and map tileset helpers are available. |
@@ -25,6 +25,12 @@ The Python clients intentionally return protocol-native JSON, XML text, or bytes
 instead of introducing heavy local models. That keeps parity focused on endpoint
 coverage, auth, retries, timeouts, and normalized errors while preserving standard
 payloads for GeoPandas, PySTAC, GDAL/OGR, and analyst workflows.
+
+Sync and async HTTP clients expose the same protocol factory names. The
+compatibility gate snapshots those factories and fails on unallowlisted drift.
+
+See [Protocol Examples](./protocol-examples.md) for concise examples of each
+public protocol wrapper and its response shape.
 
 The staging smoke lane backs this parity table with SDK-owned live probes for the
 public protocol clients. The smoke report records the SDK package version, server

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.0](https://github.com/honua-io/honua-sdk-python/compare/python-admin-vv0.0.2...python-admin-vv0.1.0) (2026-04-28)
+
+
+### Features
+
+* add package-scoped compatibility gate coverage and release validation for admin packaging ([#28](https://github.com/honua-io/honua-sdk-python/pull/28))
+* stabilize the shared SDK/admin utility boundary and update admin to depend on the matching SDK release floor ([#41](https://github.com/honua-io/honua-sdk-python/pull/41))
+
+
+### Bug Fixes
+
+* fix SDK/admin review findings before the 0.1.0 packaging pass ([#29](https://github.com/honua-io/honua-sdk-python/pull/29))
+
 ## [0.0.2](https://github.com/honua-io/honua-sdk-python/compare/python-admin-vv0.0.1...python-admin-vv0.0.2) (2026-04-25)
 
 

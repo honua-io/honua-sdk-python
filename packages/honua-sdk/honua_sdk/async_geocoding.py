@@ -17,6 +17,7 @@ from ._http import (
     _to_http_error,
     _to_transport_error,
     _validate_auth_configuration,
+    _validate_external_client_auth_configuration,
 )
 from .auth import AuthProvider
 from .geocoding import GeocodeResult, GeocodeSuggestion, ReverseGeocodeResult
@@ -41,6 +42,12 @@ class AsyncHonuaGeocodingClient:
         if client is not None and transport is not None:
             raise ValueError("Provide either `client` or `transport`, not both.")
         _validate_auth_configuration(bearer_token=bearer_token, auth_provider=auth_provider)
+        _validate_external_client_auth_configuration(
+            client=client,
+            api_key=api_key,
+            bearer_token=bearer_token,
+            auth_provider=auth_provider,
+        )
 
         self._locator_name = locator_name
         self._owns_client = client is None

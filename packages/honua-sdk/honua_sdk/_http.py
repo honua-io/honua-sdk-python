@@ -42,6 +42,24 @@ def _validate_auth_configuration(
         raise ValueError("Provide either `bearer_token` or `auth_provider`, not both.")
 
 
+def _validate_external_client_auth_configuration(
+    *,
+    client: object | None,
+    api_key: str | None,
+    bearer_token: str | None,
+    auth_provider: AuthProvider | None,
+) -> None:
+    if client is None:
+        return
+    if api_key is None and bearer_token is None and auth_provider is None:
+        return
+    raise ValueError(
+        "Configure authentication on the supplied `client`; "
+        "`api_key`, `bearer_token`, and `auth_provider` are only applied "
+        "when the SDK creates the HTTP client."
+    )
+
+
 def _extract_trusted_authority(url: httpx.URL) -> tuple[str, int | None]:
     """Return ``(host, port)`` from *url* for use as a trusted-origin key.
 

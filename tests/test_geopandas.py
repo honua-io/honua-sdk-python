@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 gpd = pytest.importorskip("geopandas")
+pd = pytest.importorskip("pandas")
 shapely = pytest.importorskip("shapely")
 
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
@@ -247,3 +250,22 @@ class TestRoundTrip:
         assert len(features) == 1
         assert features[0]["attributes"]["objectid"] == 1
         assert "geometry" not in features[0]
+
+    def test_geodataframe_to_features_returns_json_safe_attributes(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "count": pd.Series([1], dtype="Int64"),
+                "missing": pd.Series([pd.NA], dtype="Int64"),
+                "observed_at": [pd.Timestamp("2026-04-27T12:00:00Z")],
+            }
+        )
+        gdf = gpd.GeoDataFrame(frame, geometry=[Point(0, 0)], crs="EPSG:4326")
+
+        features = geodataframe_to_features(gdf)
+
+        json.dumps(features)
+        attrs = features[0]["attributes"]
+        assert attrs["count"] == 1
+        assert type(attrs["count"]) is int
+        assert attrs["missing"] is None
+        assert attrs["observed_at"] == "2026-04-27T12:00:00+00:00"

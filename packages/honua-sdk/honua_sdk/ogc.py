@@ -114,8 +114,8 @@ def _normalize_offset(offset: int | None) -> int:
 
 
 def _normalize_total_limit(limit: int | None) -> int | None:
-    if isinstance(limit, int) and limit > 0:
-        return limit
+    if isinstance(limit, int):
+        return max(0, limit)
     return None
 
 

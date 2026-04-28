@@ -150,6 +150,17 @@ async def test_ogc_features_items_all_paginates() -> None:
     assert seen == [("2", "0"), ("1", "2")]
 
 
+async def test_ogc_features_items_all_zero_limit_does_not_request() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("items_all(limit=0) should not issue a request")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = await client.ogc_features().collection("parcels").items_all(limit=0)
+
+    assert features == []
+
+
 async def test_auth_headers_are_attached() -> None:
     seen: dict[str, str] = {}
 
@@ -190,6 +201,18 @@ async def test_auth_provider_headers_are_resolved_per_request() -> None:
         await client.list_services()
 
     assert seen == ["async-key-1", "async-key-2"]
+
+
+async def test_custom_http_client_rejects_sdk_auth_options() -> None:
+    client = httpx.AsyncClient(
+        base_url="http://example.test",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200)),
+    )
+    try:
+        with pytest.raises(ValueError, match="supplied `client`"):
+            AsyncHonuaClient("http://ignored.test", client=client, api_key="test-key")
+    finally:
+        await client.aclose()
 
 
 async def test_non_success_raises_honua_http_error() -> None:

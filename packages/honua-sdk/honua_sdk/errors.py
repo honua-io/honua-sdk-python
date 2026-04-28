@@ -9,6 +9,29 @@ class HonuaError(Exception):
     """Base exception for SDK failures."""
 
 
+class HonuaCapabilityNotSupportedError(HonuaError):
+    """Raised when a source protocol does not support a requested capability."""
+
+    def __init__(
+        self,
+        capability: str,
+        protocol: str,
+        *,
+        source_id: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        message = f"Capability {capability!r} is not supported for protocol {protocol!r}"
+        if source_id is not None:
+            message = f"{message} on source {source_id!r}"
+        if reason:
+            message = f"{message}: {reason}"
+        super().__init__(message)
+        self.capability = capability
+        self.protocol = protocol
+        self.source_id = source_id
+        self.reason = reason
+
+
 class HonuaHttpError(HonuaError):
     """Raised when an API request returns a non-success response."""
 

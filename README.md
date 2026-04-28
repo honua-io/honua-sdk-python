@@ -40,13 +40,15 @@ with HonuaClient("https://your-honua-server.com") as client:
     # List available services
     services = client.list_services()
 
-    # Query features through the shared feature-query API
-    result = client.query(
-        "natural-earth",
-        layer_id=0,
-        where="status = 'active'",
-        fields=["*"],
+    # Query features through the shared Source/Query/Result API
+    source = client.source(
+        {
+            "id": "natural-earth",
+            "protocol": "geoservices-feature-service",
+            "locator": {"serviceId": "natural-earth", "layerId": 0},
+        }
     )
+    result = source.query(where="status = 'active'", out_fields=["*"])
 
     features = result.features
     print(f"Found {len(features)} features")
@@ -67,18 +69,25 @@ with HonuaClient("https://your-honua-server.com") as client:
     feature = parcels.item("123")
 ```
 
-### Shared feature query
+### Shared Source/Query API
 
 ```python
-from honua_sdk import FeatureQuery, HonuaClient
+from honua_sdk import FeatureQuery, HonuaClient, Query, SourceDescriptor, SourceLocator
 
 with HonuaClient("https://your-honua-server.com") as client:
-    feature_server = client.query(
-        "parcels",
-        layer_id=0,
-        where="status = 'active'",
-        fields=["objectid", "name", "status"],
-        limit=2000,
+    parcels = client.source(
+        SourceDescriptor(
+            id="parcels",
+            protocol="feature-server",
+            locator=SourceLocator(service_id="parcels", layer_id=0),
+        )
+    )
+    result = parcels.query(
+        Query(
+            where="status = 'active'",
+            out_fields=["objectid", "name", "status"],
+            pagination={"limit": 2000},
+        )
     )
 
     ogc_features = client.query(
@@ -109,14 +118,19 @@ with HonuaClient("https://your-honua-server.com") as client:
     )
 ```
 
-`client.query()` returns a `FeatureQueryResult` with normalized `QueryFeature`
-entries: `id`, `properties`, `geometry`, `protocol`, `source`, and `raw`.
-Use `client.iter_query()` to stream normalized features without collecting the
-full result. Protocol-specific clients are still available for native payloads,
-map and tile bytes, OData metadata, WMS/WMTS `BinaryResponse` metadata, and
-advanced protocol options. See [Protocol Examples](docs/protocol-examples.md)
-for every wrapper and [Protocol Parity](docs/protocol-parity.md) for the
-Python/JS coverage map.
+`client.source(...)` accepts a `SourceDescriptor` and returns a source-bound
+facade with `query()`, `query_all()`, `stream()`/`iter_features()`,
+`apply_edits()`, and `protocol(...)`. `source.query()` returns a canonical
+`Result` with normalized `QueryFeature` entries: `id`, `properties`, `geometry`,
+`protocol`, `source`, and `raw`.
+
+The older `client.query()` and `client.iter_query()` helpers remain available as
+the compact FeatureServer, OGC Features, STAC, and OData path. Protocol-specific
+clients are still available through `source.protocol(...)` or direct factories
+for native payloads, map and tile bytes, OData metadata, WMS/WMTS
+`BinaryResponse` metadata, and advanced protocol options. See
+[Protocol Examples](docs/protocol-examples.md) for every wrapper and
+[Protocol Parity](docs/protocol-parity.md) for the Python/JS coverage map.
 
 ### Admin client
 

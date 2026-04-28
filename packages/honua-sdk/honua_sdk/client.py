@@ -66,6 +66,8 @@ if TYPE_CHECKING:
         WmsClient,
         WmtsClient,
     )
+    from .models import SourceDescriptor
+    from .source import Source
 
 
 def _bool_text(value: bool) -> str:
@@ -159,6 +161,12 @@ class HonuaClient:
     def supports(self, capability: str) -> bool:
         """Return whether a data-plane protocol or feature is advertised."""
         return self.capabilities().supports(capability)
+
+    def source(self, descriptor: "SourceDescriptor | Mapping[str, Any]") -> "Source":
+        """Return a source-bound facade for canonical Source/Query/Result workflows."""
+        from .source import Source
+
+        return Source(self, descriptor)
 
     def list_services(self, *, response_format: str = "json") -> dict[str, Any]:
         """List services from the GeoServices catalog endpoint."""

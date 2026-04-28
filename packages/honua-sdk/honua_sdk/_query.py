@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
-from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol
+from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol, normalize_protocol
 
 
 def resolve_feature_query(
@@ -66,12 +66,9 @@ def resolve_feature_query(
 
 
 def normalize_query_protocol(value: QueryProtocol) -> str:
-    normalized = str(value).strip().lower().replace("_", "-")
+    normalized = normalize_protocol(value)
     aliases = {
-        "featureserver": "feature-server",
-        "feature-service": "feature-server",
-        "feature-server": "feature-server",
-        "ogc-api-features": "ogc-features",
+        "geoservices-feature-service": "feature-server",
         "ogc-features": "ogc-features",
         "stac": "stac",
         "odata": "odata",
@@ -80,7 +77,7 @@ def normalize_query_protocol(value: QueryProtocol) -> str:
         return aliases[normalized]
     except KeyError as exc:
         raise ValueError(
-            "Unsupported query protocol. Expected one of: feature-server, ogc-features, stac, odata."
+            "Unsupported query protocol. Expected one of: geoservices-feature-service, ogc-features, stac, odata."
         ) from exc
 
 

@@ -54,18 +54,25 @@ with HonuaClient("https://your-honua-server.com") as client:
     feature = parcels.item("123")
 ```
 
-## Shared Feature Query
+## Shared Source Query
 
 ```python
-from honua_sdk import FeatureQuery, HonuaClient
+from honua_sdk import FeatureQuery, HonuaClient, Query, SourceDescriptor, SourceLocator
 
 with HonuaClient("https://your-honua-server.com") as client:
-    feature_server = client.query(
-        "parcels",
-        layer_id=0,
-        where="status = 'active'",
-        fields=["objectid", "name", "status"],
-        limit=2000,
+    parcels = client.source(
+        SourceDescriptor(
+            id="parcels",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="parcels", layer_id=0),
+        )
+    )
+    result = parcels.query(
+        Query(
+            where="status = 'active'",
+            out_fields=["objectid", "name", "status"],
+            pagination={"limit": 2000},
+        )
     )
     ogc_features = client.query(
         "parcels",
@@ -93,11 +100,13 @@ with HonuaClient("https://your-honua-server.com") as client:
     )
 ```
 
-`client.query()` returns normalized `QueryFeature` entries across FeatureServer,
-OGC API Features, STAC, and OData. Use `client.iter_query()` to stream features
-without collecting the full result. Protocol-specific clients remain available
-for native payloads, maps, tiles, WMS/WMTS metadata, OData metadata, geocoding,
-and gRPC.
+`client.source(...)` returns a canonical source facade with `query()`,
+`query_all()`, `stream()`/`iter_features()`, `apply_edits()`, and
+`protocol(...)`. `source.query()` returns a `Result` with normalized
+`QueryFeature` entries. The compact `client.query()` helper remains available
+across FeatureServer, OGC API Features, STAC, and OData. Protocol-specific
+clients remain available for native payloads, maps, tiles, WMS/WMTS metadata,
+OData metadata, geocoding, and gRPC.
 
 ## Documentation
 

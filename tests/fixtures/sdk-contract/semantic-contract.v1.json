@@ -1,0 +1,592 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "tracker": "https://github.com/honua-io/honua-sdk-js/issues/44",
+  "description": "Cross-SDK semantic fixture pack for Honua Dataset/Source/Query/Result behavior. Language bindings may use idiomatic names and casing.",
+  "canonicalNouns": [
+    "Dataset",
+    "SourceDescriptor",
+    "Source",
+    "Protocol",
+    "Capability",
+    "Query",
+    "Result",
+    "EditEnvelope",
+    "EditResult",
+    "MapBinding"
+  ],
+  "languageBindings": [
+    {
+      "concept": "queryAll",
+      "typescript": "queryAll()",
+      "python": "query_all()",
+      "dotnet": "QueryAllAsync()"
+    },
+    {
+      "concept": "stream",
+      "typescript": "stream()",
+      "python": "stream() or iter_*()",
+      "dotnet": "StreamAsync() or QueryPagesAsync()"
+    },
+    {
+      "concept": "queryObjectIds",
+      "typescript": "queryObjectIds()",
+      "python": "query_object_ids()",
+      "dotnet": "QueryObjectIdsAsync()"
+    },
+    {
+      "concept": "applyEdits",
+      "typescript": "applyEdits()",
+      "python": "apply_edits()",
+      "dotnet": "ApplyEditsAsync()"
+    },
+    {
+      "concept": "returnGeometry",
+      "typescript": "returnGeometry",
+      "python": "return_geometry",
+      "dotnet": "ReturnGeometry"
+    },
+    {
+      "concept": "outFields",
+      "typescript": "outFields",
+      "python": "out_fields",
+      "dotnet": "OutFields"
+    },
+    {
+      "concept": "protocolEscapeHatch",
+      "typescript": "source.protocol(...)",
+      "python": "source.protocol(...)",
+      "dotnet": "source.Protocol(...)"
+    }
+  ],
+  "protocols": [
+    "geoservices-feature-service",
+    "geoservices-map-service",
+    "geoservices-image-service",
+    "geoservices-geometry-service",
+    "geoservices-gp-service",
+    "ogc-features",
+    "ogc-tiles",
+    "ogc-maps",
+    "stac",
+    "wfs",
+    "wms",
+    "wmts",
+    "odata",
+    "maplibre-vector",
+    "maplibre-raster",
+    "maplibre-geojson"
+  ],
+  "protocolAliases": {
+    "feature-server": "geoservices-feature-service",
+    "featureserver": "geoservices-feature-service",
+    "feature-service": "geoservices-feature-service",
+    "geoservices-featureserver": "geoservices-feature-service",
+    "map-server": "geoservices-map-service",
+    "mapserver": "geoservices-map-service",
+    "image-server": "geoservices-image-service",
+    "imageserver": "geoservices-image-service",
+    "geometry-server": "geoservices-geometry-service",
+    "geometryserver": "geoservices-geometry-service",
+    "gp-server": "geoservices-gp-service",
+    "gpserver": "geoservices-gp-service",
+    "ogc-api-features": "ogc-features",
+    "ogc_features": "ogc-features",
+    "odata-v4": "odata",
+    "wfs-2.0": "wfs",
+    "wms-1.3.0": "wms",
+    "wmts-1.0.0": "wmts"
+  },
+  "capabilities": [
+    "query",
+    "queryAggregate",
+    "queryExtent",
+    "queryObjectIds",
+    "queryRelated",
+    "applyEdits",
+    "attachments",
+    "render",
+    "tiles",
+    "sql",
+    "stream",
+    "pbf",
+    "connect",
+    "image",
+    "geometry",
+    "geoprocess",
+    "processes"
+  ],
+  "defaultCapabilities": {
+    "geoservices-feature-service": [
+      "query",
+      "queryAggregate",
+      "queryExtent",
+      "queryObjectIds",
+      "queryRelated",
+      "applyEdits",
+      "attachments",
+      "sql",
+      "stream",
+      "pbf",
+      "connect"
+    ],
+    "geoservices-map-service": [
+      "query",
+      "queryAggregate",
+      "queryExtent",
+      "queryObjectIds",
+      "queryRelated",
+      "render",
+      "tiles",
+      "sql",
+      "stream"
+    ],
+    "geoservices-image-service": [
+      "query",
+      "queryExtent",
+      "queryObjectIds",
+      "image",
+      "render",
+      "tiles",
+      "connect"
+    ],
+    "geoservices-geometry-service": [
+      "geometry",
+      "connect"
+    ],
+    "geoservices-gp-service": [
+      "geoprocess",
+      "connect"
+    ],
+    "ogc-features": [
+      "query",
+      "queryObjectIds",
+      "applyEdits",
+      "stream"
+    ],
+    "ogc-tiles": [
+      "render",
+      "tiles"
+    ],
+    "ogc-maps": [
+      "render"
+    ],
+    "stac": [
+      "query",
+      "queryObjectIds",
+      "stream"
+    ],
+    "wfs": [
+      "query",
+      "queryExtent",
+      "queryObjectIds",
+      "applyEdits",
+      "stream"
+    ],
+    "wms": [
+      "render",
+      "tiles",
+      "query"
+    ],
+    "wmts": [
+      "render",
+      "tiles"
+    ],
+    "odata": [
+      "query",
+      "queryObjectIds",
+      "stream",
+      "applyEdits"
+    ],
+    "maplibre-vector": [
+      "render",
+      "tiles"
+    ],
+    "maplibre-raster": [
+      "render",
+      "tiles"
+    ],
+    "maplibre-geojson": [
+      "render"
+    ]
+  },
+  "resultScenarios": [
+    {
+      "id": "featureserver-page",
+      "protocol": "geoservices-feature-service",
+      "sourceDescriptor": {
+        "id": "parcels-fs",
+        "protocol": "geoservices-feature-service",
+        "locator": {
+          "serviceId": "Parcels",
+          "layerId": 0
+        },
+        "capabilities": [
+          "query",
+          "queryExtent",
+          "queryObjectIds"
+        ]
+      },
+      "query": {
+        "where": "STATUS = 'ACTIVE'",
+        "outFields": [
+          "OBJECTID",
+          "NAME",
+          "STATUS"
+        ],
+        "pagination": {
+          "limit": 2
+        },
+        "returnGeometry": true,
+        "outSr": 4326
+      },
+      "result": {
+        "features": [
+          {
+            "id": 1,
+            "attributes": {
+              "OBJECTID": 1,
+              "NAME": "Ala Wai",
+              "STATUS": "ACTIVE"
+            },
+            "geometry": {
+              "x": -157.836,
+              "y": 21.284
+            }
+          },
+          {
+            "id": 2,
+            "attributes": {
+              "OBJECTID": 2,
+              "NAME": "Kapiolani",
+              "STATUS": "ACTIVE"
+            },
+            "geometry": {
+              "x": -157.82,
+              "y": 21.267
+            }
+          }
+        ],
+        "exceededTransferLimit": false,
+        "totalCount": 2,
+        "fields": [
+          {
+            "name": "OBJECTID",
+            "type": "oid"
+          },
+          {
+            "name": "NAME",
+            "type": "string"
+          },
+          {
+            "name": "STATUS",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ogc-features-page",
+      "protocol": "ogc-features",
+      "sourceDescriptor": {
+        "id": "parcels-ogc",
+        "protocol": "ogc-features",
+        "locator": {
+          "collectionId": "parcels"
+        },
+        "capabilities": [
+          "query",
+          "queryObjectIds",
+          "stream"
+        ]
+      },
+      "query": {
+        "where": "STATUS = 'ACTIVE'",
+        "outFields": [
+          "NAME",
+          "STATUS"
+        ],
+        "pagination": {
+          "limit": 2
+        },
+        "returnGeometry": true
+      },
+      "result": {
+        "features": [
+          {
+            "id": "ogc-1",
+            "attributes": {
+              "NAME": "Ala Wai",
+              "STATUS": "ACTIVE"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -157.836,
+                21.284
+              ]
+            }
+          }
+        ],
+        "exceededTransferLimit": false,
+        "totalCount": 1
+      }
+    },
+    {
+      "id": "stac-search-page",
+      "protocol": "stac",
+      "sourceDescriptor": {
+        "id": "imagery-stac",
+        "protocol": "stac",
+        "locator": {
+          "collectionId": "imagery"
+        },
+        "capabilities": [
+          "query",
+          "queryObjectIds",
+          "stream"
+        ]
+      },
+      "query": {
+        "where": "eo:cloud_cover < 10",
+        "pagination": {
+          "limit": 1
+        },
+        "returnGeometry": true
+      },
+      "result": {
+        "features": [
+          {
+            "id": "scene-001",
+            "attributes": {
+              "collection": "imagery",
+              "eo:cloud_cover": 4.2
+            },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -158,
+                    21
+                  ],
+                  [
+                    -157,
+                    21
+                  ],
+                  [
+                    -157,
+                    22
+                  ],
+                  [
+                    -158,
+                    22
+                  ],
+                  [
+                    -158,
+                    21
+                  ]
+                ]
+              ]
+            }
+          }
+        ],
+        "exceededTransferLimit": false,
+        "totalCount": 1
+      }
+    },
+    {
+      "id": "odata-page",
+      "protocol": "odata",
+      "sourceDescriptor": {
+        "id": "features-odata",
+        "protocol": "odata",
+        "locator": {
+          "entitySet": "Features"
+        },
+        "capabilities": [
+          "query",
+          "queryObjectIds",
+          "stream",
+          "applyEdits"
+        ]
+      },
+      "query": {
+        "where": "Status eq 'ACTIVE'",
+        "outFields": [
+          "ObjectId",
+          "Name",
+          "Status"
+        ],
+        "pagination": {
+          "limit": 1
+        },
+        "returnGeometry": true
+      },
+      "result": {
+        "features": [
+          {
+            "id": 42,
+            "attributes": {
+              "ObjectId": 42,
+              "Name": "Ala Wai",
+              "Status": "ACTIVE"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -157.836,
+                21.284
+              ]
+            }
+          }
+        ],
+        "exceededTransferLimit": false,
+        "totalCount": 1
+      }
+    },
+    {
+      "id": "wfs-geojson-page",
+      "protocol": "wfs",
+      "sourceDescriptor": {
+        "id": "parcels-wfs",
+        "protocol": "wfs",
+        "locator": {
+          "typeName": "parcels"
+        },
+        "capabilities": [
+          "query",
+          "queryExtent",
+          "queryObjectIds",
+          "stream"
+        ]
+      },
+      "query": {
+        "where": "STATUS = 'ACTIVE'",
+        "pagination": {
+          "limit": 1
+        },
+        "returnGeometry": true
+      },
+      "result": {
+        "features": [
+          {
+            "id": "parcels.1",
+            "attributes": {
+              "NAME": "Ala Wai",
+              "STATUS": "ACTIVE"
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -157.836,
+                21.284
+              ]
+            }
+          }
+        ],
+        "exceededTransferLimit": false,
+        "totalCount": 1
+      }
+    },
+    {
+      "id": "empty-page",
+      "protocol": "geoservices-feature-service",
+      "query": {
+        "where": "1 = 0",
+        "pagination": {
+          "limit": 10
+        }
+      },
+      "result": {
+        "features": [],
+        "exceededTransferLimit": false,
+        "totalCount": 0
+      }
+    },
+    {
+      "id": "exceeded-transfer-page",
+      "protocol": "geoservices-feature-service",
+      "query": {
+        "where": "1 = 1",
+        "pagination": {
+          "limit": 1
+        }
+      },
+      "result": {
+        "features": [
+          {
+            "id": 1,
+            "attributes": {
+              "OBJECTID": 1
+            },
+            "geometry": null
+          }
+        ],
+        "exceededTransferLimit": true,
+        "totalCount": 2
+      }
+    },
+    {
+      "id": "ogc-features-aggregate-degraded",
+      "protocol": "ogc-features",
+      "operation": "queryAggregate",
+      "query": {
+        "aggregation": {
+          "groupBy": [
+            "STATUS"
+          ],
+          "metrics": [
+            {
+              "fn": "count",
+              "field": "OBJECTID",
+              "alias": "COUNT_OBJECTID"
+            }
+          ]
+        }
+      },
+      "result": {
+        "features": [],
+        "exceededTransferLimit": false,
+        "aggregateRows": [
+          {
+            "STATUS": "ACTIVE",
+            "COUNT_OBJECTID": 2
+          }
+        ],
+        "degraded": [
+          {
+            "capability": "queryAggregate",
+            "protocol": "ogc-features",
+            "sourceId": "parcels-ogc",
+            "reason": "Server-side aggregation is unavailable; result was computed client-side over drained pages."
+          }
+        ]
+      }
+    }
+  ],
+  "unsupportedCapabilityScenarios": [
+    {
+      "id": "wmts-query-unsupported",
+      "protocol": "wmts",
+      "operation": "query",
+      "requiredCapability": "query",
+      "expectedError": {
+        "name": "HonuaCapabilityNotSupportedError",
+        "capability": "query",
+        "protocol": "wmts"
+      }
+    },
+    {
+      "id": "ogc-tiles-apply-edits-unsupported",
+      "protocol": "ogc-tiles",
+      "operation": "applyEdits",
+      "requiredCapability": "applyEdits",
+      "expectedError": {
+        "name": "HonuaCapabilityNotSupportedError",
+        "capability": "applyEdits",
+        "protocol": "ogc-tiles"
+      }
+    }
+  ]
+}

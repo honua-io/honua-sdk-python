@@ -66,6 +66,8 @@ if TYPE_CHECKING:
         AsyncWmsClient,
         AsyncWmtsClient,
     )
+    from .models import SourceDescriptor
+    from .source import AsyncSource
 
 
 def _bool_text(value: bool) -> str:
@@ -159,6 +161,12 @@ class AsyncHonuaClient:
     async def supports(self, capability: str) -> bool:
         """Return whether a data-plane protocol or feature is advertised."""
         return (await self.capabilities()).supports(capability)
+
+    def source(self, descriptor: "SourceDescriptor | Mapping[str, Any]") -> "AsyncSource":
+        """Return an async source-bound facade for canonical Source/Query/Result workflows."""
+        from .source import AsyncSource
+
+        return AsyncSource(self, descriptor)
 
     async def list_services(self, *, response_format: str = "json") -> dict[str, Any]:
         """List services from the GeoServices catalog endpoint."""

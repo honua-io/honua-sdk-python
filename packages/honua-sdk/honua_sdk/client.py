@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ._retry import RetryTransport
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -19,8 +18,34 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
 )
+from ._query import (
+    bbox_text,
+    feature_server_extra_params,
+    field_list,
+    field_text,
+    normalize_query_protocol,
+    odata_layer_id,
+    query_feature_from_feature_server,
+    query_feature_from_geojson,
+    query_feature_from_mapping,
+    query_filter,
+    query_max_pages,
+    query_page_size,
+    resolve_feature_query,
+)
+from ._retry import RetryTransport
 from .errors import HonuaHttpError
-from .models import ApplyEditsResult, DataPlaneCapabilities, Feature, FeatureSet, ServiceSummary
+from .models import (
+    ApplyEditsResult,
+    DataPlaneCapabilities,
+    Feature,
+    FeatureQuery,
+    FeatureQueryResult,
+    FeatureSet,
+    QueryFeature,
+    QueryProtocol,
+    ServiceSummary,
+)
 
 if TYPE_CHECKING:
     from .auth import AuthProvider
@@ -240,6 +265,155 @@ class HonuaClient:
         from .protocols import ODataClient
 
         return ODataClient(self)
+
+    def query(
+        self,
+        source: str | FeatureQuery,
+        *,
+        protocol: QueryProtocol | None = None,
+        layer_id: int | None = None,
+        where: str | None = None,
+        filter: str | None = None,
+        bbox: str | Sequence[int | float] | None = None,
+        fields: str | Sequence[str] | None = None,
+        return_geometry: bool | None = None,
+        page_size: int | None = None,
+        limit: int | None = None,
+        max_pages: int | None = None,
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> FeatureQueryResult:
+        """Run a protocol-neutral feature query and collect normalized features."""
+        query = resolve_feature_query(
+            source,
+            protocol=protocol,
+            layer_id=layer_id,
+            where=where,
+            filter=filter,
+            bbox=bbox,
+            fields=fields,
+            return_geometry=return_geometry,
+            page_size=page_size,
+            limit=limit,
+            max_pages=max_pages,
+            extra_params=extra_params,
+        )
+        normalized_protocol = normalize_query_protocol(query.protocol)
+        return FeatureQueryResult(
+            features=tuple(self.iter_query(query)),
+            protocol=normalized_protocol,
+            source=query.source,
+            query=query,
+        )
+
+    def iter_query(
+        self,
+        source: str | FeatureQuery,
+        *,
+        protocol: QueryProtocol | None = None,
+        layer_id: int | None = None,
+        where: str | None = None,
+        filter: str | None = None,
+        bbox: str | Sequence[int | float] | None = None,
+        fields: str | Sequence[str] | None = None,
+        return_geometry: bool | None = None,
+        page_size: int | None = None,
+        limit: int | None = None,
+        max_pages: int | None = None,
+        extra_params: Mapping[str, Any] | None = None,
+    ) -> Iterator[QueryFeature]:
+        """Stream normalized features from FeatureServer, OGC Features, STAC, or OData."""
+        query = resolve_feature_query(
+            source,
+            protocol=protocol,
+            layer_id=layer_id,
+            where=where,
+            filter=filter,
+            bbox=bbox,
+            fields=fields,
+            return_geometry=return_geometry,
+            page_size=page_size,
+            limit=limit,
+            max_pages=max_pages,
+            extra_params=extra_params,
+        )
+        normalized_protocol = normalize_query_protocol(query.protocol)
+
+        if normalized_protocol == "feature-server":
+            feature_server_layer_id = 0 if query.layer_id is None else query.layer_id
+            where_text = query.where if query.where is not None else (query.filter or "1=1")
+            for feature in self.feature_server(query.source).query_items(
+                feature_server_layer_id,
+                where=where_text,
+                out_fields=field_text(query.fields, wildcard="*") or "*",
+                return_geometry=query.return_geometry,
+                page_size=query_page_size(query, 1000),
+                limit=query.limit,
+                max_pages=query_max_pages(query, 100),
+                extra_params=feature_server_extra_params(query),
+            ):
+                yield query_feature_from_feature_server(
+                    feature,
+                    source=query.source,
+                    protocol=normalized_protocol,
+                )
+            return
+
+        if normalized_protocol == "ogc-features":
+            properties = field_list(query.fields)
+            for feature in self.ogc_features().collection(query.source).iter_items(
+                filter=query_filter(query),
+                bbox=query.bbox,
+                properties=properties,
+                page_size=query.page_size,
+                limit=query.limit,
+                max_pages=query.max_pages,
+                extra_params=query.extra_params,
+            ):
+                yield query_feature_from_geojson(
+                    feature,
+                    source=query.source,
+                    protocol=normalized_protocol,
+                )
+            return
+
+        if normalized_protocol == "stac":
+            params = dict(query.extra_params)
+            if query.bbox is not None:
+                params.setdefault("bbox", bbox_text(query.bbox))
+            if query_filter(query) is not None:
+                params.setdefault("filter", query_filter(query))
+            if field_text(query.fields) is not None:
+                params.setdefault("fields", field_text(query.fields))
+            for feature in self.stac().iter_items(
+                query.source,
+                extra_params=params,
+                page_size=query.page_size,
+                limit=query.limit,
+                max_pages=query.max_pages,
+            ):
+                yield query_feature_from_geojson(
+                    feature,
+                    source=query.source,
+                    protocol=normalized_protocol,
+                )
+            return
+
+        if query.bbox is not None:
+            raise ValueError("bbox is not supported for OData shared queries; express spatial filters in `filter`.")
+        for feature in self.odata().iter_features(
+            layer_id=odata_layer_id(query),
+            filter=query_filter(query),
+            select=field_list(query.fields),
+            page_size=query.page_size,
+            limit=query.limit,
+            max_pages=query.max_pages,
+            extra_params=query.extra_params,
+        ):
+            yield query_feature_from_mapping(
+                feature,
+                source=query.source,
+                protocol=normalized_protocol,
+            )
 
     def query_features(
         self,

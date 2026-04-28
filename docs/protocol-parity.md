@@ -5,6 +5,7 @@ protocol adapters.
 
 | Surface | Python SDK | JS SDK parity | Notes |
 | --- | --- | --- | --- |
+| Shared feature query | `client.query(...)`, `client.iter_query(...)` | Python-specific | Normalized `QueryFeature` output spans FeatureServer, OGC API Features, STAC, and OData. |
 | GeoServices FeatureServer | `client.feature_server(id)`, `query_features`, `apply_edits` | Partial | Read/query/edit, metadata, typed query pages, and item iterators are available. |
 | GeoServices MapServer | `client.map_server(id)`, `export_map` | Partial | Metadata, export, identify, and tile helpers are available. |
 | GeoServices ImageServer | `client.image_server(id)` | New in Python | Metadata, exportImage, identify, query, tile, and legend helpers are available. |
@@ -21,13 +22,14 @@ protocol adapters.
 | WMTS | `client.wmts(service_id)` | New in Python | Service-scoped capabilities, tile, and binary metadata helpers are available. |
 | OData v4 | `client.odata()` | New in Python | Service document, metadata, query helpers, layers, layer features, paged iterators, and feature helpers are available. |
 
-The Python clients intentionally keep protocol-native JSON, XML text, and bytes
-as the default return shapes. Additive helpers provide typed FeatureServer pages,
-`ODataQuery` parameter grouping, and `BinaryResponse` metadata for WMS/WMTS
-payloads without forcing heavy local models. That keeps parity focused on
-endpoint coverage, auth, retries, timeouts, and normalized errors while
-preserving standard payloads for GeoPandas, PySTAC, GDAL/OGR, and analyst
-workflows.
+The Python SDK offers a shared query API for application code that wants one
+feature shape across queryable data protocols. The lower-level protocol clients
+intentionally keep protocol-native JSON, XML text, and bytes as their default
+return shapes. Additive helpers provide typed FeatureServer pages, `ODataQuery`
+parameter grouping, and `BinaryResponse` metadata for WMS/WMTS payloads without
+forcing heavy local models. That keeps parity focused on endpoint coverage,
+auth, retries, timeouts, and normalized errors while preserving standard
+payloads for GeoPandas, PySTAC, GDAL/OGR, and analyst workflows.
 
 Sync and async HTTP clients expose the same protocol factory names. The
 compatibility gate snapshots those factories and fails on unallowlisted drift.

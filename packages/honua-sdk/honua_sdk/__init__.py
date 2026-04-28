@@ -35,7 +35,18 @@ from .geocoding import (
     HonuaGeocodingClient,
     ReverseGeocodeResult,
 )
-from .models import ApplyEditsResult, DataPlaneCapabilities, EditOperationResult, Feature, FeatureSet, ServiceSummary
+from .models import (
+    ApplyEditsResult,
+    DataPlaneCapabilities,
+    EditOperationResult,
+    Feature,
+    FeatureQuery,
+    FeatureQueryResult,
+    FeatureSet,
+    QueryFeature,
+    QueryProtocol,
+    ServiceSummary,
+)
 from .ogc import (
     AsyncHonuaOgcFeatureCollection,
     AsyncHonuaOgcFeatures,
@@ -112,6 +123,8 @@ __all__ = [
     "DataPlaneCapabilities",
     "EditOperationResult",
     "Feature",
+    "FeatureQuery",
+    "FeatureQueryResult",
     "FeatureId",
     "FeatureSet",
     "GeocodeResult",
@@ -138,6 +151,8 @@ __all__ = [
     "OgcMapsClient",
     "OgcProcessesClient",
     "OgcTilesClient",
+    "QueryFeature",
+    "QueryProtocol",
     "RefreshableBearerTokenProvider",
     "ReverseGeocodeResult",
     "ServiceSummary",

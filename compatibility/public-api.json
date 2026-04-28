@@ -1761,6 +1761,8 @@
         "EditOperationResult",
         "Feature",
         "FeatureId",
+        "FeatureQuery",
+        "FeatureQueryResult",
         "FeatureSet",
         "GeoServicesFeatureServerClient",
         "GeoServicesGeometryServerClient",
@@ -1786,6 +1788,8 @@
         "OgcMapsClient",
         "OgcProcessesClient",
         "OgcTilesClient",
+        "QueryFeature",
+        "QueryProtocol",
         "RefreshableBearerTokenProvider",
         "ReverseGeocodeResult",
         "ServiceSummary",
@@ -2041,6 +2045,10 @@
               "kind": "method",
               "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
             },
+            "iter_query": {
+              "kind": "method",
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'AsyncIterator[QueryFeature]'"
+            },
             "list_service_summaries": {
               "async": true,
               "kind": "method",
@@ -2078,6 +2086,11 @@
             "ogc_tiles": {
               "kind": "method",
               "signature": "(self) -> \"'AsyncOgcTilesClient'\""
+            },
+            "query": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'FeatureQueryResult'"
             },
             "query_feature_set": {
               "async": true,
@@ -2960,6 +2973,97 @@
           "type": "UnionType",
           "value": "str | int"
         },
+        "FeatureQuery": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source"
+            },
+            {
+              "annotation": "QueryProtocol",
+              "default": "'feature-server'",
+              "name": "protocol"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "layer_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "where"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "filter"
+            },
+            {
+              "annotation": "str | Sequence[int | float] | None",
+              "default": "None",
+              "name": "bbox"
+            },
+            {
+              "annotation": "str | Sequence[str] | None",
+              "default": "None",
+              "name": "fields"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "return_geometry"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "page_size"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "limit"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "max_pages"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "extra_params"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.models",
+          "qualname": "FeatureQuery",
+          "signature": "(source: 'str', protocol: 'QueryProtocol' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "FeatureQueryResult": {
+          "fields": [
+            {
+              "annotation": "tuple[QueryFeature, ...]",
+              "name": "features"
+            },
+            {
+              "annotation": "str",
+              "name": "protocol"
+            },
+            {
+              "annotation": "str",
+              "name": "source"
+            },
+            {
+              "annotation": "FeatureQuery",
+              "name": "query"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.models",
+          "qualname": "FeatureQueryResult",
+          "signature": "(features: 'tuple[QueryFeature, ...]', protocol: 'str', source: 'str', query: 'FeatureQuery') -> None"
+        },
         "FeatureSet": {
           "fields": [
             {
@@ -3227,6 +3331,10 @@
               "kind": "method",
               "signature": "(self, service_id: 'str | None' = None) -> \"'GeoServicesImageServerClient'\""
             },
+            "iter_query": {
+              "kind": "method",
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'Iterator[QueryFeature]'"
+            },
             "list_service_summaries": {
               "kind": "method",
               "signature": "(self, *, response_format: 'str' = 'json') -> 'list[ServiceSummary]'"
@@ -3262,6 +3370,10 @@
             "ogc_tiles": {
               "kind": "method",
               "signature": "(self) -> \"'OgcTilesClient'\""
+            },
+            "query": {
+              "kind": "method",
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'FeatureQueryResult'"
             },
             "query_feature_set": {
               "kind": "method",
@@ -3754,6 +3866,47 @@
           "module": "honua_sdk.protocols",
           "qualname": "OgcTilesClient",
           "signature": "(client: 'Any') -> 'None'"
+        },
+        "QueryFeature": {
+          "fields": [
+            {
+              "annotation": "str | int | None",
+              "name": "id"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "name": "properties"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "geometry"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "protocol"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "source"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.models",
+          "qualname": "QueryFeature",
+          "signature": "(id: 'str | int | None', properties: 'Mapping[str, Any]', geometry: 'Mapping[str, Any] | None' = None, protocol: 'str' = '', source: 'str' = '', raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "QueryProtocol": {
+          "kind": "constant",
+          "type": "_UnionGenericAlias",
+          "value": "typing.Union[typing.Literal['feature-server', 'featureserver', 'ogc-features', 'ogc_features', 'stac', 'odata'], str]"
         },
         "RefreshableBearerTokenProvider": {
           "kind": "class",

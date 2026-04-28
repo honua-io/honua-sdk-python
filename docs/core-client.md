@@ -49,6 +49,57 @@ and GeoServices catalog discovery.
 
 ## FeatureServer Queries
 
+For application code that wants the same shape across data protocols, prefer
+the shared feature query API. `query()` collects normalized `QueryFeature`
+entries from FeatureServer, OGC API Features, STAC, or OData; `iter_query()`
+streams the same normalized features:
+
+```python
+from honua_sdk import FeatureQuery, HonuaClient
+
+with HonuaClient("https://honua.example") as client:
+    feature_server = client.query(
+        "parcels",
+        layer_id=0,
+        where="status = 'active'",
+        fields=["objectid", "name", "status"],
+        limit=2000,
+    )
+
+    ogc_features = client.query(
+        "parcels",
+        protocol="ogc-features",
+        filter="status = 'active'",
+        bbox=[-180, -90, 180, 90],
+        fields=["name", "status"],
+        limit=2000,
+    )
+
+    stac_items = client.query(
+        FeatureQuery(
+            source="imagery",
+            protocol="stac",
+            filter="eo:cloud_cover < 10",
+            bbox=[-180, -90, 180, 90],
+            limit=500,
+        )
+    )
+
+    odata_features = client.query(
+        "4",
+        protocol="odata",
+        filter="Status eq 'active'",
+        fields=["ObjectId", "Name"],
+        limit=2000,
+    )
+
+    for feature in feature_server.features:
+        print(feature.id, feature.properties, feature.geometry)
+```
+
+Use the protocol-specific clients below when you need exact native payloads,
+server-specific query options, or endpoint metadata.
+
 `query_features()` returns the raw FeatureServer response. `query_feature_set()`
 wraps the same response in a `FeatureSet` with typed `Feature` entries:
 

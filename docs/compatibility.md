@@ -53,6 +53,18 @@ When a public API change is intentional:
 
 4. Commit the updated `compatibility/public-api.json` with the code change.
 
+## First-Party Internal Utility Boundary
+
+`honua_sdk._shared` is the semipublic import boundary for first-party packages
+that need SDK HTTP/auth/error/retry behavior. `honua-admin` imports shared
+request helpers, auth types, HTTP errors, and retry transports from this module
+instead of depending on lower-level implementation modules such as
+`honua_sdk._http`, `honua_sdk._retry`, or `honua_sdk._async_retry`.
+
+This boundary is intentionally excluded from the root public API snapshot, but
+changes to exports used by `honua-admin` should be treated as cross-package
+compatibility changes and covered by targeted admin tests.
+
 ## CI And Release Blocking
 
 Pull request CI runs the compatibility gate as its own job. The publish workflow

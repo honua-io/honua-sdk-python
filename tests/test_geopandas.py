@@ -15,6 +15,8 @@ from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from honua_sdk.geopandas import (
     features_to_geodataframe,
     geodataframe_to_features,
+    ogc_features_to_geodataframe,
+    stac_items_to_geodataframe,
 )
 
 
@@ -66,6 +68,90 @@ POLYLINE_RESPONSE: dict = {
                     [[0.0, 0.0], [1.0, 1.0], [2.0, 0.0]],
                 ]
             },
+        },
+    ],
+}
+
+OGC_FEATURE_COLLECTION: dict = {
+    "type": "FeatureCollection",
+    "crs": {
+        "type": "name",
+        "properties": {"name": "http://www.opengis.net/def/crs/EPSG/0/3857"},
+    },
+    "features": [
+        {
+            "type": "Feature",
+            "id": "shoreline.1",
+            "properties": {
+                "name": "North Shore",
+                "nullable": None,
+                "count": 3,
+            },
+            "geometry": {"type": "Point", "coordinates": [100.0, 200.0]},
+        },
+        {
+            "type": "Feature",
+            "id": "shoreline.2",
+            "properties": {
+                "name": "South Shore",
+                "nullable": "present",
+                "tags": ["reef", "sand"],
+            },
+            "geometry": None,
+        },
+    ],
+}
+
+STAC_ITEM_COLLECTION: dict = {
+    "type": "FeatureCollection",
+    "stac_version": "1.0.0",
+    "links": [{"rel": "self", "href": "https://example.test/stac/search"}],
+    "features": [
+        {
+            "type": "Feature",
+            "stac_version": "1.0.0",
+            "id": "img-001",
+            "collection": "imagery",
+            "bbox": [-158.1, 21.2, -157.8, 21.4],
+            "properties": {
+                "datetime": "2026-04-27T00:00:00Z",
+                "eo:cloud_cover": 12.5,
+                "nullable": None,
+                "platform": "sentinel-2a",
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-158.1, 21.2],
+                        [-157.8, 21.2],
+                        [-157.8, 21.4],
+                        [-158.1, 21.4],
+                        [-158.1, 21.2],
+                    ]
+                ],
+            },
+            "assets": {
+                "visual": {
+                    "href": "https://example.test/assets/img-001-visual.tif",
+                    "type": "image/tiff",
+                }
+            },
+            "links": [{"rel": "self", "href": "https://example.test/stac/items/img-001"}],
+        },
+        {
+            "type": "Feature",
+            "id": "img-002",
+            "collection": "imagery",
+            "properties": {
+                "datetime": None,
+                "eo:cloud_cover": 0,
+                "nullable": "available",
+                "platform": "sentinel-2b",
+            },
+            "geometry": None,
+            "assets": {},
+            "links": [],
         },
     ],
 }
@@ -165,6 +251,112 @@ class TestEdgeCases:
         gdf = features_to_geodataframe(response)
         assert len(gdf) == 1
         assert gdf.geometry.iloc[0] is None
+
+
+# ---------------------------------------------------------------------------
+# OGC API Features GeoJSON
+# ---------------------------------------------------------------------------
+
+
+class TestOgcFeatures:
+    def test_ogc_features_to_geodataframe(self) -> None:
+        gdf = ogc_features_to_geodataframe(OGC_FEATURE_COLLECTION)
+
+        assert len(gdf) == 2
+        assert gdf.iloc[0]["id"] == "shoreline.1"
+        assert gdf.iloc[0]["name"] == "North Shore"
+        assert gdf.iloc[0]["nullable"] is None
+        assert gdf.iloc[0]["count"] == 3
+        assert gdf.iloc[1]["tags"] == ["reef", "sand"]
+
+        pt = gdf.geometry.iloc[0]
+        assert isinstance(pt, Point)
+        assert pt.x == pytest.approx(100.0)
+        assert pt.y == pytest.approx(200.0)
+        assert gdf.geometry.iloc[1] is None
+
+    def test_ogc_features_crs_from_geojson_metadata(self) -> None:
+        gdf = ogc_features_to_geodataframe(OGC_FEATURE_COLLECTION)
+
+        assert gdf.crs is not None
+        assert gdf.crs.to_epsg() == 3857
+
+    def test_ogc_features_default_to_geojson_crs(self) -> None:
+        response: dict = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": "Honolulu"},
+                    "geometry": {"type": "Point", "coordinates": [-157.8583, 21.3069]},
+                },
+            ],
+        }
+
+        gdf = ogc_features_to_geodataframe(response)
+
+        assert gdf.crs is not None
+        assert gdf.crs.to_epsg() == 4326
+
+    def test_ogc_features_null_properties(self) -> None:
+        response: dict = {
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "properties": None, "geometry": None},
+            ],
+        }
+
+        gdf = ogc_features_to_geodataframe(response)
+
+        assert len(gdf) == 1
+        assert list(gdf.columns) == ["geometry"]
+        assert gdf.geometry.iloc[0] is None
+
+
+# ---------------------------------------------------------------------------
+# STAC ItemCollections and search results
+# ---------------------------------------------------------------------------
+
+
+class TestStacItems:
+    def test_stac_items_to_geodataframe(self) -> None:
+        gdf = stac_items_to_geodataframe(STAC_ITEM_COLLECTION)
+
+        assert len(gdf) == 2
+        assert gdf.iloc[0]["id"] == "img-001"
+        assert gdf.iloc[0]["collection"] == "imagery"
+        assert gdf.iloc[0]["datetime"] == "2026-04-27T00:00:00Z"
+        assert gdf.iloc[0]["eo:cloud_cover"] == pytest.approx(12.5)
+        assert gdf.iloc[0]["nullable"] is None
+        assert gdf.iloc[0]["assets"]["visual"]["type"] == "image/tiff"
+        assert gdf.iloc[0]["links"][0]["rel"] == "self"
+        assert gdf.iloc[1]["datetime"] is None
+        assert gdf.iloc[1]["assets"] == {}
+        assert gdf.geometry.iloc[1] is None
+
+        geom = gdf.geometry.iloc[0]
+        assert isinstance(geom, Polygon)
+        assert geom.bounds == pytest.approx((-158.1, 21.2, -157.8, 21.4))
+
+    def test_stac_items_default_to_wgs84(self) -> None:
+        gdf = stac_items_to_geodataframe(STAC_ITEM_COLLECTION)
+
+        assert gdf.crs is not None
+        assert gdf.crs.to_epsg() == 4326
+
+    def test_stac_search_result_with_empty_features(self) -> None:
+        response: dict = {
+            "type": "FeatureCollection",
+            "features": [],
+            "links": [{"rel": "next", "href": "https://example.test/stac/search?page=2"}],
+        }
+
+        gdf = stac_items_to_geodataframe(response)
+
+        assert len(gdf) == 0
+        assert isinstance(gdf, gpd.GeoDataFrame)
+        assert gdf.crs is not None
+        assert gdf.crs.to_epsg() == 4326
 
 
 # ---------------------------------------------------------------------------

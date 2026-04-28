@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from honua_sdk.errors import HonuaGrpcError
-from ._client import HonuaGrpcAsyncClient, HonuaGrpcClient
+from ._client import HonuaGrpcAsyncClient, HonuaGrpcClient, build_grpc_metadata
 from ._models import (
     DistanceUnit,
     Extent,
@@ -38,4 +38,5 @@ __all__ = [
     "SpatialRelationship",
     "StatisticDefinition",
     "StatisticType",
+    "build_grpc_metadata",
 ]

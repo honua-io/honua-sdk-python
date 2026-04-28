@@ -75,6 +75,71 @@ async def test_list_service_summaries_returns_typed_catalog_entries() -> None:
     assert services[0].type == "FeatureServer"
 
 
+async def test_capabilities_reads_data_plane_contract() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "serverVersion": "2026.4.0",
+                "protocols": ["stac", {"id": "ogc_features"}],
+                "features": {"grpc": True},
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        capabilities = await client.capabilities()
+        supports_grpc = await client.supports("grpc")
+
+    assert seen == ["/api/v1/capabilities", "/api/v1/capabilities"]
+    assert capabilities.server_version == "2026.4.0"
+    assert capabilities.supports("stac") is True
+    assert capabilities.supports("ogc-features") is True
+    assert supports_grpc is True
+
+
+async def test_capabilities_falls_back_to_readiness_and_catalog_for_older_servers() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        if request.url.path == "/api/v1/capabilities":
+            return httpx.Response(404, json={"error": {"message": "not found"}})
+        if request.url.path == "/healthz/ready":
+            return httpx.Response(200, json={"serverVersion": "2026.3.0"})
+        if request.url.path == "/rest/services":
+            return httpx.Response(200, json={"services": [{"name": "parcels", "type": "FeatureServer"}]})
+        raise AssertionError(f"unexpected path {request.url.path}")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        capabilities = await client.capabilities()
+
+    assert seen == ["/api/v1/capabilities", "/healthz/ready", "/rest/services"]
+    assert capabilities.supports("geoservices") is True
+    assert capabilities.supports("feature-server") is True
+
+
+async def test_geocoder_factory_reuses_client_auth_and_locator() -> None:
+    seen: dict[str, str] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["raw_path"] = request.url.raw_path.decode("ascii").split("?")[0]
+        seen["api_key"] = request.headers.get("x-api-key", "")
+        return httpx.Response(200, json={"suggestions": []})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport, api_key="test-key") as client:
+        geocoder = client.geocoder(locator="Address Locator")
+        assert await geocoder.suggest("Main") == []
+
+    assert seen["raw_path"] == "/rest/services/Address%20Locator/GeocodeServer/suggest"
+    assert seen["api_key"] == "test-key"
+
+
 async def test_query_features_all_returns_typed_paginated_features() -> None:
     seen: list[tuple[str, str]] = []
 

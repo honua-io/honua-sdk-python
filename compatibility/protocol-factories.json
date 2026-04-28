@@ -1,0 +1,161 @@
+{
+  "allowedAsyncMissing": {},
+  "allowedSyncMissing": {},
+  "clients": {
+    "async": {
+      "feature_server": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "AsyncGeoServicesFeatureServerClient",
+        "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesFeatureServerClient'\""
+      },
+      "geocoder": {
+        "parameters": "(self, locator: 'str' = 'World')",
+        "returns": "AsyncHonuaGeocodingClient",
+        "signature": "(self, locator: 'str' = 'World') -> \"'AsyncHonuaGeocodingClient'\""
+      },
+      "geometry_server": {
+        "parameters": "(self)",
+        "returns": "AsyncGeoServicesGeometryServerClient",
+        "signature": "(self) -> \"'AsyncGeoServicesGeometryServerClient'\""
+      },
+      "image_server": {
+        "parameters": "(self, service_id: 'str | None' = None)",
+        "returns": "AsyncGeoServicesImageServerClient",
+        "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
+      },
+      "map_server": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "AsyncGeoServicesMapServerClient",
+        "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesMapServerClient'\""
+      },
+      "odata": {
+        "parameters": "(self)",
+        "returns": "AsyncODataClient",
+        "signature": "(self) -> \"'AsyncODataClient'\""
+      },
+      "ogc_coverages": {
+        "parameters": "(self)",
+        "returns": "AsyncOgcCoveragesClient",
+        "signature": "(self) -> \"'AsyncOgcCoveragesClient'\""
+      },
+      "ogc_features": {
+        "parameters": "(self)",
+        "returns": "AsyncHonuaOgcFeatures",
+        "signature": "(self) -> \"'AsyncHonuaOgcFeatures'\""
+      },
+      "ogc_maps": {
+        "parameters": "(self)",
+        "returns": "AsyncOgcMapsClient",
+        "signature": "(self) -> \"'AsyncOgcMapsClient'\""
+      },
+      "ogc_processes": {
+        "parameters": "(self)",
+        "returns": "AsyncOgcProcessesClient",
+        "signature": "(self) -> \"'AsyncOgcProcessesClient'\""
+      },
+      "ogc_tiles": {
+        "parameters": "(self)",
+        "returns": "AsyncOgcTilesClient",
+        "signature": "(self) -> \"'AsyncOgcTilesClient'\""
+      },
+      "stac": {
+        "parameters": "(self)",
+        "returns": "AsyncStacClient",
+        "signature": "(self) -> \"'AsyncStacClient'\""
+      },
+      "wfs": {
+        "parameters": "(self)",
+        "returns": "AsyncWfsClient",
+        "signature": "(self) -> \"'AsyncWfsClient'\""
+      },
+      "wms": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "AsyncWmsClient",
+        "signature": "(self, service_id: 'str') -> \"'AsyncWmsClient'\""
+      },
+      "wmts": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "AsyncWmtsClient",
+        "signature": "(self, service_id: 'str') -> \"'AsyncWmtsClient'\""
+      }
+    },
+    "sync": {
+      "feature_server": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "GeoServicesFeatureServerClient",
+        "signature": "(self, service_id: 'str') -> \"'GeoServicesFeatureServerClient'\""
+      },
+      "geocoder": {
+        "parameters": "(self, locator: 'str' = 'World')",
+        "returns": "HonuaGeocodingClient",
+        "signature": "(self, locator: 'str' = 'World') -> \"'HonuaGeocodingClient'\""
+      },
+      "geometry_server": {
+        "parameters": "(self)",
+        "returns": "GeoServicesGeometryServerClient",
+        "signature": "(self) -> \"'GeoServicesGeometryServerClient'\""
+      },
+      "image_server": {
+        "parameters": "(self, service_id: 'str | None' = None)",
+        "returns": "GeoServicesImageServerClient",
+        "signature": "(self, service_id: 'str | None' = None) -> \"'GeoServicesImageServerClient'\""
+      },
+      "map_server": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "GeoServicesMapServerClient",
+        "signature": "(self, service_id: 'str') -> \"'GeoServicesMapServerClient'\""
+      },
+      "odata": {
+        "parameters": "(self)",
+        "returns": "ODataClient",
+        "signature": "(self) -> \"'ODataClient'\""
+      },
+      "ogc_coverages": {
+        "parameters": "(self)",
+        "returns": "OgcCoveragesClient",
+        "signature": "(self) -> \"'OgcCoveragesClient'\""
+      },
+      "ogc_features": {
+        "parameters": "(self)",
+        "returns": "HonuaOgcFeatures",
+        "signature": "(self) -> \"'HonuaOgcFeatures'\""
+      },
+      "ogc_maps": {
+        "parameters": "(self)",
+        "returns": "OgcMapsClient",
+        "signature": "(self) -> \"'OgcMapsClient'\""
+      },
+      "ogc_processes": {
+        "parameters": "(self)",
+        "returns": "OgcProcessesClient",
+        "signature": "(self) -> \"'OgcProcessesClient'\""
+      },
+      "ogc_tiles": {
+        "parameters": "(self)",
+        "returns": "OgcTilesClient",
+        "signature": "(self) -> \"'OgcTilesClient'\""
+      },
+      "stac": {
+        "parameters": "(self)",
+        "returns": "StacClient",
+        "signature": "(self) -> \"'StacClient'\""
+      },
+      "wfs": {
+        "parameters": "(self)",
+        "returns": "WfsClient",
+        "signature": "(self) -> \"'WfsClient'\""
+      },
+      "wms": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "WmsClient",
+        "signature": "(self, service_id: 'str') -> \"'WmsClient'\""
+      },
+      "wmts": {
+        "parameters": "(self, service_id: 'str')",
+        "returns": "WmtsClient",
+        "signature": "(self, service_id: 'str') -> \"'WmtsClient'\""
+      }
+    }
+  },
+  "schemaVersion": 1
+}

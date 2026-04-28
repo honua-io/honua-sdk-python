@@ -74,13 +74,31 @@ with HonuaClient("https://your-honua-server.com") as client:
 from honua_sdk import HonuaClient
 
 with HonuaClient("https://your-honua-server.com") as client:
+    capabilities = client.capabilities()
+    if capabilities.supports("stac"):
+        stac_items = client.stac().items("imagery")
+
     map_png = client.ogc_maps().collection_map("parcels", bbox=[-180, -90, 180, 90])
-    stac_items = client.stac().items("imagery")
+    tile_png = client.ogc_tiles().tile("WebMercatorQuad", "0", 0, 0, collection_id="parcels")
+    coverage = client.ogc_coverages().coverage("elevation", response_format="tiff")
+    process_list = client.ogc_processes().processes()
     wfs_xml = client.wfs().get_feature(type_names="parcels")
+    wms_png = client.wms("basemap").map(layers="parcels", bbox=[-180, -90, 180, 90], width=512, height=512)
+    wmts_tile = client.wmts("basemap").tile(
+        layer="parcels",
+        tile_matrix_set="WebMercatorQuad",
+        tile_matrix="0",
+        tile_row=0,
+        tile_col=0,
+    )
     odata_features = client.odata().features(layer_id=0)
 ```
 
-See [Protocol Parity](docs/protocol-parity.md) for the Python/JS coverage map.
+Protocol helpers return protocol-native shapes: JSON `dict`, XML `str`, raw
+`bytes`, or SDK models for geocoding and gRPC. `client.capabilities()` and
+`client.supports("stac")` expose advertised data-plane capabilities. See
+[Protocol Examples](docs/protocol-examples.md) for every public wrapper and
+[Protocol Parity](docs/protocol-parity.md) for the Python/JS coverage map.
 
 ### Admin client
 
@@ -100,7 +118,8 @@ with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") 
 
 ## Async
 
-Every client has an async counterpart with the same API:
+HTTP data and protocol workflows have async counterparts with the same factory
+and method names:
 
 ```python
 from honua_sdk import AsyncHonuaClient
@@ -162,6 +181,7 @@ client = HonuaClient("https://your-server.com", max_retries=0)
 
 - [5-Minute Quickstart](docs/quickstart.md) -- query, GeoDataFrame, and plot
 - [Core Client](docs/core-client.md) -- typed service, FeatureServer, applyEdits, pagination, and error handling helpers
+- [Protocol Examples](docs/protocol-examples.md) -- OGC, STAC, WFS, WMS, WMTS, OData, geocoding, and gRPC examples with response shapes
 - [Geospatial ETL demo](examples/geospatial_etl/README.md) -- canonical script-first ETL flow plus notebook companion, with `load-summary.json` / `post-load-preview.png` artifacts and the `apply_edits` contract
 - [Authentication](docs/auth.md) -- refreshable bearer tokens, secure storage guidance, revocation, rotation, and failure modes
 - [Compatibility](docs/compatibility.md) -- supported server matrix, public API snapshot gate, and release blocking policy

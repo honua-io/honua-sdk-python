@@ -19,8 +19,8 @@ SPEC.loader.exec_module(validate_publish_tag)
 @pytest.mark.parametrize(
     "tag_name",
     [
-        "python-sdk-v0.0.2",
-        "python-sdk-vv0.0.2",
+        "python-sdk-v0.1.0",
+        "python-sdk-vv0.1.0",
     ],
 )
 def test_validate_publish_tag_accepts_single_or_double_v_prefix(tag_name: str) -> None:

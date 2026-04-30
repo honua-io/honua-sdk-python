@@ -17,16 +17,19 @@ SPEC.loader.exec_module(validate_publish_tag)
 
 
 @pytest.mark.parametrize(
-    "tag_name",
+    "tag_template",
     [
-        "python-sdk-v0.1.0",
-        "python-sdk-vv0.1.0",
+        "python-sdk-v{version}",
+        "python-sdk-vv{version}",
     ],
 )
-def test_validate_publish_tag_accepts_single_or_double_v_prefix(tag_name: str) -> None:
+def test_validate_publish_tag_accepts_single_or_double_v_prefix(tag_template: str) -> None:
+    pyproject_path = ROOT / "packages" / "honua-sdk" / "pyproject.toml"
+    version = validate_publish_tag.package_version(pyproject_path)
+
     validate_publish_tag.validate_publish_tag(
-        ROOT / "packages" / "honua-sdk" / "pyproject.toml",
-        tag_name,
+        pyproject_path,
+        tag_template.format(version=version),
         "python-sdk-v",
     )
 

@@ -3,6 +3,8 @@
 Monorepo for the Honua Python client libraries. Two independently installable
 packages live under `packages/`:
 
+Current package capabilities are summarized in [docs/features/README.md](docs/features/README.md).
+
 | Package | PyPI name | Description |
 |---------|-----------|-------------|
 | [`packages/honua-sdk`](packages/honua-sdk/) | `honua-sdk` | Data-plane client -- feature queries, geocoding, gRPC streaming, GeoPandas integration |

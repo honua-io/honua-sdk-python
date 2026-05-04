@@ -1,6 +1,6 @@
 # Geospatial ETL Demo
 
-This example shows the buyer-facing ETL loop for the Python SDK:
+This example shows the analyst-facing ETL loop for the Python SDK:
 
 1. Extract a tabular CSV source into a `GeoDataFrame`
 2. Normalize it to the target layer CRS
@@ -10,7 +10,7 @@ This example shows the buyer-facing ETL loop for the Python SDK:
 6. Re-query the same slice and emit demo artifacts
 
 The script is the canonical fast path. The notebook reuses the same workflow module for analyst walkthroughs.
-See [../../docs/troubleshooting.md](../../docs/troubleshooting.md) for staging base URL, auth, seeded contract, and cleanup guidance.
+See [../README.md](../README.md) for the shared demo-suite cloud environment contract, and [../../docs/troubleshooting.md](../../docs/troubleshooting.md) for staging base URL, auth, seeded contract, and cleanup guidance.
 
 ## Prerequisites
 
@@ -141,6 +141,21 @@ Exit behavior is also fixed:
 - exit code `1` on source/setup failures before the first network call
 - exit code `1` when the pre-load query, `apply_edits`, or post-load query raises `HonuaHttpError`
 - exit code `1` when `apply_edits` returns but none of its result entries are successful
+
+## Data Quality Report
+
+Run the companion report before loading when you only need source diagnostics:
+
+```bash
+python examples/data_quality_report.py
+```
+
+It uses the same GeoPandas conversion and validation functions as the ETL workflow, then writes:
+
+- `data-quality-report.json`
+- `data-quality-report.html`
+
+The report covers duplicate `uid` values, missing required attributes, missing coordinates / null geometries, invalid geometries, and schema drift against the source CSV contract.
 
 ## Artifacts And Response Shape
 

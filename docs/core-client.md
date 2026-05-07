@@ -83,8 +83,8 @@ with HonuaClient("https://honua.example") as client:
 ```
 
 The source facade uses canonical cross-SDK protocol ids such as
-`geoservices-feature-service`, `ogc-features`, `stac`, and `odata`; common
-aliases such as `feature-server` and `ogc_api_features` are accepted. Python
+`grpc`, `geoservices-feature-service`, `ogc-features`, `stac`, and `odata`;
+common aliases such as `feature-server` and `ogc_api_features` are accepted. Python
 uses snake_case for query fields (`out_fields`, `return_geometry`,
 `query_all()`), while TypeScript and .NET use their idiomatic casing.
 `SourceDescriptor.supports(...)` reflects protocol-advertised capabilities;

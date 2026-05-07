@@ -60,6 +60,7 @@
     }
   ],
   "protocols": [
+    "grpc",
     "geoservices-feature-service",
     "geoservices-map-service",
     "geoservices-image-service",
@@ -117,6 +118,14 @@
     "processes"
   ],
   "defaultCapabilities": {
+    "grpc": [
+      "query",
+      "queryAggregate",
+      "queryExtent",
+      "queryObjectIds",
+      "applyEdits",
+      "stream"
+    ],
     "geoservices-feature-service": [
       "query",
       "queryAggregate",

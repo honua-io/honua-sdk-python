@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, TypeAlias
 
 Protocol: TypeAlias = Literal[
+    "grpc",
     "geoservices-feature-service",
     "geoservices-map-service",
     "geoservices-image-service",
@@ -46,6 +47,7 @@ Capability: TypeAlias = Literal[
 QueryProtocol: TypeAlias = Protocol
 
 PROTOCOLS = (
+    "grpc",
     "geoservices-feature-service",
     "geoservices-map-service",
     "geoservices-image-service",
@@ -106,6 +108,14 @@ CAPABILITIES = (
 )
 
 DEFAULT_CAPABILITIES: Mapping[str, tuple[str, ...]] = {
+    "grpc": (
+        "query",
+        "queryAggregate",
+        "queryExtent",
+        "queryObjectIds",
+        "applyEdits",
+        "stream",
+    ),
     "geoservices-feature-service": (
         "query",
         "queryAggregate",

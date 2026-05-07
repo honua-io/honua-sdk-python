@@ -2933,7 +2933,7 @@
         "DEFAULT_CAPABILITIES": {
           "kind": "constant",
           "type": "dict",
-          "value": "{'geoservices-feature-service': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'sql', 'stream', 'pbf', 'connect'), 'geoservices-map-service': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'render', 'tiles', 'sql', 'stream'), 'geoservices-image-service': ('query', 'queryExtent', 'queryObjectIds', 'image', 'render', 'tiles', 'connect'), 'geoservices-geometry-service': ('geometry', 'connect'), 'geoservices-gp-service': ('geoprocess', 'connect'), 'ogc-features': ('query', 'queryObjectIds', 'applyEdits', 'stream'), 'ogc-tiles': ('render', 'tiles'), 'ogc-maps': ('render',), 'stac': ('query', 'queryObjectIds', 'stream'), 'wfs': ('query', 'queryExtent', 'queryObjectIds', 'applyEdits', 'stream'), 'wms': ('render', 'tiles', 'query'), 'wmts': ('render', 'tiles'), 'odata': ('query', 'queryObjectIds', 'stream', 'applyEdits'), 'maplibre-vector': ('render', 'tiles'), 'maplibre-raster': ('render', 'tiles'), 'maplibre-geojson': ('render',)}"
+          "value": "{'grpc': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'applyEdits', 'stream'), 'geoservices-feature-service': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'sql', 'stream', 'pbf', 'connect'), 'geoservices-map-service': ('query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'render', 'tiles', 'sql', 'stream'), 'geoservices-image-service': ('query', 'queryExtent', 'queryObjectIds', 'image', 'render', 'tiles', 'connect'), 'geoservices-geometry-service': ('geometry', 'connect'), 'geoservices-gp-service': ('geoprocess', 'connect'), 'ogc-features': ('query', 'queryObjectIds', 'applyEdits', 'stream'), 'ogc-tiles': ('render', 'tiles'), 'ogc-maps': ('render',), 'stac': ('query', 'queryObjectIds', 'stream'), 'wfs': ('query', 'queryExtent', 'queryObjectIds', 'applyEdits', 'stream'), 'wms': ('render', 'tiles', 'query'), 'wmts': ('render', 'tiles'), 'odata': ('query', 'queryObjectIds', 'stream', 'applyEdits'), 'maplibre-vector': ('render', 'tiles'), 'maplibre-raster': ('render', 'tiles'), 'maplibre-geojson': ('render',)}"
         },
         "DataPlaneCapabilities": {
           "fields": [
@@ -3989,7 +3989,7 @@
         "PROTOCOLS": {
           "kind": "constant",
           "type": "tuple",
-          "value": "('geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson')"
+          "value": "('grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson')"
         },
         "PROTOCOL_ALIASES": {
           "kind": "constant",
@@ -4033,7 +4033,7 @@
         "Protocol": {
           "kind": "constant",
           "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
+          "value": "typing.Union[typing.Literal['grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
         },
         "Query": {
           "fields": [
@@ -4150,7 +4150,7 @@
         "QueryProtocol": {
           "kind": "constant",
           "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
+          "value": "typing.Union[typing.Literal['grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
         },
         "RefreshableBearerTokenProvider": {
           "kind": "class",

@@ -7,6 +7,7 @@ protocol adapters.
 | --- | --- | --- | --- |
 | Shared Source/Query/Result | `client.source(...)`, `SourceDescriptor`, `Query`, `Result` | Aligned by fixture | Canonical source-bound facade with Pythonic snake_case names and protocol escape hatch. |
 | Shared feature query | `client.query(...)`, `client.iter_query(...)` | Legacy compact helper | Normalized `QueryFeature` output spans FeatureServer, OGC API Features, STAC, and OData. |
+| gRPC FeatureService | `honua_sdk.grpc.HonuaGrpcClient`, `HonuaGrpcAsyncClient` | Canonical shared protocol id | Generated FeatureService client with unary and streaming query helpers; `grpc` is included in the shared semantic fixture/default capability registry. |
 | GeoServices FeatureServer | `client.feature_server(id)`, `query_features`, `apply_edits` | Partial | Read/query/edit, metadata, typed query pages, and item iterators are available. |
 | GeoServices MapServer | `client.map_server(id)`, `export_map` | Partial | Metadata, export, identify, and tile helpers are available. |
 | GeoServices ImageServer | `client.image_server(id)` | New in Python | Metadata, exportImage, identify, query, tile, and legend helpers are available. |

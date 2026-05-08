@@ -60,6 +60,7 @@ if TYPE_CHECKING:
         AsyncOgcCoveragesClient,
         AsyncOgcMapsClient,
         AsyncOgcProcessesClient,
+        AsyncOgcRecordsClient,
         AsyncOgcTilesClient,
         AsyncStacClient,
         AsyncWfsClient,
@@ -243,6 +244,12 @@ class AsyncHonuaClient:
         from .protocols import AsyncOgcProcessesClient
 
         return AsyncOgcProcessesClient(self)
+
+    def ogc_records(self) -> "AsyncOgcRecordsClient":
+        """Return an async OGC API Records wrapper."""
+        from .protocols import AsyncOgcRecordsClient
+
+        return AsyncOgcRecordsClient(self)
 
     def stac(self) -> "AsyncStacClient":
         """Return an async STAC API wrapper."""

@@ -3043,6 +3043,8 @@
         "AsyncOgcCoveragesClient",
         "AsyncOgcMapsClient",
         "AsyncOgcProcessesClient",
+        "AsyncOgcRecordsClient",
+        "AsyncOgcRecordsCollectionClient",
         "AsyncOgcTilesClient",
         "AsyncSource",
         "AsyncStacClient",
@@ -3090,6 +3092,8 @@
         "OgcImageFormat",
         "OgcMapsClient",
         "OgcProcessesClient",
+        "OgcRecordsClient",
+        "OgcRecordsCollectionClient",
         "OgcTilesClient",
         "PROTOCOLS",
         "PROTOCOL_ALIASES",
@@ -3398,6 +3402,10 @@
             "ogc_processes": {
               "kind": "method",
               "signature": "(self) -> \"'AsyncOgcProcessesClient'\""
+            },
+            "ogc_records": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncOgcRecordsClient'\""
             },
             "ogc_tiles": {
               "kind": "method",
@@ -3823,6 +3831,151 @@
           "module": "honua_sdk.protocols",
           "qualname": "AsyncOgcProcessesClient",
           "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncOgcRecordsClient": {
+          "kind": "class",
+          "methods": {
+            "collection": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId') -> \"'AsyncOgcRecordsCollectionClient'\""
+            },
+            "collections": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "conformance": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "get_collection": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "item": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "items": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "iter_records": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
+            },
+            "landing": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "openapi": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "queryables": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record_pages": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
+            },
+            "records": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
+            },
+            "records_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'list[JsonObject]'"
+            },
+            "search": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, collection_id: 'FeatureId | None' = None, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncOgcRecordsClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "AsyncOgcRecordsCollectionClient": {
+          "kind": "class",
+          "methods": {
+            "item": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "items": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "items_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
+            },
+            "iter_records": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
+            },
+            "metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "queryables": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record_pages": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
+            },
+            "records": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
+            },
+            "records_all": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
+            },
+            "search": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "AsyncOgcRecordsCollectionClient",
+          "signature": "(client: 'Any', collection_id: 'FeatureId') -> 'None'"
         },
         "AsyncOgcTilesClient": {
           "kind": "class",
@@ -4779,6 +4932,10 @@
               "kind": "method",
               "signature": "(self) -> \"'OgcProcessesClient'\""
             },
+            "ogc_records": {
+              "kind": "method",
+              "signature": "(self) -> \"'OgcRecordsClient'\""
+            },
             "ogc_tiles": {
               "kind": "method",
               "signature": "(self) -> \"'OgcTilesClient'\""
@@ -5238,6 +5395,130 @@
           "module": "honua_sdk.protocols",
           "qualname": "OgcProcessesClient",
           "signature": "(client: 'Any') -> 'None'"
+        },
+        "OgcRecordsClient": {
+          "kind": "class",
+          "methods": {
+            "collection": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId') -> \"'OgcRecordsCollectionClient'\""
+            },
+            "collections": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "conformance": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "get_collection": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "item": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "items": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "iter_records": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'Iterator[JsonObject]'"
+            },
+            "landing": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "openapi": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "queryables": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record_pages": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'Iterator[JsonObject]'"
+            },
+            "records": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
+            },
+            "records_all": {
+              "kind": "method",
+              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'list[JsonObject]'"
+            },
+            "search": {
+              "kind": "method",
+              "signature": "(self, *, collection_id: 'FeatureId | None' = None, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "OgcRecordsClient",
+          "signature": "(client: 'Any') -> 'None'"
+        },
+        "OgcRecordsCollectionClient": {
+          "kind": "class",
+          "methods": {
+            "item": {
+              "kind": "method",
+              "signature": "(self, record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "items": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'JsonObject'"
+            },
+            "items_all": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
+            },
+            "iter_items": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'Iterator[JsonObject]'"
+            },
+            "iter_records": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'Iterator[JsonObject]'"
+            },
+            "metadata": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "queryables": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record": {
+              "kind": "method",
+              "signature": "(self, record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
+            },
+            "record_pages": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'Iterator[JsonObject]'"
+            },
+            "records": {
+              "kind": "method",
+              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
+            },
+            "records_all": {
+              "kind": "method",
+              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
+            },
+            "search": {
+              "kind": "method",
+              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.protocols",
+          "qualname": "OgcRecordsCollectionClient",
+          "signature": "(client: 'Any', collection_id: 'FeatureId') -> 'None'"
         },
         "OgcTilesClient": {
           "kind": "class",

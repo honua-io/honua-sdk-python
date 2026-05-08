@@ -10,6 +10,7 @@ HTTP protocol wrappers return protocol-native payloads:
 | OGC API Tiles | `client.ogc_tiles()` | JSON `dict` metadata and `bytes` tiles |
 | OGC API Coverages | `client.ogc_coverages()` | JSON `dict` metadata and `bytes` coverage payloads |
 | OGC API Processes | `client.ogc_processes()` | JSON `dict`; `dismiss_job()` returns `None` |
+| OGC API Records | `client.ogc_records()` | JSON `dict` catalog metadata, record collections/search payloads, and paged iterators |
 | STAC | `client.stac()` | JSON `dict` STAC Catalog, Collection, Item, search payloads, and paged iterators |
 | WFS | `client.wfs()` | XML `str` |
 | WMS | `client.wms(service_id)` | XML `str` capabilities, `bytes` payloads, or `BinaryResponse` metadata |
@@ -35,6 +36,7 @@ The snippets use these placeholders:
 SERVER = "https://your-honua-server.com"
 GRPC_TARGET = "your-honua-server.com:50051"
 COLLECTION_ID = "parcels"
+RECORD_COLLECTION_ID = "metadata"
 STAC_COLLECTION_ID = "imagery"
 SERVICE_ID = "basemap"
 LAYER_ID = 0
@@ -169,6 +171,52 @@ with HonuaClient(SERVER) as client:
     job = processes.job("job-id")                   # dict JSON
     results = processes.job_results("job-id")       # dict JSON
     processes.dismiss_job("job-id")                 # None
+```
+
+## OGC API Records
+
+OGC API Records exposes catalog metadata and record search payloads. Records are
+returned as protocol-native JSON dictionaries, usually GeoJSON FeatureCollection
+pages with record features. Use STAC for STAC Catalog/Collection/Item semantics,
+Honua catalog or admin clients for service and control-plane metadata, and OGC
+Records for standards-based metadata catalog discovery/search/detail.
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient(SERVER) as client:
+    records = client.ogc_records()
+
+    landing = records.landing()                     # dict JSON
+    collections = records.collections()             # dict JSON
+    queryables = records.queryables(RECORD_COLLECTION_ID)
+
+    catalog = records.collection(RECORD_COLLECTION_ID)
+    page = catalog.records(
+        q="shoreline",
+        bbox=BBOX,
+        datetime="2026-01-01/..",
+        filter="properties.theme = 'planning'",
+        limit=100,
+    )
+    first_pages = list(catalog.record_pages(page_size=100, max_pages=2))
+    for record in catalog.iter_records(page_size=100, limit=500):
+        print(record["id"])
+    all_records = catalog.records_all(page_size=100, limit=500)
+    detail = catalog.record("dataset-001")          # dict JSON record
+```
+
+Async Records uses the same factory:
+
+```python
+from honua_sdk import AsyncHonuaClient
+
+async with AsyncHonuaClient(SERVER) as client:
+    catalog = client.ogc_records().collection(RECORD_COLLECTION_ID)
+    page = await catalog.records(q="shoreline", limit=100)
+    async for record in catalog.iter_records(page_size=100, limit=500):
+        print(record["id"])
+    all_records = await catalog.records_all(page_size=100, limit=500)
 ```
 
 ## STAC

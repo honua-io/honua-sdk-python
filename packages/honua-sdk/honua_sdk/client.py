@@ -60,6 +60,7 @@ if TYPE_CHECKING:
         OgcCoveragesClient,
         OgcMapsClient,
         OgcProcessesClient,
+        OgcRecordsClient,
         OgcTilesClient,
         StacClient,
         WfsClient,
@@ -243,6 +244,12 @@ class HonuaClient:
         from .protocols import OgcProcessesClient
 
         return OgcProcessesClient(self)
+
+    def ogc_records(self) -> "OgcRecordsClient":
+        """Return an OGC API Records wrapper."""
+        from .protocols import OgcRecordsClient
+
+        return OgcRecordsClient(self)
 
     def stac(self) -> "StacClient":
         """Return a STAC API wrapper."""

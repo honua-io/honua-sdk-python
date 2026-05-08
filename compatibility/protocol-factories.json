@@ -53,6 +53,11 @@
         "returns": "AsyncOgcProcessesClient",
         "signature": "(self) -> \"'AsyncOgcProcessesClient'\""
       },
+      "ogc_records": {
+        "parameters": "(self)",
+        "returns": "AsyncOgcRecordsClient",
+        "signature": "(self) -> \"'AsyncOgcRecordsClient'\""
+      },
       "ogc_tiles": {
         "parameters": "(self)",
         "returns": "AsyncOgcTilesClient",
@@ -129,6 +134,11 @@
         "parameters": "(self)",
         "returns": "OgcProcessesClient",
         "signature": "(self) -> \"'OgcProcessesClient'\""
+      },
+      "ogc_records": {
+        "parameters": "(self)",
+        "returns": "OgcRecordsClient",
+        "signature": "(self) -> \"'OgcRecordsClient'\""
       },
       "ogc_tiles": {
         "parameters": "(self)",

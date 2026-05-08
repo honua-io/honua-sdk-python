@@ -7,8 +7,10 @@ from collections import Counter
 from dataclasses import dataclass
 import html
 from pathlib import Path
+import struct
 import sys
 from typing import Any
+import zlib
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -26,6 +28,7 @@ class DataQualityReport:
     summary: dict[str, Any]
     json_path: Path
     html_path: Path
+    png_path: Path
 
 
 def build_data_quality_report(
@@ -38,6 +41,7 @@ def build_data_quality_report(
     output_path.mkdir(parents=True, exist_ok=True)
     json_path = output_path / "data-quality-report.json"
     html_path = output_path / "data-quality-report.html"
+    png_path = output_path / "data-quality-report.png"
 
     source_frame = workflow.load_source_dataframe(input_path)
     source_gdf = workflow.dataframe_to_source_geodataframe(source_frame)
@@ -71,12 +75,14 @@ def build_data_quality_report(
         "artifacts": {
             "json": str(json_path),
             "html": str(html_path),
+            "png": str(png_path),
         },
     }
 
     workflow.write_summary_artifact(summary, json_path)
     _write_html_report(summary, html_path)
-    return DataQualityReport(summary=summary, json_path=json_path, html_path=html_path)
+    _write_png_report(summary, png_path)
+    return DataQualityReport(summary=summary, json_path=json_path, html_path=html_path, png_path=png_path)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -101,6 +107,7 @@ def main() -> int:
     )
     print(f"JSON artifact: {report.json_path}")
     print(f"HTML artifact: {report.html_path}")
+    print(f"PNG artifact: {report.png_path}")
     return 0 if report.summary["rejected_row_count"] == 0 else 1
 
 
@@ -137,6 +144,79 @@ def _write_html_report(summary: dict[str, Any], output_path: str | Path) -> Path
         encoding="utf-8",
     )
     return path
+
+
+def _write_png_report(summary: dict[str, Any], output_path: str | Path) -> Path:
+    path = Path(output_path).expanduser().resolve()
+    reason_counts = summary["reason_counts"]
+    values = [reason_counts[label] for label in reason_counts] or [0]
+    path.write_bytes(_build_bar_chart_png(values))
+    return path
+
+
+def _build_bar_chart_png(values: list[int]) -> bytes:
+    width = 640
+    height = 360
+    margin = 48
+    image = bytearray([255, 255, 255] * width * height)
+
+    def set_pixel(x: int, y: int, color: tuple[int, int, int]) -> None:
+        if 0 <= x < width and 0 <= y < height:
+            offset = (y * width + x) * 3
+            image[offset:offset + 3] = bytes(color)
+
+    axis_color = (31, 41, 55)
+    grid_color = (229, 231, 235)
+    bar_color = (37, 99, 235)
+
+    for grid_index in range(5):
+        y = margin + grid_index * (height - 2 * margin) // 4
+        for x in range(margin, width - margin):
+            set_pixel(x, y, grid_color)
+
+    for x in range(margin, width - margin):
+        set_pixel(x, height - margin, axis_color)
+    for y in range(margin, height - margin + 1):
+        set_pixel(margin, y, axis_color)
+
+    max_value = max(values + [1])
+    bar_count = max(len(values), 1)
+    available_width = width - 2 * margin
+    slot_width = max(1, available_width // bar_count)
+    bar_width = max(8, int(slot_width * 0.55))
+    chart_height = height - 2 * margin
+
+    for index, value in enumerate(values):
+        bar_height = int(chart_height * value / max_value) if max_value else 0
+        x0 = margin + index * slot_width + (slot_width - bar_width) // 2
+        x1 = x0 + bar_width
+        y0 = height - margin - bar_height
+        y1 = height - margin
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                set_pixel(x, y, bar_color)
+
+    scanlines = bytearray()
+    row_width = width * 3
+    for y in range(height):
+        scanlines.append(0)
+        start = y * row_width
+        scanlines.extend(image[start:start + row_width])
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(bytes(scanlines), level=9))
+        + chunk(b"IEND", b"")
+    )
 
 
 if __name__ == "__main__":

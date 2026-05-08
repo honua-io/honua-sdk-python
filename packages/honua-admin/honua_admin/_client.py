@@ -37,6 +37,8 @@ from ._models import (
     ManifestApplyResult,
     MetadataManifest,
     MetadataResource,
+    MigrationInventoryScanRequest,
+    MigrationSourceInventoryArtifact,
     PublishLayerRequest,
     PublishedLayerSummary,
     SecureConnectionDetail,
@@ -377,6 +379,26 @@ class HonuaAdminClient:
             json_body=request.to_dict(),
         )
         return ManifestApplyResult.from_dict(data)
+
+    # ======================================================================
+    # Migration Toolkit
+    # ======================================================================
+
+    def scan_migration_source(
+        self,
+        request: MigrationInventoryScanRequest,
+        *,
+        export_json: bool = False,
+    ) -> MigrationSourceInventoryArtifact:
+        """POST /api/v1/admin/import/scan"""
+        params = {"export": "json"} if export_json else None
+        data = self._request_json(
+            "POST",
+            "/api/v1/admin/import/scan",
+            params=params,
+            json_body=request.to_dict(),
+        )
+        return MigrationSourceInventoryArtifact.from_dict(data)
 
     # ======================================================================
     # Connections

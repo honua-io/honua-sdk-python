@@ -31,7 +31,13 @@ def test_data_quality_report_writes_deterministic_artifacts(tmp_path: Path) -> N
     }
     assert report.json_path.exists()
     assert report.html_path.exists()
+    assert report.png_path.exists()
     assert "Honua Data Quality Report" in report.html_path.read_text(encoding="utf-8")
+    assert report.summary["artifacts"] == {
+        "json": str(report.json_path),
+        "html": str(report.html_path),
+        "png": str(report.png_path),
+    }
 
 
 @pytest.mark.anyio
@@ -97,6 +103,7 @@ async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
 
     assert [result.name for result in results] == [
         "feature-server-bbox",
+        "feature-server-geodataframe",
         "feature-server-filter-summary",
         "ogc-api-features-items",
         "stac-items",
@@ -106,7 +113,9 @@ async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
         "odata-features",
     ]
     assert results[0].row_count == 1
-    assert results[5].response_shape == "bytes:3"
+    assert results[1].protocol == "GeoPandas"
+    assert results[1].row_count == 1
+    assert results[6].response_shape == "bytes:3"
 
 
 @pytest.mark.anyio

@@ -18,8 +18,8 @@ Cloud demos should use fixture services with stable schemas and stable record co
 ## Current Coverage
 
 - GeoPandas ETL: clean, validate, query, upsert, re-query, and write deterministic artifacts.
-- Data quality report: validate the same source contract and emit JSON and HTML findings before load.
-- Spatial query cookbook: exercise FeatureServer bbox/filter queries, OGC API Features, STAC item search, WFS, WMS, WMTS, and OData response shapes.
+- Data quality report: validate the same source contract and emit JSON, HTML, and PNG findings before load.
+- Spatial query cookbook: exercise FeatureServer bbox/filter queries, GeoDataFrame conversion, OGC API Features, STAC item search, WFS, WMS, WMTS, and OData response shapes.
 - FastAPI service: expose async `/features` and `/summary` routes backed by `AsyncHonuaClient`.
 
 ## Optional STAC And Imagery

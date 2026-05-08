@@ -60,6 +60,7 @@ async def run_spatial_query_cookbook(client: Any, config: CookbookConfig) -> lis
         },
     )
     results.append(_json_result("feature-server-bbox", "FeatureServer", feature_bbox, "features"))
+    results.append(_geodataframe_result("feature-server-geodataframe", feature_bbox))
 
     feature_summary = await client.query_features(
         config.service_id,
@@ -154,6 +155,17 @@ def _json_result(name: str, protocol: str, payload: dict[str, Any], rows_key: st
     rows = payload.get(rows_key)
     row_count = len(rows) if isinstance(rows, list) else None
     return RecipeResult(name=name, protocol=protocol, response_shape="json", row_count=row_count)
+
+
+def _geodataframe_result(name: str, payload: dict[str, Any]) -> RecipeResult:
+    try:
+        from honua_sdk.geopandas import features_to_geodataframe
+    except ImportError:
+        return RecipeResult(name=name, protocol="GeoPandas", response_shape="geopandas-unavailable", row_count=None)
+
+    gdf = features_to_geodataframe(payload)
+    crs = "none" if gdf.crs is None else str(gdf.crs)
+    return RecipeResult(name=name, protocol="GeoPandas", response_shape=f"GeoDataFrame:{crs}", row_count=len(gdf))
 
 
 if __name__ == "__main__":

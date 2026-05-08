@@ -48,6 +48,36 @@ with HonuaAdminClient("https://your-honua-server.com", auth_provider=auth) as ad
     services = admin.list_services()
 ```
 
+## Migration Source Scans
+
+The migration toolkit starts with `POST /api/v1/admin/import/scan`, which
+returns a raw `MigrationSourceInventoryArtifact` rather than the usual admin
+`success/data` response envelope.
+
+```python
+from honua_admin import HonuaAdminClient, MigrationInventoryScanRequest
+
+request = MigrationInventoryScanRequest(
+    source_kind="geoserver",
+    source_url="https://example.com/geoserver/rest",
+    username="operator",
+    password="secret",
+    include_style_content=True,
+)
+
+with HonuaAdminClient("https://your-honua-server.com", api_key="key") as admin:
+    inventory = admin.scan_migration_source(request)
+
+if inventory.scan_completeness.status == "failed":
+    raise RuntimeError("; ".join(inventory.scan_completeness.warnings))
+```
+
+Use `export_json=True` to request the server's indented JSON attachment form
+while still receiving a typed `MigrationSourceInventoryArtifact`. A `200 OK`
+response means the server produced an inventory artifact; callers should use
+`scan_completeness.status` and `overall_compatibility.level` as the planning
+gate before import or cutover decisions.
+
 ## License
 
 Apache-2.0

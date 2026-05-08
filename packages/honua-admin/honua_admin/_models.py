@@ -47,6 +47,34 @@ def _camel_keys(d: dict[str, Any]) -> dict[str, Any]:
     return {_to_camel(k): v for k, v in d.items()}
 
 
+def _to_dict_value(value: Any) -> Any:
+    """Convert nested SDK models to API dictionaries."""
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    if isinstance(value, list):
+        return [_to_dict_value(item) for item in value]
+    if isinstance(value, dict):
+        return {k: _to_dict_value(v) for k, v in value.items()}
+    return value
+
+
+def _dataclass_to_camel_dict(instance: Any) -> dict[str, Any]:
+    """Serialise dataclass fields to a camelCase API dictionary."""
+    d: dict[str, Any] = {}
+    for f in fields(instance):
+        val = getattr(instance, f.name)
+        if val is not None:
+            d[_to_camel(f.name)] = _to_dict_value(val)
+    return d
+
+
+def _model_list(cls: type, values: Any) -> list[Any]:
+    """Parse a list of nested dict payloads into model instances."""
+    if not isinstance(values, list):
+        return []
+    return [cls.from_dict(item) if isinstance(item, dict) else item for item in values]
+
+
 def _extract_fields(cls: type, data: dict[str, Any]) -> dict[str, Any]:
     """Extract only the fields that exist on *cls* from a snake-cased dict."""
     valid = {f.name for f in fields(cls)}
@@ -681,8 +709,684 @@ class LayerStyleResponse:
 
 
 # ---------------------------------------------------------------------------
+# Migration toolkit artifact models
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationSourceIdentity:
+    display_name: str
+    base_url: str
+    product: str | None = None
+    version: str | None = None
+    build: str | None = None
+    service_type: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationSourceIdentity:
+        d = _snake_keys(data)
+        d.setdefault("product", None)
+        d.setdefault("version", None)
+        d.setdefault("build", None)
+        d.setdefault("service_type", None)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryAuthPosture:
+    mode: str
+    credentials_supplied: bool = False
+    access_confirmed: bool = False
+    notes: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryAuthPosture:
+        d = _snake_keys(data)
+        d.setdefault("credentials_supplied", False)
+        d.setdefault("access_confirmed", False)
+        d.setdefault("notes", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryCompleteness:
+    status: str
+    warnings: list[str] = field(default_factory=list)
+    missing_artifacts: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryCompleteness:
+        d = _snake_keys(data)
+        d.setdefault("warnings", [])
+        d.setdefault("missing_artifacts", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventorySummary:
+    container_count: int = 0
+    resource_count: int = 0
+    style_count: int = 0
+    external_dependency_count: int = 0
+    compatible_count: int = 0
+    partially_compatible_count: int = 0
+    incompatible_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventorySummary:
+        d = _snake_keys(data)
+        d.setdefault("container_count", 0)
+        d.setdefault("resource_count", 0)
+        d.setdefault("style_count", 0)
+        d.setdefault("external_dependency_count", 0)
+        d.setdefault("compatible_count", 0)
+        d.setdefault("partially_compatible_count", 0)
+        d.setdefault("incompatible_count", 0)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationCompatibilityAssessment:
+    level: str
+    reason: str
+    code: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    manual_steps: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationCompatibilityAssessment:
+        d = _snake_keys(data)
+        d.setdefault("code", None)
+        d.setdefault("warnings", [])
+        d.setdefault("manual_steps", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryCodedValue:
+    code: str
+    name: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryCodedValue:
+        d = _snake_keys(data)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationSpatialReferenceInfo:
+    role: str
+    source_value: str | None = None
+    srid: int | None = None
+    crs_uri: str | None = None
+    datum: str | None = None
+    unit: str | None = None
+    axis_order: str | None = None
+    is_geographic: bool | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationSpatialReferenceInfo:
+        d = _snake_keys(data)
+        d.setdefault("source_value", None)
+        d.setdefault("srid", None)
+        d.setdefault("crs_uri", None)
+        d.setdefault("datum", None)
+        d.setdefault("unit", None)
+        d.setdefault("axis_order", None)
+        d.setdefault("is_geographic", None)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryField:
+    name: str
+    field_type: str
+    alias: str | None = None
+    nullable: bool | None = None
+    domain_type: str | None = None
+    domain_name: str | None = None
+    domain_values: list[MigrationInventoryCodedValue] | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryField:
+        d = _snake_keys(data)
+        d.setdefault("alias", None)
+        d.setdefault("nullable", None)
+        d.setdefault("domain_type", None)
+        d.setdefault("domain_name", None)
+        domain_values = d.get("domain_values")
+        d["domain_values"] = (
+            _model_list(MigrationInventoryCodedValue, domain_values)
+            if domain_values is not None
+            else None
+        )
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryContainer:
+    id: str
+    kind: str
+    name: str
+    compatibility: MigrationCompatibilityAssessment
+    title: str | None = None
+    description: str | None = None
+    is_default: bool | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryContainer:
+        d = _snake_keys(data)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d.setdefault("title", None)
+        d.setdefault("description", None)
+        d.setdefault("is_default", None)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryResource:
+    id: str
+    container_id: str
+    kind: str
+    name: str
+    compatibility: MigrationCompatibilityAssessment
+    title: str | None = None
+    description: str | None = None
+    geometry_type: str | None = None
+    feature_count: int | None = None
+    has_attachments: bool | None = None
+    capabilities: list[str] = field(default_factory=list)
+    spatial_references: list[MigrationSpatialReferenceInfo] = field(default_factory=list)
+    fields: list[MigrationInventoryField] = field(default_factory=list)
+    style_ids: list[str] = field(default_factory=list)
+    external_dependency_ids: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryResource:
+        d = _snake_keys(data)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d.setdefault("title", None)
+        d.setdefault("description", None)
+        d.setdefault("geometry_type", None)
+        d.setdefault("feature_count", None)
+        d.setdefault("has_attachments", None)
+        d.setdefault("capabilities", [])
+        d["spatial_references"] = _model_list(MigrationSpatialReferenceInfo, d.get("spatial_references", []))
+        d["fields"] = _model_list(MigrationInventoryField, d.get("fields", []))
+        d.setdefault("style_ids", [])
+        d.setdefault("external_dependency_ids", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationInventoryStyle:
+    id: str
+    container_id: str
+    kind: str
+    name: str
+    compatibility: MigrationCompatibilityAssessment
+    format: str | None = None
+    resource_ids: list[str] = field(default_factory=list)
+    external_dependency_ids: list[str] = field(default_factory=list)
+    metadata: dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationInventoryStyle:
+        d = _snake_keys(data)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d.setdefault("format", None)
+        d.setdefault("resource_ids", [])
+        d.setdefault("external_dependency_ids", [])
+        d.setdefault("metadata", {})
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationExternalDependency:
+    id: str
+    container_id: str
+    kind: str
+    name: str
+    compatibility: MigrationCompatibilityAssessment
+    resource_id: str | None = None
+    dependency_type: str | None = None
+    address: str | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
+    spatial_references: list[MigrationSpatialReferenceInfo] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationExternalDependency:
+        d = _snake_keys(data)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d.setdefault("resource_id", None)
+        d.setdefault("dependency_type", None)
+        d.setdefault("address", None)
+        d.setdefault("metadata", {})
+        d["spatial_references"] = _model_list(MigrationSpatialReferenceInfo, d.get("spatial_references", []))
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationSourceInventoryArtifact:
+    source_kind: str
+    source: MigrationSourceIdentity
+    auth_posture: MigrationInventoryAuthPosture
+    scan_completeness: MigrationInventoryCompleteness
+    summary: MigrationInventorySummary
+    overall_compatibility: MigrationCompatibilityAssessment
+    containers: list[MigrationInventoryContainer] = field(default_factory=list)
+    resources: list[MigrationInventoryResource] = field(default_factory=list)
+    styles: list[MigrationInventoryStyle] = field(default_factory=list)
+    external_dependencies: list[MigrationExternalDependency] = field(default_factory=list)
+    artifact_kind: str = "honua.migration.source-inventory"
+    artifact_version: str = "1.0"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationSourceInventoryArtifact:
+        d = _snake_keys(data)
+        source = d.get("source")
+        auth_posture = d.get("auth_posture")
+        scan_completeness = d.get("scan_completeness")
+        summary = d.get("summary")
+        compatibility = d.get("overall_compatibility")
+        d["source"] = MigrationSourceIdentity.from_dict(source) if isinstance(source, dict) else source
+        d["auth_posture"] = (
+            MigrationInventoryAuthPosture.from_dict(auth_posture)
+            if isinstance(auth_posture, dict)
+            else auth_posture
+        )
+        d["scan_completeness"] = (
+            MigrationInventoryCompleteness.from_dict(scan_completeness)
+            if isinstance(scan_completeness, dict)
+            else scan_completeness
+        )
+        d["summary"] = MigrationInventorySummary.from_dict(summary) if isinstance(summary, dict) else summary
+        d["overall_compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d["containers"] = _model_list(MigrationInventoryContainer, d.get("containers", []))
+        d["resources"] = _model_list(MigrationInventoryResource, d.get("resources", []))
+        d["styles"] = _model_list(MigrationInventoryStyle, d.get("styles", []))
+        d["external_dependencies"] = _model_list(MigrationExternalDependency, d.get("external_dependencies", []))
+        d.setdefault("artifact_kind", "honua.migration.source-inventory")
+        d.setdefault("artifact_version", "1.0")
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        d = _dataclass_to_camel_dict(self)
+        return {
+            "artifactKind": d.pop("artifactKind"),
+            "artifactVersion": d.pop("artifactVersion"),
+            **d,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationManifestSummary:
+    source_resource_count: int = 0
+    target_resource_count: int = 0
+    style_action_count: int = 0
+    manual_review_count: int = 0
+    unsupported_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationManifestSummary:
+        d = _snake_keys(data)
+        d.setdefault("source_resource_count", 0)
+        d.setdefault("target_resource_count", 0)
+        d.setdefault("style_action_count", 0)
+        d.setdefault("manual_review_count", 0)
+        d.setdefault("unsupported_count", 0)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationManifestTargetResource:
+    source_resource_id: str
+    source_kind: str
+    action: str
+    target_service_name: str
+    target_resource_name: str
+    compatibility: MigrationCompatibilityAssessment
+    geometry_type: str | None = None
+    fields: list[MigrationInventoryField] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
+    spatial_references: list[MigrationSpatialReferenceInfo] = field(default_factory=list)
+    style_ids: list[str] = field(default_factory=list)
+    external_dependency_ids: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationManifestTargetResource:
+        d = _snake_keys(data)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d.setdefault("geometry_type", None)
+        d["fields"] = _model_list(MigrationInventoryField, d.get("fields", []))
+        d.setdefault("capabilities", [])
+        d["spatial_references"] = _model_list(MigrationSpatialReferenceInfo, d.get("spatial_references", []))
+        d.setdefault("style_ids", [])
+        d.setdefault("external_dependency_ids", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationManifestStyleAction:
+    source_style_id: str
+    action: str
+    compatibility: MigrationCompatibilityAssessment
+    format: str | None = None
+    resource_ids: list[str] = field(default_factory=list)
+    external_dependency_ids: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationManifestStyleAction:
+        d = _snake_keys(data)
+        compatibility = d.get("compatibility")
+        d["compatibility"] = (
+            MigrationCompatibilityAssessment.from_dict(compatibility)
+            if isinstance(compatibility, dict)
+            else compatibility
+        )
+        d.setdefault("format", None)
+        d.setdefault("resource_ids", [])
+        d.setdefault("external_dependency_ids", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationManifestReviewItem:
+    source_id: str
+    kind: str
+    code: str
+    severity: str
+    reason: str
+    manual_steps: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationManifestReviewItem:
+        d = _snake_keys(data)
+        d.setdefault("manual_steps", [])
+        d.setdefault("warnings", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationManifestArtifact:
+    source_kind: str
+    source: MigrationSourceIdentity
+    summary: MigrationManifestSummary
+    target_resources: list[MigrationManifestTargetResource] = field(default_factory=list)
+    style_actions: list[MigrationManifestStyleAction] = field(default_factory=list)
+    manual_review_items: list[MigrationManifestReviewItem] = field(default_factory=list)
+    unsupported_items: list[MigrationManifestReviewItem] = field(default_factory=list)
+    artifact_kind: str = "honua.migration.manifest"
+    artifact_version: str = "1.0"
+    source_artifact_kind: str = "honua.migration.source-inventory"
+    source_artifact_version: str = "1.0"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationManifestArtifact:
+        d = _snake_keys(data)
+        source = d.get("source")
+        summary = d.get("summary")
+        d["source"] = MigrationSourceIdentity.from_dict(source) if isinstance(source, dict) else source
+        d["summary"] = MigrationManifestSummary.from_dict(summary) if isinstance(summary, dict) else summary
+        d["target_resources"] = _model_list(MigrationManifestTargetResource, d.get("target_resources", []))
+        d["style_actions"] = _model_list(MigrationManifestStyleAction, d.get("style_actions", []))
+        d["manual_review_items"] = _model_list(MigrationManifestReviewItem, d.get("manual_review_items", []))
+        d["unsupported_items"] = _model_list(MigrationManifestReviewItem, d.get("unsupported_items", []))
+        d.setdefault("artifact_kind", "honua.migration.manifest")
+        d.setdefault("artifact_version", "1.0")
+        d.setdefault("source_artifact_kind", "honua.migration.source-inventory")
+        d.setdefault("source_artifact_version", "1.0")
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        d = _dataclass_to_camel_dict(self)
+        return {
+            "artifactKind": d.pop("artifactKind"),
+            "artifactVersion": d.pop("artifactVersion"),
+            "sourceArtifactKind": d.pop("sourceArtifactKind"),
+            "sourceArtifactVersion": d.pop("sourceArtifactVersion"),
+            **d,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationParityEvidenceItem:
+    id: str
+    state: str
+    summary: str
+    evidence: list[str] = field(default_factory=list)
+    remediation: list[str] = field(default_factory=list)
+    related_ids: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationParityEvidenceItem:
+        d = _snake_keys(data)
+        d.setdefault("evidence", [])
+        d.setdefault("remediation", [])
+        d.setdefault("related_ids", [])
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationParityEvidenceSection:
+    id: str
+    title: str
+    state: str
+    items: list[MigrationParityEvidenceItem] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationParityEvidenceSection:
+        d = _snake_keys(data)
+        d["items"] = _model_list(MigrationParityEvidenceItem, d.get("items", []))
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationCutoverReadinessItem:
+    id: str
+    title: str
+    state: str
+    evidence: list[str] = field(default_factory=list)
+    remediation: list[str] = field(default_factory=list)
+    owner: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationCutoverReadinessItem:
+        d = _snake_keys(data)
+        d.setdefault("evidence", [])
+        d.setdefault("remediation", [])
+        d.setdefault("owner", None)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationCutoverReadinessSummary:
+    state: str
+    items: list[MigrationCutoverReadinessItem] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationCutoverReadinessSummary:
+        d = _snake_keys(data)
+        d["items"] = _model_list(MigrationCutoverReadinessItem, d.get("items", []))
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationReadinessAttestationItem:
+    id: str
+    state: str
+    evidence: list[str] = field(default_factory=list)
+    owner: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationReadinessAttestationItem:
+        d = _snake_keys(data)
+        d.setdefault("evidence", [])
+        d.setdefault("owner", None)
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationReadinessAttestation:
+    items: list[MigrationReadinessAttestationItem] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationReadinessAttestation:
+        d = _snake_keys(data)
+        d["items"] = _model_list(MigrationReadinessAttestationItem, d.get("items", []))
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationParityEvidenceArtifact:
+    source_kind: str
+    source: MigrationSourceIdentity
+    overall_state: str
+    summary: str
+    cutover_readiness: MigrationCutoverReadinessSummary
+    manifest_available: bool = False
+    sections: list[MigrationParityEvidenceSection] = field(default_factory=list)
+    artifact_kind: str = "honua.migration.parity-evidence-pack"
+    artifact_version: str = "1.0"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MigrationParityEvidenceArtifact:
+        d = _snake_keys(data)
+        source = d.get("source")
+        cutover_readiness = d.get("cutover_readiness")
+        d["source"] = MigrationSourceIdentity.from_dict(source) if isinstance(source, dict) else source
+        d["cutover_readiness"] = (
+            MigrationCutoverReadinessSummary.from_dict(cutover_readiness)
+            if isinstance(cutover_readiness, dict)
+            else cutover_readiness
+        )
+        d.setdefault("manifest_available", False)
+        d["sections"] = _model_list(MigrationParityEvidenceSection, d.get("sections", []))
+        d.setdefault("artifact_kind", "honua.migration.parity-evidence-pack")
+        d.setdefault("artifact_version", "1.0")
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        d = _dataclass_to_camel_dict(self)
+        return {
+            "artifactKind": d.pop("artifactKind"),
+            "artifactVersion": d.pop("artifactVersion"),
+            **d,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Request models (mutable)
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class MigrationInventoryScanRequest:
+    source_kind: str
+    source_url: str
+    username: str | None = None
+    password: str | None = field(default=None, repr=False)
+    timeout_seconds: int | None = None
+    include_style_content: bool | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
 
 
 @dataclass

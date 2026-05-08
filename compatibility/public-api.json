@@ -32,6 +32,32 @@
         "MetadataManifest",
         "MetadataResource",
         "MetadataResourceIdentifier",
+        "MigrationCompatibilityAssessment",
+        "MigrationCutoverReadinessItem",
+        "MigrationCutoverReadinessSummary",
+        "MigrationExternalDependency",
+        "MigrationInventoryAuthPosture",
+        "MigrationInventoryCodedValue",
+        "MigrationInventoryCompleteness",
+        "MigrationInventoryContainer",
+        "MigrationInventoryField",
+        "MigrationInventoryResource",
+        "MigrationInventoryScanRequest",
+        "MigrationInventoryStyle",
+        "MigrationInventorySummary",
+        "MigrationManifestArtifact",
+        "MigrationManifestReviewItem",
+        "MigrationManifestStyleAction",
+        "MigrationManifestSummary",
+        "MigrationManifestTargetResource",
+        "MigrationParityEvidenceArtifact",
+        "MigrationParityEvidenceItem",
+        "MigrationParityEvidenceSection",
+        "MigrationReadinessAttestation",
+        "MigrationReadinessAttestationItem",
+        "MigrationSourceIdentity",
+        "MigrationSourceInventoryArtifact",
+        "MigrationSpatialReferenceInfo",
         "PublishLayerRequest",
         "PublishedLayerSummary",
         "ResourceMetadata",
@@ -457,6 +483,11 @@
               "kind": "method",
               "signature": "(self) -> 'KeyRotationResult'"
             },
+            "scan_migration_source": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, request: 'MigrationInventoryScanRequest', *, export_json: 'bool' = False) -> 'MigrationSourceInventoryArtifact'"
+            },
             "set_layer_enabled": {
               "async": true,
               "kind": "method",
@@ -772,6 +803,10 @@
             "rotate_encryption_key": {
               "kind": "method",
               "signature": "(self) -> 'KeyRotationResult'"
+            },
+            "scan_migration_source": {
+              "kind": "method",
+              "signature": "(self, request: 'MigrationInventoryScanRequest', *, export_json: 'bool' = False) -> 'MigrationSourceInventoryArtifact'"
             },
             "set_layer_enabled": {
               "kind": "method",
@@ -1168,6 +1203,1268 @@
           "module": "honua_admin._models",
           "qualname": "MetadataResourceIdentifier",
           "signature": "(kind: 'str', namespace: 'str', name: 'str') -> None"
+        },
+        "MigrationCompatibilityAssessment": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "level"
+            },
+            {
+              "annotation": "str",
+              "name": "reason"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "code"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "warnings"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "manual_steps"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationCompatibilityAssessment'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationCompatibilityAssessment",
+          "signature": "(level: 'str', reason: 'str', code: 'str | None' = None, warnings: 'list[str]' = <factory>, manual_steps: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationCutoverReadinessItem": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "title"
+            },
+            {
+              "annotation": "str",
+              "name": "state"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "evidence"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "remediation"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "owner"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationCutoverReadinessItem'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationCutoverReadinessItem",
+          "signature": "(id: 'str', title: 'str', state: 'str', evidence: 'list[str]' = <factory>, remediation: 'list[str]' = <factory>, owner: 'str | None' = None) -> None"
+        },
+        "MigrationCutoverReadinessSummary": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "state"
+            },
+            {
+              "annotation": "list[MigrationCutoverReadinessItem]",
+              "defaultFactory": "list",
+              "name": "items"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationCutoverReadinessSummary'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationCutoverReadinessSummary",
+          "signature": "(state: 'str', items: 'list[MigrationCutoverReadinessItem]' = <factory>) -> None"
+        },
+        "MigrationExternalDependency": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "container_id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "compatibility"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "resource_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "dependency_type"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "address"
+            },
+            {
+              "annotation": "dict[str, str]",
+              "defaultFactory": "dict",
+              "name": "metadata"
+            },
+            {
+              "annotation": "list[MigrationSpatialReferenceInfo]",
+              "defaultFactory": "list",
+              "name": "spatial_references"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationExternalDependency'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationExternalDependency",
+          "signature": "(id: 'str', container_id: 'str', kind: 'str', name: 'str', compatibility: 'MigrationCompatibilityAssessment', resource_id: 'str | None' = None, dependency_type: 'str | None' = None, address: 'str | None' = None, metadata: 'dict[str, str]' = <factory>, spatial_references: 'list[MigrationSpatialReferenceInfo]' = <factory>) -> None"
+        },
+        "MigrationInventoryAuthPosture": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "mode"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "credentials_supplied"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "access_confirmed"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "notes"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryAuthPosture'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryAuthPosture",
+          "signature": "(mode: 'str', credentials_supplied: 'bool' = False, access_confirmed: 'bool' = False, notes: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationInventoryCodedValue": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "code"
+            },
+            {
+              "annotation": "str",
+              "name": "name"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryCodedValue'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryCodedValue",
+          "signature": "(code: 'str', name: 'str') -> None"
+        },
+        "MigrationInventoryCompleteness": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "status"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "warnings"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "missing_artifacts"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryCompleteness'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryCompleteness",
+          "signature": "(status: 'str', warnings: 'list[str]' = <factory>, missing_artifacts: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationInventoryContainer": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "compatibility"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "description"
+            },
+            {
+              "annotation": "bool | None",
+              "default": "None",
+              "name": "is_default"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryContainer'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryContainer",
+          "signature": "(id: 'str', kind: 'str', name: 'str', compatibility: 'MigrationCompatibilityAssessment', title: 'str | None' = None, description: 'str | None' = None, is_default: 'bool | None' = None) -> None"
+        },
+        "MigrationInventoryField": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "str",
+              "name": "field_type"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "alias"
+            },
+            {
+              "annotation": "bool | None",
+              "default": "None",
+              "name": "nullable"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "domain_type"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "domain_name"
+            },
+            {
+              "annotation": "list[MigrationInventoryCodedValue] | None",
+              "default": "None",
+              "name": "domain_values"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryField'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryField",
+          "signature": "(name: 'str', field_type: 'str', alias: 'str | None' = None, nullable: 'bool | None' = None, domain_type: 'str | None' = None, domain_name: 'str | None' = None, domain_values: 'list[MigrationInventoryCodedValue] | None' = None) -> None"
+        },
+        "MigrationInventoryResource": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "container_id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "compatibility"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "description"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "geometry_type"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "feature_count"
+            },
+            {
+              "annotation": "bool | None",
+              "default": "None",
+              "name": "has_attachments"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "capabilities"
+            },
+            {
+              "annotation": "list[MigrationSpatialReferenceInfo]",
+              "defaultFactory": "list",
+              "name": "spatial_references"
+            },
+            {
+              "annotation": "list[MigrationInventoryField]",
+              "defaultFactory": "list",
+              "name": "fields"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "style_ids"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "external_dependency_ids"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryResource'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryResource",
+          "signature": "(id: 'str', container_id: 'str', kind: 'str', name: 'str', compatibility: 'MigrationCompatibilityAssessment', title: 'str | None' = None, description: 'str | None' = None, geometry_type: 'str | None' = None, feature_count: 'int | None' = None, has_attachments: 'bool | None' = None, capabilities: 'list[str]' = <factory>, spatial_references: 'list[MigrationSpatialReferenceInfo]' = <factory>, fields: 'list[MigrationInventoryField]' = <factory>, style_ids: 'list[str]' = <factory>, external_dependency_ids: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationInventoryScanRequest": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_kind"
+            },
+            {
+              "annotation": "str",
+              "name": "source_url"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "username"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "password"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "timeout_seconds"
+            },
+            {
+              "annotation": "bool | None",
+              "default": "None",
+              "name": "include_style_content"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryScanRequest",
+          "signature": "(source_kind: 'str', source_url: 'str', username: 'str | None' = None, password: 'str | None' = None, timeout_seconds: 'int | None' = None, include_style_content: 'bool | None' = None) -> None"
+        },
+        "MigrationInventoryStyle": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "container_id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "compatibility"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "format"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "resource_ids"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "external_dependency_ids"
+            },
+            {
+              "annotation": "dict[str, str]",
+              "defaultFactory": "dict",
+              "name": "metadata"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventoryStyle'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventoryStyle",
+          "signature": "(id: 'str', container_id: 'str', kind: 'str', name: 'str', compatibility: 'MigrationCompatibilityAssessment', format: 'str | None' = None, resource_ids: 'list[str]' = <factory>, external_dependency_ids: 'list[str]' = <factory>, metadata: 'dict[str, str]' = <factory>) -> None"
+        },
+        "MigrationInventorySummary": {
+          "fields": [
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "container_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "resource_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "style_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "external_dependency_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "compatible_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "partially_compatible_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "incompatible_count"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationInventorySummary'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationInventorySummary",
+          "signature": "(container_count: 'int' = 0, resource_count: 'int' = 0, style_count: 'int' = 0, external_dependency_count: 'int' = 0, compatible_count: 'int' = 0, partially_compatible_count: 'int' = 0, incompatible_count: 'int' = 0) -> None"
+        },
+        "MigrationManifestArtifact": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_kind"
+            },
+            {
+              "annotation": "MigrationSourceIdentity",
+              "name": "source"
+            },
+            {
+              "annotation": "MigrationManifestSummary",
+              "name": "summary"
+            },
+            {
+              "annotation": "list[MigrationManifestTargetResource]",
+              "defaultFactory": "list",
+              "name": "target_resources"
+            },
+            {
+              "annotation": "list[MigrationManifestStyleAction]",
+              "defaultFactory": "list",
+              "name": "style_actions"
+            },
+            {
+              "annotation": "list[MigrationManifestReviewItem]",
+              "defaultFactory": "list",
+              "name": "manual_review_items"
+            },
+            {
+              "annotation": "list[MigrationManifestReviewItem]",
+              "defaultFactory": "list",
+              "name": "unsupported_items"
+            },
+            {
+              "annotation": "str",
+              "default": "'honua.migration.manifest'",
+              "name": "artifact_kind"
+            },
+            {
+              "annotation": "str",
+              "default": "'1.0'",
+              "name": "artifact_version"
+            },
+            {
+              "annotation": "str",
+              "default": "'honua.migration.source-inventory'",
+              "name": "source_artifact_kind"
+            },
+            {
+              "annotation": "str",
+              "default": "'1.0'",
+              "name": "source_artifact_version"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationManifestArtifact'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationManifestArtifact",
+          "signature": "(source_kind: 'str', source: 'MigrationSourceIdentity', summary: 'MigrationManifestSummary', target_resources: 'list[MigrationManifestTargetResource]' = <factory>, style_actions: 'list[MigrationManifestStyleAction]' = <factory>, manual_review_items: 'list[MigrationManifestReviewItem]' = <factory>, unsupported_items: 'list[MigrationManifestReviewItem]' = <factory>, artifact_kind: 'str' = 'honua.migration.manifest', artifact_version: 'str' = '1.0', source_artifact_kind: 'str' = 'honua.migration.source-inventory', source_artifact_version: 'str' = '1.0') -> None"
+        },
+        "MigrationManifestReviewItem": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "code"
+            },
+            {
+              "annotation": "str",
+              "name": "severity"
+            },
+            {
+              "annotation": "str",
+              "name": "reason"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "manual_steps"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "warnings"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationManifestReviewItem'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationManifestReviewItem",
+          "signature": "(source_id: 'str', kind: 'str', code: 'str', severity: 'str', reason: 'str', manual_steps: 'list[str]' = <factory>, warnings: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationManifestStyleAction": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_style_id"
+            },
+            {
+              "annotation": "str",
+              "name": "action"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "compatibility"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "format"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "resource_ids"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "external_dependency_ids"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationManifestStyleAction'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationManifestStyleAction",
+          "signature": "(source_style_id: 'str', action: 'str', compatibility: 'MigrationCompatibilityAssessment', format: 'str | None' = None, resource_ids: 'list[str]' = <factory>, external_dependency_ids: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationManifestSummary": {
+          "fields": [
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "source_resource_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "target_resource_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "style_action_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "manual_review_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "unsupported_count"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationManifestSummary'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationManifestSummary",
+          "signature": "(source_resource_count: 'int' = 0, target_resource_count: 'int' = 0, style_action_count: 'int' = 0, manual_review_count: 'int' = 0, unsupported_count: 'int' = 0) -> None"
+        },
+        "MigrationManifestTargetResource": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_resource_id"
+            },
+            {
+              "annotation": "str",
+              "name": "source_kind"
+            },
+            {
+              "annotation": "str",
+              "name": "action"
+            },
+            {
+              "annotation": "str",
+              "name": "target_service_name"
+            },
+            {
+              "annotation": "str",
+              "name": "target_resource_name"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "compatibility"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "geometry_type"
+            },
+            {
+              "annotation": "list[MigrationInventoryField]",
+              "defaultFactory": "list",
+              "name": "fields"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "capabilities"
+            },
+            {
+              "annotation": "list[MigrationSpatialReferenceInfo]",
+              "defaultFactory": "list",
+              "name": "spatial_references"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "style_ids"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "external_dependency_ids"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationManifestTargetResource'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationManifestTargetResource",
+          "signature": "(source_resource_id: 'str', source_kind: 'str', action: 'str', target_service_name: 'str', target_resource_name: 'str', compatibility: 'MigrationCompatibilityAssessment', geometry_type: 'str | None' = None, fields: 'list[MigrationInventoryField]' = <factory>, capabilities: 'list[str]' = <factory>, spatial_references: 'list[MigrationSpatialReferenceInfo]' = <factory>, style_ids: 'list[str]' = <factory>, external_dependency_ids: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationParityEvidenceArtifact": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_kind"
+            },
+            {
+              "annotation": "MigrationSourceIdentity",
+              "name": "source"
+            },
+            {
+              "annotation": "str",
+              "name": "overall_state"
+            },
+            {
+              "annotation": "str",
+              "name": "summary"
+            },
+            {
+              "annotation": "MigrationCutoverReadinessSummary",
+              "name": "cutover_readiness"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "manifest_available"
+            },
+            {
+              "annotation": "list[MigrationParityEvidenceSection]",
+              "defaultFactory": "list",
+              "name": "sections"
+            },
+            {
+              "annotation": "str",
+              "default": "'honua.migration.parity-evidence-pack'",
+              "name": "artifact_kind"
+            },
+            {
+              "annotation": "str",
+              "default": "'1.0'",
+              "name": "artifact_version"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationParityEvidenceArtifact'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationParityEvidenceArtifact",
+          "signature": "(source_kind: 'str', source: 'MigrationSourceIdentity', overall_state: 'str', summary: 'str', cutover_readiness: 'MigrationCutoverReadinessSummary', manifest_available: 'bool' = False, sections: 'list[MigrationParityEvidenceSection]' = <factory>, artifact_kind: 'str' = 'honua.migration.parity-evidence-pack', artifact_version: 'str' = '1.0') -> None"
+        },
+        "MigrationParityEvidenceItem": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "state"
+            },
+            {
+              "annotation": "str",
+              "name": "summary"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "evidence"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "remediation"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "related_ids"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationParityEvidenceItem'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationParityEvidenceItem",
+          "signature": "(id: 'str', state: 'str', summary: 'str', evidence: 'list[str]' = <factory>, remediation: 'list[str]' = <factory>, related_ids: 'list[str]' = <factory>) -> None"
+        },
+        "MigrationParityEvidenceSection": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "title"
+            },
+            {
+              "annotation": "str",
+              "name": "state"
+            },
+            {
+              "annotation": "list[MigrationParityEvidenceItem]",
+              "defaultFactory": "list",
+              "name": "items"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationParityEvidenceSection'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationParityEvidenceSection",
+          "signature": "(id: 'str', title: 'str', state: 'str', items: 'list[MigrationParityEvidenceItem]' = <factory>) -> None"
+        },
+        "MigrationReadinessAttestation": {
+          "fields": [
+            {
+              "annotation": "list[MigrationReadinessAttestationItem]",
+              "defaultFactory": "list",
+              "name": "items"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationReadinessAttestation'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationReadinessAttestation",
+          "signature": "(items: 'list[MigrationReadinessAttestationItem]' = <factory>) -> None"
+        },
+        "MigrationReadinessAttestationItem": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "state"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "evidence"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "owner"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationReadinessAttestationItem'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationReadinessAttestationItem",
+          "signature": "(id: 'str', state: 'str', evidence: 'list[str]' = <factory>, owner: 'str | None' = None) -> None"
+        },
+        "MigrationSourceIdentity": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "display_name"
+            },
+            {
+              "annotation": "str",
+              "name": "base_url"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "product"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "version"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "build"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "service_type"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationSourceIdentity'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationSourceIdentity",
+          "signature": "(display_name: 'str', base_url: 'str', product: 'str | None' = None, version: 'str | None' = None, build: 'str | None' = None, service_type: 'str | None' = None) -> None"
+        },
+        "MigrationSourceInventoryArtifact": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "source_kind"
+            },
+            {
+              "annotation": "MigrationSourceIdentity",
+              "name": "source"
+            },
+            {
+              "annotation": "MigrationInventoryAuthPosture",
+              "name": "auth_posture"
+            },
+            {
+              "annotation": "MigrationInventoryCompleteness",
+              "name": "scan_completeness"
+            },
+            {
+              "annotation": "MigrationInventorySummary",
+              "name": "summary"
+            },
+            {
+              "annotation": "MigrationCompatibilityAssessment",
+              "name": "overall_compatibility"
+            },
+            {
+              "annotation": "list[MigrationInventoryContainer]",
+              "defaultFactory": "list",
+              "name": "containers"
+            },
+            {
+              "annotation": "list[MigrationInventoryResource]",
+              "defaultFactory": "list",
+              "name": "resources"
+            },
+            {
+              "annotation": "list[MigrationInventoryStyle]",
+              "defaultFactory": "list",
+              "name": "styles"
+            },
+            {
+              "annotation": "list[MigrationExternalDependency]",
+              "defaultFactory": "list",
+              "name": "external_dependencies"
+            },
+            {
+              "annotation": "str",
+              "default": "'honua.migration.source-inventory'",
+              "name": "artifact_kind"
+            },
+            {
+              "annotation": "str",
+              "default": "'1.0'",
+              "name": "artifact_version"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationSourceInventoryArtifact'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationSourceInventoryArtifact",
+          "signature": "(source_kind: 'str', source: 'MigrationSourceIdentity', auth_posture: 'MigrationInventoryAuthPosture', scan_completeness: 'MigrationInventoryCompleteness', summary: 'MigrationInventorySummary', overall_compatibility: 'MigrationCompatibilityAssessment', containers: 'list[MigrationInventoryContainer]' = <factory>, resources: 'list[MigrationInventoryResource]' = <factory>, styles: 'list[MigrationInventoryStyle]' = <factory>, external_dependencies: 'list[MigrationExternalDependency]' = <factory>, artifact_kind: 'str' = 'honua.migration.source-inventory', artifact_version: 'str' = '1.0') -> None"
+        },
+        "MigrationSpatialReferenceInfo": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "role"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "source_value"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "srid"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "crs_uri"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "datum"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "unit"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "axis_order"
+            },
+            {
+              "annotation": "bool | None",
+              "default": "None",
+              "name": "is_geographic"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'MigrationSpatialReferenceInfo'"
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "MigrationSpatialReferenceInfo",
+          "signature": "(role: 'str', source_value: 'str | None' = None, srid: 'int | None' = None, crs_uri: 'str | None' = None, datum: 'str | None' = None, unit: 'str | None' = None, axis_order: 'str | None' = None, is_geographic: 'bool | None' = None) -> None"
         },
         "PublishLayerRequest": {
           "fields": [

@@ -18,6 +18,7 @@ protocol adapters.
 | OGC API Tiles | `client.ogc_tiles()` | New in Python | Landing, conformance, collections, tile matrix sets, tilesets, and tile helpers are available. |
 | OGC API Coverages | `client.ogc_coverages()` | New in Python | Thin wrapper is present for the advertised endpoint family; server support may vary by deployment. |
 | OGC API Processes | `client.ogc_processes()` | New in Python | Included because Honua Server exposes the surface; useful for integration test coverage. |
+| OGC API Records | `client.ogc_records()` | New in Python | Landing, conformance, OpenAPI, collections, queryables, record search pages, record iterators, and record detail helpers are available. |
 | STAC | `client.stac()` | New in Python | Catalog, collections, items, item, search, item pages, and search item iterators are available. |
 | WFS 2.0 | `client.wfs()` | New in Python | Capabilities, describeFeatureType, getFeature, and transaction helpers are available. |
 | WMS | `client.wms(service_id)` | New in Python | Service-scoped capabilities, map, feature-info, and binary metadata helpers are available. |
@@ -41,6 +42,14 @@ compatibility gate snapshots those factories and fails on unallowlisted drift.
 
 See [Protocol Examples](./protocol-examples.md) for concise examples of each
 public protocol wrapper and its response shape.
+
+Metadata and catalog reads are intentionally split by source of truth:
+`list_services()` and the GeoServices wrappers expose service/layer metadata,
+`stac()` exposes STAC catalogs and scene/item search, `ogc_records()` exposes
+OGC API Records catalog search and detail payloads, and `honua_admin` exposes
+admin metadata resources, manifests, and migration inventory reads. Scenes use
+STAC item/search helpers unless a deployment also publishes them into an OGC
+Records collection.
 
 The staging smoke lane backs this parity table with SDK-owned live probes for the
 public protocol clients. The smoke report records the SDK package version, server

@@ -4,7 +4,7 @@ from typing import Any
 
 import httpx
 
-from honua_sdk import BinaryResponse, HonuaClient, ODataQuery
+from honua_sdk import BinaryResponse, HonuaClient, HonuaHttpError, ODataQuery
 
 
 def test_protocol_factories_build_expected_geoservices_paths() -> None:
@@ -79,6 +79,112 @@ def test_ogc_maps_tiles_coverages_and_processes_build_expected_paths() -> None:
     ]
     assert seen[1]["query"] == {"f": "png", "bbox": "-180,-90,180,90"}
     assert seen[4]["query"] == {"f": "tiff"}
+
+
+def test_ogc_records_builds_discovery_search_and_detail_requests() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        seen.append({"method": request.method, "raw_path": raw_path, "query": dict(request.url.params.multi_items())})
+        return httpx.Response(200, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        records = client.ogc_records()
+        assert records.landing()["ok"] is True
+        assert records.conformance()["ok"] is True
+        assert records.collections()["ok"] is True
+        assert records.collection("metadata/catalog").metadata()["ok"] is True
+        assert records.queryables("metadata/catalog")["ok"] is True
+        assert records.records(
+            "metadata/catalog",
+            limit=10,
+            offset=5,
+            bbox=[-158, 21, -157, 22],
+            datetime="2026-01-01/2026-01-31",
+            filter="properties.theme = 'planning'",
+            q="shoreline",
+            ids=["rec-1", "rec-2"],
+            properties=["title", "theme"],
+            sortby="-updated",
+            type="dataset",
+            extra_params={"filter-lang": "cql2-text"},
+        )["ok"] is True
+        assert records.record("metadata/catalog", "record/1")["ok"] is True
+        assert records.search(json_body={"q": "shoreline", "limit": 1})["ok"] is True
+        assert records.collection("metadata/catalog").search(params={"q": "roads"})["ok"] is True
+
+    assert [(entry["method"], entry["raw_path"]) for entry in seen] == [
+        ("GET", "/ogc/records"),
+        ("GET", "/ogc/records/conformance"),
+        ("GET", "/ogc/records/collections"),
+        ("GET", "/ogc/records/collections/metadata%2Fcatalog"),
+        ("GET", "/ogc/records/collections/metadata%2Fcatalog/queryables"),
+        ("GET", "/ogc/records/collections/metadata%2Fcatalog/items"),
+        ("GET", "/ogc/records/collections/metadata%2Fcatalog/items/record%2F1"),
+        ("POST", "/ogc/records/search"),
+        ("GET", "/ogc/records/collections/metadata%2Fcatalog/items"),
+    ]
+    assert seen[5]["query"] == {
+        "f": "json",
+        "limit": "10",
+        "offset": "5",
+        "bbox": "-158,21,-157,22",
+        "datetime": "2026-01-01/2026-01-31",
+        "filter": "properties.theme = 'planning'",
+        "q": "shoreline",
+        "ids": "rec-1,rec-2",
+        "properties": "title,theme",
+        "sortby": "-updated",
+        "type": "dataset",
+        "filter-lang": "cql2-text",
+    }
+
+
+def test_ogc_records_iterators_follow_next_links_and_clip_limit() -> None:
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append(query)
+        offset = int(query.get("offset", "0"))
+        features = [{"type": "Feature", "id": f"record-{value}"} for value in range(offset + 1, offset + 3)]
+        links = []
+        if offset == 0:
+            links.append(
+                {
+                    "rel": "next",
+                    "href": "http://example.test/ogc/records/collections/catalog/items?offset=2&limit=2",
+                }
+            )
+        return httpx.Response(200, json={"type": "FeatureCollection", "features": features, "links": links})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        records = list(client.ogc_records().collection("catalog").iter_records(page_size=2, limit=3))
+
+    assert [record["id"] for record in records] == ["record-1", "record-2", "record-3"]
+    assert seen == [{"f": "json", "limit": "2", "offset": "0"}, {"offset": "2", "limit": "2"}]
+
+
+def test_ogc_records_errors_and_auth_use_shared_http_client() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["x_api_key"] = request.headers.get("x-api-key", "")
+        return httpx.Response(404, json={"error": {"message": "record not found"}})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport, api_key="records-key") as client:
+        try:
+            client.ogc_records().record("catalog", "missing")
+        except Exception as exc:
+            assert isinstance(exc, HonuaHttpError)
+        else:
+            raise AssertionError("Expected HonuaHttpError")
+
+    assert seen["x_api_key"] == "records-key"
 
 
 def test_stac_classic_ogc_and_odata_build_expected_paths() -> None:

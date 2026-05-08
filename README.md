@@ -71,6 +71,21 @@ with HonuaClient("https://your-honua-server.com") as client:
     feature = parcels.item("123")
 ```
 
+### OGC API Records
+
+```python
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://your-honua-server.com") as client:
+    records = client.ogc_records()
+    catalogs = records.collections()
+
+    catalog = records.collection("metadata")
+    search = catalog.records(q="shoreline", bbox=[-158, 21, -157, 22], limit=25)
+    all_records = catalog.records_all(page_size=100, limit=500)
+    record = catalog.record("dataset-123")
+```
+
 ### Shared Source/Query API
 
 ```python

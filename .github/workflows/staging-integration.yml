@@ -92,6 +92,8 @@ jobs:
 
           cat > "${override_file}" <<YAML
           services:
+            seed:
+              image: client-compat-seed:latest
             honua:
               image: ${HONUA_LOCAL_SERVER_IMAGE}
               ports:

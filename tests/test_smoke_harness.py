@@ -346,6 +346,7 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     expected_uid = UUID("12345678-1234-5678-1234-567812345678")
+    expected_description = f"sdk-python-smoke:{expected_uid}"
     monkeypatch.setattr(smoke, "uuid4", lambda: expected_uid)
 
     class FakeClient:
@@ -364,7 +365,7 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
         ) -> dict[str, object]:
             assert service_id == "test_service"
             assert layer_id == 0
-            assert where == smoke.build_uid_where(str(expected_uid))
+            assert where == smoke.build_description_where(expected_description)
             assert extra_params["resultRecordCount"] in {2, smoke.WRITE_QUERY_LIMIT}
             return {
                 "spatialReference": {"wkid": 4326},
@@ -389,7 +390,7 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
                 assert len(adds) == 1
                 attributes = dict(adds[0]["attributes"])
                 assert attributes["uid"] == str(expected_uid)
-                assert attributes["description"] == f"sdk-python-smoke:{expected_uid}"
+                assert attributes["description"] == expected_description
                 self.feature = {
                     "attributes": {
                         **attributes,
@@ -403,7 +404,7 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
                 assert len(updates) == 1
                 attributes = dict(updates[0]["attributes"])
                 assert attributes["uid"] == str(expected_uid)
-                assert attributes["description"] == f"sdk-python-smoke:{expected_uid}"
+                assert attributes["description"] == expected_description
                 assert attributes["objectid"] == 1001
                 self.feature = {
                     "attributes": dict(attributes),
@@ -421,7 +422,7 @@ def test_probe_apply_edits_roundtrip_uses_uuid_uid_and_description_tag(
     )
 
     assert result["uid"] == str(expected_uid)
-    assert result["description"] == f"sdk-python-smoke:{expected_uid}"
+    assert result["description"] == expected_description
     assert result["added_geometry"] == smoke.INITIAL_GEOMETRY
     assert result["updated_geometry"] == smoke.UPDATED_GEOMETRY
     assert result["cleanup"]["deleted_objectids"] == [1001]
@@ -432,6 +433,7 @@ def test_probe_apply_edits_roundtrip_rejects_geometry_drift(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     expected_uid = UUID("12345678-1234-5678-1234-567812345678")
+    expected_description = f"sdk-python-smoke:{expected_uid}"
     monkeypatch.setattr(smoke, "uuid4", lambda: expected_uid)
 
     class FakeClient:
@@ -450,7 +452,7 @@ def test_probe_apply_edits_roundtrip_rejects_geometry_drift(
         ) -> dict[str, object]:
             assert service_id == "test_service"
             assert layer_id == 0
-            assert where == smoke.build_uid_where(str(expected_uid))
+            assert where == smoke.build_description_where(expected_description)
             assert extra_params["resultRecordCount"] in {2, smoke.WRITE_QUERY_LIMIT}
             return {
                 "spatialReference": {"wkid": 4326},
@@ -520,8 +522,8 @@ def test_probe_apply_edits_roundtrip_preserves_http_error_when_cleanup_also_fail
         ) -> dict[str, object]:
             assert service_id == "test_service"
             assert layer_id == 0
-            assert where.startswith("uid = '")
-            assert out_fields == ["objectid", "uid"]
+            assert where.startswith("description = '")
+            assert out_fields == ["objectid", "uid", "description"]
             assert return_geometry is False
             assert extra_params == {"resultRecordCount": smoke.WRITE_QUERY_LIMIT}
             raise HonuaHttpError(500, "cleanup denied", body={"stage": "cleanup"})

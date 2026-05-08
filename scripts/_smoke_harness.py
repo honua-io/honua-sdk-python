@@ -1121,7 +1121,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
         details={
             "uid": uid,
             "description": description,
-            "where": build_uid_where(uid),
+            "where": build_description_where(description),
         },
     )
     known_objectids: set[int] = set()
@@ -1148,7 +1148,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
         if add_objectid is not None:
             known_objectids.add(add_objectid)
 
-        added_feature = _query_single_feature(client, config, uid)
+        added_feature = _query_single_feature(client, config, uid, description)
         added_attributes = _feature_attributes(added_feature)
         added_geometry = _feature_geometry(added_feature)
         queried_objectid = _extract_objectid(added_attributes)
@@ -1184,7 +1184,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
         details["update_response"] = summarize_edit_response(update_response)
         _first_success_result(update_response, "updateResults")
 
-        updated_feature = _query_single_feature(client, config, uid)
+        updated_feature = _query_single_feature(client, config, uid, description)
         updated_attributes = _feature_attributes(updated_feature)
         updated_geometry = _feature_geometry(updated_feature)
         _assert_feature_fields(
@@ -1205,6 +1205,7 @@ def probe_apply_edits_roundtrip(client: HonuaClient, config: SmokeConfig) -> dic
                 client,
                 config,
                 uid=uid,
+                description=description,
                 known_objectids=known_objectids,
             )
         except Exception as exc:  # pragma: no cover - exercised by integration flow
@@ -1225,14 +1226,15 @@ def cleanup_smoke_records(
     config: SmokeConfig,
     *,
     uid: str,
+    description: str,
     known_objectids: set[int] | None = None,
 ) -> dict[str, Any]:
     objectids = set(known_objectids or set())
     response = client.query_features(
         config.service_id,
         config.layer_id,
-        where=build_uid_where(uid),
-        out_fields=["objectid", "uid"],
+        where=build_description_where(description),
+        out_fields=["objectid", "uid", "description"],
         return_geometry=False,
         extra_params={"resultRecordCount": WRITE_QUERY_LIMIT},
     )
@@ -1259,8 +1261,8 @@ def cleanup_smoke_records(
     verify_response = client.query_features(
         config.service_id,
         config.layer_id,
-        where=build_uid_where(uid),
-        out_fields=["objectid", "uid"],
+        where=build_description_where(description),
+        out_fields=["objectid", "uid", "description"],
         return_geometry=False,
         extra_params={"resultRecordCount": WRITE_QUERY_LIMIT},
     )
@@ -1297,6 +1299,11 @@ def summarize_edit_response(response: Mapping[str, Any]) -> dict[str, int]:
 def build_uid_where(uid: str) -> str:
     escaped_uid = uid.replace("'", "''")
     return f"uid = '{escaped_uid}'"
+
+
+def build_description_where(description: str) -> str:
+    escaped_description = description.replace("'", "''")
+    return f"description = '{escaped_description}'"
 
 
 def build_smoke_description(uid_prefix: str, uid: str) -> str:
@@ -1340,11 +1347,12 @@ def _query_single_feature(
     client: HonuaClient,
     config: SmokeConfig,
     uid: str,
+    description: str,
 ) -> Mapping[str, Any]:
     response = client.query_features(
         config.service_id,
         config.layer_id,
-        where=build_uid_where(uid),
+        where=build_description_where(description),
         out_fields=["*"],
         return_geometry=True,
         extra_params={"resultRecordCount": 2},

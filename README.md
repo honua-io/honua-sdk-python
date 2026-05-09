@@ -275,9 +275,10 @@ The staging smoke suite writes `staging-smoke-results.json` by default.
 `scripts/release_smoke.py` writes `release-smoke-results.json` unless `--results-path` overrides it.
 The dedicated GitHub staging lane in `.github/workflows/staging-integration.yml`
 uploads both `staging-smoke-results.json` and `staging-smoke-junit.xml`, then
-renders the JSON report into the workflow step summary. Same-repo pull requests
-skip that live lane until `HONUA_BASE_URL` is configured in GitHub Actions;
-`trunk`, scheduled, and manual runs still fail fast when the staging base URL is missing.
+renders the JSON report into the workflow step summary. When `HONUA_BASE_URL` is
+configured, the lane runs against that live external target. When it is missing,
+the lane starts the seeded Honua Server client-compat Docker target and runs the
+same smoke suite against `test_service` / layer `0`.
 
 ## License
 

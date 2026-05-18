@@ -13,6 +13,20 @@ except Exception:  # pragma: no cover -- editable / not-installed fallback
     __version__ = "0.0.0.dev0"
 
 from ._async_client import AsyncHonuaAdminClient
+from ._arcpy_scanner import (
+    ArcPyEnvironmentAssignment,
+    ArcPyImport,
+    ArcPyLicenseCall,
+    ArcPyLiteralReference,
+    ArcPyParameterReference,
+    ArcPyScanCompleteness,
+    ArcPyScriptInventoryArtifact,
+    ArcPyScriptInventorySummary,
+    ArcPyScriptSource,
+    ArcPyToolCall,
+    scan_arcpy_script,
+    scan_arcpy_source,
+)
 from ._client import HonuaAdminClient
 from ._models import (
     AccessPolicyResponse,
@@ -94,6 +108,16 @@ __all__ = [
     "AdminControlPlaneApiCompatibility",
     "AdminMetadataSchemaCompatibility",
     "AdminVersionResponse",
+    "ArcPyEnvironmentAssignment",
+    "ArcPyImport",
+    "ArcPyLicenseCall",
+    "ArcPyLiteralReference",
+    "ArcPyParameterReference",
+    "ArcPyScanCompleteness",
+    "ArcPyScriptInventoryArtifact",
+    "ArcPyScriptInventorySummary",
+    "ArcPyScriptSource",
+    "ArcPyToolCall",
     "ColumnInfo",
     "ConnectionTestResult",
     "CreateSecureConnectionRequest",
@@ -152,5 +176,7 @@ __all__ = [
     "TableInfo",
     "TimeInfoResponse",
     "UpdateSecureConnectionRequest",
+    "scan_arcpy_script",
+    "scan_arcpy_source",
     "evaluate_admin_compatibility",
 ]

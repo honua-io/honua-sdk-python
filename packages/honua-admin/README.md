@@ -78,6 +78,21 @@ response means the server produced an inventory artifact; callers should use
 `scan_completeness.status` and `overall_compatibility.level` as the planning
 gate before import or cutover decisions.
 
+### ArcPy Script Scans
+
+The local ArcPy scanner produces a deterministic inventory artifact without
+executing the script:
+
+```python
+from honua_admin import scan_arcpy_script
+
+inventory = scan_arcpy_script("legacy_gp_tool.py")
+payload = inventory.to_dict()
+```
+
+The `honua-arcpy-scan legacy_gp_tool.py` console command emits the same artifact
+as JSON for manifest planning and later runner work.
+
 ## License
 
 Apache-2.0

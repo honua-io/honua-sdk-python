@@ -27,5 +27,8 @@ Homepage = "https://github.com/honua-io"
 Repository = "https://github.com/honua-io/honua-sdk-python"
 Issues = "https://github.com/honua-io/honua-sdk-python/issues"
 
+[project.scripts]
+honua-arcpy-scan = "honua_admin._arcpy_scanner:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

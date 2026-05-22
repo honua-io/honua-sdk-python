@@ -1,7 +1,6 @@
 # honua-arcpy compatibility matrix
 
-Generated from the in-code ``COMPAT`` manifest by 
-``scripts/render_compat_matrix.py`` (re-run after manifest edits).
+Generated from the in-code ``COMPAT`` manifest by ``scripts/render_compat_matrix.py`` (re-run after manifest edits).
 
 Statuses: **Supported** runs against Honua, **Partial** runs with documented deviations, **Stub** raises ``HonuaArcpyUnsupportedError`` with a replacement hint and tracking ticket.
 

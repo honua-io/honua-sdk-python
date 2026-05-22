@@ -110,3 +110,89 @@ def test_buffer_skips_none_kwargs(_isolated_audit_dir: Path) -> None:
     payload = proc.calls[0][1]
     assert "line_side" not in payload["inputs"]
     assert "line_end_type" not in payload["inputs"]
+
+
+def test_overwrite_output_guard_prevents_duplicate_output(_isolated_audit_dir: Path) -> None:
+    """Two Buffer calls to the same output must fail when overwriteOutput=False."""
+
+    proc = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=proc)
+    honua_arcpy.env.overwriteOutput = False
+
+    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        honua_arcpy.analysis.Buffer("roads", "roads_buffer", "10 Meters")
+
+    # Only the first call should have reached the process client.
+    assert len(proc.calls) == 1
+
+
+def test_overwrite_output_true_allows_replace(_isolated_audit_dir: Path) -> None:
+    proc = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=proc)
+    honua_arcpy.env.overwriteOutput = True
+
+    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "10 Meters")
+
+    assert len(proc.calls) == 2
+
+
+def test_path_map_applies_inside_intersect_in_features_list(
+    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HONUA_ARCPY_PATH_MAP overrides must apply to list-valued source params."""
+
+    monkeypatch.setenv(
+        "HONUA_ARCPY_PATH_MAP",
+        '{"roads": "honua://services/transport/roads", "parcels": "honua://services/land/parcels"}',
+    )
+    proc = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=proc)
+
+    honua_arcpy.analysis.Intersect(["roads", "parcels"], "joined")
+
+    payload = proc.calls[0][1]
+    assert payload["inputs"]["input_features"] == [
+        "honua://services/transport/roads",
+        "honua://services/land/parcels",
+    ]
+
+
+def test_path_map_applies_inside_union_in_features_list(
+    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "HONUA_ARCPY_PATH_MAP",
+        '{"zone_a": "honua://services/land/zone_a", "zone_b": "honua://services/land/zone_b"}',
+    )
+    proc = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=proc)
+
+    honua_arcpy.analysis.Union(["zone_a", "zone_b"], "merged")
+
+    payload = proc.calls[0][1]
+    assert payload["inputs"]["input_features"] == [
+        "honua://services/land/zone_a",
+        "honua://services/land/zone_b",
+    ]
+
+
+def test_path_map_applies_to_clip_secondary_source(
+    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Clip declares both in_features and clip_features as source_params."""
+
+    monkeypatch.setenv(
+        "HONUA_ARCPY_PATH_MAP",
+        '{"roads_buffer": "honua://services/transport/roads-buffer",'
+        ' "study_area": "honua://services/study/area"}',
+    )
+    proc = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=proc)
+
+    honua_arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
+
+    payload = proc.calls[0][1]
+    assert payload["inputs"]["input_features"] == "honua://services/transport/roads-buffer"
+    assert payload["inputs"]["clip_features"] == "honua://services/study/area"

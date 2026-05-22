@@ -137,23 +137,24 @@ def resolve_or_register_output(path: Any, *, session: HonuaSession | None = None
     Output paths from arcpy calls are typically created by the call itself.
     The shim mirrors that by registering a layer alias so subsequent calls
     can reuse the same name without re-resolving against the workspace.
+
+    Unlike input resolution, output registration does NOT short-circuit on an
+    existing alias: an output path that collides with a prior registration is
+    a duplicate-output condition. :meth:`HonuaSession.register_layer` then
+    raises :class:`HonuaArcpyConfigurationError` unless ``env.overwriteOutput``
+    is true -- bubble that error so the second process call does not silently
+    overwrite a protected output.
     """
 
     session = session or get_session()
     resolved = resolve(path, session=session)
-    if resolved.kind not in {"alias", "honua-uri"} and isinstance(path, str):
+    if resolved.kind != "honua-uri" and isinstance(path, str):
         alias = LayerAlias(
             name=path,
             source=resolved.source,
             workspace=resolved.workspace or session.workspace,
         )
-        try:
-            session.register_layer(alias)
-        except Exception:
-            # If the alias already exists and overwriteOutput is False, leave
-            # the existing registration intact; downstream code will surface
-            # the conflict at the next call.
-            pass
+        session.register_layer(alias)
     return resolved
 
 

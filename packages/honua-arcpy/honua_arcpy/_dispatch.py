@@ -103,6 +103,9 @@ def _project_to_process_inputs(
             resolved = resolve_or_register_output(value, session=session)
             outputs[process_name] = resolved.source
             continue
+        if arcpy_name in entry.source_params:
+            inputs[process_name] = _resolve_source_value(value, session=session)
+            continue
         if isinstance(value, str):
             resolved = resolve(value, session=session)
             inputs[process_name] = resolved.source
@@ -121,6 +124,29 @@ def _project_to_process_inputs(
     return inputs, outputs, metadata
 
 
+def _resolve_source_value(value: Any, *, session: HonuaSession) -> Any:
+    """Resolve a source-valued parameter, descending into list / tuple inputs.
+
+    Single string inputs (e.g. ``Buffer.in_features="roads"``) are routed
+    through :func:`resolve` exactly as before. Sequence inputs (e.g.
+    ``Intersect.in_features=["roads", "parcels"]``) have each string element
+    resolved individually so ``HONUA_ARCPY_PATH_MAP`` overrides apply inside
+    multi-input parameters.
+    """
+
+    if isinstance(value, str):
+        return resolve(value, session=session).source
+    if isinstance(value, (list, tuple)):
+        resolved_elements: list[Any] = []
+        for element in value:
+            if isinstance(element, str):
+                resolved_elements.append(resolve(element, session=session).source)
+            else:
+                resolved_elements.append(element)
+        return type(value)(resolved_elements) if isinstance(value, tuple) else resolved_elements
+    return value
+
+
 def dispatch_process(
     qualified_name: str,
     *args: Any,
@@ -135,15 +161,15 @@ def dispatch_process(
         )
     session = get_session()
     bound = bind_arguments(qualified_name, args, kwargs, entry=entry)
-    inputs, outputs, metadata = _project_to_process_inputs(entry, bound, session=session)
-    payload: dict[str, Any] = {"inputs": inputs}
-    if outputs:
-        payload["outputs"] = outputs
-    if metadata:
-        payload["metadata"] = {"honuaArcpy": metadata}
 
     with record_call(qualified_name, args=args, kwargs=kwargs, writer=session.audit_writer()) as record:
         try:
+            inputs, outputs, metadata = _project_to_process_inputs(entry, bound, session=session)
+            payload: dict[str, Any] = {"inputs": inputs}
+            if outputs:
+                payload["outputs"] = outputs
+            if metadata:
+                payload["metadata"] = {"honuaArcpy": metadata}
             processes = session.processes_client()
             result = processes.execute(entry.process_id, payload)
         except ExecuteError:

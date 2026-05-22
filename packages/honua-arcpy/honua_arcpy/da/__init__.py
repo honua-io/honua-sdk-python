@@ -47,6 +47,22 @@ def _client_source(name: str) -> Any:
     return client.source(descriptor), alias
 
 
+def _combine_where(*clauses: str | None) -> str | None:
+    """AND-combine non-empty SQL clauses; returns None when all are empty.
+
+    Cursors compose the alias-resident where (from ``MakeFeatureLayer`` /
+    ``SelectLayerByAttribute``) with the cursor's own ``where_clause`` so a
+    selected layer cannot read, update, or delete rows outside the selection.
+    """
+
+    parts = [c for c in clauses if isinstance(c, str) and c.strip()]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+    return " AND ".join(f"({clause})" for clause in parts)
+
+
 def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
     if hasattr(feature, "attributes"):
         attrs = dict(feature.attributes or {})
@@ -220,15 +236,19 @@ class SearchCursor(_BaseCursor):
         )
         self._iterator: Iterator[Any] | None = None
         self._count = 0
+        self._alias: Any | None = None
 
     def _open(self) -> None:
-        source, _alias = _client_source(self.in_table)
+        source, alias = _client_source(self.in_table)
         self._source = source
+        self._alias = alias
 
     def _query_kwargs(self) -> dict[str, Any]:
         kwargs: dict[str, Any] = {}
-        if self.where_clause:
-            kwargs["where"] = self.where_clause
+        alias_where = getattr(self._alias, "where", None) if self._alias is not None else None
+        combined = _combine_where(alias_where, self.where_clause)
+        if combined:
+            kwargs["where"] = combined
         if self.extra.get("spatial_reference") is not None:
             kwargs["out_sr"] = self.extra["spatial_reference"]
         return kwargs
@@ -273,9 +293,10 @@ class UpdateCursor(_BaseCursor):
         self._count = 0
         self._updated = 0
         self._deleted = 0
+        self._alias: Any | None = None
 
     def _open(self) -> None:
-        self._source, _alias = _client_source(self.in_table)
+        self._source, self._alias = _client_source(self.in_table)
 
     def _reset(self) -> None:
         self._iterator = None
@@ -285,8 +306,10 @@ class UpdateCursor(_BaseCursor):
     def __next__(self) -> list[Any]:
         if self._iterator is None:
             kwargs: dict[str, Any] = {}
-            if self.where_clause:
-                kwargs["where"] = self.where_clause
+            alias_where = getattr(self._alias, "where", None) if self._alias is not None else None
+            combined = _combine_where(alias_where, self.where_clause)
+            if combined:
+                kwargs["where"] = combined
             self._iterator = iter(self._source.iter_features(**kwargs))
         try:
             feature = next(self._iterator)
@@ -366,9 +389,10 @@ class InsertCursor(_BaseCursor):
         super().__init__(in_table, field_names, None)
         self._inserts: list[dict[str, Any]] = []
         self._inserted = 0
+        self._alias: Any | None = None
 
     def _open(self) -> None:
-        self._source, _alias = _client_source(self.in_table)
+        self._source, self._alias = _client_source(self.in_table)
 
     def _reset(self) -> None:  # InsertCursor doesn't iterate; reset clears buffer
         self._inserts.clear()

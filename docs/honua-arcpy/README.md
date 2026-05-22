@@ -52,6 +52,28 @@ Path resolution: customers can declare an explicit alias map via
 unrecognized GDB / SDE / file paths. `MakeFeatureLayer` and `MakeTableView`
 also register in-process aliases that subsequent calls can reference.
 
+Source-valued parameters are declared in the compatibility manifest via
+`FunctionEntry.source_params`. The dispatcher applies path-map resolution to
+each string element of those parameters -- including list-valued inputs such
+as `analysis.Intersect(in_features=[...])` and `analysis.Union(in_features=[...])`
+-- so a `HONUA_ARCPY_PATH_MAP` entry for `"roads"` rewrites `"roads"` whether
+it appears as `in_features="roads"` or as one element of `["roads", "parcels"]`.
+
+Output protection: process backends register every output path as an alias.
+With `arcpy.env.overwriteOutput = False` (the default), a second call that
+targets the same output name raises `HonuaArcpyConfigurationError`. Set
+`overwriteOutput = True` to let subsequent calls replace prior outputs.
+
+Cursor filters: `MakeFeatureLayer(where_clause=...)` and
+`SelectLayerByAttribute(...)` write the effective filter onto the layer
+alias. `da.SearchCursor` and `da.UpdateCursor` AND-combine that filter with
+any `where_clause` supplied directly to the cursor, so cursor iteration
+never reads, updates, or deletes rows outside the selection. The
+`invert_where_clause=True` flag on `SelectLayerByAttribute` is applied to
+the supplied where clause before composition. `selection_type="SWITCH_SELECTION"`
+is reported as unsupported (arcpy resolves it against OID sets we cannot
+model client-side); use an explicit inverted where clause instead.
+
 Source descriptor projection: `HonuaClient.source(...)` requires a
 `SourceDescriptor` or mapping. The shim builds one from each arcpy path via
 `honua_arcpy._resolve.descriptor_mapping`. The default heuristic is

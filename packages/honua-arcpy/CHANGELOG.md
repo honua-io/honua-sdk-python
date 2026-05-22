@@ -35,3 +35,30 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   default to `geoservices-feature-service` and treat unrecognized paths as
   `service_id=<name>, layer_id=0`. Customers with non-default layer IDs
   should configure `HONUA_ARCPY_PATH_MAP`.
+
+### Fixes (review pass 2)
+
+- Cursors (`da.SearchCursor`, `da.UpdateCursor`) now AND-combine the
+  alias-resident `where` from `MakeFeatureLayer` / `SelectLayerByAttribute`
+  with any cursor-supplied `where_clause`. Previously the alias filter was
+  dropped, so a selected layer could iterate, update, or delete rows
+  outside the selection.
+- `SelectLayerByAttribute` honours `invert_where_clause=True` and rejects
+  `selection_type="SWITCH_SELECTION"` (arcpy's OID-set toggle that cannot
+  be modelled as a SQL where clause) with `HonuaArcpyUnsupportedError`.
+  Unknown selection types now raise `HonuaArcpyConfigurationError`.
+- `_layer_count` no longer swallows backend exceptions and silently
+  returns `Selection(count=0)`. Source-facade failures from
+  `SelectLayerByAttribute` and `GetCount` are wrapped in `ExecuteError`
+  (with the original cause attached) and surface in the audit JSONL with
+  the real `error_kind`.
+- The process dispatcher honours `arcpy.env.overwriteOutput`. With it
+  unset (the default), a second process call that targets the same output
+  name raises `HonuaArcpyConfigurationError` instead of silently
+  re-running over the prior output. Audit projection moved inside
+  `record_call` so the overwrite error is recorded.
+- `HONUA_ARCPY_PATH_MAP` entries apply inside list-valued source
+  parameters (e.g. `analysis.Intersect`, `analysis.Union`,
+  `analysis.SpatialJoin` `target_features` / `join_features`).
+  Source-valued parameters are now declared via
+  `FunctionEntry.source_params` in the manifest.

@@ -40,6 +40,66 @@ def test_select_layer_by_attribute_updates_where_and_returns_count(stub_clients)
     assert "AND" in further.where
 
 
+def test_select_layer_by_attribute_applies_invert_where_clause(stub_clients) -> None:
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+    selection = honua_arcpy.management.SelectLayerByAttribute(
+        "roads_lyr",
+        "NEW_SELECTION",
+        "STATUS = 'OPEN'",
+        invert_where_clause=True,
+    )
+    assert selection.where == "NOT (STATUS = 'OPEN')"
+    assert honua_arcpy.get_session().get_layer("roads_lyr").where == "NOT (STATUS = 'OPEN')"
+
+
+def test_select_layer_by_attribute_switch_is_unsupported(stub_clients) -> None:
+    # arcpy SWITCH_SELECTION inverts the prior selection set (OIDs), which we
+    # cannot model as a SQL where clause; the previous behaviour silently
+    # cleared the selection. Surface it as unsupported instead.
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        honua_arcpy.management.SelectLayerByAttribute("roads_lyr", "SWITCH_SELECTION")
+
+
+def test_select_layer_by_attribute_unknown_selection_type_raises(stub_clients) -> None:
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        honua_arcpy.management.SelectLayerByAttribute("roads_lyr", "BOGUS_MODE", "STATUS = 'OPEN'")
+
+
+def test_select_layer_by_attribute_propagates_backend_failures() -> None:
+    # _layer_count must not swallow backend exceptions; a failure should
+    # surface as ExecuteError with an audit error record.
+    import json
+    import os
+    from pathlib import Path
+
+    class _ExplodingSource:
+        def query(self, **_: object) -> object:
+            raise RuntimeError("backend exploded")
+
+    class _ExplodingClient:
+        def source(self, descriptor: object) -> object:
+            return _ExplodingSource()
+
+    honua_arcpy.configure(client=_ExplodingClient())
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+
+    with pytest.raises(honua_arcpy.ExecuteError) as info:
+        honua_arcpy.management.SelectLayerByAttribute(
+            "roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'"
+        )
+    assert info.value.error_kind == "RuntimeError"
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files
+    records = [json.loads(line) for line in files[0].read_text(encoding="utf-8").splitlines() if line.strip()]
+    select_records = [r for r in records if r["function"] == "management.SelectLayerByAttribute"]
+    assert select_records and select_records[-1]["status"] == "error"
+    assert select_records[-1]["error_kind"] == "RuntimeError"
+
+
 def test_get_count_with_and_without_selection(stub_clients) -> None:
     honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
     full = honua_arcpy.management.GetCount("roads_lyr")

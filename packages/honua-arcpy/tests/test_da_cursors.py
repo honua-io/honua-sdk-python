@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 import honua_arcpy
@@ -21,6 +23,89 @@ def test_search_cursor_with_where_clause(stub_clients) -> None:
     with honua_arcpy.da.SearchCursor("roads", ["OID@", "STATUS"], where_clause="STATUS = 'OPEN'") as cursor:
         rows = list(cursor)
     assert rows
+
+
+def test_search_cursor_inherits_alias_where_from_make_feature_layer() -> None:
+    """A SearchCursor over a MakeFeatureLayer-defined layer must apply alias.where."""
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingSource:
+        def iter_features(self, where: str | None = None, **_: Any) -> Any:
+            captured["where"] = where
+            return iter(())
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+
+    with honua_arcpy.da.SearchCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+        list(cursor)
+
+    assert captured["where"] == "STATUS = 'OPEN'"
+
+
+def test_search_cursor_combines_alias_where_with_cursor_where() -> None:
+    """A cursor-supplied where_clause must AND with the alias-resident filter."""
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingSource:
+        def iter_features(self, where: str | None = None, **_: Any) -> Any:
+            captured["where"] = where
+            return iter(())
+
+        def query(self, **_: Any) -> Any:
+            class _R:
+                features: list[Any] = []
+                total_count = 0
+            return _R()
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+    honua_arcpy.management.SelectLayerByAttribute(
+        "roads_lyr", "SUBSET_SELECTION", "name LIKE 'A%'"
+    )
+
+    with honua_arcpy.da.SearchCursor("roads_lyr", ["OID@"], where_clause="OBJECTID > 0") as cursor:
+        list(cursor)
+
+    where = captured["where"]
+    assert where is not None
+    assert "STATUS = 'OPEN'" in where
+    assert "name LIKE 'A%'" in where
+    assert "OBJECTID > 0" in where
+
+
+def test_update_cursor_inherits_alias_where() -> None:
+    captured: dict[str, Any] = {}
+
+    class _RecordingSource:
+        def iter_features(self, where: str | None = None, **_: Any) -> Any:
+            captured["where"] = where
+            return iter(())
+
+        def apply_edits(self, **_: Any) -> Any:
+            return None
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+
+    with honua_arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+        list(cursor)
+
+    assert captured["where"] == "STATUS = 'OPEN'"
 
 
 def test_update_cursor_buffers_updates_and_flushes_on_exit(stub_clients) -> None:

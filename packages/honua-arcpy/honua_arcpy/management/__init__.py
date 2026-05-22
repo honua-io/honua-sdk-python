@@ -19,13 +19,17 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from .._compat import entry_for
+from .._compat import anchor_for, entry_for
 from .._dispatch import (
     dispatch_process,
     dispatch_session,
     raise_unsupported,
 )
-from .._errors import HonuaArcpyConfigurationError
+from .._errors import (
+    ExecuteError,
+    HonuaArcpyConfigurationError,
+    HonuaArcpyResolveError,
+)
 from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
 
@@ -114,6 +118,16 @@ class Selection:
         return (self.layer_name, self.count)[index]
 
 
+_SELECTION_TYPES = {
+    "NEW_SELECTION",
+    "ADD_TO_SELECTION",
+    "REMOVE_FROM_SELECTION",
+    "SUBSET_SELECTION",
+    "CLEAR_SELECTION",
+    "SWITCH_SELECTION",
+}
+
+
 def SelectLayerByAttribute(
     in_layer_or_view: Any,
     selection_type: str = "NEW_SELECTION",
@@ -134,24 +148,52 @@ def SelectLayerByAttribute(
             f"SelectLayerByAttribute requires a layer registered via MakeFeatureLayer; got {in_layer_or_view!r}."
         )
 
+    normalized_type = (selection_type or "NEW_SELECTION").upper()
+    if normalized_type not in _SELECTION_TYPES:
+        raise HonuaArcpyConfigurationError(
+            f"SelectLayerByAttribute selection_type={selection_type!r} is not recognized; "
+            f"expected one of {sorted(_SELECTION_TYPES)}."
+        )
+    # SWITCH_SELECTION requires server-side knowledge of the prior result set
+    # (arcpy tracks OIDs); we cannot model it through a SQL where clause, so
+    # surface it as a documented unsupported mode instead of silently
+    # collapsing it into CLEAR_SELECTION.
+    if normalized_type == "SWITCH_SELECTION":
+        raise_unsupported(qualified)
+
+    invert = bool(invert_where_clause) if invert_where_clause is not None else False
+    effective_where = where_clause
+    if effective_where and invert:
+        effective_where = f"NOT ({effective_where})"
+
     with record_call(qualified, args=(in_layer_or_view, selection_type, where_clause), kwargs={
         "invert_where_clause": invert_where_clause,
     }, writer=session.audit_writer()) as record:
-        new_where = _apply_selection(alias.where, selection_type, where_clause)
+        new_where = _apply_selection(alias.where, normalized_type, effective_where)
         alias.where = new_where
         alias.selection = {
-            "selection_type": selection_type,
+            "selection_type": normalized_type,
             "where": new_where,
-            "invert": bool(invert_where_clause) if invert_where_clause is not None else False,
+            "invert": invert,
         }
-        count = _layer_count(session, alias)
+        try:
+            count = _layer_count(session, alias)
+        except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+            raise
+        except Exception as exc:
+            raise ExecuteError(
+                f"{qualified} failed: {exc}",
+                function=qualified,
+                error_kind=exc.__class__.__name__,
+                compat_anchor=anchor_for(qualified),
+                cause=exc,
+            ) from exc
         record["result_shape"] = _shape_of({"layer": alias.name, "count": count})
-        return Selection(layer_name=alias.name, count=count, where=new_where, selection_type=selection_type)
+        return Selection(layer_name=alias.name, count=count, where=new_where, selection_type=normalized_type)
 
 
 def _apply_selection(existing: str | None, selection_type: str, where: str | None) -> str | None:
-    selection_type = (selection_type or "NEW_SELECTION").upper()
-    if selection_type in {"CLEAR_SELECTION", "SWITCH_SELECTION"}:
+    if selection_type == "CLEAR_SELECTION":
         return None
     if not where:
         return existing
@@ -167,22 +209,23 @@ def _apply_selection(existing: str | None, selection_type: str, where: str | Non
 
 
 def _layer_count(session, alias: LayerAlias) -> int:
+    """Count features for an alias; backend failures propagate so the audit
+    record (and the caller) see the real exception instead of a misleading
+    ``Selection(count=0)`` success."""
+
     client = session.client()
     if not hasattr(client, "source"):
-        return 0
+        raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")
     resolved = resolve(alias.source, session=session)
     descriptor = descriptor_mapping(resolved, session=session)
-    try:
-        source = client.source(descriptor)
-        result = source.query(where=alias.where) if alias.where else source.query()
-        features = getattr(result, "features", None)
-        total = getattr(result, "total_count", None)
-        if isinstance(total, int):
-            return total
-        if features is not None:
-            return len(features)
-    except Exception:
-        return 0
+    source = client.source(descriptor)
+    result = source.query(where=alias.where) if alias.where else source.query()
+    total = getattr(result, "total_count", None)
+    if isinstance(total, int):
+        return total
+    features = getattr(result, "features", None)
+    if features is not None:
+        return len(features)
     return 0
 
 
@@ -205,8 +248,19 @@ def GetCount(in_rows: Any) -> int:
         if not hasattr(client, "source"):
             raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")
         descriptor = descriptor_mapping(resolved, session=session)
-        source = client.source(descriptor)
-        result = source.query(where=where) if where else source.query()
+        try:
+            source = client.source(descriptor)
+            result = source.query(where=where) if where else source.query()
+        except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+            raise
+        except Exception as exc:
+            raise ExecuteError(
+                f"{qualified} failed: {exc}",
+                function=qualified,
+                error_kind=exc.__class__.__name__,
+                compat_anchor=anchor_for(qualified),
+                cause=exc,
+            ) from exc
         total = getattr(result, "total_count", None)
         if isinstance(total, int):
             count = total

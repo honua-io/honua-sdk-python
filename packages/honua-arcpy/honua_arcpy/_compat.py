@@ -36,6 +36,15 @@ class FunctionEntry:
     tracking: str | None = None
     param_map: dict[str, str] = field(default_factory=dict)
     output_params: tuple[str, ...] = ()
+    source_params: tuple[str, ...] = ()
+    """Arcpy parameter names that carry source/feature paths.
+
+    Elements of these parameters are passed through
+    :func:`honua_arcpy._resolve.resolve` (including ``HONUA_ARCPY_PATH_MAP``
+    overrides). Sequence-valued source params (e.g. ``Intersect`` /
+    ``Union`` ``in_features``) have each element resolved individually so
+    path-map entries apply inside lists.
+    """
 
     @property
     def is_supported(self) -> bool:
@@ -98,6 +107,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "method": "method",
         },
         output_params=("out_feature_class",),
+        source_params=("in_features",),
     ),
     "analysis.Clip": FunctionEntry(
         backend="process",
@@ -111,6 +121,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "cluster_tolerance": "cluster_tolerance",
         },
         output_params=("out_feature_class",),
+        source_params=("in_features", "clip_features"),
     ),
     "analysis.Intersect": FunctionEntry(
         backend="process",
@@ -125,6 +136,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "output_type": "output_type",
         },
         output_params=("out_feature_class",),
+        source_params=("in_features",),
     ),
     "analysis.Union": FunctionEntry(
         backend="process",
@@ -139,6 +151,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "gaps": "gaps",
         },
         output_params=("out_feature_class",),
+        source_params=("in_features",),
     ),
     "analysis.Erase": FunctionEntry(
         backend="process",
@@ -152,6 +165,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "cluster_tolerance": "cluster_tolerance",
         },
         output_params=("out_feature_class",),
+        source_params=("in_features", "erase_features"),
     ),
     "analysis.SpatialJoin": FunctionEntry(
         backend="process",
@@ -171,6 +185,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "match_fields": "match_fields",
         },
         output_params=("out_feature_class",),
+        source_params=("target_features", "join_features"),
     ),
     "analysis.NearestNeighbor": FunctionEntry(
         backend="not_implemented",
@@ -281,6 +296,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "code_block": "code_block",
             "field_type": "field_type",
         },
+        source_params=("in_table",),
     ),
     "management.AddField": FunctionEntry(
         backend="not_implemented",
@@ -324,6 +340,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "unsplit_lines": "unsplit_lines",
         },
         output_params=("out_feature_class",),
+        source_params=("in_features",),
     ),
     "management.Copy": FunctionEntry(
         backend="process",
@@ -336,6 +353,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "data_type": "data_type",
         },
         output_params=("out_data",),
+        source_params=("in_data",),
     ),
     "management.Delete": FunctionEntry(
         backend="process",
@@ -346,6 +364,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "in_data": "input_features",
             "data_type": "data_type",
         },
+        source_params=("in_data",),
     ),
     "management.Rename": FunctionEntry(
         backend="not_implemented",
@@ -384,6 +403,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "vertical": "vertical",
         },
         output_params=("out_dataset",),
+        source_params=("in_dataset",),
     ),
     "management.Sort": FunctionEntry(
         backend="not_implemented",

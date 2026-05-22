@@ -27,7 +27,7 @@ from ._errors import (
     HonuaArcpyUnsupportedError,
 )
 from ._resolve import resolve, resolve_or_register_output
-from ._session import HonuaSession, get_session
+from ._session import HonuaSession, LayerAlias, get_session
 
 LOGGER = logging.getLogger("honua_arcpy.dispatch")
 
@@ -126,8 +126,17 @@ def _project_to_process_inputs(
     bound: Mapping[str, Any],
     *,
     session: HonuaSession,
+    rollback_log: list[tuple[str, LayerAlias | None]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Project bound arcpy args into process inputs / outputs / metadata."""
+    """Project bound arcpy args into process inputs / outputs / metadata.
+
+    If ``rollback_log`` is supplied, each output-param registration appends
+    a ``(name, prior_alias)`` pair to it *before* mutating the session.
+    ``dispatch_process`` uses that log to restore the session's alias map
+    when ``processes.execute(...)`` raises, so a failed call does not leave
+    behind a phantom output alias that would then collide with a retry of
+    the same call.
+    """
 
     inputs: dict[str, Any] = {}
     outputs: dict[str, Any] = {}
@@ -138,6 +147,8 @@ def _project_to_process_inputs(
             continue
         process_name = entry.param_map.get(arcpy_name, arcpy_name)
         if arcpy_name in entry.output_params:
+            if rollback_log is not None and isinstance(value, str):
+                rollback_log.append((value, session.get_layer(value)))
             resolved = resolve_or_register_output(value, session=session)
             outputs[process_name] = resolved.source
             continue
@@ -186,6 +197,28 @@ def _resolve_source_value(value: Any, *, session: HonuaSession) -> Any:
     return value
 
 
+def _rollback_output_registrations(
+    session: HonuaSession,
+    log: Sequence[tuple[str, LayerAlias | None]],
+) -> None:
+    """Restore the session's alias map after a failed process call.
+
+    For each ``(name, prior_alias)`` pair captured during projection, either
+    remove the alias (if there was no prior entry) or restore the prior
+    LayerAlias. Iterating in reverse means a single call that registers
+    multiple outputs unwinds in last-in-first-out order.
+    """
+
+    if not log:
+        return
+    with session._lock:  # noqa: SLF001 -- intentional cross-module rollback under the same lock.
+        for name, prior in reversed(log):
+            if prior is None:
+                session._layers.pop(name, None)  # noqa: SLF001
+            else:
+                session._layers[name] = prior  # noqa: SLF001
+
+
 def dispatch_process(
     qualified_name: str,
     *args: Any,
@@ -202,8 +235,13 @@ def dispatch_process(
     bound = bind_arguments(qualified_name, args, kwargs, entry=entry)
 
     with record_call(qualified_name, args=args, kwargs=kwargs, writer=session.audit_writer()) as record:
+        # Track outputs registered during projection so a failed execute()
+        # does not leave a phantom alias behind and block retry.
+        rollback_log: list[tuple[str, LayerAlias | None]] = []
         try:
-            inputs, outputs, metadata = _project_to_process_inputs(entry, bound, session=session)
+            inputs, outputs, metadata = _project_to_process_inputs(
+                entry, bound, session=session, rollback_log=rollback_log
+            )
             payload: dict[str, Any] = {"inputs": inputs}
             if outputs:
                 payload["outputs"] = outputs
@@ -212,8 +250,10 @@ def dispatch_process(
             processes = session.processes_client()
             result = processes.execute(entry.process_id, payload)
         except ExecuteError:
+            _rollback_output_registrations(session, rollback_log)
             raise
         except Exception as exc:  # honua_sdk transport errors -- wrap, keep cause.
+            _rollback_output_registrations(session, rollback_log)
             kind = exc.__class__.__name__
             LOGGER.warning("honua_arcpy.%s failed via process %s: %s", qualified_name, entry.process_id, exc)
             raise ExecuteError(

@@ -19,21 +19,19 @@ honua-arcpy/
 ├── pyproject.toml                     # name=honua-arcpy
 ├── honua_arcpy/
 │   ├── __init__.py                    # analysis / management / da / env / ExecuteError
-│   ├── _client.py                     # shared sync clients (Honua, Admin, OGC Processes)
 │   ├── _audit.py                      # rotating per-day JSONL logger
 │   ├── _compat.py                     # single-source compatibility manifest
 │   ├── _dispatch.py                   # dispatch entry-point used by every shim
 │   ├── _resolve.py                    # arcpy path -> SourceDescriptor / source string
 │   ├── _errors.py                     # ExecuteError-shaped exceptions
 │   ├── _session.py                    # arcpy.env-style module-global session
-│   ├── _cli.py                        # honua-arcpy assess <inventory.json>
+│   ├── _cli.py                        # honua-arcpy assess <inventory.json> + matrix
 │   ├── env.py                         # arcpy.env shim
 │   ├── analysis/                      # 15 functions (6 mapped, 9 stubbed)
 │   ├── management/                    # 20 functions (9 mapped, 11 stubbed)
 │   └── da/                            # 10 functions (3 mapped, 7 stubbed)
 ├── docs/
-│   ├── compatibility-matrix.md        # generated -- do not hand edit
-│   └── scanner-handoff.md
+│   └── compatibility-matrix.md        # generated -- do not hand edit
 ├── eval/
 │   ├── scripts/                       # 50 representative arcpy scripts
 │   ├── golden/                        # checked-in reference outputs
@@ -44,6 +42,13 @@ honua-arcpy/
 │   └── render_compat_matrix.py
 └── tests/
 ```
+
+The shim does not expose a `_client.py` shim module today -- session
+client construction lives in `_session.py` (`HonuaSession._build_client`
+/ `_build_admin_client` plus the lazy `processes_client()` accessor).
+The migration-tool integration narrative
+(`../../docs/honua-arcpy/scanner-handoff.md`) is owned by the workspace
+docs tree, not the package docs directory.
 
 ## Quickstart
 

@@ -266,16 +266,22 @@ def GetCount(in_rows: Any) -> int:
 
     qualified = "management.GetCount"
     session = get_session()
-    layer_name = str(in_rows)
-    alias = session.get_layer(layer_name)
-    resolved = (
-        resolve(alias.source, session=session)
-        if alias is not None
-        else resolve(in_rows, session=session)
-    )
-    where = alias.where if alias is not None else None
 
+    # Alias lookup, path resolution, and backend query all run inside the
+    # surrounding ``record_call`` so the documented "every shim call writes
+    # one JSONL line" contract holds even when resolution fails before the
+    # backend is reached (e.g. ``GetCount(None)`` -> ``HonuaArcpyResolveError``,
+    # or an unconfigured session -> ``HonuaArcpyConfigurationError``).
     with record_call(qualified, args=(in_rows,), kwargs={}, writer=session.audit_writer()) as record:
+        layer_name = str(in_rows) if isinstance(in_rows, str) else None
+        alias = session.get_layer(layer_name) if layer_name is not None else None
+        resolved = (
+            resolve(alias.source, session=session)
+            if alias is not None
+            else resolve(in_rows, session=session)
+        )
+        where = alias.where if alias is not None else None
+
         client = session.client()
         if not hasattr(client, "source"):
             raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")

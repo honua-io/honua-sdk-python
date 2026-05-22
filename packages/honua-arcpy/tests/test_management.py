@@ -220,6 +220,39 @@ def test_get_count_with_and_without_selection(stub_clients) -> None:
     assert isinstance(filtered, int)
 
 
+def test_get_count_resolve_failure_is_audited(stub_clients) -> None:
+    """A pre-dispatch resolve failure must still write one JSONL audit line.
+
+    ``GetCount(None)`` used to raise ``HonuaArcpyResolveError`` outside the
+    surrounding ``record_call``, so the documented "every shim call writes
+    one JSONL line" contract was violated -- operators had no record of the
+    refused call. The alias lookup and resolve now run inside the audit
+    context so resolve / configuration failures land in the JSONL stream.
+    """
+
+    import json
+    import os
+    from pathlib import Path
+
+    with pytest.raises(honua_arcpy.HonuaArcpyResolveError):
+        honua_arcpy.management.GetCount(None)
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files, "expected an audit JSONL file"
+    records = [
+        json.loads(line)
+        for line in files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    refused = [r for r in records if r["function"] == "management.GetCount"]
+    assert refused, "GetCount(None) refusal was not audited"
+    assert refused[-1]["status"] == "error"
+    # ``HonuaArcpyResolveError`` carries ``error_kind="resolve"`` so operators
+    # can pivot on the failure category in the JSONL stream.
+    assert refused[-1]["error_kind"] == "resolve"
+
+
 def test_describe_is_stub_until_admin_contract_lands(stub_clients) -> None:
     # HonuaAdminClient does not expose a per-layer schema reader today.
     with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):

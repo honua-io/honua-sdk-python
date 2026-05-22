@@ -158,3 +158,37 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   `--output docs/honua-arcpy/compatibility-matrix.md`) instead of the
   argument-free `--check` / directory-form `--output` that the parser
   never accepted.
+
+### Fixes (review pass 6)
+
+- `dispatch_process` now rolls back any output aliases it registered
+  during input projection when `processes.execute(...)` raises.
+  Previously a transport failure left the output alias (e.g.
+  `roads_buffer`) in `HonuaSession._layers`, so a retry of the same
+  call tripped the duplicate-output guard with
+  `HonuaArcpyConfigurationError` and never reached the process client.
+  The dispatcher captures each output's prior alias (None if it did
+  not exist) during `_project_to_process_inputs` and restores that
+  state under the session lock on exception. Tests
+  (`test_failed_process_rolls_back_output_alias`,
+  `test_failed_process_restores_prior_output_alias_under_overwrite`)
+  pin both the absent-prior and overwrite-true-prior cases.
+- `management.GetCount` now performs alias lookup, path resolution,
+  and the backend call entirely inside the surrounding `record_call`,
+  so pre-dispatch failures (`GetCount(None)` ->
+  `HonuaArcpyResolveError`; unconfigured session ->
+  `HonuaArcpyConfigurationError`) write the documented JSONL audit
+  line with the real `error_kind` instead of bypassing the audit. A
+  regression test (`test_get_count_resolve_failure_is_audited`) pins
+  the contract.
+- `.github/workflows/honua-arcpy-eval.yml` `paths:` filters now
+  include `docs/honua-arcpy/**`, so a PR that only touches the
+  top-level docs copy of the compatibility matrix still triggers the
+  matrix drift gate and the byte-equal cross-copy test. Previously
+  such a PR bypassed the workflow entirely.
+- `packages/honua-arcpy/README.md` layout block drops the stale
+  `_client.py` entry (session client construction lives in
+  `_session.py`) and the stale `docs/scanner-handoff.md` entry (the
+  scanner-handoff page lives in the workspace `docs/honua-arcpy/`
+  tree, not the package docs directory). Added a short paragraph
+  pointing readers to the correct locations.

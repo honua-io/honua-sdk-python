@@ -138,6 +138,77 @@ def test_overwrite_output_true_allows_replace(_isolated_audit_dir: Path) -> None
     assert len(proc.calls) == 2
 
 
+def test_failed_process_rolls_back_output_alias(_isolated_audit_dir: Path) -> None:
+    """A failed process call must not leave its output alias behind.
+
+    Output aliases were previously registered *before* ``processes.execute()``
+    ran, so a transport failure left ``roads_buffer`` in the session's alias
+    map and any retry tripped the duplicate-output guard with
+    ``HonuaArcpyConfigurationError`` -- never reaching the process client at
+    all. The dispatcher now rolls the alias map back when ``execute()`` raises.
+    """
+
+    class _FailingProcessClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict]] = []
+
+        def execute(self, process_id: str, payload: dict) -> dict:
+            self.calls.append((process_id, payload))
+            raise RuntimeError("backend boom")
+
+    proc = _FailingProcessClient()
+    honua_arcpy.configure(processes_client=proc)
+    honua_arcpy.env.overwriteOutput = False
+
+    with pytest.raises(honua_arcpy.ExecuteError):
+        honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+
+    # The output alias must NOT remain in the session after a failed call;
+    # otherwise the retry below would fail with the overwrite guard before
+    # even reaching the process client.
+    assert honua_arcpy.get_session().get_layer("roads_buffer") is None
+
+    # Retry against a working client: the second call must reach the
+    # process client and complete cleanly, proving the prior failure did
+    # not corrupt session state.
+    working = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=working)
+    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    assert len(working.calls) == 1
+    assert honua_arcpy.get_session().get_layer("roads_buffer") is not None
+
+
+def test_failed_process_restores_prior_output_alias_under_overwrite(
+    _isolated_audit_dir: Path,
+) -> None:
+    """When ``overwriteOutput=True``, a failed process call must restore the
+    prior alias rather than leaving the half-written replacement in place."""
+
+    class _FailingProcessClient:
+        def execute(self, *_args, **_kwargs):
+            raise RuntimeError("backend boom")
+
+    # First, register a successful output via a working client.
+    working = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=working)
+    honua_arcpy.env.overwriteOutput = True
+    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    first_alias = honua_arcpy.get_session().get_layer("roads_buffer")
+    assert first_alias is not None
+    first_alias_source = first_alias.source
+
+    # Second call overwrites the alias mid-projection, then execute() fails.
+    honua_arcpy.configure(processes_client=_FailingProcessClient())
+    with pytest.raises(honua_arcpy.ExecuteError):
+        honua_arcpy.analysis.Buffer("highways", "roads_buffer", "25 Meters")
+
+    # The prior alias for ``roads_buffer`` must survive the failed call so
+    # downstream consumers do not see a phantom "highways"-derived alias.
+    restored = honua_arcpy.get_session().get_layer("roads_buffer")
+    assert restored is not None
+    assert restored.source == first_alias_source
+
+
 def test_path_map_applies_inside_intersect_in_features_list(
     _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

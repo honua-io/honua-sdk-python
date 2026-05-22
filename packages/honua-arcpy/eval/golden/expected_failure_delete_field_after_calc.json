@@ -1,0 +1,5 @@
+{
+  "audit_lines": 1,
+  "expected_failure": true,
+  "stdout_contains": "expected_failure_delete_field_after_calc"
+}

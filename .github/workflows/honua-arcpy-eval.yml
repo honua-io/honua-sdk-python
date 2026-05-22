@@ -180,8 +180,15 @@ jobs:
       - name: Run ephemeral smoke
         env:
           HONUA_ARCPY_EVAL_USE_STUB: "0"
+          HONUA_ARCPY_AUDIT_DIR: ${{ runner.temp }}/honua-arcpy-smoke-audit
         run: |
-          python -m pytest packages/honua-arcpy/tests/test_ephemeral_smoke.py -q --tb=short || \
-            python packages/honua-arcpy/eval/run_eval.py \
-              --output-json packages/honua-arcpy/smoke-eval.json \
-              --no-fail-under
+          set -euo pipefail
+          if [[ -z "${HONUA_BASE_URL:-}" ]]; then
+            echo "::error::HONUA_BASE_URL is not set; refusing to run a non-stub eval against an unknown target."
+            exit 1
+          fi
+          python packages/honua-arcpy/eval/run_eval.py \
+            --output-json packages/honua-arcpy/smoke-eval.json \
+            --output-junit packages/honua-arcpy/smoke-eval.xml \
+            --audit-root packages/honua-arcpy/eval/.audit-live \
+            --pass-threshold 0.70

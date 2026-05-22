@@ -28,7 +28,7 @@ from .._errors import (
     ExecuteError,
     HonuaArcpyConfigurationError,
 )
-from .._resolve import resolve
+from .._resolve import descriptor_mapping, resolve
 from .._session import get_session
 
 
@@ -38,8 +38,13 @@ def _client_source(name: str) -> Any:
     if not hasattr(client, "source"):
         raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")
     alias = session.get_layer(name)
-    source_name = alias.source if alias is not None else resolve(name, session=session).source
-    return client.source(source_name), alias
+    resolved = (
+        resolve(alias.source, session=session)
+        if alias is not None
+        else resolve(name, session=session)
+    )
+    descriptor = descriptor_mapping(resolved, session=session)
+    return client.source(descriptor), alias
 
 
 def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
@@ -132,7 +137,24 @@ class _BaseCursor:
         )
         self._record = self._record_cm.__enter__()
         self._entered = True
-        self._open()
+        try:
+            self._open()
+        except BaseException as exc:
+            # _open() failed before the caller's `with` block started, so
+            # __exit__ will not be called. Close the audit record with the
+            # real exception so the error_kind reflects the actual failure
+            # (e.g. HonuaArcpyConfigurationError) instead of a stray
+            # GeneratorExit when the record context is garbage-collected.
+            cm = self._record_cm
+            self._record_cm = None
+            self._entered = False
+            self._closed = True
+            if cm is not None:
+                try:
+                    cm.__exit__(type(exc), exc, exc.__traceback__)
+                except BaseException:
+                    pass
+            raise
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

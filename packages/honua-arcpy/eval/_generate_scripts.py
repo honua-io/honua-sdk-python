@@ -42,10 +42,14 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
+import honua_arcpy as arcpy
+
 if stub_active():
     install_stub()
-
-import honua_arcpy as arcpy
+else:
+    # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
+    # so the script runs against the configured Honua deployment.
+    arcpy.configure_from_env()
 
 arcpy.env.workspace = "honua://services/{workspace}"
 arcpy.env.overwriteOutput = True
@@ -219,66 +223,11 @@ print("calculate_field_speed ok")
     "calculate_field_speed ok",
 )
 
-_supported(
-    "add_field_route_id",
-    "transport",
-    "Add a route_id field to segments.",
-    """arcpy.management.AddField(
-    "segments",
-    "route_id",
-    field_type="LONG",
-    field_alias="Route ID",
-    field_is_nullable=True,
-)
-print("add_field_route_id ok")
-""",
-    1,
-    "add_field_route_id ok",
-)
-
-_supported(
-    "delete_field_legacy",
-    "transport",
-    "Drop a legacy field from segments.",
-    """arcpy.management.DeleteField("segments", "legacy_code")
-print("delete_field_legacy ok")
-""",
-    1,
-    "delete_field_legacy ok",
-)
-
-_supported(
-    "rename_stage_to_published",
-    "planning",
-    "Rename a staging feature class to a published name.",
-    """arcpy.management.Rename("parcels_stage", "parcels_published", "FeatureClass")
-print("rename_stage_to_published ok")
-""",
-    1,
-    "rename_stage_to_published ok",
-)
-
-_supported(
-    "list_fields_segments",
-    "transport",
-    "List fields on the segments table.",
-    """fields = arcpy.management.ListFields("segments")
-print(f"list_fields_segments ok count={len(fields)}")
-""",
-    1,
-    "list_fields_segments ok",
-)
-
-_supported(
-    "describe_segments",
-    "transport",
-    "Describe the segments feature class.",
-    """describe = arcpy.Describe("segments")
-print(f"describe_segments ok dataType={describe.dataType}")
-""",
-    1,
-    "describe_segments ok",
-)
+# NOTE: AddField / DeleteField / Rename / ListFields / Describe are stubs in
+# the 0.1.0 manifest because HonuaAdminClient does not yet expose per-layer
+# schema mutation or reading. The matching scenarios live in the expected
+# failure block below so the eval suite still demonstrates the migration
+# scanner-handoff contract (hint + tracking ticket) for those entries.
 
 _supported(
     "make_feature_layer_then_select",
@@ -420,31 +369,6 @@ print("project_then_clip ok")
 )
 
 _supported(
-    "describe_then_iterate",
-    "transport",
-    "Describe then iterate via SearchCursor.",
-    """describe = arcpy.Describe("segments")
-with arcpy.da.SearchCursor("segments", ["OID@", "name"]) as cursor:
-    rows = list(cursor)
-print(f"describe_then_iterate ok name={describe.name} rows={len(rows)}")
-""",
-    2,
-    "describe_then_iterate ok",
-)
-
-_supported(
-    "add_field_calculate_field",
-    "transport",
-    "AddField then CalculateField on the new field.",
-    """arcpy.management.AddField("segments", "scaled_speed", field_type="DOUBLE")
-arcpy.management.CalculateField("segments", "scaled_speed", "!avg_speed! * 1.1", expression_type="PYTHON3")
-print("add_field_calculate_field ok")
-""",
-    2,
-    "add_field_calculate_field ok",
-)
-
-_supported(
     "spatial_join_with_radius",
     "planning",
     "SpatialJoin with explicit search radius.",
@@ -460,28 +384,6 @@ print("spatial_join_with_radius ok")
 """,
     1,
     "spatial_join_with_radius ok",
-)
-
-_supported(
-    "list_fields_filtered",
-    "transport",
-    "List string fields only.",
-    """fields = arcpy.management.ListFields("segments", field_type="String")
-print(f"list_fields_filtered ok count={len(fields)}")
-""",
-    1,
-    "list_fields_filtered ok",
-)
-
-_supported(
-    "list_fields_with_wildcard",
-    "transport",
-    "List fields matching a wildcard.",
-    """fields = arcpy.management.ListFields("segments", wild_card="STAT*")
-print(f"list_fields_with_wildcard ok count={len(fields)}")
-""",
-    1,
-    "list_fields_with_wildcard ok",
 )
 
 _supported(
@@ -509,31 +411,6 @@ print(f"make_feature_layer_clear_then_count ok count={count}")
 """,
     4,
     "make_feature_layer_clear_then_count ok",
-)
-
-_supported(
-    "rename_then_describe",
-    "planning",
-    "Rename a layer then describe it.",
-    """arcpy.management.Rename("legacy_parcels", "parcels", "FeatureClass")
-describe = arcpy.Describe("parcels")
-print(f"rename_then_describe ok name={describe.name}")
-""",
-    2,
-    "rename_then_describe ok",
-)
-
-_supported(
-    "delete_field_after_calc",
-    "transport",
-    "Calculate field, then delete it.",
-    """arcpy.management.AddField("segments", "tmp", field_type="LONG")
-arcpy.management.CalculateField("segments", "tmp", "1", expression_type="PYTHON3")
-arcpy.management.DeleteField("segments", "tmp")
-print("delete_field_after_calc ok")
-""",
-    3,
-    "delete_field_after_calc ok",
 )
 
 _supported(
@@ -619,6 +496,18 @@ _expected_failure("near", "    arcpy.analysis.Near('points', 'roads')", "analysi
 _expected_failure("nearest_neighbor", "    arcpy.analysis.NearestNeighbor('points')", "analysis.NearestNeighbor")
 _expected_failure("tabulate_intersection", "    arcpy.analysis.TabulateIntersection('a', 'a_id', 'b', 'out')", "analysis.TabulateIntersection")
 _expected_failure("walk", "    list(arcpy.da.Walk('honua://services/transport'))", "da.Walk")
+# Admin-targeted stubs (no per-layer schema mutation / reading in HonuaAdminClient yet).
+_expected_failure("add_field", "    arcpy.management.AddField('segments', 'route_id', field_type='LONG')", "management.AddField")
+_expected_failure("delete_field", "    arcpy.management.DeleteField('segments', 'legacy_code')", "management.DeleteField")
+_expected_failure("rename", "    arcpy.management.Rename('parcels_stage', 'parcels_published', 'FeatureClass')", "management.Rename")
+_expected_failure("describe", "    arcpy.Describe('segments')", "management.Describe")
+_expected_failure("list_fields", "    arcpy.management.ListFields('segments')", "management.ListFields")
+_expected_failure("list_fields_filtered", "    arcpy.management.ListFields('segments', field_type='String')", "management.ListFields")
+_expected_failure("list_fields_wildcard", "    arcpy.management.ListFields('segments', wild_card='STAT*')", "management.ListFields")
+_expected_failure("add_field_calculate_field", "    arcpy.management.AddField('segments', 'scaled_speed', field_type='DOUBLE')", "management.AddField")
+_expected_failure("delete_field_after_calc", "    arcpy.management.DeleteField('segments', 'tmp')", "management.DeleteField")
+_expected_failure("describe_then_iterate", "    arcpy.Describe('segments')", "management.Describe")
+_expected_failure("rename_then_describe", "    arcpy.management.Rename('legacy_parcels', 'parcels', 'FeatureClass')", "management.Rename")
 
 
 def _render(spec: ScriptSpec) -> str:

@@ -1,14 +1,16 @@
-"""``arcpy.management`` shim -- 20 functions (13 mapped, 7 stubbed).
+"""``arcpy.management`` shim -- 20 functions (10 mapped, 10 stubbed).
 
 Mapped functions split into three backends:
 
 * ``process``: CalculateField, Dissolve, Copy, Delete, Project (5).
 * ``session``: MakeFeatureLayer, MakeTableView (2 -- in-process aliases).
 * ``source``: SelectLayerByAttribute, GetCount (2 -- via Source facade).
-* ``admin``: AddField, DeleteField, Rename, ListFields, Describe (5 --
-  via :class:`honua_admin.HonuaAdminClient`).
 
-The remaining 7 raise ``HonuaArcpyUnsupportedError`` with replacement hints.
+The remaining 10 raise ``HonuaArcpyUnsupportedError`` with replacement hints,
+including the five admin-targeted entries (AddField, DeleteField, Rename,
+ListFields, Describe) that previously routed through a partial admin shim --
+the real ``HonuaAdminClient`` does not yet expose per-layer schema mutation
+or reading, so we surface the gap explicitly until the contract lands.
 """
 
 from __future__ import annotations
@@ -19,13 +21,12 @@ from typing import Any
 
 from .._compat import entry_for
 from .._dispatch import (
-    dispatch_admin,
     dispatch_process,
     dispatch_session,
     raise_unsupported,
 )
 from .._errors import HonuaArcpyConfigurationError
-from .._resolve import resolve
+from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
 
 
@@ -167,15 +168,21 @@ def _apply_selection(existing: str | None, selection_type: str, where: str | Non
 
 def _layer_count(session, alias: LayerAlias) -> int:
     client = session.client()
-    if hasattr(client, "source"):
-        source = client.source(alias.source)
-        try:
-            result = source.query(where=alias.where) if alias.where else source.query()
-            features = getattr(result, "features", None)
-            if features is not None:
-                return len(features)
-        except Exception:
-            return 0
+    if not hasattr(client, "source"):
+        return 0
+    resolved = resolve(alias.source, session=session)
+    descriptor = descriptor_mapping(resolved, session=session)
+    try:
+        source = client.source(descriptor)
+        result = source.query(where=alias.where) if alias.where else source.query()
+        features = getattr(result, "features", None)
+        total = getattr(result, "total_count", None)
+        if isinstance(total, int):
+            return total
+        if features is not None:
+            return len(features)
+    except Exception:
+        return 0
     return 0
 
 
@@ -186,17 +193,26 @@ def GetCount(in_rows: Any) -> int:
     session = get_session()
     layer_name = str(in_rows)
     alias = session.get_layer(layer_name)
-    source_name = alias.source if alias is not None else resolve(in_rows, session=session).source
+    resolved = (
+        resolve(alias.source, session=session)
+        if alias is not None
+        else resolve(in_rows, session=session)
+    )
     where = alias.where if alias is not None else None
 
     with record_call(qualified, args=(in_rows,), kwargs={}, writer=session.audit_writer()) as record:
         client = session.client()
         if not hasattr(client, "source"):
             raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")
-        source = client.source(source_name)
+        descriptor = descriptor_mapping(resolved, session=session)
+        source = client.source(descriptor)
         result = source.query(where=where) if where else source.query()
-        features = getattr(result, "features", None)
-        count = len(features) if features is not None else 0
+        total = getattr(result, "total_count", None)
+        if isinstance(total, int):
+            count = total
+        else:
+            features = getattr(result, "features", None)
+            count = len(features) if features is not None else 0
         record["result_shape"] = _shape_of({"count": count})
         return count
 
@@ -289,149 +305,8 @@ def Project(
 
 
 # ---------------------------------------------------------------------------
-# Admin-backed functions
+# Schema-shaped value objects (kept for typed return shapes)
 # ---------------------------------------------------------------------------
-
-
-def _add_field_factory(admin: Any, bound: dict[str, Any]) -> dict[str, Any]:
-    resource = bound.get("in_table")
-    name = bound.get("field_name")
-    if not resource or not name:
-        raise HonuaArcpyConfigurationError("AddField requires in_table and field_name.")
-    request: dict[str, Any] = {
-        "action": "add-field",
-        "resource": str(resource),
-        "field": {
-            "name": str(name),
-            "type": bound.get("field_type"),
-            "alias": bound.get("field_alias"),
-            "length": bound.get("field_length"),
-            "nullable": bound.get("field_is_nullable"),
-        },
-    }
-    if hasattr(admin, "add_field"):
-        return _result_to_dict(admin.add_field(resource, request["field"]))
-    if hasattr(admin, "apply_manifest"):
-        return _apply_via_manifest(admin, request)
-    return request
-
-
-def AddField(
-    in_table: Any,
-    field_name: str,
-    field_type: str | None = None,
-    field_precision: int | None = None,
-    field_scale: int | None = None,
-    field_length: int | None = None,
-    field_alias: str | None = None,
-    field_is_nullable: bool | None = None,
-    field_is_required: bool | None = None,
-    field_domain: str | None = None,
-) -> Any:
-    return dispatch_admin(
-        "management.AddField",
-        _add_field_factory,
-        in_table=in_table,
-        field_name=field_name,
-        field_type=field_type,
-        field_precision=field_precision,
-        field_scale=field_scale,
-        field_length=field_length,
-        field_alias=field_alias,
-        field_is_nullable=field_is_nullable,
-        field_is_required=field_is_required,
-        field_domain=field_domain,
-    )
-
-
-def _delete_field_factory(admin: Any, bound: dict[str, Any]) -> dict[str, Any]:
-    resource = bound.get("in_table")
-    name = bound.get("drop_field")
-    if not resource or not name:
-        raise HonuaArcpyConfigurationError("DeleteField requires in_table and drop_field.")
-    request: dict[str, Any] = {
-        "action": "delete-field",
-        "resource": str(resource),
-        "field": {"name": str(name)},
-    }
-    if hasattr(admin, "delete_field"):
-        return _result_to_dict(admin.delete_field(resource, str(name)))
-    if hasattr(admin, "apply_manifest"):
-        return _apply_via_manifest(admin, request)
-    return request
-
-
-def DeleteField(in_table: Any, drop_field: Any, method: Any = None) -> Any:
-    return dispatch_admin(
-        "management.DeleteField",
-        _delete_field_factory,
-        in_table=in_table,
-        drop_field=drop_field,
-        method=method,
-    )
-
-
-def _rename_factory(admin: Any, bound: dict[str, Any]) -> dict[str, Any]:
-    in_data = bound.get("in_data")
-    out_data = bound.get("out_data")
-    if not in_data or not out_data:
-        raise HonuaArcpyConfigurationError("Rename requires in_data and out_data.")
-    request: dict[str, Any] = {
-        "action": "rename-resource",
-        "from": str(in_data),
-        "to": str(out_data),
-        "dataType": bound.get("data_type"),
-    }
-    if hasattr(admin, "rename_resource"):
-        return _result_to_dict(admin.rename_resource(in_data, out_data))
-    if hasattr(admin, "apply_manifest"):
-        return _apply_via_manifest(admin, request)
-    return request
-
-
-def _apply_via_manifest(admin: Any, request: dict[str, Any]) -> dict[str, Any]:
-    """Call ``apply_manifest`` defensively across admin client variants."""
-
-    try:
-        from honua_admin import ManifestApplyRequest
-    except Exception:  # pragma: no cover
-        return request
-    try:
-        manifest = ManifestApplyRequest(resources=[])
-    except TypeError:
-        # Fall back to any supported constructor; if all fail, return the request.
-        try:
-            manifest = ManifestApplyRequest()  # type: ignore[call-arg]
-        except Exception:
-            return request
-    try:
-        result = admin.apply_manifest(manifest)
-    except Exception:
-        return request
-    return _result_to_dict(result, fallback=request)
-
-
-def _result_to_dict(value: Any, *, fallback: dict[str, Any] | None = None) -> dict[str, Any]:
-    if hasattr(value, "to_dict"):
-        try:
-            return value.to_dict()
-        except Exception:
-            pass
-    if isinstance(value, dict):
-        return value
-    if fallback is not None:
-        return fallback
-    return {"result": str(value)}
-
-
-def Rename(in_data: Any, out_data: Any, data_type: Any = None) -> Any:
-    return dispatch_admin(
-        "management.Rename",
-        _rename_factory,
-        in_data=in_data,
-        out_data=out_data,
-        data_type=data_type,
-    )
 
 
 @dataclass(frozen=True)
@@ -462,121 +337,31 @@ class DescribeResult:
     raw: dict[str, Any] | None = None
 
 
-def _list_fields_factory(admin: Any, bound: dict[str, Any]) -> tuple[FieldDescribe, ...]:
-    dataset = bound.get("dataset")
-    wild = bound.get("wild_card")
-    field_type = bound.get("field_type")
-    schema = _layer_schema(admin, dataset)
-    fields = tuple(
-        FieldDescribe(
-            name=field.get("name", ""),
-            type=field.get("type"),
-            alias=field.get("alias"),
-            length=field.get("length"),
-            precision=field.get("precision"),
-            scale=field.get("scale"),
-            nullable=field.get("nullable"),
-            domain=field.get("domain"),
-            raw=field,
-        )
-        for field in schema.get("fields", [])
-    )
-    filtered = _filter_fields(fields, wild, field_type)
-    return filtered
-
-
-def ListFields(dataset: Any, wild_card: str | None = None, field_type: str | None = None) -> Iterable[FieldDescribe]:
-    return list(
-        dispatch_admin(
-            "management.ListFields",
-            _list_fields_factory,
-            dataset=dataset,
-            wild_card=wild_card,
-            field_type=field_type,
-        )
-    )
-
-
-def _describe_factory(admin: Any, bound: dict[str, Any]) -> DescribeResult:
-    value = bound.get("value")
-    schema = _layer_schema(admin, value)
-    fields = tuple(
-        FieldDescribe(
-            name=field.get("name", ""),
-            type=field.get("type"),
-            alias=field.get("alias"),
-            length=field.get("length"),
-            precision=field.get("precision"),
-            scale=field.get("scale"),
-            nullable=field.get("nullable"),
-            domain=field.get("domain"),
-            raw=field,
-        )
-        for field in schema.get("fields", [])
-    )
-    return DescribeResult(
-        name=str(value),
-        dataType=schema.get("dataType") or schema.get("data_type"),
-        shapeType=schema.get("shapeType") or schema.get("geometry_type"),
-        spatialReference=schema.get("spatialReference") or schema.get("spatial_reference"),
-        extent=schema.get("extent"),
-        fields=fields,
-        raw=schema,
-    )
-
-
-def Describe(value: Any) -> DescribeResult:
-    """``arcpy.Describe(value)`` -- inspect a dataset's schema."""
-
-    return dispatch_admin(
-        "management.Describe",
-        _describe_factory,
-        value=value,
-    )
-
-
-def _layer_schema(admin: Any, resource: Any) -> dict[str, Any]:
-    if resource is None:
-        return {}
-    name = str(resource)
-    if hasattr(admin, "get_layer_schema"):
-        try:
-            return admin.get_layer_schema(name)
-        except Exception:
-            pass
-    if hasattr(admin, "discover_tables"):
-        try:
-            response = admin.discover_tables(name)
-            if hasattr(response, "to_dict"):
-                response = response.to_dict()
-            return response if isinstance(response, dict) else {}
-        except Exception:
-            return {}
-    return {}
-
-
-def _filter_fields(
-    fields: tuple[FieldDescribe, ...],
-    wild_card: str | None,
-    field_type: str | None,
-) -> tuple[FieldDescribe, ...]:
-    if not wild_card and not field_type:
-        return fields
-    import fnmatch
-
-    out: list[FieldDescribe] = []
-    for field in fields:
-        if wild_card and not fnmatch.fnmatchcase(field.name, wild_card):
-            continue
-        if field_type and (field.type or "").upper() != field_type.upper():
-            continue
-        out.append(field)
-    return tuple(out)
-
-
 # ---------------------------------------------------------------------------
 # Stubs
 # ---------------------------------------------------------------------------
+
+
+def AddField(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.AddField")
+
+
+def DeleteField(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.DeleteField")
+
+
+def Rename(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.Rename")
+
+
+def ListFields(*args: Any, **kwargs: Any) -> Iterable[FieldDescribe]:
+    raise_unsupported("management.ListFields")
+
+
+def Describe(*args: Any, **kwargs: Any) -> DescribeResult:
+    """``arcpy.Describe(value)`` -- not currently supported by HonuaAdminClient."""
+
+    raise_unsupported("management.Describe")
 
 
 def SelectLayerByLocation(*args: Any, **kwargs: Any) -> Any:

@@ -157,4 +157,57 @@ def resolve_or_register_output(path: Any, *, session: HonuaSession | None = None
     return resolved
 
 
-__all__ = ["ResolvedSource", "resolve", "resolve_or_register_output"]
+def descriptor_mapping(
+    resolved: ResolvedSource,
+    *,
+    session: HonuaSession | None = None,
+) -> dict[str, Any]:
+    """Project a :class:`ResolvedSource` onto a :class:`SourceDescriptor` mapping.
+
+    ``HonuaClient.source(...)`` requires a ``SourceDescriptor`` or mapping;
+    raw strings raise ``TypeError`` from the SDK coercion path. This helper
+    converts the shim's resolved source (a string + workspace hint) into a
+    mapping the real SDK accepts. It is best-effort: customers with non-
+    trivial paths should declare them in ``HONUA_ARCPY_PATH_MAP``.
+    """
+
+    session = session or get_session()
+    source = resolved.source
+    workspace = resolved.workspace or session.workspace
+
+    service_id: str | None = None
+    layer_id: int | None = None
+
+    if source.startswith("honua://services/"):
+        rest = source[len("honua://services/") :]
+        parts = [part for part in rest.split("/") if part]
+        if parts:
+            service_id = parts[0]
+        if len(parts) >= 2:
+            try:
+                layer_id = int(parts[1])
+            except ValueError:
+                layer_id = 0
+    elif isinstance(workspace, str) and workspace.startswith("honua://services/"):
+        ws_parts = [part for part in workspace[len("honua://services/") :].split("/") if part]
+        if ws_parts:
+            service_id = ws_parts[0]
+        layer_id = 0
+    else:
+        service_id = source
+        layer_id = 0
+
+    locator: dict[str, Any] = {}
+    if service_id is not None:
+        locator["serviceId"] = service_id
+    if layer_id is not None:
+        locator["layerId"] = layer_id
+
+    return {
+        "id": resolved.source,
+        "protocol": "geoservices-feature-service",
+        "locator": locator,
+    }
+
+
+__all__ = ["ResolvedSource", "descriptor_mapping", "resolve", "resolve_or_register_output"]

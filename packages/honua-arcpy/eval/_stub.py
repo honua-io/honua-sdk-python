@@ -6,6 +6,11 @@ with a fake job acceptance and stubs ``Source.iter_features`` /
 exercise the shim's dispatch pipeline -- audit logging, parameter binding,
 client routing -- without depending on honua-server.
 
+The stub mirrors the real :class:`honua_sdk.HonuaClient.source` contract:
+it accepts a ``SourceDescriptor`` or mapping and rejects bare strings with
+``TypeError``, so anything that works against the stub also works against the
+real SDK.
+
 Set ``HONUA_ARCPY_EVAL_USE_STUB=0`` to bypass the stub (useful when running
 against a real Honua deployment).
 """
@@ -13,6 +18,7 @@ against a real Honua deployment).
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -91,6 +97,14 @@ class _StubProcessesClient:
 
 
 class _StubAdminClient:
+    """Lightweight admin stub.
+
+    The supported ``arcpy.management`` admin entries are now stubbed (see
+    ``honua_arcpy._compat``) because :class:`honua_admin.HonuaAdminClient`
+    does not expose per-layer schema mutation. This stub keeps a tiny event
+    log so tests that exercise unrelated admin flows can still observe calls.
+    """
+
     def __init__(self) -> None:
         self.events: list[dict[str, Any]] = []
 
@@ -98,18 +112,6 @@ class _StubAdminClient:
         payload = getattr(request, "to_dict", lambda: {"entries": getattr(request, "entries", [])})()
         self.events.append({"kind": "apply_manifest", "request": payload})
         return _Resp({"applied": payload})
-
-    def get_layer_schema(self, name: str) -> dict[str, Any]:
-        return {
-            "name": name,
-            "dataType": "FeatureClass",
-            "shapeType": "Polyline",
-            "fields": [
-                {"name": "OBJECTID", "type": "OID"},
-                {"name": "name", "type": "String"},
-                {"name": "STATUS", "type": "String"},
-            ],
-        }
 
 
 @dataclass
@@ -121,12 +123,25 @@ class _Resp:
 
 
 class StubHonuaClient:
-    """Stand-in for ``honua_sdk.HonuaClient`` used in eval/test scenarios."""
+    """Stand-in for ``honua_sdk.HonuaClient`` used in eval/test scenarios.
+
+    ``source()`` mirrors the real SDK contract: it accepts a
+    ``SourceDescriptor`` instance or a mapping and rejects bare strings with
+    ``TypeError``.
+    """
 
     def __init__(self) -> None:
         self._processes = _StubProcessesClient()
 
-    def source(self, name: str) -> _StubSource:
+    def source(self, descriptor: Any) -> _StubSource:
+        if isinstance(descriptor, Mapping):
+            name = str(descriptor.get("id") or descriptor.get("source") or "")
+        elif hasattr(descriptor, "id"):
+            name = str(getattr(descriptor, "id") or "")
+        else:
+            raise TypeError("descriptor must be a SourceDescriptor or mapping.")
+        if not name:
+            name = "stub-source"
         return _StubSource(name)
 
     def ogc_processes(self) -> _StubProcessesClient:

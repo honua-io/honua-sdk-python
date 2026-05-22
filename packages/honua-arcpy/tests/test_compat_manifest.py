@@ -57,3 +57,14 @@ def test_public_top_level_reexports_exist() -> None:
     }
     missing = expected - set(dir(honua_arcpy))
     assert not missing, f"Missing top-level exports: {sorted(missing)}"
+
+
+def test_legacy_suffix_aliases_are_exported() -> None:
+    # Real arcpy exposes both ``arcpy.analysis.Buffer`` and
+    # ``arcpy.Buffer_analysis``. The shim mirrors the suffix form for the
+    # top-of-corpus supported entries so unmodified scripts keep importing.
+    assert honua_arcpy.Buffer_analysis is honua_arcpy.analysis.Buffer
+    assert honua_arcpy.Clip_analysis is honua_arcpy.analysis.Clip
+    assert honua_arcpy.CalculateField_management is honua_arcpy.management.CalculateField
+    assert honua_arcpy.MakeFeatureLayer_management is honua_arcpy.management.MakeFeatureLayer
+    assert honua_arcpy.GetCount_management is honua_arcpy.management.GetCount

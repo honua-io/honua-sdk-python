@@ -69,3 +69,30 @@ def test_da_stubs_raise(stub_clients) -> None:
         honua_arcpy.da.Walk("honua://services/transport")
     with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
         honua_arcpy.da.TableToNumPyArray("segments", ["OBJECTID"])
+
+
+def test_cursor_open_failure_reports_real_error_kind(tmp_path) -> None:
+    # Unconfigured session: _open() raises HonuaArcpyConfigurationError before
+    # the caller's `with` block starts. The audit should record that real
+    # error_kind, not GeneratorExit from the record_call generator being GC'd.
+    import json
+
+    honua_arcpy.reset()
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        with honua_arcpy.da.SearchCursor("roads", ["OID@"]):
+            pass
+
+    import os
+    from pathlib import Path
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files, f"audit file missing under {audit_dir}"
+    lines = files[0].read_text(encoding="utf-8").strip().splitlines()
+    assert lines, "audit file should have one record"
+    record = json.loads(lines[-1])
+    assert record["status"] == "error"
+    # The error_kind attribute on HonuaArcpyConfigurationError is "configuration".
+    # Before the __enter__ fix, the audit recorded "GeneratorExit" because the
+    # record_call context was GC'd instead of receiving the real exception.
+    assert record["error_kind"] == "configuration"

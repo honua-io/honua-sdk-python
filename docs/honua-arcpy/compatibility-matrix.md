@@ -28,23 +28,23 @@ Statuses: **Supported** runs against Honua, **Partial** runs with documented dev
 
 | Function | Status | Backend | Replacement / notes |
 | --- | --- | --- | --- |
-| <a id="managementaddfield"></a>`arcpy.management.AddField` | Supported | `admin` | Schema-mutating call; goes through honua_admin manifest apply. |
+| <a id="managementaddfield"></a>`arcpy.management.AddField` | Stub | `not-implemented` | Schema-mutating field add; HonuaAdminClient has no add_field/apply_manifest path that mutates layer schemas today.<br>**hint:** File a honua-server ticket for layer-schema mutation; meanwhile run schema changes through your manifest publishing flow.<br>**tracking:** `honua-server#layer-schema-mutate` |
 | <a id="managementappend"></a>`arcpy.management.Append` | Stub | `not-implemented` | Append rows from inputs into a target table.<br>**hint:** Use honua_sdk.Source.apply_edits with adds payload after schema-translation.<br>**tracking:** `honua-server#append` |
 | <a id="managementcalculatefield"></a>`arcpy.management.CalculateField` | Supported | `process` | Python expression sent to server-side calculator. |
 | <a id="managementcopy"></a>`arcpy.management.Copy` | Supported | `process` | Copies features into a new resource via copy-features process. |
 | <a id="managementcreatefeatureclass"></a>`arcpy.management.CreateFeatureclass` | Stub | `not-implemented` | Creates a new feature class; schema translation is the hard part.<br>**hint:** Use honua_admin.HonuaAdminClient.apply_manifest with a create-resource entry.<br>**tracking:** `honua-server#create-feature-class` |
 | <a id="managementcreatetable"></a>`arcpy.management.CreateTable` | Stub | `not-implemented` | Creates a new table; schema translation is the hard part.<br>**hint:** Use honua_admin.HonuaAdminClient.apply_manifest with a create-resource entry.<br>**tracking:** `honua-server#create-table` |
 | <a id="managementdelete"></a>`arcpy.management.Delete` | Supported | `process` | Deletes a feature class or table. |
-| <a id="managementdeletefield"></a>`arcpy.management.DeleteField` | Supported | `admin` | Schema-mutating call; goes through honua_admin manifest apply. |
-| <a id="managementdescribe"></a>`arcpy.management.Describe` | Supported | `admin` | Returns a Describe object from the admin layer-schema endpoint. |
+| <a id="managementdeletefield"></a>`arcpy.management.DeleteField` | Stub | `not-implemented` | Schema-mutating field delete; HonuaAdminClient has no delete_field/apply_manifest path that mutates layer schemas today.<br>**hint:** File a honua-server ticket for layer-schema mutation; meanwhile run schema changes through your manifest publishing flow.<br>**tracking:** `honua-server#layer-schema-mutate` |
+| <a id="managementdescribe"></a>`arcpy.management.Describe` | Stub | `not-implemented` | Inspects a dataset's schema; HonuaAdminClient does not expose a per-layer schema reader today.<br>**hint:** Use honua_admin.HonuaAdminClient.discover_tables for the parent connection or honua_sdk.HonuaClient.feature_server(...).layer_metadata(layer_id).<br>**tracking:** `honua-server#layer-schema-read` |
 | <a id="managementdissolve"></a>`arcpy.management.Dissolve` | Supported | `process` | Geometry dissolve on optional field list. |
-| <a id="managementgetcount"></a>`arcpy.management.GetCount` | Supported | `source` | Returns a row count using Source.query with return_count_only semantics. |
-| <a id="managementlistfields"></a>`arcpy.management.ListFields` | Supported | `admin` | Returns a list of FieldDescribe entries from the admin layer-schema endpoint. |
+| <a id="managementgetcount"></a>`arcpy.management.GetCount` | Partial | `source` | Returns a row count via Source.query; currently materializes the full result set because Source has no count-only helper yet. |
+| <a id="managementlistfields"></a>`arcpy.management.ListFields` | Stub | `not-implemented` | Lists layer fields; HonuaAdminClient exposes discover_tables (per connection) but no per-layer schema reader today.<br>**hint:** Use honua_admin.HonuaAdminClient.discover_tables for the parent connection and project the field list locally.<br>**tracking:** `honua-server#layer-schema-read` |
 | <a id="managementmakefeaturelayer"></a>`arcpy.management.MakeFeatureLayer` | Supported | `session` | Creates an in-process layer alias; deviation: alias is bound to a Honua source descriptor. |
 | <a id="managementmaketableview"></a>`arcpy.management.MakeTableView` | Supported | `session` | Creates an in-process table-view alias; mirrors MakeFeatureLayer. |
 | <a id="managementmerge"></a>`arcpy.management.Merge` | Stub | `not-implemented` | Merges multiple feature classes into one.<br>**hint:** Iterate honua_sdk.Source.iter_features and write via apply_edits in chunks.<br>**tracking:** `honua-server#merge` |
 | <a id="managementproject"></a>`arcpy.management.Project` | Supported | `process` | Reprojects a feature class via conversion.feature-project. |
-| <a id="managementrename"></a>`arcpy.management.Rename` | Supported | `admin` | Renames a resource via honua_admin manifest apply. |
+| <a id="managementrename"></a>`arcpy.management.Rename` | Stub | `not-implemented` | Resource rename; HonuaAdminClient exposes apply_manifest but no rename_resource translation today.<br>**hint:** Republish the resource under the new name via honua_admin.HonuaAdminClient.apply_manifest and delete the old entry.<br>**tracking:** `honua-server#rename-resource` |
 | <a id="managementselectlayerbyattribute"></a>`arcpy.management.SelectLayerByAttribute` | Supported | `source` | Where-clause selection; updates the in-process layer state. |
 | <a id="managementselectlayerbylocation"></a>`arcpy.management.SelectLayerByLocation` | Stub | `not-implemented` | Spatial selection composed of buffer + intersect when no native process exists.<br>**hint:** Use honua_arcpy.analysis.Buffer + analysis.Intersect, then SelectLayerByAttribute.<br>**tracking:** `honua-server#spatial-filter` |
 | <a id="managementsort"></a>`arcpy.management.Sort` | Stub | `not-implemented` | Sorts feature class rows by one or more fields.<br>**hint:** Use honua_sdk.Source.query(order_by=...) and write with apply_edits.<br>**tracking:** `honua-server#sort` |
@@ -67,7 +67,7 @@ Statuses: **Supported** runs against Honua, **Partial** runs with documented dev
 ## Coverage
 
 * Total functions: 45
-* Supported / partial: 23
-* Stubbed (raise ``HonuaArcpyUnsupportedError``): 22
+* Supported / partial: 18
+* Stubbed (raise ``HonuaArcpyUnsupportedError``): 27
 
 Stubs intentionally raise rather than silently fail so customer scripts surface gaps before the migration tool ingests the audit JSONL.

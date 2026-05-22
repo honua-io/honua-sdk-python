@@ -83,6 +83,34 @@ def reset() -> None:
 GetCount = management.GetCount
 
 
+# Legacy suffix-style aliases. Real arcpy exposes both ``arcpy.analysis.Buffer``
+# and ``arcpy.Buffer_analysis``; many production scripts use the suffix form,
+# so the shim re-exports the top-of-corpus entries that way too. Adding a
+# new alias requires only listing it here and in ``__all__`` below.
+_SUFFIX_ALIASES: dict[str, Any] = {
+    # analysis.*
+    "Buffer_analysis": analysis.Buffer,
+    "Clip_analysis": analysis.Clip,
+    "Erase_analysis": analysis.Erase,
+    "Intersect_analysis": analysis.Intersect,
+    "SpatialJoin_analysis": analysis.SpatialJoin,
+    "Union_analysis": analysis.Union,
+    # management.*
+    "CalculateField_management": management.CalculateField,
+    "Copy_management": management.Copy,
+    "CopyFeatures_management": management.CopyFeatures,
+    "Delete_management": management.Delete,
+    "Dissolve_management": management.Dissolve,
+    "GetCount_management": management.GetCount,
+    "MakeFeatureLayer_management": management.MakeFeatureLayer,
+    "MakeTableView_management": management.MakeTableView,
+    "Project_management": management.Project,
+    "SelectLayerByAttribute_management": management.SelectLayerByAttribute,
+}
+
+globals().update(_SUFFIX_ALIASES)
+
+
 __all__ = [
     "__version__",
     "analysis",
@@ -115,4 +143,6 @@ __all__ = [
     "FieldDescribe",
     "GetCount",
     "Selection",
+    # Legacy suffix-form aliases (real arcpy exposes both)
+    *_SUFFIX_ALIASES.keys(),
 ]

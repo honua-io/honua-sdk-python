@@ -1,5 +1,0 @@
-{
-  "audit_lines": 2,
-  "expected_failure": false,
-  "stdout_contains": "rename_then_describe ok"
-}

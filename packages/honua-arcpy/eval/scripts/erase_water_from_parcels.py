@@ -11,10 +11,14 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
+import honua_arcpy as arcpy
+
 if stub_active():
     install_stub()
-
-import honua_arcpy as arcpy
+else:
+    # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
+    # so the script runs against the configured Honua deployment.
+    arcpy.configure_from_env()
 
 arcpy.env.workspace = "honua://services/planning"
 arcpy.env.overwriteOutput = True

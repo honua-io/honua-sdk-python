@@ -52,6 +52,15 @@ Path resolution: customers can declare an explicit alias map via
 unrecognized GDB / SDE / file paths. `MakeFeatureLayer` and `MakeTableView`
 also register in-process aliases that subsequent calls can reference.
 
+Source descriptor projection: `HonuaClient.source(...)` requires a
+`SourceDescriptor` or mapping. The shim builds one from each arcpy path via
+`honua_arcpy._resolve.descriptor_mapping`. The default heuristic is
+`protocol="geoservices-feature-service"`, with `serviceId`/`layerId`
+parsed from `honua://services/<service>/<layer>` URIs when possible and
+falling back to `service_id=<input name>, layer_id=0`. Customers with
+non-default layer IDs or non-FeatureServer protocols should declare them
+through `HONUA_ARCPY_PATH_MAP` so the descriptor matches their deployment.
+
 ## Audit JSONL
 
 Every shim call writes one JSONL line to
@@ -76,6 +85,25 @@ URLs, and secret-shaped strings are stripped before the record lands on disk.
 The operator owns retention and shipping; the writer is append-only with one
 open handle per UTC day.
 
+## Coverage summary
+
+The 0.1.0 manifest covers 45 arcpy entry points. 18 are mapped end-to-end
+(`Supported` or `Partial`); 27 are stubbed and raise
+`HonuaArcpyUnsupportedError` with a replacement hint and tracking ticket.
+
+Notable status changes versus the initial design draft:
+
+* `management.AddField`, `management.DeleteField`, `management.Rename`,
+  `management.ListFields`, and `management.Describe` are **stubs**.
+  `HonuaAdminClient` exposes `apply_manifest` and `discover_tables` today,
+  but neither covers per-layer schema mutation or per-layer field reads;
+  the stubs surface that gap so the migration scanner can flag the calls.
+* `management.GetCount` is **partial**. It now goes through
+  `HonuaClient.source(...)` with a `SourceDescriptor` mapping built from
+  the resolved path, returns `Result.total_count` when the server provides
+  it, and otherwise falls back to `len(result.features)`. Use bounded
+  `where` clauses on large layers until a count-only helper lands.
+
 ## Error model
 
 * `honua_arcpy.ExecuteError` mirrors `arcpy.ExecuteError`; existing
@@ -84,7 +112,9 @@ open handle per UTC day.
   raised by stubbed functions. The message embeds the compatibility-matrix
   anchor URL and a recommended honua-sdk replacement call.
 * `honua_arcpy.HonuaArcpyConfigurationError` is raised when the session is
-  used before `configure(...)` / `HONUA_BASE_URL` is set.
+  used before `configure(...)` / `HONUA_BASE_URL` is set. Cursor open
+  failures route the same configuration error into the JSONL audit's
+  `error_kind`, so a missing config does not show up as `GeneratorExit`.
 * `honua_arcpy.HonuaArcpyResolveError` is raised when an arcpy path cannot be
   mapped to a Honua source descriptor.
 

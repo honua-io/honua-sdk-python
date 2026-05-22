@@ -49,28 +49,29 @@ def test_get_count_with_and_without_selection(stub_clients) -> None:
     assert isinstance(filtered, int)
 
 
-def test_describe_returns_dataclass_with_fields(stub_clients) -> None:
-    described = honua_arcpy.Describe("segments")
-    assert described.dataType == "FeatureClass"
-    assert any(field.name == "OBJECTID" for field in described.fields)
+def test_describe_is_stub_until_admin_contract_lands(stub_clients) -> None:
+    # HonuaAdminClient does not expose a per-layer schema reader today.
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        honua_arcpy.Describe("segments")
 
 
-def test_list_fields_filter_by_wildcard_and_type(stub_clients) -> None:
-    all_fields = honua_arcpy.management.ListFields("segments")
-    assert any(field.name == "STATUS" for field in all_fields)
-
-    str_only = honua_arcpy.management.ListFields("segments", field_type="String")
-    assert all(field.type == "String" for field in str_only)
-    assert all_fields != str_only  # OBJECTID is OID, not String
-
-    wild = honua_arcpy.management.ListFields("segments", wild_card="STAT*")
-    assert [field.name for field in wild] == ["STATUS"]
+def test_list_fields_is_stub_until_admin_contract_lands(stub_clients) -> None:
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        honua_arcpy.management.ListFields("segments")
 
 
-def test_add_field_calls_admin_apply(stub_clients) -> None:
-    _, admin = stub_clients
-    honua_arcpy.management.AddField("segments", "route_id", field_type="LONG")
-    assert any(event["kind"] == "apply_manifest" for event in admin.events)
+def test_add_field_is_stub_until_admin_contract_lands(stub_clients) -> None:
+    # apply_manifest exists but has no add-field translation; surface the gap
+    # explicitly so customer scripts do not silently no-op.
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        honua_arcpy.management.AddField("segments", "route_id", field_type="LONG")
+
+
+def test_field_describe_dataclass_is_importable(stub_clients) -> None:
+    # FieldDescribe and DescribeResult are kept so eventual non-stub
+    # implementations have a stable return shape; they remain importable.
+    assert honua_arcpy.FieldDescribe(name="OBJECTID", type="OID").name == "OBJECTID"
+    assert honua_arcpy.DescribeResult(name="segments").name == "segments"
 
 
 def test_calculate_field_dispatches_process(stub_clients) -> None:

@@ -127,3 +127,60 @@ def test_assess_inventory_accepts_minimal_sdk_calls_shape() -> None:
     statuses = {row.qualified_name: row.status for row in rows}
     assert statuses["analysis.Buffer"] == "supported"
     assert statuses["management.SelectLayerByLocation"] == "stub"
+
+
+def test_assess_inventory_canonicalizes_copy_features_to_supported() -> None:
+    """``arcpy.management.CopyFeatures`` is the SDK scanner's name for the
+    same operation the shim exposes as ``management.Copy``; the shim itself
+    exports ``CopyFeatures = Copy``. ``assess`` must report scans of
+    ``CopyFeatures`` as supported instead of dropping them into the
+    out-of-scope bucket because COMPAT only keys ``management.Copy``."""
+
+    sdk_payload = {
+        "calls": [
+            {
+                "qualifiedName": "arcpy.management.CopyFeatures",
+                "family": "management",
+                "tool": "CopyFeatures",
+            },
+        ]
+    }
+    rows = assess_inventory(sdk_payload)
+    assert len(rows) == 1
+    assert rows[0].qualified_name == "management.Copy"
+    assert rows[0].status == "supported"
+    assert rows[0].occurrences == 1
+
+    admin_payload = {
+        "toolCalls": [
+            {
+                "call": "arcpy.management.CopyFeatures",
+                "tool": "CopyFeatures",
+                "toolbox": "management",
+            },
+        ]
+    }
+    rows = assess_inventory(admin_payload)
+    assert len(rows) == 1
+    assert rows[0].qualified_name == "management.Copy"
+    assert rows[0].status == "supported"
+
+
+def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
+    """When a scan reports both ``Copy`` and ``CopyFeatures`` calls, they
+    should aggregate under ``management.Copy`` so the assessment surfaces
+    a single supported row with the combined occurrence count."""
+
+    rows = assess_inventory(
+        {
+            "calls": [
+                {"qualifiedName": "arcpy.management.Copy", "family": "management", "tool": "Copy"},
+                {"qualifiedName": "arcpy.management.CopyFeatures", "family": "management", "tool": "CopyFeatures"},
+                {"qualifiedName": "arcpy.management.CopyFeatures", "family": "management", "tool": "CopyFeatures"},
+            ]
+        }
+    )
+    assert len(rows) == 1
+    assert rows[0].qualified_name == "management.Copy"
+    assert rows[0].status == "supported"
+    assert rows[0].occurrences == 3

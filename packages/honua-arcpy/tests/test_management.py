@@ -64,8 +64,38 @@ def test_select_layer_by_attribute_switch_is_unsupported(stub_clients) -> None:
     # matrix lists it as Supported, just not in this mode).
     assert "SWITCH_SELECTION" in info.value.function
     assert info.value.replacement_hint and "invert_where_clause" in info.value.replacement_hint
-    # The compat anchor still points at the SelectLayerByAttribute matrix row.
-    assert "selectlayerbyattribute" in (info.value.compat_anchor or "").lower()
+    # The compat anchor still points at the SelectLayerByAttribute matrix row,
+    # which means it must not include the SWITCH_SELECTION variant suffix.
+    anchor = (info.value.compat_anchor or "").lower()
+    assert "selectlayerbyattribute" in anchor
+    assert "switch_selection" not in anchor
+
+
+def test_select_layer_by_attribute_switch_writes_audit_record(stub_clients) -> None:
+    """Even though SWITCH_SELECTION is rejected before the backend call, the
+    refusal must be visible in the JSONL audit stream so operators see every
+    shim call -- including the ones the shim immediately refuses."""
+
+    import json
+    import os
+    from pathlib import Path
+
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        honua_arcpy.management.SelectLayerByAttribute("roads_lyr", "SWITCH_SELECTION")
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files, "expected an audit JSONL file"
+    records = [
+        json.loads(line)
+        for line in files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    refusal = [r for r in records if "SWITCH_SELECTION" in r["function"]]
+    assert refusal, "SWITCH_SELECTION rejection was not audited"
+    assert refusal[-1]["status"] == "error"
+    assert refusal[-1]["error_kind"] == "unsupported"
 
 
 def test_select_layer_by_attribute_unknown_selection_type_raises(stub_clients) -> None:
@@ -191,3 +221,35 @@ def test_stubs_raise_with_replacement_hints(stub_clients) -> None:
         honua_arcpy.management.Append(["a"], "b")
     with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
         honua_arcpy.management.CreateFeatureclass("ws", "fc", "POLYGON")
+
+
+def test_stub_calls_are_audited_with_status_error(stub_clients) -> None:
+    """Every shim call must write one JSONL line, including stubs that raise
+    immediately. The previous behaviour skipped the audit so operators had no
+    record of the rejected call."""
+
+    import json
+    import os
+    from pathlib import Path
+
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        honua_arcpy.analysis.Near("roads", "stations", search_radius="100 Meters")
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files, "expected an audit JSONL file"
+    records = [
+        json.loads(line)
+        for line in files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    stub_records = [r for r in records if r["function"] == "analysis.Near"]
+    assert stub_records, "stub call analysis.Near was not audited"
+    rec = stub_records[-1]
+    assert rec["status"] == "error"
+    assert rec["error_kind"] == "unsupported"
+    # The redacted args/kwargs must round-trip the caller's payload so the
+    # migration tool can pivot on what was attempted, not just the function
+    # name.
+    assert rec["args"] == ["roads", "stations"]
+    assert rec["kwargs"] == {"search_radius": "100 Meters"}

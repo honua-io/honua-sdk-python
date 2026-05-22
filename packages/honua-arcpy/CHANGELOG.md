@@ -102,3 +102,35 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   `attrs.get('OBJECTID') or ...` falsy chain collapsed `0` to `None`,
   which caused `updateRow` / `deleteRow` to raise
   `HonuaArcpyConfigurationError` against legitimate rows with OID 0.
+
+### Fixes (review pass 4)
+
+- `honua-arcpy assess` now canonicalizes
+  `arcpy.management.CopyFeatures` to the supported `management.Copy`
+  manifest entry. The shim already exposed
+  `management.CopyFeatures = Copy`, but `assess` keyed straight off the
+  scanner's qualified name, so SDK / admin inventories of
+  `CopyFeatures` calls dropped into the out-of-scope bucket. Existing
+  `Copy` scans aggregate with `CopyFeatures` scans into a single row.
+- Unsupported shim calls now write an audit JSONL line. `raise_unsupported`
+  wraps the rejection in `record_call(...)`, and every stub (analysis,
+  management, da) plus the targeted `SelectLayerByAttribute(selection_type=SWITCH_SELECTION)`
+  refusal forwards their `args` / `kwargs` so the audit row carries the
+  redacted payload, `status="error"`, and `error_kind="unsupported"`.
+  Operators can now correlate every shim call -- including refused
+  ones -- through the JSONL stream the docs already promised.
+- `SearchCursor.__next__` / `UpdateCursor.__next__` call
+  `_ensure_open()` before producing a row, so direct
+  `next(cursor)` invocations raise
+  `HonuaArcpyConfigurationError` before context-enter and after
+  context-exit instead of (a) silently yielding rows from a cached
+  iterator after `__exit__`, or (b) wrapping the bare `AttributeError`
+  on `_source` in an `ExecuteError` that mislabels the failure as a
+  backend error.
+- `eval/run_eval.py` `_classify` now honours the golden
+  `audit_lines` count inside the `expected_failure` branch. Previously
+  the branch returned `pass` as long as the script exited cleanly and
+  printed the marker, so a regression that lost the refusal-time audit
+  line would slip through. The check now matches the regular branch,
+  and the new audit-wrapped stubs make every expected-failure golden's
+  `audit_lines: 1` actually enforceable.

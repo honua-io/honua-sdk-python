@@ -315,6 +315,13 @@ class SearchCursor(_BaseCursor):
         self._count = 0
 
     def __next__(self) -> tuple[Any, ...]:
+        # _ensure_open() guards direct ``next(cursor)`` calls (before
+        # ``__enter__`` ran or after ``__exit__`` closed the cursor). Without
+        # it, a cursor object whose context exited can still yield rows from
+        # the cached iterator, and a cursor used outside ``with`` raises a
+        # bare ``AttributeError`` for the missing ``_source`` that
+        # ``_wrap_source_error`` then mislabels as a backend failure.
+        self._ensure_open()
         if self._iterator is None:
             try:
                 self._iterator = iter(self._source.iter_features(**self._query_kwargs()))
@@ -370,6 +377,9 @@ class UpdateCursor(_BaseCursor):
         self._count = 0
 
     def __next__(self) -> list[Any]:
+        # Same _ensure_open() guard as SearchCursor.__next__: protects against
+        # direct ``next(cursor)`` before ``__enter__`` or after ``__exit__``.
+        self._ensure_open()
         if self._iterator is None:
             kwargs: dict[str, Any] = {}
             alias_where = getattr(self._alias, "where", None) if self._alias is not None else None
@@ -513,31 +523,31 @@ class InsertCursor(_BaseCursor):
 
 
 def Editor(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.Editor")
+    raise_unsupported("da.Editor", args=args, kwargs=kwargs)
 
 
 def Walk(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.Walk")
+    raise_unsupported("da.Walk", args=args, kwargs=kwargs)
 
 
 def TableToNumPyArray(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.TableToNumPyArray")
+    raise_unsupported("da.TableToNumPyArray", args=args, kwargs=kwargs)
 
 
 def FeatureClassToNumPyArray(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.FeatureClassToNumPyArray")
+    raise_unsupported("da.FeatureClassToNumPyArray", args=args, kwargs=kwargs)
 
 
 def NumPyArrayToTable(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.NumPyArrayToTable")
+    raise_unsupported("da.NumPyArrayToTable", args=args, kwargs=kwargs)
 
 
 def NumPyArrayToFeatureClass(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.NumPyArrayToFeatureClass")
+    raise_unsupported("da.NumPyArrayToFeatureClass", args=args, kwargs=kwargs)
 
 
 def ExtendTable(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("da.ExtendTable")
+    raise_unsupported("da.ExtendTable", args=args, kwargs=kwargs)
 
 
 __all__ = [

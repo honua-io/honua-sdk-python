@@ -78,12 +78,25 @@ def _qualified_name(entry: Mapping[str, Any]) -> str | None:
     if isinstance(call, str) and call.startswith("arcpy."):
         parts = call.split(".")
         if len(parts) >= 3:
-            return f"{parts[1]}.{parts[-1]}"
+            return _canonicalize(f"{parts[1]}.{parts[-1]}")
     if isinstance(toolbox, str) and isinstance(tool, str):
         family = toolbox if toolbox in {"analysis", "management", "da"} else _family_for_toolbox(toolbox)
         if family is not None:
-            return f"{family}.{tool}"
+            return _canonicalize(f"{family}.{tool}")
     return None
+
+
+# Names that the scanner emits but COMPAT stores under a shared key (e.g.
+# ``arcpy.management.CopyFeatures`` resolves through the shim's ``Copy``
+# entry). Keep the table tiny -- it is only for honest synonyms, not for
+# hiding stubs.
+_ALIAS_TO_CANONICAL: dict[str, str] = {
+    "management.CopyFeatures": "management.Copy",
+}
+
+
+def _canonicalize(qualified_name: str) -> str:
+    return _ALIAS_TO_CANONICAL.get(qualified_name, qualified_name)
 
 
 _TOOLBOX_FAMILY: dict[str, str] = {

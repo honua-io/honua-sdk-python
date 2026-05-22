@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,9 @@ from honua_arcpy._cli import render_compat_matrix
 
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+_EVAL_ROOT = _PACKAGE_ROOT / "eval"
+if str(_EVAL_ROOT) not in sys.path:
+    sys.path.insert(0, str(_EVAL_ROOT))
 
 
 def test_eval_scripts_directory_contains_50_scripts() -> None:
@@ -40,3 +44,45 @@ def test_top_level_workspace_matrix_matches_package_matrix() -> None:
     assert workspace_matrix_path.read_text(encoding="utf-8") == package_matrix, (
         "Top-level docs/honua-arcpy/compatibility-matrix.md drifted from the package copy."
     )
+
+
+def test_classify_expected_failure_honours_golden_audit_lines(tmp_path: Path) -> None:
+    """An expected_failure script that emits the wrong number of audit lines
+    must fail eval, not silently pass. Previously ``_classify`` accepted any
+    audit count inside the expected_failure branch, so a regression that
+    dropped the refusal-time audit line was invisible."""
+
+    from run_eval import _classify
+
+    script = tmp_path / "expected_failure_widget.py"
+    script.write_text("", encoding="utf-8")
+
+    matching_golden = {
+        "audit_lines": 1,
+        "expected_failure": True,
+        "stdout_contains": "expected_failure_widget",
+    }
+    status, expected_failure, reason = _classify(
+        script,
+        exit_code=0,
+        audit_lines=1,
+        golden=matching_golden,
+        stdout="expected_failure_widget caught analysis.Widget\n",
+        stderr="",
+    )
+    assert status == "pass"
+    assert expected_failure is True
+    assert reason == "caught expected unsupported error"
+
+    # Same golden, but the script actually wrote 0 audit lines (regression).
+    status, expected_failure, reason = _classify(
+        script,
+        exit_code=0,
+        audit_lines=0,
+        golden=matching_golden,
+        stdout="expected_failure_widget caught analysis.Widget\n",
+        stderr="",
+    )
+    assert status == "fail"
+    assert expected_failure is True
+    assert reason is not None and "audit line count" in reason

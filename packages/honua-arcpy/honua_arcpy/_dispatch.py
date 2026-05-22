@@ -43,20 +43,58 @@ def _entry_or_raise(qualified_name: str) -> FunctionEntry:
     return entry
 
 
-def raise_unsupported(qualified_name: str) -> None:
+def raise_unsupported(
+    qualified_name: str,
+    *,
+    args: Sequence[Any] = (),
+    kwargs: Mapping[str, Any] | None = None,
+    replacement_hint: str | None = None,
+    tracking: str | None = None,
+    compat_anchor: str | None = None,
+) -> None:
+    """Raise ``HonuaArcpyUnsupportedError`` and record an audit line.
+
+    Stubs and partial-mode rejects (e.g. ``SelectLayerByAttribute`` with
+    ``selection_type=SWITCH_SELECTION``) route through this helper so the
+    JSONL audit stream stays complete: every shim call -- including the
+    ones the shim immediately refuses -- writes one line with
+    ``status="error"`` and a meaningful ``error_kind``.
+
+    Explicit ``replacement_hint`` / ``tracking`` / ``compat_anchor``
+    overrides take precedence over the manifest values so callers can
+    scope the error to a specific function variant (e.g.
+    ``SWITCH_SELECTION``) without claiming the whole function is
+    unsupported and without breaking the matrix anchor URL.
+    """
+
     entry = COMPAT.get(qualified_name)
     if entry is None or entry.backend != "not_implemented":
-        raise HonuaArcpyUnsupportedError(
-            qualified_name,
-            compat_anchor=anchor_for(qualified_name),
-            replacement_hint="Function is not registered in the compatibility manifest.",
-        )
-    raise HonuaArcpyUnsupportedError(
+        effective_hint = replacement_hint or "Function is not registered in the compatibility manifest."
+        effective_tracking = tracking
+    else:
+        effective_hint = replacement_hint if replacement_hint is not None else entry.replacement_hint
+        effective_tracking = tracking if tracking is not None else entry.tracking
+    effective_anchor = compat_anchor or anchor_for(qualified_name)
+
+    error = HonuaArcpyUnsupportedError(
         qualified_name,
-        compat_anchor=anchor_for(qualified_name),
-        replacement_hint=entry.replacement_hint,
-        tracking=entry.tracking,
+        compat_anchor=effective_anchor,
+        replacement_hint=effective_hint,
+        tracking=effective_tracking,
     )
+
+    writer = None
+    try:
+        writer = get_session().audit_writer()
+    except Exception:
+        # Audit is observability; never let a session-bootstrap failure
+        # mask the underlying unsupported-call signal.
+        writer = None
+
+    if writer is None:
+        raise error
+    with record_call(qualified_name, args=args, kwargs=kwargs or {}, writer=writer):
+        raise error
 
 
 def bind_arguments(

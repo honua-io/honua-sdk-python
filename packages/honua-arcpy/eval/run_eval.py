@@ -167,6 +167,18 @@ def _classify(
             marker = golden.get("stdout_contains")
             if isinstance(marker, str) and marker and marker not in stdout:
                 return "fail", True, f"expected_failure script missing marker {marker!r}"
+            # expected_failure scripts still write audit JSONL (the stub
+            # records the refused call with status=error). Honour the golden
+            # audit_lines count so a regression that loses the refusal-time
+            # audit shows up as an eval failure instead of slipping through
+            # the expected_failure branch.
+            expected_audit = golden.get("audit_lines")
+            if isinstance(expected_audit, int) and expected_audit != audit_lines:
+                return (
+                    "fail",
+                    True,
+                    f"expected_failure audit line count mismatch: expected {expected_audit}, got {audit_lines}",
+                )
         return "pass", True, "caught expected unsupported error"
 
     if exit_code != 0:

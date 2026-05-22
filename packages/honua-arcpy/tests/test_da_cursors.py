@@ -373,3 +373,45 @@ def test_cursor_open_failure_reports_real_error_kind(tmp_path) -> None:
     # Before the __enter__ fix, the audit recorded "GeneratorExit" because the
     # record_call context was GC'd instead of receiving the real exception.
     assert record["error_kind"] == "configuration"
+
+
+def test_search_cursor_next_before_enter_raises_configuration_error() -> None:
+    """Direct ``next(cursor)`` on a cursor that never entered its context
+    must raise the documented configuration error, not the bare
+    ``AttributeError`` that ``_wrap_source_error`` previously mislabelled
+    as a backend ``ExecuteError``."""
+
+    cursor = honua_arcpy.da.SearchCursor("roads", ["OID@"])
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        next(cursor)
+
+
+def test_search_cursor_next_after_exit_raises_configuration_error(stub_clients) -> None:
+    """After the context closes, a cached iterator must not keep yielding
+    rows; the cursor is logically closed."""
+
+    cursor_obj = None
+    with honua_arcpy.da.SearchCursor("roads", ["OID@", "STATUS"]) as cursor:
+        next(cursor)  # prime the iterator
+        cursor_obj = cursor
+
+    assert cursor_obj is not None
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        next(cursor_obj)
+
+
+def test_update_cursor_next_before_enter_raises_configuration_error() -> None:
+    cursor = honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"])
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        next(cursor)
+
+
+def test_update_cursor_next_after_exit_raises_configuration_error(stub_clients) -> None:
+    cursor_obj = None
+    with honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+        next(cursor)
+        cursor_obj = cursor
+
+    assert cursor_obj is not None
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        next(cursor_obj)

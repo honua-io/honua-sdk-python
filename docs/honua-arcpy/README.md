@@ -80,6 +80,14 @@ is reported as unsupported via a targeted
 `management.SelectLayerByAttribute(selection_type=SWITCH_SELECTION)`); use
 `invert_where_clause=True` with an explicit predicate instead.
 
+Cursor row contract: include `"OID@"` in the cursor's `field_names` to
+project the row's object id. The cursor resolves `OID@` against the
+feature attributes in the order `OBJECTID`, `oid`, `FID`, using explicit
+key-presence checks so a valid zero-valued OID (e.g. shapefile `FID = 0`)
+is preserved instead of being collapsed to `None`. `UpdateCursor.updateRow`
+and `UpdateCursor.deleteRow` require an OID-bearing row and raise
+`HonuaArcpyConfigurationError` when none is present.
+
 Selection rollback: `SelectLayerByAttribute` only writes the new
 `alias.where` / `alias.selection` after the backend count succeeds. If
 the source query raises, the alias is left in its prior state so
@@ -169,9 +177,13 @@ honua-arcpy matrix --check                      # CI doc-gate: fails on drift
 honua-arcpy matrix --output docs/honua-arcpy/   # regenerate matrix files
 ```
 
-`assess` consumes the `ArcPyScriptInventoryArtifact` JSON emitted by
-`honua_admin.scan_arcpy_script` and writes `honua-arcpy-assessment.json`
-alongside the bucketed stdout summary. See
+`assess` consumes both documented scanner shapes -- the
+`ArcPyScriptInventoryArtifact` JSON emitted by
+`honua_admin.scan_arcpy_script` (entries under `toolCalls` / legacy
+`tool_calls`) and the `ArcPyScanReport` emitted by
+`honua_sdk.migration.scan_arcpy_source(...).to_dict()` /
+`scan_arcpy_file(...)` (entries under `calls`). It writes
+`honua-arcpy-assessment.json` alongside the bucketed stdout summary. See
 [scanner-handoff.md](scanner-handoff.md) for the migration-tool integration.
 
 ## Distribution

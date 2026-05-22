@@ -128,39 +128,39 @@ def SpatialJoin(
 
 
 def NearestNeighbor(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.NearestNeighbor")
+    raise_unsupported("analysis.NearestNeighbor", args=args, kwargs=kwargs)
 
 
 def Near(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.Near")
+    raise_unsupported("analysis.Near", args=args, kwargs=kwargs)
 
 
 def TabulateIntersection(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.TabulateIntersection")
+    raise_unsupported("analysis.TabulateIntersection", args=args, kwargs=kwargs)
 
 
 def MultipleRingBuffer(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.MultipleRingBuffer")
+    raise_unsupported("analysis.MultipleRingBuffer", args=args, kwargs=kwargs)
 
 
 def PointDistance(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.PointDistance")
+    raise_unsupported("analysis.PointDistance", args=args, kwargs=kwargs)
 
 
 def SummarizeWithin(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.SummarizeWithin")
+    raise_unsupported("analysis.SummarizeWithin", args=args, kwargs=kwargs)
 
 
 def SymmetricalDifference(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.SymmetricalDifference")
+    raise_unsupported("analysis.SymmetricalDifference", args=args, kwargs=kwargs)
 
 
 def Update(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.Update")
+    raise_unsupported("analysis.Update", args=args, kwargs=kwargs)
 
 
 def Identity(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.Identity")
+    raise_unsupported("analysis.Identity", args=args, kwargs=kwargs)
 
 
 __all__ = [

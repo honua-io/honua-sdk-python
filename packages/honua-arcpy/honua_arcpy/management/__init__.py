@@ -31,7 +31,6 @@ from .._errors import (
     ExecuteError,
     HonuaArcpyConfigurationError,
     HonuaArcpyResolveError,
-    HonuaArcpyUnsupportedError,
 )
 from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
@@ -159,13 +158,16 @@ def SelectLayerByAttribute(
         )
     # SWITCH_SELECTION requires server-side knowledge of the prior result set
     # (arcpy tracks OIDs); we cannot model it through a SQL where clause. The
-    # rest of SelectLayerByAttribute is supported, so raise a targeted
-    # unsupported error scoped to the SWITCH_SELECTION mode -- the generic
-    # raise_unsupported(qualified) would claim the whole function is missing
-    # and contradict the compatibility matrix.
+    # rest of SelectLayerByAttribute is supported, so route the rejection
+    # through ``raise_unsupported`` with a variant-scoped function name so the
+    # audit JSONL records it as an error (the matrix anchor still points at
+    # the supported ``management.SelectLayerByAttribute`` row) instead of
+    # silently raising without an audit line.
     if normalized_type == "SWITCH_SELECTION":
-        raise HonuaArcpyUnsupportedError(
+        raise_unsupported(
             f"{qualified}(selection_type=SWITCH_SELECTION)",
+            args=(in_layer_or_view, selection_type, where_clause),
+            kwargs={"invert_where_clause": invert_where_clause},
             compat_anchor=anchor_for(qualified),
             replacement_hint=(
                 "SWITCH_SELECTION depends on the prior OID set, which the shim "
@@ -425,49 +427,49 @@ class DescribeResult:
 
 
 def AddField(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.AddField")
+    raise_unsupported("management.AddField", args=args, kwargs=kwargs)
 
 
 def DeleteField(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.DeleteField")
+    raise_unsupported("management.DeleteField", args=args, kwargs=kwargs)
 
 
 def Rename(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Rename")
+    raise_unsupported("management.Rename", args=args, kwargs=kwargs)
 
 
 def ListFields(*args: Any, **kwargs: Any) -> Iterable[FieldDescribe]:
-    raise_unsupported("management.ListFields")
+    raise_unsupported("management.ListFields", args=args, kwargs=kwargs)
 
 
 def Describe(*args: Any, **kwargs: Any) -> DescribeResult:
     """``arcpy.Describe(value)`` -- not currently supported by HonuaAdminClient."""
 
-    raise_unsupported("management.Describe")
+    raise_unsupported("management.Describe", args=args, kwargs=kwargs)
 
 
 def SelectLayerByLocation(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.SelectLayerByLocation")
+    raise_unsupported("management.SelectLayerByLocation", args=args, kwargs=kwargs)
 
 
 def Append(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Append")
+    raise_unsupported("management.Append", args=args, kwargs=kwargs)
 
 
 def Merge(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Merge")
+    raise_unsupported("management.Merge", args=args, kwargs=kwargs)
 
 
 def CreateFeatureclass(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.CreateFeatureclass")
+    raise_unsupported("management.CreateFeatureclass", args=args, kwargs=kwargs)
 
 
 def CreateTable(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.CreateTable")
+    raise_unsupported("management.CreateTable", args=args, kwargs=kwargs)
 
 
 def Sort(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Sort")
+    raise_unsupported("management.Sort", args=args, kwargs=kwargs)
 
 
 __all__ = [

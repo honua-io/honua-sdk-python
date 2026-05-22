@@ -104,6 +104,45 @@ def test_select_layer_by_attribute_unknown_selection_type_raises(stub_clients) -
         honua_arcpy.management.SelectLayerByAttribute("roads_lyr", "BOGUS_MODE", "STATUS = 'OPEN'")
 
 
+def test_select_layer_by_attribute_validation_failures_are_audited(stub_clients) -> None:
+    """Pre-dispatch validation failures (missing alias, unknown selection_type)
+    must still write one JSONL audit line under the base function name so the
+    every-shim-call audit contract documented in
+    ``docs/honua-arcpy/README.md`` holds. Previously these paths raised
+    before entering ``record_call`` and produced no audit record at all."""
+
+    import json
+    import os
+    from pathlib import Path
+
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        honua_arcpy.management.SelectLayerByAttribute("does_not_exist", "NEW_SELECTION", "STATUS = 'OPEN'")
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+        honua_arcpy.management.SelectLayerByAttribute("roads_lyr", "BOGUS_MODE", "STATUS = 'OPEN'")
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files, "expected an audit JSONL file"
+    records = [
+        json.loads(line)
+        for line in files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    sla_errors = [
+        rec
+        for rec in records
+        if rec["function"] == "management.SelectLayerByAttribute" and rec.get("status") == "error"
+    ]
+    # Two failures => two error-status audit records (one per call), each
+    # keyed under the base function name and tagged with the shared
+    # ``configuration`` ``error_kind`` from ``HonuaArcpyConfigurationError``
+    # so operators can pivot on the failure category.
+    assert len(sla_errors) == 2
+    assert {rec["error_kind"] for rec in sla_errors} == {"configuration"}
+
+
 def test_select_layer_by_attribute_propagates_backend_failures() -> None:
     # _layer_count must not swallow backend exceptions; a failure should
     # surface as ExecuteError with an audit error record.

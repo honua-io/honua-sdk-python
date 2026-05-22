@@ -79,6 +79,23 @@ def test_matrix_renders_and_check_detects_drift(tmp_path: Path) -> None:
     assert main(["matrix", "--check", str(matrix_path)]) == 1
 
 
+def test_matrix_check_runs_before_output_so_same_path_cannot_mask_drift(tmp_path: Path) -> None:
+    """A caller pointing both --output and --check at the same drifted file
+    must still get a non-zero exit. Previously ``_matrix()`` wrote the
+    fresh-rendered text first and then compared it against itself, so the
+    CI drift gate always reported success regardless of committed drift."""
+
+    matrix_path = tmp_path / "matrix.md"
+    matrix_path.write_text("stale committed content\n", encoding="utf-8")
+
+    exit_code = main(["matrix", "--output", str(matrix_path), "--check", str(matrix_path)])
+    assert exit_code == 1
+    # The drifted file must not have been overwritten with the rendered
+    # text, otherwise re-running --check would silently pass on the next
+    # invocation and hide whatever the committed file used to contain.
+    assert matrix_path.read_text(encoding="utf-8") == "stale committed content\n"
+
+
 def test_render_compat_matrix_contains_anchors() -> None:
     text = render_compat_matrix()
     assert "<a id=\"analysisbuffer\"></a>" in text

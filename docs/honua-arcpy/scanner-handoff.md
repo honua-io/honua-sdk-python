@@ -19,7 +19,13 @@ get a per-call translation TODO list against the compatibility matrix.
   list under `calls`. Each entry carries `qualifiedName`, `family`, and
   `tool` keys, which `assess` matches against the compatibility manifest.
 
-Entries without classifiable names are skipped.
+Entries without classifiable names are skipped. Honest synonyms are
+canonicalized before the manifest lookup so the same operation reports
+under a single row regardless of which name the scanner emitted. Today the
+only entry is `arcpy.management.CopyFeatures` -> `management.Copy` (the
+shim exports `management.CopyFeatures = Copy`); a scan that mixes
+`Copy` and `CopyFeatures` calls aggregates into one `management.Copy`
+supported row instead of one `supported` and one `out-of-scope` row.
 
 Example inventory excerpts:
 

@@ -300,11 +300,10 @@ def _filter_family(family: str) -> dict[str, FunctionEntry]:
 
 def _matrix(args: argparse.Namespace) -> int:
     text = render_compat_matrix()
-    if args.output is not None:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(text, encoding="utf-8")
-    else:
-        sys.stdout.write(text)
+    # ``--check`` runs against the committed file *before* any ``--output``
+    # write so a caller that points both flags at the same path (CI used to
+    # do this) cannot rewrite the committed file with fresh-rendered text
+    # and then compare it to itself, masking real drift.
     if args.check is not None:
         existing = args.check.read_text(encoding="utf-8") if args.check.exists() else ""
         if existing != text:
@@ -313,6 +312,11 @@ def _matrix(args: argparse.Namespace) -> int:
                 "Re-run `honua-arcpy matrix --output <path>` and commit the result.\n"
             )
             return 1
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(text, encoding="utf-8")
+    else:
+        sys.stdout.write(text)
     return 0
 
 

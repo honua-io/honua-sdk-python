@@ -134,3 +134,27 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   line would slip through. The check now matches the regular branch,
   and the new audit-wrapped stubs make every expected-failure golden's
   `audit_lines: 1` actually enforceable.
+
+### Fixes (review pass 5)
+
+- `honua-arcpy matrix --check` now runs the drift comparison *before*
+  any `--output` write, so a caller pointing both flags at the same
+  path (the `honua-arcpy-eval.yml` CI gate previously did this) cannot
+  rewrite the committed file with fresh-rendered text and then compare
+  it to itself, masking real drift. The CI workflow now passes only
+  `--check` (no `--output`); a regression test
+  (`tests/test_cli.py::test_matrix_check_runs_before_output_so_same_path_cannot_mask_drift`)
+  pins the new behavior so a future caller that accidentally adds
+  `--output` back will still get a non-zero exit on drift.
+- `management.SelectLayerByAttribute` now wraps its pre-dispatch
+  validation paths (missing layer alias, unknown `selection_type`) in
+  `record_call`, so the documented "every shim call writes one JSONL
+  line" contract holds for those refusals. The `SWITCH_SELECTION`
+  rejection is still detected before the surrounding `record_call` so
+  `raise_unsupported`'s variant-scoped audit line stays the single
+  audit record for that mode (no double-audit).
+- Updated the matrix CLI examples in `docs/honua-arcpy/README.md` to
+  use explicit file paths (`--check docs/honua-arcpy/compatibility-matrix.md`,
+  `--output docs/honua-arcpy/compatibility-matrix.md`) instead of the
+  argument-free `--check` / directory-form `--output` that the parser
+  never accepted.

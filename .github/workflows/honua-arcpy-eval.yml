@@ -55,9 +55,12 @@ jobs:
           pip install pytest
 
       - name: Generate compatibility matrix (drift check)
+        # --check runs the committed file against a fresh render of the
+        # in-code manifest. We deliberately pass only --check (not --output)
+        # so the gate cannot rewrite the committed file before comparing
+        # against it.
         run: |
           python -m honua_arcpy._cli matrix \
-            --output packages/honua-arcpy/docs/compatibility-matrix.md \
             --check packages/honua-arcpy/docs/compatibility-matrix.md
 
       - name: Run honua-arcpy unit tests

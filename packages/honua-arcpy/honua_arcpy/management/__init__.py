@@ -144,25 +144,15 @@ def SelectLayerByAttribute(
         raise HonuaArcpyConfigurationError(f"{qualified} is not registered in the compatibility manifest.")
 
     session = get_session()
-    alias = session.get_layer(str(in_layer_or_view)) if isinstance(in_layer_or_view, str) else None
-    if alias is None:
-        raise HonuaArcpyConfigurationError(
-            f"SelectLayerByAttribute requires a layer registered via MakeFeatureLayer; got {in_layer_or_view!r}."
-        )
 
+    # SWITCH_SELECTION is detected *before* the surrounding ``record_call``
+    # so ``raise_unsupported`` owns its own variant-scoped audit line and we
+    # do not double-audit (one base-name line from the outer ``record_call``
+    # plus one variant-scoped line from ``raise_unsupported``). The
+    # surrounding ``record_call`` below covers the rest of the validation
+    # paths (missing alias, unknown selection_type, backend failures) so
+    # every other rejection still produces exactly one JSONL line.
     normalized_type = (selection_type or "NEW_SELECTION").upper()
-    if normalized_type not in _SELECTION_TYPES:
-        raise HonuaArcpyConfigurationError(
-            f"SelectLayerByAttribute selection_type={selection_type!r} is not recognized; "
-            f"expected one of {sorted(_SELECTION_TYPES)}."
-        )
-    # SWITCH_SELECTION requires server-side knowledge of the prior result set
-    # (arcpy tracks OIDs); we cannot model it through a SQL where clause. The
-    # rest of SelectLayerByAttribute is supported, so route the rejection
-    # through ``raise_unsupported`` with a variant-scoped function name so the
-    # audit JSONL records it as an error (the matrix anchor still points at
-    # the supported ``management.SelectLayerByAttribute`` row) instead of
-    # silently raising without an audit line.
     if normalized_type == "SWITCH_SELECTION":
         raise_unsupported(
             f"{qualified}(selection_type=SWITCH_SELECTION)",
@@ -176,14 +166,26 @@ def SelectLayerByAttribute(
             ),
         )
 
-    invert = bool(invert_where_clause) if invert_where_clause is not None else False
-    effective_where = where_clause
-    if effective_where and invert:
-        effective_where = f"NOT ({effective_where})"
-
     with record_call(qualified, args=(in_layer_or_view, selection_type, where_clause), kwargs={
         "invert_where_clause": invert_where_clause,
     }, writer=session.audit_writer()) as record:
+        alias = session.get_layer(str(in_layer_or_view)) if isinstance(in_layer_or_view, str) else None
+        if alias is None:
+            raise HonuaArcpyConfigurationError(
+                f"SelectLayerByAttribute requires a layer registered via MakeFeatureLayer; got {in_layer_or_view!r}."
+            )
+
+        if normalized_type not in _SELECTION_TYPES:
+            raise HonuaArcpyConfigurationError(
+                f"SelectLayerByAttribute selection_type={selection_type!r} is not recognized; "
+                f"expected one of {sorted(_SELECTION_TYPES)}."
+            )
+
+        invert = bool(invert_where_clause) if invert_where_clause is not None else False
+        effective_where = where_clause
+        if effective_where and invert:
+            effective_where = f"NOT ({effective_where})"
+
         # Compute the candidate selection but do NOT commit it to the alias
         # until _layer_count succeeds. Mutating alias.where / alias.selection
         # up-front would leave a failed selection on the alias if the backend

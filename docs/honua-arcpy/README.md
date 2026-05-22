@@ -127,6 +127,14 @@ URLs, and secret-shaped strings are stripped before the record lands on disk.
 The operator owns retention and shipping; the writer is append-only with one
 open handle per UTC day.
 
+Unsupported / refused shim calls write the same JSONL record so the stream
+captures *every* attempt rather than only the calls that reached the backend.
+Stubs (e.g. `analysis.Near`, `management.AddField`) and the targeted
+`SelectLayerByAttribute(selection_type=SWITCH_SELECTION)` refusal record with
+`status="error"` and `error_kind="unsupported"`; the redacted `args` /
+`kwargs` round-trip the caller's payload so the migration tool can pivot on
+what was attempted, not just the function name.
+
 ## Coverage summary
 
 The 0.1.0 manifest covers 45 arcpy entry points. 18 are mapped end-to-end
@@ -166,24 +174,41 @@ Notable status changes versus the initial design draft:
   used before `configure(...)` / `HONUA_BASE_URL` is set. Cursor open
   failures route the same configuration error into the JSONL audit's
   `error_kind`, so a missing config does not show up as `GeneratorExit`.
+  Direct `next(cursor)` calls outside the cursor's `with` block (before
+  `__enter__` or after `__exit__`) raise the same configuration error
+  rather than silently yielding from a cached iterator or surfacing the
+  missing `_source` `AttributeError` as a backend `ExecuteError`.
 * `honua_arcpy.HonuaArcpyResolveError` is raised when an arcpy path cannot be
   mapped to a Honua source descriptor.
 
 ## CLI
 
 ```bash
-honua-arcpy assess path/to/inventory.json       # scanner-handoff pivot
-honua-arcpy matrix --check                      # CI doc-gate: fails on drift
-honua-arcpy matrix --output docs/honua-arcpy/   # regenerate matrix files
+honua-arcpy assess path/to/inventory.json                                            # scanner-handoff pivot
+honua-arcpy matrix --check docs/honua-arcpy/compatibility-matrix.md                  # CI doc-gate: fails on drift
+honua-arcpy matrix --output docs/honua-arcpy/compatibility-matrix.md                 # regenerate the matrix file
 ```
+
+The CI workflow passes only `--check` (no `--output`) so the gate cannot
+overwrite the committed file before comparing against it. Run the
+`--output` form locally after manifest edits, then commit the regenerated
+file (run once for each copy --
+`docs/honua-arcpy/compatibility-matrix.md` and
+`packages/honua-arcpy/docs/compatibility-matrix.md`).
 
 `assess` consumes both documented scanner shapes -- the
 `ArcPyScriptInventoryArtifact` JSON emitted by
 `honua_admin.scan_arcpy_script` (entries under `toolCalls` / legacy
 `tool_calls`) and the `ArcPyScanReport` emitted by
 `honua_sdk.migration.scan_arcpy_source(...).to_dict()` /
-`scan_arcpy_file(...)` (entries under `calls`). It writes
-`honua-arcpy-assessment.json` alongside the bucketed stdout summary. See
+`scan_arcpy_file(...)` (entries under `calls`). Honest synonyms that resolve
+through a single shim entry (today: `arcpy.management.CopyFeatures` maps to
+the supported `management.Copy` row -- the shim itself exports
+`management.CopyFeatures = Copy`) are canonicalized before the manifest
+lookup, so `CopyFeatures` scans report as `supported` instead of dropping
+into the out-of-scope bucket and aggregate with any `Copy` scans into a
+single row. It writes `honua-arcpy-assessment.json` alongside the bucketed
+stdout summary. See
 [scanner-handoff.md](scanner-handoff.md) for the migration-tool integration.
 
 ## Distribution

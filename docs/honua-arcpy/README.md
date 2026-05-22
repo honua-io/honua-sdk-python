@@ -47,6 +47,14 @@ The session is bootstrapped in one of two ways:
 * Environment: `HONUA_BASE_URL`, `HONUA_API_KEY`, and `HONUA_BEARER_TOKEN`
   are picked up by `honua_arcpy.configure_from_env()`.
 
+Calling `configure(...)` again with a different `base_url`, `api_key`,
+`bearer_token`, or extra client kwarg invalidates the cached Honua /
+Admin / OGC Processes clients so the next backend call rebuilds against
+the new settings. Explicit `client=` / `admin_client=` /
+`processes_client=` arguments passed in the same call still win.
+Idempotent reconfigures (re-passing the same values) leave the cache
+untouched.
+
 Path resolution: customers can declare an explicit alias map via
 `HONUA_ARCPY_PATH_MAP='{"local_name": "honua://services/foo/bar"}'` for
 unrecognized GDB / SDE / file paths. `MakeFeatureLayer` and `MakeTableView`
@@ -67,6 +75,10 @@ Output protection: process backends register every output path as an alias.
 With `arcpy.env.overwriteOutput = False` (the default), a second call that
 targets the same output name raises `HonuaArcpyConfigurationError`. Set
 `overwriteOutput = True` to let subsequent calls replace prior outputs.
+If `processes.execute(...)` itself raises (e.g. a transport error from the
+OGC Processes client), the dispatcher rolls back any output aliases it
+registered during input projection, so a retry of the same call is not
+blocked by the duplicate-output guard.
 
 Cursor filters: `MakeFeatureLayer(where_clause=...)` and
 `SelectLayerByAttribute(...)` write the effective filter onto the layer

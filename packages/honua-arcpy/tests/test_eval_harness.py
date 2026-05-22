@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -86,3 +87,83 @@ def test_classify_expected_failure_honours_golden_audit_lines(tmp_path: Path) ->
     assert status == "fail"
     assert expected_failure is True
     assert reason is not None and "audit line count" in reason
+
+
+def test_run_script_always_rebuilds_pythonpath_when_host_sets_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``_run_script`` must always append the sibling-package paths to
+    ``PYTHONPATH`` -- previously it used ``env.setdefault(...)``, which
+    left a host-provided PYTHONPATH untouched so eval scripts on CI / shell
+    hosts with PYTHONPATH already set could fail to import
+    ``honua_arcpy`` / ``honua_sdk`` / ``honua_admin``.
+    """
+
+    import subprocess
+    from run_eval import _build_pythonpath, _run_script
+
+    monkeypatch.setenv("PYTHONPATH", "/host/preexisting")
+
+    captured: dict[str, str] = {}
+
+    class _FakeResult:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, *, capture_output, text, env, timeout, check):  # type: ignore[no-untyped-def]
+        captured["pythonpath"] = env["PYTHONPATH"]
+        return _FakeResult()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    script = tmp_path / "noop_eval.py"
+    script.write_text("", encoding="utf-8")
+    audit_root = tmp_path / "audit"
+    audit_root.mkdir()
+
+    _run_script(script, audit_root=audit_root, timeout=5.0)
+
+    rebuilt = _build_pythonpath("/host/preexisting")
+    assert captured["pythonpath"] == rebuilt, (
+        "Host-provided PYTHONPATH was not augmented with the eval-package extras"
+    )
+    parts = captured["pythonpath"].split(os.pathsep)
+    assert "/host/preexisting" in parts, "Existing PYTHONPATH entry must be preserved"
+    assert str(_PACKAGE_ROOT) in parts, "honua-arcpy package path must be appended"
+
+
+def test_run_script_builds_pythonpath_when_host_has_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """When no PYTHONPATH is set on the host, ``_run_script`` must still
+    seed it with the sibling-package paths so the subprocess can import the
+    workspace packages."""
+
+    import subprocess
+    from run_eval import _run_script
+
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+
+    captured: dict[str, str] = {}
+
+    class _FakeResult:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, *, capture_output, text, env, timeout, check):  # type: ignore[no-untyped-def]
+        captured["pythonpath"] = env["PYTHONPATH"]
+        return _FakeResult()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    script = tmp_path / "noop_eval.py"
+    script.write_text("", encoding="utf-8")
+    audit_root = tmp_path / "audit"
+    audit_root.mkdir()
+
+    _run_script(script, audit_root=audit_root, timeout=5.0)
+
+    parts = captured["pythonpath"].split(os.pathsep)
+    assert str(_PACKAGE_ROOT) in parts

@@ -107,7 +107,12 @@ def _run_script(
     env = os.environ.copy()
     env["HONUA_ARCPY_AUDIT_DIR"] = str(audit_dir)
     env.setdefault("HONUA_ARCPY_EVAL_USE_STUB", "1")
-    env.setdefault("PYTHONPATH", _build_pythonpath(env.get("PYTHONPATH", "")))
+    # ``_build_pythonpath`` preserves the existing PYTHONPATH and appends the
+    # sibling-package extras (only when not already present). Assigning
+    # unconditionally is required: an earlier ``env.setdefault(...)`` would
+    # leave a host-provided PYTHONPATH untouched and eval scripts could fail
+    # to import honua_arcpy / honua_sdk / honua_admin.
+    env["PYTHONPATH"] = _build_pythonpath(env.get("PYTHONPATH", ""))
     if extra_env:
         env.update(extra_env)
     start = time.perf_counter()

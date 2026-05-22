@@ -76,17 +76,38 @@ class HonuaSession:
         omitted, the session lazily constructs sync clients from
         ``base_url`` + auth using ``honua_sdk.HonuaClient`` and
         ``honua_admin.HonuaAdminClient``.
+
+        When the connection settings (``base_url``, ``api_key``,
+        ``bearer_token``, or extra ``**client_kwargs``) change, any
+        previously cached clients are dropped so the next ``client()``
+        / ``admin_client()`` / ``processes_client()`` accessor rebuilds
+        against the new settings. Explicit ``client=`` / ``admin_client=``
+        / ``processes_client=`` arguments are applied *after* this
+        invalidation, so they still win in the same call.
         """
 
         with self._lock:
-            if base_url is not None:
+            connection_changed = False
+            if base_url is not None and base_url != self.base_url:
                 self.base_url = base_url
-            if api_key is not None:
+                connection_changed = True
+            if api_key is not None and api_key != self.api_key:
                 self.api_key = api_key
-            if bearer_token is not None:
+                connection_changed = True
+            if bearer_token is not None and bearer_token != self.bearer_token:
                 self.bearer_token = bearer_token
+                connection_changed = True
             if client_kwargs:
                 self.extra_client_options = {**self.extra_client_options, **client_kwargs}
+                connection_changed = True
+            if connection_changed:
+                # Connection settings shifted; drop cached clients so the next
+                # accessor call rebuilds against the new endpoint / auth.
+                # Without this, a previously-built client keeps using the
+                # old base_url / api_key after a reconfigure.
+                self._client = None
+                self._admin = None
+                self._processes = None
             if client is not None:
                 self._client = client
                 self._processes = None  # rebuild from client

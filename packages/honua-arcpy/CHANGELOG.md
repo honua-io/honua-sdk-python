@@ -192,3 +192,31 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   scanner-handoff page lives in the workspace `docs/honua-arcpy/`
   tree, not the package docs directory). Added a short paragraph
   pointing readers to the correct locations.
+
+### Fixes (review pass 7)
+
+- `HonuaSession.configure(...)` now invalidates the cached
+  `_client` / `_admin` / `_processes` references whenever
+  connection-relevant fields (`base_url`, `api_key`, `bearer_token`,
+  or extra `**client_kwargs`) change. Previously a script that called
+  `configure(base_url="a", api_key="k1")`, dispatched once, then
+  called `configure(base_url="b", api_key="k2")` would keep using the
+  client built against the first URL/auth, silently sending traffic
+  to the wrong deployment until `reset()` was invoked. Explicit
+  `client=` / `admin_client=` / `processes_client=` arguments are
+  still applied *after* the invalidation, so they continue to win in
+  the same call. Idempotent reconfigures (re-passing the same values)
+  do not invalidate the cache. Regression tests live in the new
+  `tests/test_session.py`.
+- `eval/run_eval.py::_run_script` now unconditionally rebuilds the
+  subprocess `PYTHONPATH` from `_build_pythonpath(...)` instead of
+  using `env.setdefault`. The prior `setdefault` left a host-provided
+  `PYTHONPATH` untouched, so eval scripts on CI / shell hosts where
+  `PYTHONPATH` was already set could fail to import `honua_arcpy` /
+  `honua_sdk` / `honua_admin` unless those packages happened to be
+  pre-installed. `_build_pythonpath` already preserves existing
+  entries and de-duplicates against the appended extras, so behavior
+  on hosts without `PYTHONPATH` is unchanged. Two regression tests
+  (`test_run_script_always_rebuilds_pythonpath_when_host_sets_it`,
+  `test_run_script_builds_pythonpath_when_host_has_none`) cover both
+  cases in `tests/test_eval_harness.py`.

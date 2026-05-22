@@ -238,12 +238,15 @@ file (run once for each copy --
 `honua_sdk.migration.scan_arcpy_source(...).to_dict()` /
 `scan_arcpy_file(...)` (entries under `calls`). Honest synonyms that resolve
 through a single shim entry (today: `arcpy.management.CopyFeatures` maps to
-the supported `management.Copy` row -- the shim itself exports
+the `management.Copy` row -- the shim itself exports
 `management.CopyFeatures = Copy`) are canonicalized before the manifest
-lookup, so `CopyFeatures` scans report as `supported` instead of dropping
-into the out-of-scope bucket and aggregate with any `Copy` scans into a
-single row. It writes `honua-arcpy-assessment.json` alongside the bucketed
-stdout summary. See
+lookup, so `CopyFeatures` scans aggregate with any `Copy` scans into a
+single row rather than dropping into the out-of-scope bucket. The row's
+**status** follows the underlying manifest entry -- `management.Copy` is a
+stub today after audit pass 8 (tracking `honua-server#arcpy-copy-features-adapter`),
+so canonicalized `CopyFeatures` calls report under **Stubs** with that
+ticket, not under **Supported**. It writes `honua-arcpy-assessment.json`
+alongside the bucketed stdout summary. See
 [scanner-handoff.md](scanner-handoff.md) for the migration-tool integration.
 
 ## Distribution

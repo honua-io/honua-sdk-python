@@ -175,25 +175,55 @@ jobs:
           YAML
           docker compose -f "${compose_file}" -f "${override_file}" up -d honua
           echo "HONUA_BASE_URL=http://localhost:5000" >> "${GITHUB_ENV}"
+          # Poll the same readiness endpoint the compose healthcheck uses
+          # (``/healthz/ready``); ``/health`` is not registered on
+          # honua-server. The loop tracks success and exits non-zero if it
+          # exhausts retries so the smoke step does not run against an
+          # unready (or absent) server.
+          ready="false"
           for _ in $(seq 1 60); do
-            if curl -fsS "${HONUA_BASE_URL}/health" >/dev/null 2>&1; then
+            if curl -fsS "http://localhost:5000/healthz/ready" >/dev/null 2>&1; then
+              ready="true"
               break
             fi
             sleep 2
           done
+          if [[ "${ready}" != "true" ]]; then
+            echo "::error::honua-server did not become ready on /healthz/ready within 120s"
+            docker compose -f "${compose_file}" -f "${override_file}" logs honua | tail -100 || true
+            exit 1
+          fi
 
       - name: Run ephemeral smoke
         env:
           HONUA_ARCPY_EVAL_USE_STUB: "0"
           HONUA_ARCPY_AUDIT_DIR: ${{ runner.temp }}/honua-arcpy-smoke-audit
+          # The supported eval scripts reference ``roads`` /
+          # ``segments_attrs`` (the legacy demo names baked into the
+          # generator). When running against the seeded client-compat
+          # compose target those names do not exist, so redirect both to
+          # the seeded ``test_service`` / layer 0 via the shim's existing
+          # ``HONUA_ARCPY_PATH_MAP`` env. The operator may override this
+          # by setting the ``HONUA_ARCPY_PATH_MAP`` repo variable when
+          # the deployment behind ``HONUA_BASE_URL`` exposes ``transport``
+          # natively.
+          HONUA_ARCPY_PATH_MAP: >-
+            ${{ vars.HONUA_ARCPY_PATH_MAP || '{"roads": "honua://services/test_service/0", "segments_attrs": "honua://services/test_service/0"}' }}
         run: |
           set -euo pipefail
           if [[ -z "${HONUA_BASE_URL:-}" ]]; then
             echo "::error::HONUA_BASE_URL is not set; refusing to run a non-stub eval against an unknown target."
             exit 1
           fi
+          # ``--require-supported-pass-rate 1.0`` is the live-mode gate that
+          # closes the prior 0.70 loophole: the 39/50 expected_failure
+          # scripts alone produce a ~78% pass rate, so a total collapse of
+          # the 11 supported scripts used to stay green. The new flag
+          # tracks the supported-surface pass rate independently and fails
+          # the run if any supported script regresses.
           python packages/honua-arcpy/eval/run_eval.py \
             --output-json packages/honua-arcpy/smoke-eval.json \
             --output-junit packages/honua-arcpy/smoke-eval.xml \
             --audit-root packages/honua-arcpy/eval/.audit-live \
-            --pass-threshold 0.70
+            --pass-threshold 0.70 \
+            --require-supported-pass-rate 1.0

@@ -210,8 +210,17 @@ COMPAT: dict[str, FunctionEntry] = {
     "analysis.MultipleRingBuffer": FunctionEntry(
         backend="not_implemented",
         status="stub",
-        notes="Multi-ring buffer wraps geometry.buffer across distance bands.",
-        replacement_hint="Loop honua_arcpy.analysis.Buffer over each distance band and merge.",
+        notes=(
+            "Multi-ring buffer wraps geometry.buffer across distance bands. "
+            "Blocked on the same projection adapter as analysis.Buffer (see "
+            "honua-server#feature-class-geometry-ops); honua_arcpy.analysis.Buffer "
+            "is itself a stub today, so composing it is not a workaround."
+        ),
+        replacement_hint=(
+            "Iterate features client-side via honua_sdk.Source.iter_features, "
+            "call honua_sdk.protocols.OgcProcessesClient.execute('geometry.buffer') "
+            "for each distance band, and merge the per-band geometries client-side."
+        ),
         tracking="honua-server#multiple-ring-buffer",
     ),
     "analysis.PointDistance": FunctionEntry(
@@ -231,8 +240,17 @@ COMPAT: dict[str, FunctionEntry] = {
     "analysis.SymmetricalDifference": FunctionEntry(
         backend="not_implemented",
         status="stub",
-        notes="Returns features that fall in exactly one input.",
-        replacement_hint="Compose Union minus Intersect; both processes are supported.",
+        notes=(
+            "Returns features that fall in exactly one input. Blocked on the "
+            "same projection adapter as analysis.Union / analysis.Intersect "
+            "(both stubs today), so composing those shims is not a workaround."
+        ),
+        replacement_hint=(
+            "Iterate features client-side via honua_sdk.Source.iter_features "
+            "and compose the difference via "
+            "honua_sdk.protocols.OgcProcessesClient.execute('geometry.union') "
+            "and 'geometry.intersect' directly with base64-WKB geometries."
+        ),
         tracking="honua-server#symmetrical-difference",
     ),
     "analysis.Update": FunctionEntry(
@@ -245,8 +263,17 @@ COMPAT: dict[str, FunctionEntry] = {
     "analysis.Identity": FunctionEntry(
         backend="not_implemented",
         status="stub",
-        notes="Computes geometric identity between two layers.",
-        replacement_hint="Compose Intersect + retain unmatched input rows client-side.",
+        notes=(
+            "Computes geometric identity between two layers. Blocked on the "
+            "same projection adapter as analysis.Intersect (a stub today), so "
+            "composing that shim is not a workaround."
+        ),
+        replacement_hint=(
+            "Iterate target features via honua_sdk.Source.iter_features, call "
+            "honua_sdk.protocols.OgcProcessesClient.execute('geometry.intersect') "
+            "to compute the intersected geometry, and retain unmatched input "
+            "rows client-side."
+        ),
         tracking="honua-server#identity",
     ),
     # -----------------------------------------------------------------
@@ -278,8 +305,21 @@ COMPAT: dict[str, FunctionEntry] = {
     "management.SelectLayerByLocation": FunctionEntry(
         backend="not_implemented",
         status="stub",
-        notes="Spatial selection composed of buffer + intersect when no native process exists.",
-        replacement_hint="Use honua_arcpy.analysis.Buffer + analysis.Intersect, then SelectLayerByAttribute.",
+        notes=(
+            "Spatial selection by relationship to another layer. honua-server "
+            "has no native spatial-select process today, and the natural "
+            "compose path (analysis.Buffer + analysis.Intersect, then "
+            "SelectLayerByAttribute) is blocked because Buffer and Intersect "
+            "are themselves stubs pending the projection adapter."
+        ),
+        replacement_hint=(
+            "Query the candidate features via honua_sdk.Source.query(...) with "
+            "a bbox prefilter, compute the spatial relationship client-side "
+            "(or via honua_sdk.protocols.OgcProcessesClient geometry.* calls "
+            "with base64-WKB inputs), then call "
+            "management.SelectLayerByAttribute with a where clause that pins "
+            "the resulting OID set (OBJECTID IN (...))."
+        ),
         tracking="honua-server#spatial-filter",
     ),
     "management.CalculateField": FunctionEntry(

@@ -137,3 +137,42 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
             "contract or downgrade the entry to a stub until a projection "
             "adapter lands."
         )
+
+
+def test_stub_hints_do_not_recommend_stubbed_sibling_shims() -> None:
+    """A stub's ``replacement_hint`` must not tell the customer to call
+    another ``honua_arcpy.<family>.<func>`` that is itself a stub.
+
+    Audit pass 8 downgraded 11 process-backed entries to stubs at once.
+    Several other stubs' replacement hints (``analysis.MultipleRingBuffer``
+    pointed at ``honua_arcpy.analysis.Buffer``;
+    ``analysis.SymmetricalDifference`` told callers to "Compose Union minus
+    Intersect; both processes are supported"; ``analysis.Identity``
+    referenced ``Intersect``; ``management.SelectLayerByLocation``
+    referenced ``analysis.Buffer + analysis.Intersect``) silently shipped a
+    workaround that immediately raises ``HonuaArcpyUnsupportedError``
+    against the stubbed sibling. This invariant prevents that regression:
+    a stub may describe the relationship to another stubbed shim, but it
+    cannot recommend calling it.
+    """
+
+    stub_names = {name for name, entry in COMPAT.items() if entry.status == "stub"}
+    for name, entry in COMPAT.items():
+        if entry.status != "stub" or not entry.replacement_hint:
+            continue
+        hint = entry.replacement_hint
+        for sibling in stub_names:
+            # Only flag the fully-qualified ``honua_arcpy.<family>.<func>``
+            # invocation form in the replacement_hint. Bare references like
+            # "analysis.Buffer" or appearances in the ``notes`` field are
+            # allowed because they may describe the relationship ("blocked
+            # on the same adapter as analysis.Buffer") rather than
+            # recommend a call.
+            invocation = f"honua_arcpy.{sibling}"
+            assert invocation not in hint, (
+                f"{name}: replacement_hint recommends calling {invocation}, "
+                "which is itself a stub. Point at the underlying honua_sdk / "
+                "honua_admin call (or the OGC Processes client) instead, or "
+                "acknowledge the shared blocker without inviting another "
+                "HonuaArcpyUnsupportedError."
+            )

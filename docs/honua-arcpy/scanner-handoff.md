@@ -25,7 +25,11 @@ under a single row regardless of which name the scanner emitted. Today the
 only entry is `arcpy.management.CopyFeatures` -> `management.Copy` (the
 shim exports `management.CopyFeatures = Copy`); a scan that mixes
 `Copy` and `CopyFeatures` calls aggregates into one `management.Copy`
-supported row instead of one `supported` and one `out-of-scope` row.
+row instead of one stub-bucket row and one `out-of-scope` row. The row's
+status follows the manifest entry: after audit pass 8, `management.Copy`
+is a stub (tracking `honua-server#arcpy-copy-features-adapter`), so the
+canonicalized `CopyFeatures` calls report under **Stubs**, not under
+**Supported**, until the projection adapter lands.
 
 Example inventory excerpts:
 
@@ -33,8 +37,8 @@ Example inventory excerpts:
 // honua_admin.scan_arcpy_script shape
 {
   "toolCalls": [
+    { "call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management" },
     { "call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis" },
-    { "call": "arcpy.management.SelectLayerByLocation", "tool": "SelectLayerByLocation", "toolbox": "management" },
     { "call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa" }
   ]
 }
@@ -44,8 +48,8 @@ Example inventory excerpts:
 // honua_sdk.migration.scan_arcpy_source(...).to_dict() shape
 {
   "calls": [
-    { "qualifiedName": "arcpy.analysis.Buffer", "family": "analysis", "tool": "Buffer" },
-    { "qualifiedName": "arcpy.management.SelectLayerByLocation", "family": "management", "tool": "SelectLayerByLocation" }
+    { "qualifiedName": "arcpy.management.MakeFeatureLayer", "family": "management", "tool": "MakeFeatureLayer" },
+    { "qualifiedName": "arcpy.analysis.Buffer", "family": "analysis", "tool": "Buffer" }
   ]
 }
 ```
@@ -77,19 +81,27 @@ Supported: 1  Stubs: 1  Out-of-scope: 1
 
 Supported (run unchanged)
 -------------------------
-  [  1x] analysis.Buffer  --  Vector buffer; dispatches to honua-server geometry.buffer.
+  [  1x] management.MakeFeatureLayer  --  Creates an in-process layer alias; deviation: alias is bound to a Honua source descriptor.
 
 Stubs (will raise -- replacement hint shown)
 --------------------------------------------
-  [  1x] management.SelectLayerByLocation  --  Spatial selection composed of buffer + intersect when no native process exists.
-       hint: Use honua_arcpy.analysis.Buffer + analysis.Intersect, then SelectLayerByAttribute.
-       tracking: honua-server#spatial-filter
+  [  1x] analysis.Buffer  --  honua-server's geometry.buffer takes a single base64-WKB geometry plus srid+distance, not a feature class. The arcpy feature-class semantic requires a per-feature WKB serialization adapter that does not yet exist.
+       hint: Iterate features client-side via honua_sdk.Source.iter_features(...), buffer each geometry through the geoprocessing client, and write the result back via Source.apply_edits.
+       tracking: honua-server#feature-class-geometry-ops
 
 Out of MVP scope
 ----------------
   [  1x] sa.Slope  --  Not in honua-arcpy MVP scope (sa/na/ddd/mp).
        hint: Open a backlog ticket; see docs/honua-arcpy/scanner-handoff.md.
 ```
+
+Audit pass 8 downgraded the 11 process-backed analysis/management
+entries (`Buffer`, `Clip`, `Intersect`, `Union`, `Erase`,
+`SpatialJoin`, `CalculateField`, `Dissolve`, `Copy`, `Delete`,
+`Project`) to stubs because their payloads did not match honua-server's
+`BuiltInProcessCatalog` inputs; each one will surface here under
+**Stubs** with the per-function `honua-server#...` tracking ticket
+shown above until the projection adapter lands.
 
 ## Programmatic API
 

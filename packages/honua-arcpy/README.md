@@ -59,10 +59,25 @@ arcpy.configure(base_url="https://honua.example.com", api_key="...")
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
-arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
-arcpy.management.Project("roads_clip", "roads_wgs84", 4326)
+# Session/source-backed shims run end-to-end against honua-server today.
+arcpy.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+open_count = int(arcpy.management.GetCount("roads_lyr"))
+with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+    for row in cursor:
+        if row[1] == "CLOSED":
+            cursor.deleteRow()
 ```
+
+Process-backed shims (``analysis.Buffer`` / ``Clip`` / ``Intersect`` /
+``Union`` / ``Erase`` / ``SpatialJoin`` and ``management.CalculateField``
+/ ``Dissolve`` / ``Copy`` / ``Delete`` / ``Project``) currently raise
+``HonuaArcpyUnsupportedError`` -- audit pass 8 downgraded them because
+their payloads did not match honua-server's ``BuiltInProcessCatalog``
+inputs (see [`CHANGELOG.md`](CHANGELOG.md) and the Status section
+below). The migration tool surfaces each one as a ``stub`` with a
+``honua-server#...`` tracking ticket so customers know what work
+remains. The end-to-end runnable example lives at
+[`examples/buffer_clip_roundtrip.py`](examples/buffer_clip_roundtrip.py).
 
 The shim writes one JSONL line per call to
 `${HONUA_ARCPY_AUDIT_DIR:-./.honua-arcpy/audit}/audit-YYYYMMDD.jsonl`. Run

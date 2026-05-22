@@ -285,3 +285,62 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   (`test_run_script_always_rebuilds_pythonpath_when_host_sets_it`,
   `test_run_script_builds_pythonpath_when_host_has_none`) cover both
   cases in `tests/test_eval_harness.py`.
+
+### Fixes (review pass 9)
+
+- **Live smoke gating no longer hides supported-surface regressions.**
+  `eval/run_eval.py` gained `--require-supported-pass-rate <N>`, an
+  independent gate that tracks the pass rate of non-`expected_failure`
+  scripts and exits non-zero if it falls below the supplied threshold.
+  `.github/workflows/honua-arcpy-eval.yml` passes `1.0` in the live
+  smoke step, so a regression on any of the 11 supported scripts now
+  fails the run even though the 39 expected-failure scripts alone
+  would keep the headline `--pass-threshold 0.70` satisfied (the
+  previous setup produced a ~78% pass rate even when every supported
+  script failed). The new flag defaults to `0.0` so the stub-mode CI
+  lane is unchanged. Tests: `tests/test_eval_harness.py::
+  {test_main_fails_when_supported_pass_rate_below_required,
+  test_main_passes_when_supported_pass_rate_meets_required}`.
+- **Live smoke redirects legacy script names to seeded data.** The
+  supported eval scripts reference `roads` / `segments_attrs` (legacy
+  demo names baked into the generator). The seeded client-compat
+  compose target exposes `test_service` / layer 0 instead, so the
+  live smoke step now sets `HONUA_ARCPY_PATH_MAP` to redirect both
+  names to `honua://services/test_service/0` via the shim's existing
+  alias map. Operators may override the redirect via the
+  `HONUA_ARCPY_PATH_MAP` repo variable when their `HONUA_BASE_URL`
+  deployment exposes `transport` natively.
+- **Ephemeral smoke health probe waits on the right endpoint.** The
+  local-stack readiness loop now polls `/healthz/ready` (the
+  endpoint the compose healthcheck uses) instead of the unregistered
+  `/health`, and exits non-zero with a `::error::` annotation plus a
+  tail of the honua-server logs when the loop exhausts its 60-attempt
+  / 120-second budget. The prior loop fell through silently on
+  exhaustion and ran the smoke against an unproven-ready server.
+- **Stub replacement hints no longer recommend stubbed siblings.**
+  Four stubs whose `replacement_hint` pointed at sibling shims that
+  were themselves stubbed after pass 8 (`analysis.MultipleRingBuffer`
+  -> `analysis.Buffer`; `analysis.SymmetricalDifference` -> "Compose
+  Union minus Intersect; both processes are supported";
+  `analysis.Identity` -> `analysis.Intersect`;
+  `management.SelectLayerByLocation` -> `analysis.Buffer +
+  analysis.Intersect`) were rewritten to either acknowledge the
+  shared projection-adapter blocker explicitly or point at the
+  underlying `honua_sdk.protocols.OgcProcessesClient.execute(...)`
+  call directly. Both compatibility-matrix copies were regenerated;
+  the package-local and workspace copies remain byte-equal. A new
+  contract test
+  (`tests/test_compat_manifest.py::test_stub_hints_do_not_recommend_stubbed_sibling_shims`)
+  pins the invariant by asserting no stub's `replacement_hint`
+  contains `honua_arcpy.<family>.<func>` for any `<func>` that is
+  itself a stub.
+- **`honua-arcpy assess` docs no longer claim `CopyFeatures` reports
+  as supported.** `docs/honua-arcpy/README.md` and
+  `docs/honua-arcpy/scanner-handoff.md` previously said that
+  canonicalized `CopyFeatures` calls land in the `supported` bucket
+  via `management.Copy`. Audit pass 8 downgraded `management.Copy`
+  to a stub; the docs now explain that canonicalization preserves
+  the aggregation invariant but the row's status follows the
+  manifest, so `CopyFeatures` calls report under **Stubs** (tracking
+  `honua-server#arcpy-copy-features-adapter`) until the projection
+  adapter lands.

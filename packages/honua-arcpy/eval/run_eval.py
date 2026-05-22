@@ -72,6 +72,9 @@ class EvalSummary:
     pass_rate: float = 0.0
     results: list[ScriptResult] = field(default_factory=list)
     pass_threshold: float = DEFAULT_PASS_RATE
+    supported_total: int = 0
+    supported_passed: int = 0
+    supported_pass_rate: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,6 +84,9 @@ class EvalSummary:
             "skipped": self.skipped,
             "passRate": self.pass_rate,
             "passThreshold": self.pass_threshold,
+            "supportedTotal": self.supported_total,
+            "supportedPassed": self.supported_passed,
+            "supportedPassRate": self.supported_pass_rate,
             "results": [result.to_dict() for result in self.results],
         }
 
@@ -267,6 +273,16 @@ def run(
             summary.failed += 1
     runnable = summary.total - summary.skipped
     summary.pass_rate = (summary.passed / runnable) if runnable else 0.0
+    # Track the supported-surface pass rate separately so live smoke can fail
+    # fast when any non-expected_failure script regresses, even if the overall
+    # pass rate stays above the headline threshold (the expected_failure block
+    # is large enough to mask total supported-surface collapse otherwise).
+    supported_results = [r for r in summary.results if not r.expected_failure and r.status != "skip"]
+    summary.supported_total = len(supported_results)
+    summary.supported_passed = sum(1 for r in supported_results if r.status == "pass")
+    summary.supported_pass_rate = (
+        summary.supported_passed / summary.supported_total
+    ) if summary.supported_total else 0.0
     return summary
 
 
@@ -346,6 +362,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--pass-threshold", type=float, default=DEFAULT_PASS_RATE)
     parser.add_argument(
+        "--require-supported-pass-rate",
+        type=float,
+        default=0.0,
+        help=(
+            "Independent gate that requires the non-expected_failure pass rate "
+            "to be at least this value. Defaults to 0.0 (off) so stub-mode runs "
+            "are unchanged. Live smoke runs set this to 1.0 so a regression on "
+            "any supported script fails the run even if the expected_failure "
+            "block keeps the headline pass rate above --pass-threshold."
+        ),
+    )
+    parser.add_argument(
         "--fail-under",
         action="store_true",
         default=True,
@@ -372,9 +400,22 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     sys.stdout.write(
         f"honua-arcpy eval: {summary.passed}/{summary.total} passed ({summary.pass_rate:.0%}); "
-        f"threshold {args.pass_threshold:.0%}\n"
+        f"threshold {args.pass_threshold:.0%}; "
+        f"supported {summary.supported_passed}/{summary.supported_total} "
+        f"({summary.supported_pass_rate:.0%}); "
+        f"supported-required {args.require_supported_pass_rate:.0%}\n"
     )
     if args.fail_under and summary.pass_rate + 1e-9 < args.pass_threshold:
+        return 1
+    if (
+        args.require_supported_pass_rate > 0.0
+        and summary.supported_pass_rate + 1e-9 < args.require_supported_pass_rate
+    ):
+        sys.stdout.write(
+            "honua-arcpy eval: supported-surface pass rate "
+            f"{summary.supported_pass_rate:.0%} is below required "
+            f"{args.require_supported_pass_rate:.0%}\n"
+        )
         return 1
     return 0
 

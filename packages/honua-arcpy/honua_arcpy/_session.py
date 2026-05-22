@@ -249,11 +249,16 @@ class HonuaSession:
             )
         from honua_admin import HonuaAdminClient
 
-        kwargs: dict[str, Any] = {}
+        # Mirror ``_build_client``: start from ``extra_client_options`` so
+        # ``configure(..., transport=..., timeout=..., auth_provider=...,
+        # follow_redirects=..., max_retries=...)`` reaches both the data and
+        # admin clients. Without this, the admin client silently dropped every
+        # kwarg the docs promised would forward.
+        kwargs: dict[str, Any] = dict(self.extra_client_options)
         if self.api_key is not None:
-            kwargs["api_key"] = self.api_key
+            kwargs.setdefault("api_key", self.api_key)
         if self.bearer_token is not None:
-            kwargs["bearer_token"] = self.bearer_token
+            kwargs.setdefault("bearer_token", self.bearer_token)
         return HonuaAdminClient(self.base_url, **kwargs)
 
 

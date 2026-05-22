@@ -344,3 +344,60 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   manifest, so `CopyFeatures` calls report under **Stubs** (tracking
   `honua-server#arcpy-copy-features-adapter`) until the projection
   adapter lands.
+
+### Fixes (review pass 10)
+
+- **`InsertCursor.reset()` no longer silently drops buffered inserts.**
+  `BaseCursor.reset()` calls `_reset()`, and `InsertCursor._reset`
+  cleared `_inserts` / `_inserted`. Because `_close` only flushes
+  when the buffer is non-empty, an `insertRow(...); reset(); <context
+  exit>` sequence committed nothing to the backend, raised nothing,
+  and emitted an `audit JSONL line with `status="ok"`. Real
+  `arcpy.da.InsertCursor` does not expose `reset()`. The shim now
+  overrides `InsertCursor.reset` to call `_ensure_open()` (so a
+  pre-context use surfaces the standard configuration error first)
+  then raises `HonuaArcpyConfigurationError` with a message
+  pointing callers at `flush()` or `__exit__`. The audit JSONL
+  carries the refusal with `status="error"` and
+  `error_kind="configuration"`. Regression tests:
+  `tests/test_da_cursors.py::{test_insert_cursor_reset_refuses_to_drop_buffered_inserts,
+  test_insert_cursor_reset_does_not_clear_buffer_before_raising,
+  test_insert_cursor_reset_outside_context_raises_configuration_error}`.
+- **Cursor row-length mismatches surface as `ExecuteError`.**
+  `_payload_for_row` used `zip(row, fields, strict=True)`, so a
+  short or long row argument to `UpdateCursor.updateRow` /
+  `InsertCursor.insertRow` raised a bare `ValueError` that the
+  documented `except arcpy.ExecuteError:` idiom did not catch.
+  `_payload_for_row` now compares `len(row)` against `len(fields)`
+  before the zip and raises `HonuaArcpyConfigurationError` (an
+  `ExecuteError` subclass) with the expected / got counts in the
+  message. The audit JSONL records the failure with the real
+  `error_kind`. Same regression-test family in
+  `tests/test_da_cursors.py::{test_update_cursor_update_row_length_mismatch_raises_configuration_error,
+  test_update_cursor_update_row_short_row_raises_configuration_error,
+  test_insert_cursor_insert_row_length_mismatch_raises_configuration_error,
+  test_row_length_mismatch_caught_by_execute_error}`.
+- **`HonuaArcpyUnsupportedError.compat_anchor` URLs resolve.**
+  `_compat.COMPAT_REPO_DOC` was `"docs/compatibility-matrix.md"`, a
+  path that does not exist in this repo (the committed copies are
+  `docs/honua-arcpy/compatibility-matrix.md` and
+  `packages/honua-arcpy/docs/compatibility-matrix.md`). Every
+  unsupported-error message embedded the bad path, so a user who
+  pasted the URL into the repo browser got a 404. The constant
+  now points at `docs/honua-arcpy/compatibility-matrix.md` (the
+  public-facing copy) and carries a comment explaining why the
+  byte-equal package-local copy was not chosen. Regression test:
+  `tests/test_compat_manifest.py::test_compat_repo_doc_points_at_a_committed_matrix_copy`
+  asserts the path resolves from the repo root and that
+  `anchor_for(...)` builds URLs against the same path.
+- **Admin client honours `configure(..., **client_kwargs)`.**
+  `HonuaSession._build_admin_client` started with an empty `kwargs`
+  dict, so options the docs promised would forward into the admin
+  client (`timeout`, `transport`, `auth_provider`,
+  `follow_redirects`, `max_retries`) were silently dropped --
+  `_build_client` already mirrored them into the data client. The
+  admin builder now starts from `dict(self.extra_client_options)`
+  and layers the session-level credentials via `setdefault`, so a
+  test-only `transport=` or a tuned `timeout=` reaches both
+  clients. Regression test:
+  `tests/test_session.py::test_configure_forwards_extra_client_options_to_admin_client`.

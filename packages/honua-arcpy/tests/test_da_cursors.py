@@ -415,3 +415,142 @@ def test_update_cursor_next_after_exit_raises_configuration_error(stub_clients) 
     assert cursor_obj is not None
     with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
         next(cursor_obj)
+
+
+def test_insert_cursor_reset_refuses_to_drop_buffered_inserts() -> None:
+    """``InsertCursor.reset`` must refuse rather than silently discard
+    buffered rows. Real ``arcpy.da.InsertCursor`` has no reset method; the
+    inherited ``BaseCursor.reset`` would otherwise clear ``_inserts`` /
+    ``_inserted`` and the subsequent ``_close`` would skip ``flush`` because
+    the buffer is empty -- a silent data loss the audit JSONL never sees.
+    """
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingSource:
+        def apply_edits(self, **kwargs: Any) -> Any:
+            captured.update(kwargs)
+            return {"ok": True}
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError) as info:
+        with honua_arcpy.da.InsertCursor("roads", ["STATUS"]) as cursor:
+            cursor.insertRow(["OPEN"])
+            cursor.reset()
+    assert "InsertCursor does not support reset" in str(info.value)
+    # The buffer must reach apply_edits despite the exception unwinding the
+    # context manager -- the refusal happens *before* the buffer is cleared,
+    # so the user can still recover by catching the error and calling flush.
+    # However in this test we exit with the exception so __exit__'s _close
+    # early-returns: the failure mode is "raise before silent loss", not
+    # "raise *and* commit". Confirm the buffer survived the reset attempt
+    # by checking that the cursor never apply_edits'd.
+    assert captured == {}, "buffer must not be silently dropped or flushed by reset()"
+
+
+def test_insert_cursor_reset_does_not_clear_buffer_before_raising() -> None:
+    """Confirm the refusal short-circuits before the buffer would have been
+    cleared. The caller can still flush manually after catching the error.
+    """
+
+    flushed: list[dict[str, Any]] = []
+
+    class _RecordingSource:
+        def apply_edits(self, **kwargs: Any) -> Any:
+            flushed.append(dict(kwargs))
+            return {"ok": True}
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+
+    with honua_arcpy.da.InsertCursor("roads", ["STATUS"]) as cursor:
+        cursor.insertRow(["OPEN"])
+        try:
+            cursor.reset()
+        except honua_arcpy.HonuaArcpyConfigurationError:
+            pass
+        # The buffered row must still be present for an explicit flush.
+        cursor.flush()
+
+    assert flushed == [{"adds": [{"attributes": {"STATUS": "OPEN"}}]}]
+
+
+def test_insert_cursor_reset_outside_context_raises_configuration_error() -> None:
+    """``reset()`` must still go through ``_ensure_open()`` so a cursor that
+    never entered its context fails with the same configuration error as
+    ``next(cursor)``, not a misleading ``InsertCursor does not support reset``
+    message that implies the cursor was actually open.
+    """
+
+    cursor = honua_arcpy.da.InsertCursor("roads", ["STATUS"])
+    with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError) as info:
+        cursor.reset()
+    # Must be the must-be-used-as-context-manager message, not the
+    # InsertCursor-specific refusal.
+    assert "context manager" in str(info.value)
+
+
+def test_update_cursor_update_row_length_mismatch_raises_configuration_error(
+    stub_clients,
+) -> None:
+    """A ``updateRow`` call whose row length disagrees with ``field_names`` must
+    surface as ``HonuaArcpyConfigurationError`` (an ``ExecuteError``
+    subclass) so ``except arcpy.ExecuteError`` keeps catching it. Before the
+    fix, ``zip(..., strict=True)`` raised a bare ``ValueError`` that escaped
+    the documented shim error surface.
+    """
+
+    with honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+        row = next(cursor)
+        with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError) as info:
+            cursor.updateRow(row + ["extra"])
+        message = str(info.value)
+        assert "3 value(s)" in message
+        assert "field_names declares 2" in message
+
+
+def test_update_cursor_update_row_short_row_raises_configuration_error(
+    stub_clients,
+) -> None:
+    with honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+        row = next(cursor)
+        with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
+            cursor.updateRow(row[:1])
+
+
+def test_insert_cursor_insert_row_length_mismatch_raises_configuration_error(
+    stub_clients,
+) -> None:
+    """``insertRow`` shares ``_payload_for_row`` with ``updateRow``; the same
+    row-length contract applies.
+    """
+
+    with honua_arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+        with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError) as info:
+            cursor.insertRow(["OPEN"])
+        assert "1 value(s)" in str(info.value)
+        assert "field_names declares 2" in str(info.value)
+
+
+def test_row_length_mismatch_caught_by_execute_error(stub_clients) -> None:
+    """The legacy ``except arcpy.ExecuteError:`` idiom must still catch the
+    row-length error. ``HonuaArcpyConfigurationError`` subclasses
+    ``ExecuteError`` (== top-level ``honua_arcpy.ExecuteError``), so this is
+    the regression that ``ValueError`` would have broken.
+    """
+
+    with honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+        row = next(cursor)
+        try:
+            cursor.updateRow(row + ["extra"])
+        except honua_arcpy.ExecuteError:
+            return
+    raise AssertionError("expected ExecuteError to catch the row-length mismatch")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import honua_arcpy
 from honua_arcpy._session import get_session
 
@@ -93,6 +95,49 @@ def test_configure_explicit_client_wins_after_invalidation() -> None:
     second = object()
     honua_arcpy.configure(base_url="https://b.example.com", client=second)
     assert session._client is second, "Explicit client= must win in the same call"  # noqa: SLF001
+
+
+def test_configure_forwards_extra_client_options_to_admin_client(monkeypatch) -> None:
+    """``configure(..., timeout=..., transport=...)`` documents that the extra
+    kwargs reach the underlying SDK constructors. Before the fix,
+    ``_build_admin_client`` started with an empty kwargs dict, so options
+    such as ``transport``, ``timeout``, ``auth_provider``, ``follow_redirects``,
+    and ``max_retries`` were silently dropped for the admin client even
+    though the data client honoured them.
+    """
+
+    captured: dict[str, Any] = {}
+
+    class _StubAdminClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            captured["base_url"] = base_url
+            captured["kwargs"] = dict(kwargs)
+
+    # ``_build_admin_client`` does a late import; patch the module the import
+    # resolves to.
+    import honua_admin
+
+    monkeypatch.setattr(honua_admin, "HonuaAdminClient", _StubAdminClient)
+
+    sentinel_transport = object()
+    honua_arcpy.configure(
+        base_url="https://example.com",
+        api_key="k",
+        timeout=42.0,
+        transport=sentinel_transport,
+        max_retries=7,
+    )
+
+    session = get_session()
+    # Force the lazy admin build.
+    built = session.admin_client()
+    assert isinstance(built, _StubAdminClient)
+
+    assert captured["base_url"] == "https://example.com"
+    assert captured["kwargs"]["api_key"] == "k"
+    assert captured["kwargs"]["timeout"] == 42.0
+    assert captured["kwargs"]["transport"] is sentinel_transport
+    assert captured["kwargs"]["max_retries"] == 7
 
 
 def test_configure_idempotent_does_not_invalidate_cache() -> None:

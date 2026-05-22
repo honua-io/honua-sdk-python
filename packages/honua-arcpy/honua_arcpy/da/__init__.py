@@ -136,6 +136,15 @@ def _shape_value(geometry: Any, token: str) -> Any:
 
 
 def _payload_for_row(row: Sequence[Any], fields: Sequence[str]) -> dict[str, Any]:
+    # Explicit length check so a short / long row surfaces as
+    # HonuaArcpyConfigurationError (which subclasses ExecuteError) instead of
+    # the bare ValueError that ``zip(..., strict=True)`` would otherwise raise
+    # past the documented ``except arcpy.ExecuteError:`` catch surface.
+    if len(row) != len(fields):
+        raise HonuaArcpyConfigurationError(
+            f"cursor edit row has {len(row)} value(s) but field_names declares "
+            f"{len(fields)}; the row must match the cursor's field list."
+        )
     attributes: dict[str, Any] = {}
     geometry: Any | None = None
     for value, field in zip(row, fields, strict=True):
@@ -484,9 +493,17 @@ class InsertCursor(_BaseCursor):
     def _open(self) -> None:
         self._source, self._alias = _client_source(self.in_table)
 
-    def _reset(self) -> None:  # InsertCursor doesn't iterate; reset clears buffer
-        self._inserts.clear()
-        self._inserted = 0
+    def reset(self) -> None:
+        # Real ``arcpy.da.InsertCursor`` does not expose ``reset()``: there is
+        # nothing to iterate, and the inherited ``BaseCursor.reset`` would
+        # discard the buffered inserts via ``_reset`` without ever calling
+        # ``apply_edits`` -- a silent data loss. Refuse the call explicitly so
+        # the caller decides whether to ``flush()`` or abandon the buffer.
+        self._ensure_open()
+        raise HonuaArcpyConfigurationError(
+            "InsertCursor does not support reset(); call flush() to send "
+            "buffered inserts or exit the context to flush on __exit__."
+        )
 
     def insertRow(self, row: Sequence[Any]) -> int:
         self._ensure_open()

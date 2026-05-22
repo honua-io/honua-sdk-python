@@ -42,8 +42,13 @@ with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
 `honua_arcpy` resolves the `arcpy.env` workspace, output coordinate system,
 overwrite policy, parallel processing factor, and scratch workspace onto a
 module-global `HonuaSession`. Unknown env attributes are accepted and stashed
-in `session.extra_client_options` so legacy scripts keep working without
-silent attribute errors.
+in `session.extra_env_options` so legacy scripts keep working without silent
+attribute errors. The separate `session.extra_client_options` bag is reserved
+for explicit `configure(..., **client_kwargs)` arguments that need to flow
+into the underlying `HonuaClient` / `HonuaAdminClient` constructors -- unknown
+env writes never reach those constructors, so a legacy
+`arcpy.env.extent = ...` cannot trip `HonuaClient`'s closed keyword signature
+with `TypeError`.
 
 ## Configuration
 

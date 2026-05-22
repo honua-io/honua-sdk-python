@@ -139,6 +139,40 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
         )
 
 
+def test_compat_repo_doc_points_at_a_committed_matrix_copy() -> None:
+    """``HonuaArcpyUnsupportedError.compat_anchor`` embeds
+    ``COMPAT_REPO_DOC`` so users can paste the anchor into the repo browser.
+
+    Before the fix, ``COMPAT_REPO_DOC`` was ``docs/compatibility-matrix.md``
+    -- a path that does not exist in this repo. The committed matrix copies
+    are ``docs/honua-arcpy/compatibility-matrix.md`` and
+    ``packages/honua-arcpy/docs/compatibility-matrix.md``. This test pins
+    the constant to a path that actually resolves so the user-facing error
+    URL is not a 404.
+    """
+
+    from pathlib import Path
+
+    from honua_arcpy._compat import COMPAT_REPO_DOC, anchor_for
+
+    # The constant is repo-relative; resolve it against the workspace root
+    # (three parents up from this test file: tests/ -> honua-arcpy/ ->
+    # packages/ -> workspace).
+    workspace_root = Path(__file__).resolve().parents[3]
+    matrix_path = workspace_root / COMPAT_REPO_DOC
+    assert matrix_path.is_file(), (
+        f"COMPAT_REPO_DOC {COMPAT_REPO_DOC!r} must point at a committed "
+        f"matrix file. Resolved to {matrix_path} which does not exist."
+    )
+
+    # And the anchor builder must produce URLs that start from the same path.
+    anchor = anchor_for("analysis.Buffer")
+    assert anchor.startswith(COMPAT_REPO_DOC + "#"), (
+        f"anchor_for(...) returned {anchor!r}; expected the URL to start "
+        f"with {COMPAT_REPO_DOC!r}."
+    )
+
+
 def test_stub_hints_do_not_recommend_stubbed_sibling_shims() -> None:
     """A stub's ``replacement_hint`` must not tell the customer to call
     another ``honua_arcpy.<family>.<func>`` that is itself a stub.

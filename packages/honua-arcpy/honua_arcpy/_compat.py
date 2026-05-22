@@ -51,8 +51,16 @@ class FunctionEntry:
         return self.status in {"supported", "partial"}
 
 
-COMPAT_REPO_DOC = "docs/compatibility-matrix.md"
-"""Repo-relative path used to build anchor URLs for shim error messages."""
+COMPAT_REPO_DOC = "docs/honua-arcpy/compatibility-matrix.md"
+"""Repo-relative path used to build anchor URLs for shim error messages.
+
+Must point at a committed compatibility-matrix copy so the URL embedded in
+``HonuaArcpyUnsupportedError.compat_anchor`` resolves when a customer pastes
+it into the repo browser. The matching package-local copy under
+``packages/honua-arcpy/docs/`` is byte-equal -- the rendered manifest is the
+single source of truth -- but the top-level docs path is the public-facing
+one, so we anchor against that copy.
+"""
 
 
 def anchor_for(qualified_name: str) -> str:

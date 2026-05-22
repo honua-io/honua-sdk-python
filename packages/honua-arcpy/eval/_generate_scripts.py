@@ -4,16 +4,23 @@ Run once from the package root:
 
     python eval/_generate_scripts.py
 
-The generator emits 50 scripts plus matching golden references that exercise
-the supported subset of ``honua_arcpy`` (Buffer / Clip / Intersect / Union /
-Erase / SpatialJoin / Dissolve / Copy / Delete / Project + the SDK-only
-management ops + the three da cursors). Stub-only functions deliberately
-appear in a handful of scripts named ``expected_failure_*`` so the eval
-harness can verify they raise ``HonuaArcpyUnsupportedError``.
+The generator emits 50 scripts plus matching golden references that
+exercise the *currently* supported surface of ``honua_arcpy`` --
+session-backed (MakeFeatureLayer, MakeTableView), source-backed
+(SelectLayerByAttribute, GetCount, SearchCursor, UpdateCursor,
+InsertCursor) -- plus a large set of ``expected_failure_*`` scripts
+that catch ``HonuaArcpyUnsupportedError`` from the stubbed process /
+admin entries (Buffer, Clip, Intersect, Union, Erase, SpatialJoin,
+Dissolve, Copy, Delete, Project, CalculateField, plus the schema-mutation
+admin stubs).
 
-Distribution: ~70% supported scripts + ~30% expected-failure scripts.
-This biases the eval pass rate to the supported MVP surface (matches the
-design's R2 mitigation).
+Audit pass 8 caught the analysis.* / management.* process-backed shims
+emitting a payload that did not match honua-server's
+``BuiltInProcessCatalog`` contract. Those entries are now stubs until
+the arcpy-to-server projection adapter lands, and the eval distribution
+is rebalanced accordingly: every script that previously dispatched a
+mismatched process now lives in the ``expected_failure_*`` block so the
+suite tracks the migration surface honestly.
 """
 
 from __future__ import annotations
@@ -84,150 +91,19 @@ def _supported(slug: str, workspace: str, docstring: str, body: str, audit_lines
     return spec
 
 
-_supported(
-    "buffer_roads_dissolve_all",
-    "transport",
-    "Buffer all roads by 25m and dissolve into a single feature.",
-    """arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
-print("buffer_roads_dissolve_all ok")
-""",
-    1,
-    "buffer_roads_dissolve_all ok",
-)
-
-_supported(
-    "buffer_clip_roads_in_study",
-    "transport",
-    "Buffer then clip roads against a study area.",
-    """arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
-arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
-print("buffer_clip_roads_in_study ok")
-""",
-    2,
-    "buffer_clip_roads_in_study ok",
-)
-
-_supported(
-    "project_roads_to_wgs84",
-    "transport",
-    "Reproject a roads feature class to WGS84.",
-    """arcpy.management.Project("roads", "roads_wgs84", 4326)
-print("project_roads_to_wgs84 ok")
-""",
-    1,
-    "project_roads_to_wgs84 ok",
-)
-
-_supported(
-    "intersect_roads_parcels",
-    "transport",
-    "Intersect roads with parcels for right-of-way analysis.",
-    """arcpy.analysis.Intersect(["roads", "parcels"], "roads_x_parcels", "ALL")
-print("intersect_roads_parcels ok")
-""",
-    1,
-    "intersect_roads_parcels ok",
-)
-
-_supported(
-    "union_zoning_layers",
-    "planning",
-    "Union two zoning layers preserving all attributes.",
-    """arcpy.analysis.Union(["zoning_2020", "zoning_2024"], "zoning_union", "ALL")
-print("union_zoning_layers ok")
-""",
-    1,
-    "union_zoning_layers ok",
-)
-
-_supported(
-    "erase_water_from_parcels",
-    "planning",
-    "Erase water features from parcels.",
-    """arcpy.analysis.Erase("parcels", "water", "parcels_dry")
-print("erase_water_from_parcels ok")
-""",
-    1,
-    "erase_water_from_parcels ok",
-)
-
-_supported(
-    "spatial_join_addresses_parcels",
-    "planning",
-    "Spatial join addresses to parcels (one-to-one, intersect).",
-    """arcpy.analysis.SpatialJoin(
-    "addresses",
-    "parcels",
-    "addresses_with_parcel",
-    join_operation="JOIN_ONE_TO_ONE",
-    join_type="KEEP_ALL",
-    match_option="INTERSECT",
-)
-print("spatial_join_addresses_parcels ok")
-""",
-    1,
-    "spatial_join_addresses_parcels ok",
-)
-
-_supported(
-    "dissolve_parcels_by_zoning",
-    "planning",
-    "Dissolve parcels by zoning code.",
-    """arcpy.management.Dissolve(
-    "parcels",
-    "parcels_by_zoning",
-    dissolve_field=["zoning_code"],
-    statistics_fields=[["acres", "SUM"]],
-)
-print("dissolve_parcels_by_zoning ok")
-""",
-    1,
-    "dissolve_parcels_by_zoning ok",
-)
-
-_supported(
-    "copy_pavement_to_backup",
-    "transport",
-    "Copy a pavement layer to a backup feature class.",
-    """arcpy.management.Copy("pavement", "pavement_backup")
-print("copy_pavement_to_backup ok")
-""",
-    1,
-    "copy_pavement_to_backup ok",
-)
-
-_supported(
-    "delete_obsolete_layer",
-    "transport",
-    "Delete an obsolete feature class.",
-    """arcpy.management.Delete("scratch_layer")
-print("delete_obsolete_layer ok")
-""",
-    1,
-    "delete_obsolete_layer ok",
-)
-
-_supported(
-    "calculate_field_speed",
-    "transport",
-    "Calculate a derived speed field on segments.",
-    """arcpy.management.CalculateField(
-    "segments",
-    "avg_speed",
-    "!miles! / !hours!",
-    expression_type="PYTHON3",
-)
-print("calculate_field_speed ok")
-""",
-    1,
-    "calculate_field_speed ok",
-)
-
-# NOTE: AddField / DeleteField / Rename / ListFields / Describe are stubs in
-# the 0.1.0 manifest because HonuaAdminClient does not yet expose per-layer
-# schema mutation or reading. The matching scenarios live in the expected
-# failure block below so the eval suite still demonstrates the migration
-# scanner-handoff contract (hint + tracking ticket) for those entries.
+# NOTE: Buffer / Clip / Intersect / Union / Erase / SpatialJoin /
+# Dissolve / Copy / Delete / Project / CalculateField were previously
+# exercised as "supported" scripts here. Audit pass 8 found that the
+# shim emitted an arcpy-style ``input_features`` / ``result`` payload
+# while honua-server's process catalog expects ``wkb`` / ``srid`` (for
+# ``geometry.*``) or ``layerId`` (for ``analytics.*`` /
+# ``data-management.*`` / ``conversion.feature-project``). Those
+# entries are stubs until the projection adapter lands, so their
+# eval scripts moved to the ``expected_failure_*`` block below.
+#
+# NOTE: AddField / DeleteField / Rename / ListFields / Describe are
+# also stubs because HonuaAdminClient does not yet expose per-layer
+# schema mutation or reading.
 
 _supported(
     "make_feature_layer_then_select",
@@ -319,74 +195,6 @@ print("insert_cursor_append_rows ok")
 )
 
 _supported(
-    "buffer_select_by_attribute",
-    "transport",
-    "Buffer, then select features by attribute.",
-    """arcpy.analysis.Buffer("roads", "roads_buffer", "10 Meters")
-arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
-arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
-print("buffer_select_by_attribute ok")
-""",
-    3,
-    "buffer_select_by_attribute ok",
-)
-
-_supported(
-    "calculate_field_then_dissolve",
-    "transport",
-    "Calculate a field then dissolve on it.",
-    """arcpy.management.CalculateField("parcels", "group", "!zoning_code!", expression_type="PYTHON3")
-arcpy.management.Dissolve("parcels", "parcels_grouped", dissolve_field=["group"])
-print("calculate_field_then_dissolve ok")
-""",
-    2,
-    "calculate_field_then_dissolve ok",
-)
-
-_supported(
-    "buffer_intersect_union_pipeline",
-    "transport",
-    "Composite Buffer -> Intersect -> Union pipeline.",
-    """arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters", dissolve_option="ALL")
-arcpy.analysis.Intersect(["roads_buffer", "parcels"], "roads_x_parcels", "ALL")
-arcpy.analysis.Union(["roads_x_parcels", "right_of_way"], "row_combined", "ALL")
-print("buffer_intersect_union_pipeline ok")
-""",
-    3,
-    "buffer_intersect_union_pipeline ok",
-)
-
-_supported(
-    "project_then_clip",
-    "planning",
-    "Reproject then clip the result.",
-    """arcpy.management.Project("parcels", "parcels_wgs", 4326)
-arcpy.analysis.Clip("parcels_wgs", "study_area", "parcels_in_study")
-print("project_then_clip ok")
-""",
-    2,
-    "project_then_clip ok",
-)
-
-_supported(
-    "spatial_join_with_radius",
-    "planning",
-    "SpatialJoin with explicit search radius.",
-    """arcpy.analysis.SpatialJoin(
-    "facilities",
-    "parcels",
-    "facilities_with_parcel",
-    join_operation="JOIN_ONE_TO_ONE",
-    match_option="WITHIN_A_DISTANCE",
-    search_radius="100 Meters",
-)
-print("spatial_join_with_radius ok")
-""",
-    1,
-    "spatial_join_with_radius ok",
-)
-
-_supported(
     "get_count_after_select",
     "transport",
     "GetCount on a selection layer.",
@@ -439,29 +247,6 @@ print(f"insert_cursor_then_search ok rows={len(rows)}")
     "insert_cursor_then_search ok",
 )
 
-_supported(
-    "buffer_legacy_suffix",
-    "transport",
-    "Use the legacy ``Buffer_analysis`` suffix idiom via arcpy.analysis.Buffer.",
-    """arcpy.analysis.Buffer("trails", "trails_buffer", "15 Meters")
-print("buffer_legacy_suffix ok")
-""",
-    1,
-    "buffer_legacy_suffix ok",
-)
-
-_supported(
-    "copy_then_delete",
-    "transport",
-    "Copy a layer then delete the source.",
-    """arcpy.management.Copy("scratch", "scratch_archive")
-arcpy.management.Delete("scratch")
-print("copy_then_delete ok")
-""",
-    2,
-    "copy_then_delete ok",
-)
-
 EXPECTED_FAILURE_TEMPLATES: list[ScriptSpec] = []
 
 
@@ -486,6 +271,109 @@ raise SystemExit("expected_failure_{slug} did not raise")
     return spec
 
 
+# Downgraded process-backed entries (audit pass 8). Each previously
+# appeared in the supported block but emitted an arcpy-style payload
+# the honua-server BuiltInProcessCatalog rejects. These will be re-promoted
+# once the projection adapter lands; meanwhile they exercise the
+# raise_unsupported / audit-write contract.
+_expected_failure(
+    "buffer_roads",
+    "    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters', dissolve_option='ALL')",
+    "analysis.Buffer",
+)
+_expected_failure(
+    "buffer_legacy_suffix",
+    "    arcpy.analysis.Buffer('trails', 'trails_buffer', '15 Meters')",
+    "analysis.Buffer",
+)
+_expected_failure(
+    "buffer_then_clip",
+    "    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters')",
+    "analysis.Buffer",
+)
+_expected_failure(
+    "clip_roads_in_study",
+    "    arcpy.analysis.Clip('roads_buffer', 'study_area', 'roads_clip')",
+    "analysis.Clip",
+)
+_expected_failure(
+    "intersect_roads_parcels",
+    "    arcpy.analysis.Intersect(['roads', 'parcels'], 'roads_x_parcels', 'ALL')",
+    "analysis.Intersect",
+)
+_expected_failure(
+    "union_zoning_layers",
+    "    arcpy.analysis.Union(['zoning_2020', 'zoning_2024'], 'zoning_union', 'ALL')",
+    "analysis.Union",
+)
+_expected_failure(
+    "erase_water_from_parcels",
+    "    arcpy.analysis.Erase('parcels', 'water', 'parcels_dry')",
+    "analysis.Erase",
+)
+_expected_failure(
+    "spatial_join_addresses_parcels",
+    "    arcpy.analysis.SpatialJoin('addresses', 'parcels', 'addresses_with_parcel',"
+    " join_operation='JOIN_ONE_TO_ONE', join_type='KEEP_ALL', match_option='INTERSECT')",
+    "analysis.SpatialJoin",
+)
+_expected_failure(
+    "spatial_join_with_radius",
+    "    arcpy.analysis.SpatialJoin('facilities', 'parcels', 'out',"
+    " join_operation='JOIN_ONE_TO_ONE', match_option='WITHIN_A_DISTANCE',"
+    " search_radius='100 Meters')",
+    "analysis.SpatialJoin",
+)
+_expected_failure(
+    "dissolve_parcels_by_zoning",
+    "    arcpy.management.Dissolve('parcels', 'parcels_by_zoning',"
+    " dissolve_field=['zoning_code'], statistics_fields=[['acres', 'SUM']])",
+    "management.Dissolve",
+)
+_expected_failure(
+    "copy_pavement_to_backup",
+    "    arcpy.management.Copy('pavement', 'pavement_backup')",
+    "management.Copy",
+)
+_expected_failure(
+    "copy_features_alias",
+    "    arcpy.management.CopyFeatures('parcels_stage', 'parcels_published')",
+    "management.Copy",
+)
+_expected_failure(
+    "delete_obsolete_layer",
+    "    arcpy.management.Delete('scratch_layer')",
+    "management.Delete",
+)
+_expected_failure(
+    "project_roads_to_wgs84",
+    "    arcpy.management.Project('roads', 'roads_wgs84', 4326)",
+    "management.Project",
+)
+_expected_failure(
+    "project_parcels_then_clip",
+    "    arcpy.management.Project('parcels', 'parcels_wgs', 4326)",
+    "management.Project",
+)
+_expected_failure(
+    "calculate_field_speed",
+    "    arcpy.management.CalculateField('segments', 'avg_speed', '!miles! / !hours!',"
+    " expression_type='PYTHON3')",
+    "management.CalculateField",
+)
+_expected_failure(
+    "calculate_field_group",
+    "    arcpy.management.CalculateField('parcels', 'group', '!zoning_code!',"
+    " expression_type='PYTHON3')",
+    "management.CalculateField",
+)
+_expected_failure(
+    "buffer_intersect_union",
+    "    arcpy.analysis.Buffer('roads', 'roads_buffer', '5 Meters', dissolve_option='ALL')",
+    "analysis.Buffer",
+)
+
+# Existing admin / analytics stubs (pre-existing, unchanged).
 _expected_failure("sort", "    arcpy.management.Sort('roads', 'roads_sorted', [['name', 'ASCENDING']])", "management.Sort")
 _expected_failure("append", "    arcpy.management.Append(['updates'], 'roads', 'NO_TEST')", "management.Append")
 _expected_failure("merge", "    arcpy.management.Merge(['a', 'b'], 'merged')", "management.Merge")

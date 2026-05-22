@@ -1,5 +1,0 @@
-{
-  "audit_lines": 3,
-  "expected_failure": false,
-  "stdout_contains": "buffer_select_by_attribute ok"
-}

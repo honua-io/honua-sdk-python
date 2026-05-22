@@ -20,9 +20,47 @@ def test_env_attributes_mirror_to_session() -> None:
     assert session.scratch_workspace == "honua://services/scratch"
 
 
-def test_env_unknown_attribute_falls_into_extra_options() -> None:
+def test_env_unknown_attribute_falls_into_extra_env_options() -> None:
+    """Unknown ``arcpy.env.*`` writes land in ``extra_env_options`` -- *not*
+    ``extra_client_options`` -- so common legacy writes like
+    ``arcpy.env.extent`` do not leak into the ``HonuaClient(**kwargs)``
+    constructor (which has a closed keyword signature and would crash with
+    ``TypeError`` before the first backend call)."""
+
     honua_arcpy.env.someExperimentalFlag = "yes"
-    assert honua_arcpy.get_session().extra_client_options["someExperimentalFlag"] == "yes"
+    session = honua_arcpy.get_session()
+    assert session.extra_env_options["someExperimentalFlag"] == "yes"
+    # The legacy bag stays empty -- unknown env attrs must not be forwarded
+    # to the SDK constructor.
+    assert "someExperimentalFlag" not in session.extra_client_options
+
+
+def test_env_unknown_attribute_does_not_break_client_construction() -> None:
+    """``arcpy.env.extent`` and similar legacy writes must not crash
+    ``_build_client``. Regression for the prior behaviour where the env
+    proxy stashed unknown attrs in ``extra_client_options`` and the SDK
+    constructor rejected them as unexpected keyword arguments."""
+
+    honua_arcpy.configure(base_url="https://example.com", api_key="k")
+    # Common legacy writes that arcpy scripts emit before the first backend
+    # call. None of them should leak into the SDK constructor (which has a
+    # closed keyword signature -- ``extent`` would raise ``TypeError``).
+    honua_arcpy.env.extent = "0 0 100 100"
+    honua_arcpy.env.MTolerance = 0.001
+    honua_arcpy.env.geographicTransformations = "WGS_1984_(ITRF00)_To_NAD_1983"
+
+    # Build the real HonuaClient. With the spillover separated, the SDK
+    # constructor only sees ``base_url`` / ``api_key`` and the call succeeds.
+    client = honua_arcpy.get_session().client()
+    assert client is not None
+    # The unknown env attrs are still recoverable from the session for
+    # debug / migration tooling.
+    session = honua_arcpy.get_session()
+    assert session.extra_env_options["extent"] == "0 0 100 100"
+    assert session.extra_env_options["MTolerance"] == 0.001
+    # ``extra_client_options`` stays empty because no client kwargs were
+    # supplied to ``configure(...)``.
+    assert session.extra_client_options == {}
 
 
 def test_env_reads_default_to_none_when_unset() -> None:

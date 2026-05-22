@@ -31,7 +31,11 @@ SAMPLE_INVENTORY = {
 def test_assess_inventory_buckets_supported_stub_and_out_of_scope() -> None:
     rows = assess_inventory(SAMPLE_INVENTORY)
     statuses = {row.qualified_name: (row.status, row.occurrences) for row in rows}
-    assert statuses["analysis.Buffer"] == ("supported", 2)
+    # ``analysis.Buffer`` is currently a stub (audit pass 8 -- the shim's
+    # arcpy-style payload did not match the honua-server geometry.buffer
+    # contract). The migration tool must therefore report it as ``stub``
+    # so customers know the projection adapter is still pending.
+    assert statuses["analysis.Buffer"] == ("stub", 2)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
     assert statuses["sa.Slope"] == ("out-of-scope", 1)
     assert statuses["da.SearchCursor"] == ("supported", 1)
@@ -58,8 +62,11 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
 
     machine = json.loads((tmp_path / "honua-arcpy-assessment.json").read_text(encoding="utf-8"))
     summary = machine["summary"]
-    assert summary["supported"] >= 2
-    assert summary["stub"] >= 1
+    # SearchCursor remains supported; Buffer + SelectLayerByLocation are
+    # stubs (audit pass 8 downgraded the process-backed entries); Slope is
+    # out-of-scope.
+    assert summary["supported"] >= 1
+    assert summary["stub"] >= 2
     assert summary["out-of-scope"] >= 1
 
 
@@ -116,7 +123,8 @@ def test_assess_inventory_accepts_sdk_migration_scan_report_calls_key() -> None:
     )
     rows = assess_inventory(report.to_dict())
     statuses = {row.qualified_name: (row.status, row.occurrences) for row in rows}
-    assert statuses["analysis.Buffer"] == ("supported", 1)
+    # ``analysis.Buffer`` is a stub today (see test_compat_manifest).
+    assert statuses["analysis.Buffer"] == ("stub", 1)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
 
 
@@ -142,7 +150,10 @@ def test_assess_inventory_accepts_minimal_sdk_calls_shape() -> None:
         }
     )
     statuses = {row.qualified_name: row.status for row in rows}
-    assert statuses["analysis.Buffer"] == "supported"
+    # Both are stubs today; only the source/session-backed shims (cursors,
+    # MakeFeatureLayer, GetCount, SelectLayerByAttribute) currently classify
+    # as ``supported``.
+    assert statuses["analysis.Buffer"] == "stub"
     assert statuses["management.SelectLayerByLocation"] == "stub"
 
 
@@ -165,7 +176,11 @@ def test_assess_inventory_canonicalizes_copy_features_to_supported() -> None:
     rows = assess_inventory(sdk_payload)
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    assert rows[0].status == "supported"
+    # The canonical ``management.Copy`` entry is currently a stub (audit
+    # pass 8); the canonicalization invariant is independent of the
+    # supported/stub bucket, what matters is that CopyFeatures maps to the
+    # same manifest row instead of dropping into out-of-scope.
+    assert rows[0].status == "stub"
     assert rows[0].occurrences == 1
 
     admin_payload = {
@@ -180,7 +195,7 @@ def test_assess_inventory_canonicalizes_copy_features_to_supported() -> None:
     rows = assess_inventory(admin_payload)
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    assert rows[0].status == "supported"
+    assert rows[0].status == "stub"
 
 
 def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
@@ -199,5 +214,6 @@ def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
     )
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    assert rows[0].status == "supported"
+    # Same canonicalization invariant as above; today's bucket is stub.
+    assert rows[0].status == "stub"
     assert rows[0].occurrences == 3

@@ -27,8 +27,8 @@ honua-arcpy/
 │   ├── _session.py                    # arcpy.env-style module-global session
 │   ├── _cli.py                        # honua-arcpy assess <inventory.json> + matrix
 │   ├── env.py                         # arcpy.env shim
-│   ├── analysis/                      # 15 functions (6 mapped, 9 stubbed)
-│   ├── management/                    # 20 functions (9 mapped, 11 stubbed)
+│   ├── analysis/                      # 15 functions (0 mapped, 15 stubbed)
+│   ├── management/                    # 20 functions (4 mapped, 16 stubbed)
 │   └── da/                            # 10 functions (3 mapped, 7 stubbed)
 ├── docs/
 │   └── compatibility-matrix.md        # generated -- do not hand edit
@@ -74,5 +74,15 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 45 functions (15 analysis + 20 management + 10 da); see
   [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
+- **Coverage today:** 7 mapped end-to-end (session-backed
+  ``MakeFeatureLayer`` / ``MakeTableView``, source-backed
+  ``SelectLayerByAttribute`` / ``GetCount``, the three ``da`` cursors)
+  + 38 stubs. The 11 previously process-backed entries (``Buffer``,
+  ``Clip``, ``Intersect``, ``Union``, ``Erase``, ``SpatialJoin``,
+  ``CalculateField``, ``Dissolve``, ``Copy``, ``Delete``, ``Project``)
+  were downgraded in audit pass 8 because their payloads did not match
+  honua-server's ``BuiltInProcessCatalog`` contract. Each carries a
+  ``honua-server#...`` tracking ticket pointing at the projection
+  adapter that needs to land before they can be re-promoted.
 - **Audit:** every invocation produces a redacted JSONL record (paths and
   secrets are stripped per the `honua_admin._arcpy_scanner` heuristics).

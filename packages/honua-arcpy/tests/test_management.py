@@ -278,12 +278,22 @@ def test_field_describe_dataclass_is_importable(stub_clients) -> None:
     assert honua_arcpy.DescribeResult(name="segments").name == "segments"
 
 
-def test_calculate_field_dispatches_process(stub_clients) -> None:
-    client, _ = stub_clients
-    honua_arcpy.management.CalculateField("segments", "scaled_speed", "!speed! * 1.1", expression_type="PYTHON3")
-    process_calls = client.ogc_processes().calls
-    assert process_calls[-1]["process_id"] == "data-management.calculate-field"
-    assert process_calls[-1]["payload"]["inputs"]["expression"] == "!speed! * 1.1"
+def test_calculate_field_is_stub_pending_server_adapter(stub_clients) -> None:
+    """``management.CalculateField`` was previously dispatched as a process
+    against ``data-management.calculate-field``, but the shim's
+    ``input_features`` / ``result`` payload did not match the server's
+    ``layerId`` / ``fieldName`` / ``expression`` / ``where|objectIds``
+    contract. The entry is a stub until the arcpy-to-server projection
+    adapter lands (see
+    ``test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``)."""
+
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError) as info:
+        honua_arcpy.management.CalculateField(
+            "segments", "scaled_speed", "!speed! * 1.1", expression_type="PYTHON3"
+        )
+    err = info.value
+    assert err.function == "management.CalculateField"
+    assert err.tracking and "calculate-field" in err.tracking
 
 
 def test_stubs_raise_with_replacement_hints(stub_clients) -> None:

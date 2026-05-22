@@ -1,4 +1,13 @@
-"""Process-backed dispatch: payload shape, audit JSONL, error wrapping."""
+"""Process-backed dispatch: stub routing, audit JSONL, exception surface.
+
+The shim does NOT yet implement the arcpy -> honua-server projection
+adapter (see ``test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``),
+so every analysis.* and management.* entry that previously dispatched
+through ``dispatch_process`` now routes through ``raise_unsupported``
+instead. The tests below pin the new contract -- the dispatcher itself
+is exercised through a private test-only manifest entry so future
+process-backed entries can be re-added with confidence.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +17,14 @@ from pathlib import Path
 import pytest
 
 import honua_arcpy
+from honua_arcpy._compat import COMPAT, FunctionEntry
+from honua_arcpy._dispatch import dispatch_process
 
 
 class _CapturingProcessesClient:
     def __init__(self, response: dict | None = None) -> None:
         self.calls: list[tuple[str, dict]] = []
-        self.response = response or {"processID": "geometry.buffer", "status": "accepted"}
+        self.response = response or {"processID": "_test.echo", "status": "accepted"}
 
     def execute(self, process_id: str, payload: dict) -> dict:
         self.calls.append((process_id, payload))
@@ -29,62 +40,132 @@ def _audit_lines(audit_root: Path) -> list[dict]:
     return out
 
 
-def test_buffer_emits_geometry_buffer_payload(_isolated_audit_dir: Path) -> None:
+# ---------------------------------------------------------------------------
+# Downgraded entries: every previously process-backed analysis / management
+# function now raises HonuaArcpyUnsupportedError + writes one audit line.
+# ---------------------------------------------------------------------------
+
+
+_DOWNGRADED = [
+    ("analysis.Buffer", lambda: honua_arcpy.analysis.Buffer("roads", "out", "5 Meters")),
+    ("analysis.Clip", lambda: honua_arcpy.analysis.Clip("roads", "study", "clip")),
+    ("analysis.Intersect", lambda: honua_arcpy.analysis.Intersect(["roads", "parcels"], "out")),
+    ("analysis.Union", lambda: honua_arcpy.analysis.Union(["a", "b"], "out")),
+    ("analysis.Erase", lambda: honua_arcpy.analysis.Erase("roads", "water", "out")),
+    ("analysis.SpatialJoin", lambda: honua_arcpy.analysis.SpatialJoin("a", "b", "out")),
+    ("management.CalculateField", lambda: honua_arcpy.management.CalculateField("t", "f", "1")),
+    ("management.Dissolve", lambda: honua_arcpy.management.Dissolve("a", "out")),
+    ("management.Copy", lambda: honua_arcpy.management.Copy("a", "b")),
+    ("management.Delete", lambda: honua_arcpy.management.Delete("a")),
+    ("management.Project", lambda: honua_arcpy.management.Project("a", "out", 4326)),
+]
+
+
+@pytest.mark.parametrize("qualified,invoke", _DOWNGRADED, ids=[name for name, _ in _DOWNGRADED])
+def test_downgraded_process_entries_raise_unsupported(
+    _isolated_audit_dir: Path, qualified: str, invoke,
+) -> None:
+    """Pinned by audit pass 8: arcpy -> honua-server projection adapter is
+    not yet implemented, so every previously process-backed entry must
+    raise ``HonuaArcpyUnsupportedError`` and write a JSONL audit line with
+    ``status="error"`` / ``error_kind="unsupported"`` and a tracking ticket
+    that points at the adapter work."""
+
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError) as info:
+        invoke()
+    err = info.value
+    assert err.function == qualified
+    assert err.tracking and err.tracking.startswith("honua-server#")
+    assert err.replacement_hint, f"{qualified} stub must carry a replacement hint"
+
+    lines = _audit_lines(_isolated_audit_dir)
+    refused = [r for r in lines if r["function"] == qualified]
+    assert refused, f"{qualified} refusal was not audited"
+    assert refused[-1]["status"] == "error"
+    assert refused[-1]["error_kind"] == "unsupported"
+
+
+# ---------------------------------------------------------------------------
+# Dispatcher exercise via a private test-only manifest entry. Keeps the
+# overwrite / rollback / failure-wrapping invariants covered without
+# claiming false compatibility for production shim entries.
+# ---------------------------------------------------------------------------
+
+
+_TEST_ENTRY_NAME = "_test.process_echo"
+_TEST_ENTRY = FunctionEntry(
+    backend="process",
+    status="supported",
+    process_id="_test.echo",
+    notes="Test-only manifest entry. Never exposed to customers.",
+    param_map={
+        "in_features": "input_features",
+        "out_feature_class": "result",
+        "distance": "distance",
+        "extra": "extra",
+    },
+    output_params=("out_feature_class",),
+    source_params=("in_features",),
+)
+
+
+@pytest.fixture
+def _registered_test_entry():
+    """Register the test-only process entry in COMPAT for the duration of the
+    test. The contract test in ``test_compat_manifest.py`` only checks
+    *real* entries (it walks the snapshot keys); a private entry whose
+    ``process_id`` is not in the snapshot would fail that guard, which is
+    why we register / unregister inside this fixture."""
+
+    COMPAT[_TEST_ENTRY_NAME] = _TEST_ENTRY
+    try:
+        yield _TEST_ENTRY_NAME
+    finally:
+        COMPAT.pop(_TEST_ENTRY_NAME, None)
+
+
+def test_dispatch_process_emits_payload_and_audit(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
+) -> None:
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
+    dispatch_process(
+        _registered_test_entry,
+        in_features="roads",
+        out_feature_class="out",
+        distance="5 Meters",
+    )
 
-    assert proc.calls == [
-        (
-            "geometry.buffer",
-            {
-                "inputs": {
-                    "input_features": "roads",
-                    "distance": "25 Meters",
-                    "dissolve_option": "ALL",
-                },
-                "outputs": {"result": "roads_buffer"},
-            },
-        )
-    ]
+    assert proc.calls == [(
+        "_test.echo",
+        {
+            "inputs": {"input_features": "roads", "distance": "5 Meters"},
+            "outputs": {"result": "out"},
+        },
+    )]
     lines = _audit_lines(_isolated_audit_dir)
     assert len(lines) == 1
     record = lines[0]
-    assert record["function"] == "analysis.Buffer"
+    assert record["function"] == _registered_test_entry
     assert record["status"] == "ok"
-    assert record["process_id"] == "geometry.buffer"
-    assert record["result_shape"] is not None
+    assert record["process_id"] == "_test.echo"
 
 
-def test_clip_resolves_workspace_and_writes_outputs(_isolated_audit_dir: Path) -> None:
-    proc = _CapturingProcessesClient(response={"processID": "geometry.clip"})
-    honua_arcpy.configure(processes_client=proc)
-    honua_arcpy.env.workspace = "honua://services/transport"
-    honua_arcpy.env.overwriteOutput = True
-
-    honua_arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
-
-    assert proc.calls[0][0] == "geometry.clip"
-    payload = proc.calls[0][1]
-    assert payload["inputs"] == {
-        "input_features": "roads_buffer",
-        "clip_features": "study_area",
-    }
-    assert payload["outputs"] == {"result": "roads_clip"}
-    assert payload["metadata"]["honuaArcpy"]["workspace"] == "honua://services/transport"
-    assert payload["metadata"]["honuaArcpy"]["overwriteOutput"] is True
-
-
-def test_process_failure_wraps_in_execute_error(_isolated_audit_dir: Path) -> None:
+def test_dispatch_process_failure_wraps_in_execute_error(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
+) -> None:
     class _FailingProcessClient:
         def execute(self, *_args, **_kwargs):
             raise RuntimeError("boom")
 
     honua_arcpy.configure(processes_client=_FailingProcessClient())
     with pytest.raises(honua_arcpy.ExecuteError) as info:
-        honua_arcpy.analysis.Buffer("a", "b", 1)
+        dispatch_process(
+            _registered_test_entry,
+            in_features="a", out_feature_class="b", distance=1,
+        )
     err = info.value
-    assert err.function == "analysis.Buffer"
+    assert err.function == _registered_test_entry
     assert err.error_kind == "RuntimeError"
     assert "compatibility-matrix" in (err.compat_anchor or "")
 
@@ -93,60 +174,55 @@ def test_process_failure_wraps_in_execute_error(_isolated_audit_dir: Path) -> No
     assert lines[0]["error_kind"] == "RuntimeError"
 
 
-def test_stub_raises_unsupported_with_anchor_and_hint() -> None:
-    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError) as info:
-        honua_arcpy.analysis.Near("points", "roads")
-    err = info.value
-    assert err.function == "analysis.Near"
-    assert "compatibility-matrix" in (err.compat_anchor or "")
-    assert err.replacement_hint and "Source.query" in err.replacement_hint
-    assert err.tracking and err.tracking.startswith("honua-server#")
-
-
-def test_buffer_skips_none_kwargs(_isolated_audit_dir: Path) -> None:
+def test_dispatch_process_skips_none_kwargs(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
+) -> None:
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    dispatch_process(
+        _registered_test_entry,
+        in_features="roads",
+        out_feature_class="out",
+        distance="5 Meters",
+        extra=None,
+    )
     payload = proc.calls[0][1]
-    assert "line_side" not in payload["inputs"]
-    assert "line_end_type" not in payload["inputs"]
+    assert "extra" not in payload["inputs"]
 
 
-def test_overwrite_output_guard_prevents_duplicate_output(_isolated_audit_dir: Path) -> None:
-    """Two Buffer calls to the same output must fail when overwriteOutput=False."""
+def test_dispatch_process_overwrite_output_guard_prevents_duplicate_output(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
+) -> None:
+    """Two dispatch_process calls to the same output must fail when
+    overwriteOutput=False."""
 
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
     honua_arcpy.env.overwriteOutput = False
 
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=1)
     with pytest.raises(honua_arcpy.HonuaArcpyConfigurationError):
-        honua_arcpy.analysis.Buffer("roads", "roads_buffer", "10 Meters")
-
-    # Only the first call should have reached the process client.
+        dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=2)
     assert len(proc.calls) == 1
 
 
-def test_overwrite_output_true_allows_replace(_isolated_audit_dir: Path) -> None:
+def test_dispatch_process_overwrite_output_true_allows_replace(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
+) -> None:
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
     honua_arcpy.env.overwriteOutput = True
 
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "10 Meters")
-
+    dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=1)
+    dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=2)
     assert len(proc.calls) == 2
 
 
-def test_failed_process_rolls_back_output_alias(_isolated_audit_dir: Path) -> None:
-    """A failed process call must not leave its output alias behind.
-
-    Output aliases were previously registered *before* ``processes.execute()``
-    ran, so a transport failure left ``roads_buffer`` in the session's alias
-    map and any retry tripped the duplicate-output guard with
-    ``HonuaArcpyConfigurationError`` -- never reaching the process client at
-    all. The dispatcher now rolls the alias map back when ``execute()`` raises.
-    """
+def test_dispatch_process_failed_call_rolls_back_output_alias(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
+) -> None:
+    """A failed process call must not leave its output alias behind so
+    retries are not blocked by the duplicate-output guard."""
 
     class _FailingProcessClient:
         def __init__(self) -> None:
@@ -161,58 +237,49 @@ def test_failed_process_rolls_back_output_alias(_isolated_audit_dir: Path) -> No
     honua_arcpy.env.overwriteOutput = False
 
     with pytest.raises(honua_arcpy.ExecuteError):
-        honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+        dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=1)
 
-    # The output alias must NOT remain in the session after a failed call;
-    # otherwise the retry below would fail with the overwrite guard before
-    # even reaching the process client.
-    assert honua_arcpy.get_session().get_layer("roads_buffer") is None
+    assert honua_arcpy.get_session().get_layer("out") is None
 
-    # Retry against a working client: the second call must reach the
-    # process client and complete cleanly, proving the prior failure did
-    # not corrupt session state.
     working = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=working)
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
+    dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=2)
     assert len(working.calls) == 1
-    assert honua_arcpy.get_session().get_layer("roads_buffer") is not None
+    assert honua_arcpy.get_session().get_layer("out") is not None
 
 
-def test_failed_process_restores_prior_output_alias_under_overwrite(
-    _isolated_audit_dir: Path,
+def test_dispatch_process_failed_call_restores_prior_output_alias_under_overwrite(
+    _isolated_audit_dir: Path, _registered_test_entry: str,
 ) -> None:
-    """When ``overwriteOutput=True``, a failed process call must restore the
-    prior alias rather than leaving the half-written replacement in place."""
-
     class _FailingProcessClient:
         def execute(self, *_args, **_kwargs):
             raise RuntimeError("backend boom")
 
-    # First, register a successful output via a working client.
     working = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=working)
     honua_arcpy.env.overwriteOutput = True
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "5 Meters")
-    first_alias = honua_arcpy.get_session().get_layer("roads_buffer")
+    dispatch_process(_registered_test_entry, in_features="roads", out_feature_class="out", distance=1)
+    first_alias = honua_arcpy.get_session().get_layer("out")
     assert first_alias is not None
     first_alias_source = first_alias.source
 
-    # Second call overwrites the alias mid-projection, then execute() fails.
     honua_arcpy.configure(processes_client=_FailingProcessClient())
     with pytest.raises(honua_arcpy.ExecuteError):
-        honua_arcpy.analysis.Buffer("highways", "roads_buffer", "25 Meters")
+        dispatch_process(_registered_test_entry, in_features="highways", out_feature_class="out", distance=2)
 
-    # The prior alias for ``roads_buffer`` must survive the failed call so
-    # downstream consumers do not see a phantom "highways"-derived alias.
-    restored = honua_arcpy.get_session().get_layer("roads_buffer")
+    restored = honua_arcpy.get_session().get_layer("out")
     assert restored is not None
     assert restored.source == first_alias_source
 
 
-def test_path_map_applies_inside_intersect_in_features_list(
-    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
+def test_dispatch_process_path_map_applies_to_list_inputs(
+    _isolated_audit_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _registered_test_entry: str,
 ) -> None:
-    """HONUA_ARCPY_PATH_MAP overrides must apply to list-valued source params."""
+    """Verify HONUA_ARCPY_PATH_MAP rewrites string elements of list-valued
+    source params. The test-only entry declares ``in_features`` as a
+    source param so the dispatcher's list-walking path is exercised."""
 
     monkeypatch.setenv(
         "HONUA_ARCPY_PATH_MAP",
@@ -221,7 +288,12 @@ def test_path_map_applies_inside_intersect_in_features_list(
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
 
-    honua_arcpy.analysis.Intersect(["roads", "parcels"], "joined")
+    dispatch_process(
+        _registered_test_entry,
+        in_features=["roads", "parcels"],
+        out_feature_class="joined",
+        distance=1,
+    )
 
     payload = proc.calls[0][1]
     assert payload["inputs"]["input_features"] == [
@@ -230,78 +302,44 @@ def test_path_map_applies_inside_intersect_in_features_list(
     ]
 
 
-def test_path_map_applies_inside_union_in_features_list(
-    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
+def test_dispatch_process_path_map_does_not_rewrite_non_source_params(
+    _isolated_audit_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _registered_test_entry: str,
 ) -> None:
-    monkeypatch.setenv(
-        "HONUA_ARCPY_PATH_MAP",
-        '{"zone_a": "honua://services/land/zone_a", "zone_b": "honua://services/land/zone_b"}',
-    )
-    proc = _CapturingProcessesClient()
-    honua_arcpy.configure(processes_client=proc)
-
-    honua_arcpy.analysis.Union(["zone_a", "zone_b"], "merged")
-
-    payload = proc.calls[0][1]
-    assert payload["inputs"]["input_features"] == [
-        "honua://services/land/zone_a",
-        "honua://services/land/zone_b",
-    ]
-
-
-def test_path_map_applies_to_clip_secondary_source(
-    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Clip declares both in_features and clip_features as source_params."""
-
-    monkeypatch.setenv(
-        "HONUA_ARCPY_PATH_MAP",
-        '{"roads_buffer": "honua://services/transport/roads-buffer",'
-        ' "study_area": "honua://services/study/area"}',
-    )
-    proc = _CapturingProcessesClient()
-    honua_arcpy.configure(processes_client=proc)
-
-    honua_arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
-
-    payload = proc.calls[0][1]
-    assert payload["inputs"]["input_features"] == "honua://services/transport/roads-buffer"
-    assert payload["inputs"]["clip_features"] == "honua://services/study/area"
-
-
-def test_path_map_does_not_rewrite_non_source_string_params(
-    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A HONUA_ARCPY_PATH_MAP entry that collides with a literal arcpy keyword
-    (e.g. ``"ALL"``) must not rewrite the value when it is bound to a
-    non-source parameter such as Buffer's ``dissolve_option``."""
+    """HONUA_ARCPY_PATH_MAP entries must NOT rewrite non-source string
+    params -- a path-map alias that collides with an arcpy literal must
+    not silently corrupt the process payload."""
 
     monkeypatch.setenv(
         "HONUA_ARCPY_PATH_MAP",
         '{"roads": "honua://services/transport/roads",'
-        ' "ALL": "honua://services/policy/all",'
-        ' "!speed! * 1.1": "honua://services/calc/expression"}',
+        ' "ALL": "honua://services/policy/all"}',
     )
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
 
-    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
-    honua_arcpy.management.CalculateField(
-        "roads",
-        "scaled_speed",
-        "!speed! * 1.1",
-        expression_type="PYTHON3",
+    dispatch_process(
+        _registered_test_entry,
+        in_features="roads",
+        out_feature_class="out",
+        distance="5 Meters",
+        extra="ALL",
     )
 
-    buffer_payload = proc.calls[0][1]
-    # Source param resolves through the path map.
-    assert buffer_payload["inputs"]["input_features"] == "honua://services/transport/roads"
-    # Non-source params (dissolve_option, distance) pass through unchanged.
-    assert buffer_payload["inputs"]["dissolve_option"] == "ALL"
-    assert buffer_payload["inputs"]["distance"] == "25 Meters"
+    payload = proc.calls[0][1]
+    assert payload["inputs"]["input_features"] == "honua://services/transport/roads"
+    # ``extra`` is not declared as a source param in the test entry, so
+    # the path-map alias for "ALL" must not rewrite it.
+    assert payload["inputs"]["extra"] == "ALL"
+    assert payload["inputs"]["distance"] == "5 Meters"
 
-    calc_payload = proc.calls[1][1]
-    assert calc_payload["inputs"]["input_features"] == "honua://services/transport/roads"
-    # expression / expression_type are not source paths.
-    assert calc_payload["inputs"]["expression"] == "!speed! * 1.1"
-    assert calc_payload["inputs"]["expression_type"] == "PYTHON3"
+
+def test_stub_raises_unsupported_with_anchor_and_hint() -> None:
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError) as info:
+        honua_arcpy.analysis.Near("points", "roads")
+    err = info.value
+    assert err.function == "analysis.Near"
+    assert "compatibility-matrix" in (err.compat_anchor or "")
+    assert err.replacement_hint and "Source.query" in err.replacement_hint
+    assert err.tracking and err.tracking.startswith("honua-server#")

@@ -91,101 +91,100 @@ COMPAT: dict[str, FunctionEntry] = {
     # -----------------------------------------------------------------
     # analysis.* (15)
     # -----------------------------------------------------------------
+    # NOTE on the analysis.* and management.* process-backed stubs below:
+    # honua-server's ``geometry.*`` processes (``buffer``, ``clip``,
+    # ``intersect``, ``union``, ``difference``, ``dissolve``) take raw WKB
+    # geometries with an explicit ``srid``, not arcpy-style feature class
+    # paths -- they buffer / clip / etc. a *single* geometry, not every
+    # feature in a layer. honua-server's ``analytics.*`` and
+    # ``data-management.*`` and ``conversion.feature-project`` processes
+    # take ``layerId``-shaped references, not arcpy paths. Either family
+    # requires a projection adapter (feature -> WKB; arcpy path -> layer
+    # id) to be invoked end-to-end. Until that adapter exists, every
+    # process-backed shim is a stub so the migration tool surfaces them
+    # accurately instead of the previous Supported-but-broken claim.
     "analysis.Buffer": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="geometry.buffer",
-        notes="Vector buffer; dispatches to honua-server geometry.buffer.",
-        param_map={
-            "in_features": "input_features",
-            "out_feature_class": "result",
-            "buffer_distance_or_field": "distance",
-            "line_side": "line_side",
-            "line_end_type": "line_end_type",
-            "dissolve_option": "dissolve_option",
-            "dissolve_field": "dissolve_fields",
-            "method": "method",
-        },
-        output_params=("out_feature_class",),
-        source_params=("in_features",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's geometry.buffer takes a single base64-WKB geometry plus "
+            "srid+distance, not a feature class. The arcpy feature-class semantic "
+            "requires a per-feature WKB serialization adapter that does not yet exist."
+        ),
+        replacement_hint=(
+            "Iterate features client-side via honua_sdk.Source.iter_features(...), "
+            "buffer each geometry through the geoprocessing client, and write the "
+            "result back via Source.apply_edits."
+        ),
+        tracking="honua-server#feature-class-geometry-ops",
     ),
     "analysis.Clip": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="geometry.clip",
-        notes="Vector clip against another feature class.",
-        param_map={
-            "in_features": "input_features",
-            "clip_features": "clip_features",
-            "out_feature_class": "result",
-            "cluster_tolerance": "cluster_tolerance",
-        },
-        output_params=("out_feature_class",),
-        source_params=("in_features", "clip_features"),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's geometry.clip operates on a single targetWkb against a "
+            "clipEnvelopeWkb (single envelope geometry), not on feature classes."
+        ),
+        replacement_hint=(
+            "Iterate target features via honua_sdk.Source.iter_features, clip each "
+            "geometry against the envelope WKB, and write the result back via apply_edits."
+        ),
+        tracking="honua-server#feature-class-geometry-ops",
     ),
     "analysis.Intersect": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="geometry.intersect",
-        notes="Pairwise vector intersect; respects join_attributes.",
-        param_map={
-            "in_features": "input_features",
-            "out_feature_class": "result",
-            "join_attributes": "join_attributes",
-            "cluster_tolerance": "cluster_tolerance",
-            "output_type": "output_type",
-        },
-        output_params=("out_feature_class",),
-        source_params=("in_features",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's geometry.intersect operates on two single geometries "
+            "(targetWkb, intersectorWkb), not on feature classes."
+        ),
+        replacement_hint=(
+            "Use the layer-aware analytics.spatial-join process via "
+            "honua_sdk.protocols.OgcProcessesClient with the predicate=intersects "
+            "branch once the projection adapter lands."
+        ),
+        tracking="honua-server#feature-class-geometry-ops",
     ),
     "analysis.Union": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="geometry.union",
-        notes="Vector union; gaps allowance forwarded as a process parameter.",
-        param_map={
-            "in_features": "input_features",
-            "out_feature_class": "result",
-            "join_attributes": "join_attributes",
-            "cluster_tolerance": "cluster_tolerance",
-            "gaps": "gaps",
-        },
-        output_params=("out_feature_class",),
-        source_params=("in_features",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's geometry.union takes an array of single WKB geometries "
+            "(wkbs[], srid), not a list of feature classes."
+        ),
+        replacement_hint=(
+            "Collect features via honua_sdk.Source.iter_features, encode each as "
+            "WKB, then call honua_sdk.protocols.OgcProcessesClient.execute('geometry.union')."
+        ),
+        tracking="honua-server#feature-class-geometry-ops",
     ),
     "analysis.Erase": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="geometry.difference",
-        notes="Vector erase (arcpy's name for geometric difference).",
-        param_map={
-            "in_features": "input_features",
-            "erase_features": "erase_features",
-            "out_feature_class": "result",
-            "cluster_tolerance": "cluster_tolerance",
-        },
-        output_params=("out_feature_class",),
-        source_params=("in_features", "erase_features"),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's geometry.difference operates on a single targetWkb "
+            "minus a single eraserWkb, not on feature classes."
+        ),
+        replacement_hint=(
+            "Iterate target features and subtract each geometry against the eraser "
+            "WKB via honua_sdk.protocols.OgcProcessesClient('geometry.difference')."
+        ),
+        tracking="honua-server#feature-class-geometry-ops",
     ),
     "analysis.SpatialJoin": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="analytics.spatial-join",
-        notes="Spatial join with optional match-option and search radius.",
-        param_map={
-            "target_features": "target_features",
-            "join_features": "join_features",
-            "out_feature_class": "result",
-            "join_operation": "join_operation",
-            "join_type": "join_type",
-            "field_mapping": "field_mapping",
-            "match_option": "match_option",
-            "search_radius": "search_radius",
-            "distance_field_name": "distance_field_name",
-            "match_fields": "match_fields",
-        },
-        output_params=("out_feature_class",),
-        source_params=("target_features", "join_features"),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's analytics.spatial-join takes a layerId/joinLayerId pair "
+            "with a fixed predicate set (intersects, contains, within, dwithin) and "
+            "carry-fields, not arcpy's join_operation/join_type/match_option/"
+            "field_mapping vocabulary; the arcpy semantics need a translation layer."
+        ),
+        replacement_hint=(
+            "Call honua_sdk.protocols.OgcProcessesClient.execute('analytics.spatial-join') "
+            "directly with resolved layerId / joinLayerId / predicate inputs."
+        ),
+        tracking="honua-server#arcpy-spatial-join-adapter",
     ),
     "analysis.NearestNeighbor": FunctionEntry(
         backend="not_implemented",
@@ -284,19 +283,19 @@ COMPAT: dict[str, FunctionEntry] = {
         tracking="honua-server#spatial-filter",
     ),
     "management.CalculateField": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="data-management.calculate-field",
-        notes="Python expression sent to server-side calculator.",
-        param_map={
-            "in_table": "input_features",
-            "field": "field",
-            "expression": "expression",
-            "expression_type": "expression_type",
-            "code_block": "code_block",
-            "field_type": "field_type",
-        },
-        source_params=("in_table",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's data-management.calculate-field requires layerId / "
+            "fieldName / expression / where|objectIds and the expression must "
+            "pass the FeatureServer.Edits allow-list. The arcpy paths and "
+            "PYTHON3 expression_type need a translation layer that does not yet exist."
+        ),
+        replacement_hint=(
+            "Call honua_sdk.protocols.OgcProcessesClient.execute('data-management.calculate-field') "
+            "directly with resolved layerId / fieldName / allow-listed expression."
+        ),
+        tracking="honua-server#arcpy-calculate-field-adapter",
     ),
     "management.AddField": FunctionEntry(
         backend="not_implemented",
@@ -327,44 +326,50 @@ COMPAT: dict[str, FunctionEntry] = {
         tracking="honua-server#merge",
     ),
     "management.Dissolve": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="geometry.dissolve",
-        notes="Geometry dissolve on optional field list.",
-        param_map={
-            "in_features": "input_features",
-            "out_feature_class": "result",
-            "dissolve_field": "dissolve_fields",
-            "statistics_fields": "statistics_fields",
-            "multi_part": "multi_part",
-            "unsplit_lines": "unsplit_lines",
-        },
-        output_params=("out_feature_class",),
-        source_params=("in_features",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's geometry.dissolve takes a single wkbs[] + srid + "
+            "optional groupKeys array, not a feature class with dissolve_field / "
+            "statistics_fields semantics."
+        ),
+        replacement_hint=(
+            "Use the layer-aware generalization.dissolve process via "
+            "honua_sdk.protocols.OgcProcessesClient once the arcpy layer / field "
+            "mapping adapter lands."
+        ),
+        tracking="honua-server#arcpy-dissolve-adapter",
     ),
     "management.Copy": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="data-management.copy-features",
-        notes="Copies features into a new resource via copy-features process.",
-        param_map={
-            "in_data": "input_features",
-            "out_data": "result",
-            "data_type": "data_type",
-        },
-        output_params=("out_data",),
-        source_params=("in_data",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's data-management.copy-features takes sourceLayerId + "
+            "targetLayerName + optional where/objectIds. Mapping arcpy paths to "
+            "layer ids requires a translation layer that does not yet exist."
+        ),
+        replacement_hint=(
+            "Resolve the source path via honua_sdk.Source / honua_admin and "
+            "call honua_sdk.protocols.OgcProcessesClient.execute('data-management.copy-features') "
+            "directly with sourceLayerId / targetLayerName."
+        ),
+        tracking="honua-server#arcpy-copy-features-adapter",
     ),
     "management.Delete": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="data-management.delete-features",
-        notes="Deletes a feature class or table.",
-        param_map={
-            "in_data": "input_features",
-            "data_type": "data_type",
-        },
-        source_params=("in_data",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's data-management.delete-features removes features that "
+            "match where/objectIds inside a layer; it does NOT drop the dataset "
+            "itself. arcpy's Delete deletes the whole feature class -- semantically "
+            "different from the server process."
+        ),
+        replacement_hint=(
+            "To delete the entire resource, use honua_admin.HonuaAdminClient with a "
+            "delete-resource manifest entry. To delete features inside a layer, call "
+            "honua_sdk.protocols.OgcProcessesClient.execute('data-management.delete-features')."
+        ),
+        tracking="honua-server#arcpy-delete-resource-adapter",
     ),
     "management.Rename": FunctionEntry(
         backend="not_implemented",
@@ -388,22 +393,20 @@ COMPAT: dict[str, FunctionEntry] = {
         tracking="honua-server#create-table",
     ),
     "management.Project": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="conversion.feature-project",
-        notes="Reprojects a feature class via conversion.feature-project.",
-        param_map={
-            "in_dataset": "input_features",
-            "out_dataset": "result",
-            "out_coor_system": "out_crs",
-            "transform_method": "transform_method",
-            "in_coor_system": "in_crs",
-            "preserve_shape": "preserve_shape",
-            "max_deviation": "max_deviation",
-            "vertical": "vertical",
-        },
-        output_params=("out_dataset",),
-        source_params=("in_dataset",),
+        backend="not_implemented",
+        status="stub",
+        notes=(
+            "honua-server's conversion.feature-project takes layerId + targetSrid; "
+            "it returns a new artifact rather than writing into the arcpy-style "
+            "out_dataset. The arcpy paths-and-named-output semantic requires an "
+            "adapter that does not yet exist."
+        ),
+        replacement_hint=(
+            "Resolve the source layer id and call "
+            "honua_sdk.protocols.OgcProcessesClient.execute('conversion.feature-project') "
+            "directly with layerId / targetSrid."
+        ),
+        tracking="honua-server#arcpy-project-adapter",
     ),
     "management.Sort": FunctionEntry(
         backend="not_implemented",

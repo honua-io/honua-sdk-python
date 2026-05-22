@@ -1,5 +1,0 @@
-{
-  "audit_lines": 1,
-  "expected_failure": false,
-  "stdout_contains": "erase_water_from_parcels ok"
-}

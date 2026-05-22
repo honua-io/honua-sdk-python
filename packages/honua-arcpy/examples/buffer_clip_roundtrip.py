@@ -1,8 +1,18 @@
-"""End-to-end Buffer -> Clip -> ApplyEdits demo using honua_arcpy.
+"""End-to-end ``arcpy -> honua_arcpy`` parity demo.
 
-This is the canonical "arcpy -> honua_arcpy parity" sample. Pair it with the
-matching arcpy script (commented in this file) when running against a
-licensed ArcGIS Pro install for side-by-side verification.
+Originally this example exercised ``analysis.Buffer`` and
+``analysis.Clip``. Audit pass 8 caught those process-backed shims
+emitting an arcpy-style ``input_features`` / ``result`` payload that
+honua-server's ``geometry.*`` processes (which take raw WKB + srid)
+reject, so the Buffer / Clip entries were downgraded to stubs until
+the projection adapter lands (see
+``honua_arcpy._compat`` and ``tests/test_compat_manifest.py``).
+
+The demo therefore now focuses on the source-backed surface that
+*is* end-to-end supported today: layer aliases, attribute selection,
+row counts, and update cursors. The migration tool can still scan
+unmodified customer scripts and surface the Buffer / Clip stubs via
+``honua-arcpy assess`` so users know what work remains.
 
 Run the script against a configured Honua deployment::
 
@@ -27,9 +37,9 @@ import honua_arcpy as arcpy
 #   import arcpy
 #   arcpy.env.workspace = r"C:\\GIS\\transport.gdb"
 #   arcpy.env.overwriteOutput = True
-#   arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
-#   arcpy.analysis.Clip("roads_buffer", "study_area", "roads_in_study")
-#   with arcpy.da.UpdateCursor("roads_in_study", ["OID@", "STATUS"]) as cursor:
+#   arcpy.management.MakeFeatureLayer("roads", "roads_lyr", "STATUS = 'OPEN'")
+#   open_count = int(arcpy.management.GetCount("roads_lyr"))
+#   with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
 #       for row in cursor:
 #           if row[1] == "CLOSED":
 #               cursor.deleteRow()
@@ -37,37 +47,41 @@ import honua_arcpy as arcpy
 
 
 def main() -> int:
-    base_url = os.environ.get("HONUA_BASE_URL")
-    if not base_url:
-        print("Set HONUA_BASE_URL (and HONUA_API_KEY if required) before running this example.")
-        return 0
-
-    arcpy.configure_from_env()
+    # When the harness has already wired a client (e.g. the eval stub via
+    # ``install_stub`` or a unit test), trust that wiring and skip
+    # ``configure_from_env`` -- otherwise the env-driven reconfigure would
+    # invalidate the cached stub client and force a real network call.
+    session = arcpy.get_session()
+    has_client = session._client is not None  # noqa: SLF001 -- intentional white-box check
+    if not has_client:
+        base_url = os.environ.get("HONUA_BASE_URL")
+        if not base_url:
+            print("Set HONUA_BASE_URL (and HONUA_API_KEY if required) before running this example.")
+            return 0
+        arcpy.configure_from_env()
     arcpy.env.workspace = os.environ.get("HONUA_ARCPY_WORKSPACE") or "honua://services/transport"
     arcpy.env.overwriteOutput = True
 
-    arcpy.analysis.Buffer(
+    arcpy.management.MakeFeatureLayer(
         in_features="roads",
-        out_feature_class="roads_buffer",
-        buffer_distance_or_field="25 Meters",
-        dissolve_option="ALL",
+        out_layer="roads_lyr",
+        where_clause="STATUS = 'OPEN'",
     )
 
-    arcpy.analysis.Clip(
-        in_features="roads_buffer",
-        clip_features="study_area",
-        out_feature_class="roads_in_study",
-    )
+    open_count = int(arcpy.management.GetCount("roads_lyr"))
 
     closed_count = 0
-    with arcpy.da.UpdateCursor("roads_in_study", ["OID@", "STATUS"]) as cursor:
+    with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
         for row in cursor:
             if row[1] == "CLOSED":
                 cursor.deleteRow()
                 closed_count += 1
 
     audit_dir = Path(os.environ.get("HONUA_ARCPY_AUDIT_DIR") or ".honua-arcpy/audit")
-    print(f"Removed {closed_count} closed segments. Audit JSONL: {audit_dir.resolve()}")
+    print(
+        f"open layer count={open_count}; removed {closed_count} closed segments. "
+        f"Audit JSONL: {audit_dir.resolve()}"
+    )
     return 0
 
 

@@ -1,5 +1,0 @@
-{
-  "audit_lines": 2,
-  "expected_failure": false,
-  "stdout_contains": "calculate_field_then_dissolve ok"
-}

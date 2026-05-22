@@ -1,18 +1,25 @@
-"""``arcpy.management`` shim -- 20 functions (9 mapped, 11 stubbed).
+"""``arcpy.management`` shim -- 20 functions (4 mapped, 16 stubbed).
 
-Mapped functions split into three backends:
+Mapped functions split into two backends:
 
-* ``process``: CalculateField, Dissolve, Copy, Delete, Project (5).
 * ``session``: MakeFeatureLayer, MakeTableView (2 -- in-process aliases).
 * ``source``: SelectLayerByAttribute, GetCount (2 -- via Source facade;
   GetCount is ``partial`` until the Source facade exposes a count-only
   helper).
 
-The remaining 11 raise ``HonuaArcpyUnsupportedError`` with replacement hints,
-including the five admin-targeted entries (AddField, DeleteField, Rename,
-ListFields, Describe) that previously routed through a partial admin shim --
-the real ``HonuaAdminClient`` does not yet expose per-layer schema mutation
-or reading, so we surface the gap explicitly until the contract lands.
+The previously process-backed entries (CalculateField, Dissolve, Copy,
+Delete, Project) emitted arcpy-style ``input_features`` / ``result``
+payloads while honua-server's ``data-management.*`` / ``geometry.*`` /
+``conversion.feature-project`` processes expect ``layerId``- or
+WKB-shaped inputs. Until the arcpy-to-server projection adapters land,
+those entries are stubs and raise ``HonuaArcpyUnsupportedError`` with
+the corresponding honua-server tracking ticket.
+
+The remaining stubs include the five admin-targeted entries (AddField,
+DeleteField, Rename, ListFields, Describe) that previously routed
+through a partial admin shim -- the real ``HonuaAdminClient`` does not
+yet expose per-layer schema mutation or reading, so we surface the gap
+explicitly until the contract lands.
 """
 
 from __future__ import annotations
@@ -23,7 +30,6 @@ from typing import Any
 
 from .._compat import anchor_for, entry_for
 from .._dispatch import (
-    dispatch_process,
     dispatch_session,
     raise_unsupported,
 )
@@ -310,90 +316,42 @@ def GetCount(in_rows: Any) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Process-backed functions
+# Process-backed stubs (pending honua-server projection adapter)
 # ---------------------------------------------------------------------------
+# These five entries previously dispatched directly through
+# ``honua_sdk.protocols.OgcProcessesClient`` against honua-server's
+# ``data-management.*`` / ``geometry.*`` / ``conversion.feature-project``
+# processes. The shim emitted an arcpy-style payload
+# (``input_features`` / ``result``) while honua-server expects
+# ``layerId``- or WKB-shaped inputs, so the calls would have been
+# rejected by live process validation. They are now stubs that raise
+# ``HonuaArcpyUnsupportedError`` with the tracking ticket for the
+# projection adapter that needs to land before the entries can be
+# re-promoted to ``supported``.
 
 
-def CalculateField(
-    in_table: Any,
-    field: Any,
-    expression: Any,
-    expression_type: Any = None,
-    code_block: Any = None,
-    field_type: Any = None,
-) -> Any:
-    return dispatch_process(
-        "management.CalculateField",
-        in_table=in_table,
-        field=field,
-        expression=expression,
-        expression_type=expression_type,
-        code_block=code_block,
-        field_type=field_type,
-    )
+def CalculateField(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.CalculateField", args=args, kwargs=kwargs)
 
 
-def Dissolve(
-    in_features: Any,
-    out_feature_class: Any,
-    dissolve_field: Any = None,
-    statistics_fields: Any = None,
-    multi_part: Any = None,
-    unsplit_lines: Any = None,
-) -> Any:
-    return dispatch_process(
-        "management.Dissolve",
-        in_features=in_features,
-        out_feature_class=out_feature_class,
-        dissolve_field=dissolve_field,
-        statistics_fields=statistics_fields,
-        multi_part=multi_part,
-        unsplit_lines=unsplit_lines,
-    )
+def Dissolve(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.Dissolve", args=args, kwargs=kwargs)
 
 
-def Copy(in_data: Any, out_data: Any, data_type: Any = None) -> Any:
-    return dispatch_process(
-        "management.Copy",
-        in_data=in_data,
-        out_data=out_data,
-        data_type=data_type,
-    )
+def Copy(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.Copy", args=args, kwargs=kwargs)
 
 
 # Alias for `arcpy.management.CopyFeatures`, which the scanner also calls "Copy".
 CopyFeatures = Copy
 
 
-def Delete(in_data: Any, data_type: Any = None) -> Any:
-    return dispatch_process(
-        "management.Delete",
-        in_data=in_data,
-        data_type=data_type,
-    )
+def Delete(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.Delete", args=args, kwargs=kwargs)
 
 
-def Project(
-    in_dataset: Any,
-    out_dataset: Any,
-    out_coor_system: Any,
-    transform_method: Any = None,
-    in_coor_system: Any = None,
-    preserve_shape: Any = None,
-    max_deviation: Any = None,
-    vertical: Any = None,
-) -> Any:
-    return dispatch_process(
-        "management.Project",
-        in_dataset=in_dataset,
-        out_dataset=out_dataset,
-        out_coor_system=out_coor_system,
-        transform_method=transform_method,
-        in_coor_system=in_coor_system,
-        preserve_shape=preserve_shape,
-        max_deviation=max_deviation,
-        vertical=vertical,
-    )
+def Project(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.Project", args=args, kwargs=kwargs)
 
 
 # ---------------------------------------------------------------------------

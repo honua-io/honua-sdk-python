@@ -1,5 +1,0 @@
-{
-  "audit_lines": 2,
-  "expected_failure": false,
-  "stdout_contains": "copy_then_delete ok"
-}

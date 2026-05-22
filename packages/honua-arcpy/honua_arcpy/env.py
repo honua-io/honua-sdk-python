@@ -32,8 +32,11 @@ class _EnvProxy:
             setattr(session, self._ALIASES[name], value)
             return
         # Unknown env attributes are accepted to keep customer scripts running;
-        # they are stored on the session's extra options bag for transparency.
-        session.extra_client_options[name] = value
+        # they are stored on ``extra_env_options`` (NOT ``extra_client_options``)
+        # so common legacy writes like ``arcpy.env.extent`` cannot leak into
+        # the ``HonuaClient(**kwargs)`` constructor and trip its closed
+        # keyword signature with ``TypeError``.
+        session.extra_env_options[name] = value
 
     def __dir__(self) -> list[str]:
         return sorted(self._ALIASES)

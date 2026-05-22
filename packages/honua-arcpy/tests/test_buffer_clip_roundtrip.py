@@ -1,77 +1,53 @@
-"""End-to-end exercise of the example script against a mock honua-server.
+"""End-to-end exercise of the example script against the stub transport.
 
 This proves the AC line item: "At least one end-to-end script demo in
 ``examples/`` showing arcpy -> honua_arcpy parity."
+
+Audit pass 8 caught the original Buffer / Clip demo emitting a payload
+that did not match honua-server's contract; the example now focuses on
+the source-backed surface (MakeFeatureLayer / GetCount / UpdateCursor)
+that *is* supported end-to-end today. The test below pins that
+behavior via the stub Honua client used by the eval suite.
 """
 
 from __future__ import annotations
 
-import json
+import importlib.util
 from pathlib import Path
-
-import httpx
-import pytest
 
 import honua_arcpy
 
 
-@pytest.fixture
-def mock_honua_client(monkeypatch: pytest.MonkeyPatch) -> tuple[list[httpx.Request], honua_arcpy.HonuaSession]:
-    from honua_sdk import HonuaClient
+def _load_example() -> object:
+    """Import the example module without putting it on sys.path."""
 
-    captured: list[httpx.Request] = []
-
-    def _handler(request: httpx.Request) -> httpx.Response:
-        captured.append(request)
-        path = request.url.path
-        if path.startswith("/ogc/processes/processes/") and path.endswith("/execution"):
-            process_id = path.split("/")[-2]
-            return httpx.Response(
-                200,
-                json={
-                    "processID": process_id,
-                    "status": "successful",
-                    "outputs": json.loads(request.content.decode("utf-8")).get("outputs", {}),
-                },
-            )
-        return httpx.Response(404, json={"error": "not mocked"})
-
-    client = HonuaClient("http://example.test", transport=httpx.MockTransport(_handler))
-    honua_arcpy.configure(client=client)
-    return captured, honua_arcpy.get_session()
-
-
-def test_buffer_clip_pipeline_dispatches_two_processes(
-    mock_honua_client: tuple[list[httpx.Request], honua_arcpy.HonuaSession],
-) -> None:
-    captured, _session = mock_honua_client
-
-    honua_arcpy.env.workspace = "honua://services/transport"
-    honua_arcpy.env.overwriteOutput = True
-
-    honua_arcpy.analysis.Buffer(
-        "roads", "roads_buffer", "25 Meters", dissolve_option="ALL"
+    example_path = (
+        Path(__file__).resolve().parents[1]
+        / "examples"
+        / "buffer_clip_roundtrip.py"
     )
-    honua_arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
+    spec = importlib.util.spec_from_file_location("buffer_clip_roundtrip", example_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-    paths = [req.url.path for req in captured]
-    assert paths == [
-        "/ogc/processes/processes/geometry.buffer/execution",
-        "/ogc/processes/processes/geometry.clip/execution",
-    ]
 
-    buffer_body = json.loads(captured[0].content.decode("utf-8"))
-    assert buffer_body["inputs"] == {
-        "input_features": "roads",
-        "distance": "25 Meters",
-        "dissolve_option": "ALL",
-    }
-    assert buffer_body["outputs"] == {"result": "roads_buffer"}
-    assert buffer_body["metadata"]["honuaArcpy"]["workspace"] == "honua://services/transport"
+def test_example_uses_only_supported_shim_surface(
+    monkeypatch, stub_clients, _isolated_audit_dir: Path,
+) -> None:
+    """The example script must run end-to-end against the stub transport.
 
-    clip_body = json.loads(captured[1].content.decode("utf-8"))
-    assert clip_body["inputs"] == {
-        "input_features": "roads_buffer",
-        "clip_features": "study_area",
-    }
-    assert clip_body["outputs"] == {"result": "roads_clip"}
+    No process-backed shim is invoked -- the demo deliberately uses only
+    MakeFeatureLayer / GetCount / UpdateCursor, all of which are mapped
+    against the source facade today.
+    """
+
+    monkeypatch.setenv("HONUA_BASE_URL", "http://example.test")
+    module = _load_example()
+    assert module.main() == 0
+
+    # The session should now hold a layer alias from MakeFeatureLayer.
+    alias = honua_arcpy.get_session().get_layer("roads_lyr")
+    assert alias is not None
+    assert alias.where == "STATUS = 'OPEN'"

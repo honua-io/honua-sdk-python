@@ -193,6 +193,71 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   tree, not the package docs directory). Added a short paragraph
   pointing readers to the correct locations.
 
+### Fixes (review pass 8)
+
+- **Honest manifest -- process-backed entries downgraded to stubs.**
+  Audit pass 8 compared the shim's emitted payloads against
+  honua-server's ``BuiltInProcessCatalog`` and found a contract
+  mismatch: the manifest mapped ``in_features``/``out_feature_class``
+  to ``input_features``/``result``, but honua-server's
+  ``geometry.buffer``/``geometry.clip``/``geometry.intersect``/
+  ``geometry.union``/``geometry.difference``/``geometry.dissolve``
+  expect raw base64-WKB (``wkb`` / ``targetWkb`` / ``wkbs``) plus
+  ``srid``, and ``analytics.spatial-join``/
+  ``data-management.copy-features``/``data-management.delete-features``/
+  ``data-management.calculate-field``/``conversion.feature-project``
+  expect ``layerId``-shaped references. Eleven entries
+  (``analysis.Buffer``, ``analysis.Clip``, ``analysis.Intersect``,
+  ``analysis.Union``, ``analysis.Erase``, ``analysis.SpatialJoin``,
+  ``management.CalculateField``, ``management.Dissolve``,
+  ``management.Copy``, ``management.Delete``, ``management.Project``)
+  are now ``backend="not_implemented", status="stub"`` and raise
+  ``HonuaArcpyUnsupportedError`` with a per-function
+  ``honua-server#...`` tracking ticket pointing at the projection
+  adapter that needs to land before they can be re-promoted. The
+  prior arcpy-style payloads would have been rejected by live OGC
+  Processes validation despite passing the in-tree stub eval; the
+  downgrade makes the migration tool surface the real coverage and
+  unblocks future adapter work.
+- **Contract test pinned the invariant.** New
+  ``tests/test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``
+  walks every ``backend="process"`` entry and asserts that the
+  ``param_map`` values are a subset of the matching honua-server
+  process inputs. The snapshot is a hand-maintained dictionary in
+  the test file (kept in lock-step with
+  ``Honua.Server.Features.Geoprocessing.BuiltInProcessCatalog``). The
+  invariant currently holds vacuously (no entries are
+  ``backend="process"``); the moment a future change promotes one
+  back to ``process``, the test enforces that the payload matches
+  the server contract.
+- **Coverage shifted to source/session surface.** The supported MVP
+  is now 7 mapped entries (4 management session/source +
+  3 data-access cursors) plus 1 partial (GetCount). 38 entries are
+  stubs that the migration tool surfaces with a replacement hint and
+  tracking ticket. ``docs/honua-arcpy/compatibility-matrix.md`` and
+  ``packages/honua-arcpy/docs/compatibility-matrix.md`` were
+  regenerated to reflect the downgrade; ``eval/_generate_scripts.py``
+  moved every previously process-backed script into the
+  ``expected_failure_*`` block so the 50-script eval suite remains
+  at 50 and the harness validates every refusal via the audit JSONL
+  contract. Local eval pass rate: **50/50 (100%)** against the stub
+  transport, with all 39 expected-failure scripts producing the
+  documented refusal audit line.
+- **Unknown ``arcpy.env.*`` attributes no longer crash client
+  construction.** Writes such as ``arcpy.env.extent``,
+  ``arcpy.env.MTolerance``, or ``arcpy.env.geographicTransformations``
+  previously landed in ``HonuaSession.extra_client_options``, which
+  ``_build_client`` forwarded into ``honua_sdk.HonuaClient(**kwargs)``.
+  ``HonuaClient`` has a closed keyword signature, so the next backend
+  call raised ``TypeError: HonuaClient.__init__() got an unexpected
+  keyword argument 'extent'`` before the first request. The env
+  proxy now stashes unknown attrs in a separate
+  ``HonuaSession.extra_env_options`` bag that is **not** forwarded to
+  the SDK constructor; ``configure(..., **client_kwargs)`` remains
+  the only path that populates ``extra_client_options``. Regression
+  tests live in ``tests/test_env.py`` (``test_env_unknown_attribute_falls_into_extra_env_options``,
+  ``test_env_unknown_attribute_does_not_break_client_construction``).
+
 ### Fixes (review pass 7)
 
 - `HonuaSession.configure(...)` now invalidates the cached

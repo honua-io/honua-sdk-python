@@ -46,6 +46,19 @@ class HonuaSession:
     parallel_processing_factor: str | None = None
     scratch_workspace: str | None = None
     extra_client_options: dict[str, Any] = field(default_factory=dict)
+    """Extra ``**kwargs`` to forward into the underlying ``HonuaClient`` /
+    ``HonuaAdminClient`` constructors. Populated only by
+    ``configure(..., **client_kwargs)``; the env proxy stashes unknown
+    ``arcpy.env`` attributes in :attr:`extra_env_options` so they never
+    reach the SDK constructor."""
+
+    extra_env_options: dict[str, Any] = field(default_factory=dict)
+    """Spillover bag for unknown ``arcpy.env.*`` writes (e.g.
+    ``arcpy.env.extent``). These are accepted to keep legacy scripts
+    importing without ``AttributeError`` but never forwarded to
+    ``HonuaClient`` / ``HonuaAdminClient`` -- those constructors have a
+    closed keyword signature and would raise ``TypeError`` on unknown
+    arguments."""
 
     _client: Any = field(default=None, repr=False)
     _admin: Any = field(default=None, repr=False)
@@ -202,6 +215,7 @@ class HonuaSession:
             self.parallel_processing_factor = None
             self.scratch_workspace = None
             self.extra_client_options = {}
+            self.extra_env_options = {}
             self._client = None
             self._admin = None
             self._processes = None

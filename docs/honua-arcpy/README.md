@@ -25,9 +25,18 @@ arcpy.configure(base_url="https://honua.example.com", api_key="...")
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
-arcpy.analysis.Clip("roads_buffer", "study_area", "roads_clip")
-arcpy.management.Project("roads_clip", "roads_wgs84", 4326)
+# Session/source-backed shims work end-to-end against honua-server today.
+arcpy.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+open_count = int(arcpy.management.GetCount("roads_lyr"))
+with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+    for row in cursor:
+        if row[1] == "CLOSED":
+            cursor.deleteRow()
+
+# Process-backed shims (Buffer / Clip / Project / ...) currently raise
+# HonuaArcpyUnsupportedError because the arcpy-to-honua-server payload
+# adapter is not yet implemented. The migration tool reports them as
+# ``stub`` with a per-function ``honua-server#...`` tracking ticket.
 ```
 
 `honua_arcpy` resolves the `arcpy.env` workspace, output coordinate system,
@@ -149,12 +158,26 @@ what was attempted, not just the function name.
 
 ## Coverage summary
 
-The 0.1.0 manifest covers 45 arcpy entry points. 18 are mapped end-to-end
-(`Supported` or `Partial`); 27 are stubbed and raise
+The 0.1.0 manifest covers 45 arcpy entry points. 7 are mapped end-to-end
+(`Supported` or `Partial`); 38 are stubbed and raise
 `HonuaArcpyUnsupportedError` with a replacement hint and tracking ticket.
 
 Notable status changes versus the initial design draft:
 
+* `analysis.Buffer`, `analysis.Clip`, `analysis.Intersect`,
+  `analysis.Union`, `analysis.Erase`, `analysis.SpatialJoin`,
+  `management.CalculateField`, `management.Dissolve`, `management.Copy`,
+  `management.Delete`, and `management.Project` are **stubs**. Audit
+  pass 8 compared the shim's emitted process payloads against
+  honua-server's `BuiltInProcessCatalog` and found a contract mismatch:
+  the manifest used arcpy-style `input_features`/`result` keys, while
+  honua-server's `geometry.*` processes take raw base64-WKB (`wkb` /
+  `targetWkb` / `wkbs`) plus `srid`, and the `analytics.*` /
+  `data-management.*` / `conversion.feature-project` processes take
+  `layerId`-shaped references. The entries route through
+  `raise_unsupported(...)` until the arcpy-to-server projection adapter
+  lands; each carries a per-function `honua-server#...` tracking ticket
+  the migration tool surfaces in its assessment.
 * `management.AddField`, `management.DeleteField`, `management.Rename`,
   `management.ListFields`, and `management.Describe` are **stubs**.
   `HonuaAdminClient` exposes `apply_manifest` and `discover_tables` today,

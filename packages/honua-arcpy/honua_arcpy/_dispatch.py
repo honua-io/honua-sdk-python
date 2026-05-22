@@ -106,10 +106,11 @@ def _project_to_process_inputs(
         if arcpy_name in entry.source_params:
             inputs[process_name] = _resolve_source_value(value, session=session)
             continue
-        if isinstance(value, str):
-            resolved = resolve(value, session=session)
-            inputs[process_name] = resolved.source
-            continue
+        # Non-source parameters (dissolve_option, expression, CRS strings,
+        # numeric thresholds, etc.) pass through untouched. Routing them
+        # through ``resolve()`` would let a HONUA_ARCPY_PATH_MAP entry that
+        # collides with a literal like ``"ALL"`` silently rewrite the value
+        # before the process executor sees it.
         inputs[process_name] = value
 
     if session.output_coordinate_system is not None:

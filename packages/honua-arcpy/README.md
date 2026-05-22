@@ -29,8 +29,8 @@ honua-arcpy/
 │   ├── _cli.py                        # honua-arcpy assess <inventory.json>
 │   ├── env.py                         # arcpy.env shim
 │   ├── analysis/                      # 15 functions (6 mapped, 9 stubbed)
-│   ├── management/                    # 20 functions (10 mapped, 10 stubbed)
-│   └── da/                            # 10 cursor / data-access entries
+│   ├── management/                    # 20 functions (9 mapped, 11 stubbed)
+│   └── da/                            # 10 functions (3 mapped, 7 stubbed)
 ├── docs/
 │   ├── compatibility-matrix.md        # generated -- do not hand edit
 │   └── scanner-handoff.md

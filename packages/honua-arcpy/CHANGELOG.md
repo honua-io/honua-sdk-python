@@ -62,3 +62,32 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   `analysis.SpatialJoin` `target_features` / `join_features`).
   Source-valued parameters are now declared via
   `FunctionEntry.source_params` in the manifest.
+
+### Fixes (review pass 3)
+
+- Cursor backend failures (`Source.iter_features`, `Source.apply_edits`)
+  now surface as `ExecuteError` with `function`, `error_kind`,
+  `compat_anchor`, and `cause` attached. Previously a `RuntimeError`
+  raised from `iter_features` leaked past the cursor and the
+  `except arcpy.ExecuteError:` idiom missed it.
+- Cursor close-time failures (a flush raised during `__exit__` after the
+  user block exited cleanly) now route the close-time exception into the
+  audit context, so the JSONL record reflects `status="error"` /
+  `error_kind="<RealException>"` instead of recording `status="ok"`
+  while the caller saw an exception.
+- `HONUA_ARCPY_PATH_MAP` no longer rewrites non-source string arguments.
+  The dispatcher only resolves parameters declared in
+  `FunctionEntry.source_params` / `output_params`. Other strings
+  (`dissolve_option`, `expression`, CRS strings, distances, etc.) pass
+  through unchanged so a path-map entry that happens to collide with an
+  arcpy literal like `"ALL"` cannot silently corrupt the process payload.
+- `SelectLayerByAttribute` now commits `alias.where` / `alias.selection`
+  only after the backend count succeeds. A failed selection leaves the
+  alias in its prior state, so subsequent cursors do not iterate against
+  a selection that never reached the server.
+- `selection_type="SWITCH_SELECTION"` raises a targeted
+  `HonuaArcpyUnsupportedError` whose `function` reads
+  `management.SelectLayerByAttribute(selection_type=SWITCH_SELECTION)`
+  and whose `replacement_hint` points at `invert_where_clause=True`. The
+  prior code claimed the whole `SelectLayerByAttribute` function was
+  unimplemented, contradicting the compatibility matrix.

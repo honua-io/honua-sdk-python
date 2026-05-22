@@ -196,3 +196,41 @@ def test_path_map_applies_to_clip_secondary_source(
     payload = proc.calls[0][1]
     assert payload["inputs"]["input_features"] == "honua://services/transport/roads-buffer"
     assert payload["inputs"]["clip_features"] == "honua://services/study/area"
+
+
+def test_path_map_does_not_rewrite_non_source_string_params(
+    _isolated_audit_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A HONUA_ARCPY_PATH_MAP entry that collides with a literal arcpy keyword
+    (e.g. ``"ALL"``) must not rewrite the value when it is bound to a
+    non-source parameter such as Buffer's ``dissolve_option``."""
+
+    monkeypatch.setenv(
+        "HONUA_ARCPY_PATH_MAP",
+        '{"roads": "honua://services/transport/roads",'
+        ' "ALL": "honua://services/policy/all",'
+        ' "!speed! * 1.1": "honua://services/calc/expression"}',
+    )
+    proc = _CapturingProcessesClient()
+    honua_arcpy.configure(processes_client=proc)
+
+    honua_arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
+    honua_arcpy.management.CalculateField(
+        "roads",
+        "scaled_speed",
+        "!speed! * 1.1",
+        expression_type="PYTHON3",
+    )
+
+    buffer_payload = proc.calls[0][1]
+    # Source param resolves through the path map.
+    assert buffer_payload["inputs"]["input_features"] == "honua://services/transport/roads"
+    # Non-source params (dissolve_option, distance) pass through unchanged.
+    assert buffer_payload["inputs"]["dissolve_option"] == "ALL"
+    assert buffer_payload["inputs"]["distance"] == "25 Meters"
+
+    calc_payload = proc.calls[1][1]
+    assert calc_payload["inputs"]["input_features"] == "honua://services/transport/roads"
+    # expression / expression_type are not source paths.
+    assert calc_payload["inputs"]["expression"] == "!speed! * 1.1"
+    assert calc_payload["inputs"]["expression_type"] == "PYTHON3"

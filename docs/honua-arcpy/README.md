@@ -58,6 +58,10 @@ each string element of those parameters -- including list-valued inputs such
 as `analysis.Intersect(in_features=[...])` and `analysis.Union(in_features=[...])`
 -- so a `HONUA_ARCPY_PATH_MAP` entry for `"roads"` rewrites `"roads"` whether
 it appears as `in_features="roads"` or as one element of `["roads", "parcels"]`.
+Non-source string parameters (e.g. `dissolve_option="ALL"`, an arcpy
+`expression` text, a CRS literal) pass through untouched, so a path-map entry
+that collides with such a literal cannot silently corrupt the process
+payload.
 
 Output protection: process backends register every output path as an alias.
 With `arcpy.env.overwriteOutput = False` (the default), a second call that
@@ -71,8 +75,16 @@ any `where_clause` supplied directly to the cursor, so cursor iteration
 never reads, updates, or deletes rows outside the selection. The
 `invert_where_clause=True` flag on `SelectLayerByAttribute` is applied to
 the supplied where clause before composition. `selection_type="SWITCH_SELECTION"`
-is reported as unsupported (arcpy resolves it against OID sets we cannot
-model client-side); use an explicit inverted where clause instead.
+is reported as unsupported via a targeted
+`HonuaArcpyUnsupportedError` (whose `function` reads
+`management.SelectLayerByAttribute(selection_type=SWITCH_SELECTION)`); use
+`invert_where_clause=True` with an explicit predicate instead.
+
+Selection rollback: `SelectLayerByAttribute` only writes the new
+`alias.where` / `alias.selection` after the backend count succeeds. If
+the source query raises, the alias is left in its prior state so
+subsequent cursors do not iterate against a selection that never reached
+the server.
 
 Source descriptor projection: `HonuaClient.source(...)` requires a
 `SourceDescriptor` or mapping. The shim builds one from each arcpy path via
@@ -130,6 +142,15 @@ Notable status changes versus the initial design draft:
 
 * `honua_arcpy.ExecuteError` mirrors `arcpy.ExecuteError`; existing
   `except arcpy.ExecuteError:` clauses keep catching shim failures.
+  Cursor backend failures (`Source.iter_features` /
+  `Source.apply_edits` raising during iteration or flush) are wrapped in
+  `ExecuteError` with `function`, `error_kind`, `compat_anchor`, and
+  `cause` attached, so the cursor surface matches the process- and
+  source-dispatcher surface.
+* Cursor close-time failures (a flush that raises during `__exit__`
+  after the user block exited cleanly) route the close-time exception
+  into the audit record, so the JSONL line correctly reports
+  `status="error"` with the real `error_kind`.
 * `honua_arcpy.HonuaArcpyUnsupportedError` subclasses `ExecuteError` and is
   raised by stubbed functions. The message embeds the compatibility-matrix
   anchor URL and a recommended honua-sdk replacement call.

@@ -1,12 +1,14 @@
-"""``arcpy.management`` shim -- 20 functions (10 mapped, 10 stubbed).
+"""``arcpy.management`` shim -- 20 functions (9 mapped, 11 stubbed).
 
 Mapped functions split into three backends:
 
 * ``process``: CalculateField, Dissolve, Copy, Delete, Project (5).
 * ``session``: MakeFeatureLayer, MakeTableView (2 -- in-process aliases).
-* ``source``: SelectLayerByAttribute, GetCount (2 -- via Source facade).
+* ``source``: SelectLayerByAttribute, GetCount (2 -- via Source facade;
+  GetCount is ``partial`` until the Source facade exposes a count-only
+  helper).
 
-The remaining 10 raise ``HonuaArcpyUnsupportedError`` with replacement hints,
+The remaining 11 raise ``HonuaArcpyUnsupportedError`` with replacement hints,
 including the five admin-targeted entries (AddField, DeleteField, Rename,
 ListFields, Describe) that previously routed through a partial admin shim --
 the real ``HonuaAdminClient`` does not yet expose per-layer schema mutation
@@ -29,6 +31,7 @@ from .._errors import (
     ExecuteError,
     HonuaArcpyConfigurationError,
     HonuaArcpyResolveError,
+    HonuaArcpyUnsupportedError,
 )
 from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
@@ -155,11 +158,21 @@ def SelectLayerByAttribute(
             f"expected one of {sorted(_SELECTION_TYPES)}."
         )
     # SWITCH_SELECTION requires server-side knowledge of the prior result set
-    # (arcpy tracks OIDs); we cannot model it through a SQL where clause, so
-    # surface it as a documented unsupported mode instead of silently
-    # collapsing it into CLEAR_SELECTION.
+    # (arcpy tracks OIDs); we cannot model it through a SQL where clause. The
+    # rest of SelectLayerByAttribute is supported, so raise a targeted
+    # unsupported error scoped to the SWITCH_SELECTION mode -- the generic
+    # raise_unsupported(qualified) would claim the whole function is missing
+    # and contradict the compatibility matrix.
     if normalized_type == "SWITCH_SELECTION":
-        raise_unsupported(qualified)
+        raise HonuaArcpyUnsupportedError(
+            f"{qualified}(selection_type=SWITCH_SELECTION)",
+            compat_anchor=anchor_for(qualified),
+            replacement_hint=(
+                "SWITCH_SELECTION depends on the prior OID set, which the shim "
+                "cannot model client-side. Re-issue SelectLayerByAttribute with "
+                "the negated predicate (invert_where_clause=True) instead."
+            ),
+        )
 
     invert = bool(invert_where_clause) if invert_where_clause is not None else False
     effective_where = where_clause
@@ -169,15 +182,14 @@ def SelectLayerByAttribute(
     with record_call(qualified, args=(in_layer_or_view, selection_type, where_clause), kwargs={
         "invert_where_clause": invert_where_clause,
     }, writer=session.audit_writer()) as record:
-        new_where = _apply_selection(alias.where, normalized_type, effective_where)
-        alias.where = new_where
-        alias.selection = {
-            "selection_type": normalized_type,
-            "where": new_where,
-            "invert": invert,
-        }
+        # Compute the candidate selection but do NOT commit it to the alias
+        # until _layer_count succeeds. Mutating alias.where / alias.selection
+        # up-front would leave a failed selection on the alias if the backend
+        # call raises, so subsequent cursors would query against a selection
+        # that did not actually take effect.
+        candidate_where = _apply_selection(alias.where, normalized_type, effective_where)
         try:
-            count = _layer_count(session, alias)
+            count = _layer_count(session, alias, candidate_where)
         except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
             raise
         except Exception as exc:
@@ -188,8 +200,19 @@ def SelectLayerByAttribute(
                 compat_anchor=anchor_for(qualified),
                 cause=exc,
             ) from exc
+        alias.where = candidate_where
+        alias.selection = {
+            "selection_type": normalized_type,
+            "where": candidate_where,
+            "invert": invert,
+        }
         record["result_shape"] = _shape_of({"layer": alias.name, "count": count})
-        return Selection(layer_name=alias.name, count=count, where=new_where, selection_type=normalized_type)
+        return Selection(
+            layer_name=alias.name,
+            count=count,
+            where=candidate_where,
+            selection_type=normalized_type,
+        )
 
 
 def _apply_selection(existing: str | None, selection_type: str, where: str | None) -> str | None:
@@ -208,10 +231,15 @@ def _apply_selection(existing: str | None, selection_type: str, where: str | Non
     return where
 
 
-def _layer_count(session, alias: LayerAlias) -> int:
-    """Count features for an alias; backend failures propagate so the audit
-    record (and the caller) see the real exception instead of a misleading
-    ``Selection(count=0)`` success."""
+def _layer_count(session, alias: LayerAlias, where: str | None) -> int:
+    """Count features for an alias under ``where``.
+
+    ``where`` is the candidate predicate to count against; callers pass the
+    selection they are about to commit so the count can be observed before
+    mutating ``alias.where`` / ``alias.selection``. Backend failures
+    propagate so the audit record (and the caller) see the real exception
+    instead of a misleading ``Selection(count=0)`` success.
+    """
 
     client = session.client()
     if not hasattr(client, "source"):
@@ -219,7 +247,7 @@ def _layer_count(session, alias: LayerAlias) -> int:
     resolved = resolve(alias.source, session=session)
     descriptor = descriptor_mapping(resolved, session=session)
     source = client.source(descriptor)
-    result = source.query(where=alias.where) if alias.where else source.query()
+    result = source.query(where=where) if where else source.query()
     total = getattr(result, "total_count", None)
     if isinstance(total, int):
         return total

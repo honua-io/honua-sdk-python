@@ -27,9 +27,30 @@ from .._dispatch import raise_unsupported
 from .._errors import (
     ExecuteError,
     HonuaArcpyConfigurationError,
+    HonuaArcpyResolveError,
 )
 from .._resolve import descriptor_mapping, resolve
 from .._session import get_session
+
+
+def _wrap_source_error(qualified: str, exc: BaseException) -> ExecuteError:
+    """Wrap a ``Source`` backend failure in :class:`ExecuteError`.
+
+    Mirrors the behaviour of ``dispatch_process`` / ``dispatch_admin`` /
+    ``dispatch_source`` so cursor callers see the same ``ExecuteError``
+    surface (with ``function``, ``error_kind``, ``compat_anchor``, and
+    ``cause`` attached) as the rest of the shim. ``except
+    arcpy.ExecuteError:`` keeps catching every backend failure regardless of
+    which entry point raised it.
+    """
+
+    return ExecuteError(
+        f"{qualified} failed: {exc}",
+        function=qualified,
+        error_kind=exc.__class__.__name__,
+        compat_anchor=anchor_for(qualified),
+        cause=exc,
+    )
 
 
 def _client_source(name: str) -> Any:
@@ -174,14 +195,33 @@ class _BaseCursor:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        close_failure: BaseException | None = None
         try:
             self._close(exc_type, exc, tb)
-        finally:
+        except BaseException as close_exc:
+            close_failure = close_exc
+
+        # When the user block exited cleanly but _close raised (typically a
+        # flush failure), the audit record must reflect the close-time
+        # exception. Without this, record_call sees exc_type=None and writes
+        # status="ok" even though the caller saw an exception.
+        if exc_type is None and close_failure is not None:
+            audit_type: type[BaseException] | None = type(close_failure)
+            audit_exc: BaseException | None = close_failure
+            audit_tb = close_failure.__traceback__
+        else:
+            audit_type, audit_exc, audit_tb = exc_type, exc, tb
+
+        try:
             if self._record_cm is not None:
-                self._record_cm.__exit__(exc_type, exc, tb)
-                self._record_cm = None
+                self._record_cm.__exit__(audit_type, audit_exc, audit_tb)
+        finally:
+            self._record_cm = None
             self._closed = True
             self._entered = False
+
+        if close_failure is not None:
+            raise close_failure
 
     def __iter__(self) -> Iterator[Any]:
         self._ensure_open()
@@ -259,13 +299,22 @@ class SearchCursor(_BaseCursor):
 
     def __next__(self) -> tuple[Any, ...]:
         if self._iterator is None:
-            self._iterator = iter(self._source.iter_features(**self._query_kwargs()))
+            try:
+                self._iterator = iter(self._source.iter_features(**self._query_kwargs()))
+            except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+                raise
+            except Exception as exc:
+                raise _wrap_source_error(self.qualified_name, exc) from exc
         try:
             feature = next(self._iterator)
         except StopIteration:
             if self._record is not None:
                 self._record["result_shape"] = _shape_of({"rows": self._count})
             raise
+        except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+            raise
+        except Exception as exc:
+            raise _wrap_source_error(self.qualified_name, exc) from exc
         self._count += 1
         return _values_for_row(feature, self.fields)
 
@@ -310,7 +359,12 @@ class UpdateCursor(_BaseCursor):
             combined = _combine_where(alias_where, self.where_clause)
             if combined:
                 kwargs["where"] = combined
-            self._iterator = iter(self._source.iter_features(**kwargs))
+            try:
+                self._iterator = iter(self._source.iter_features(**kwargs))
+            except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+                raise
+            except Exception as exc:
+                raise _wrap_source_error(self.qualified_name, exc) from exc
         try:
             feature = next(self._iterator)
         except StopIteration:
@@ -321,6 +375,10 @@ class UpdateCursor(_BaseCursor):
                     "deletes": self._deleted,
                 })
             raise
+        except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+            raise
+        except Exception as exc:
+            raise _wrap_source_error(self.qualified_name, exc) from exc
         self._current_feature = feature
         self._count += 1
         return list(_values_for_row(feature, self.fields))
@@ -359,7 +417,12 @@ class UpdateCursor(_BaseCursor):
             kwargs["updates"] = list(self._updates)
         if self._deletes:
             kwargs["deletes"] = list(self._deletes)
-        result = self._source.apply_edits(**kwargs)
+        try:
+            result = self._source.apply_edits(**kwargs)
+        except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+            raise
+        except Exception as exc:
+            raise _wrap_source_error(self.qualified_name, exc) from exc
         self._updates.clear()
         self._deletes.clear()
         return getattr(result, "to_dict", lambda: result)()
@@ -410,7 +473,12 @@ class InsertCursor(_BaseCursor):
             return None
         if not hasattr(self._source, "apply_edits"):
             raise HonuaArcpyConfigurationError("Configured source does not expose apply_edits.")
-        result = self._source.apply_edits(adds=list(self._inserts))
+        try:
+            result = self._source.apply_edits(adds=list(self._inserts))
+        except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):
+            raise
+        except Exception as exc:
+            raise _wrap_source_error(self.qualified_name, exc) from exc
         self._inserts.clear()
         return getattr(result, "to_dict", lambda: result)()
 

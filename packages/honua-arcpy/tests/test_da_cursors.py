@@ -156,6 +156,106 @@ def test_da_stubs_raise(stub_clients) -> None:
         honua_arcpy.da.TableToNumPyArray("segments", ["OBJECTID"])
 
 
+def test_search_cursor_wraps_iter_features_failures_in_execute_error() -> None:
+    """Backend failures from Source.iter_features must surface as ExecuteError."""
+
+    class _ExplodingSource:
+        def iter_features(self, **_: Any) -> Any:
+            raise RuntimeError("backend exploded")
+
+    class _ExplodingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _ExplodingSource()
+
+    honua_arcpy.configure(client=_ExplodingClient())
+
+    with pytest.raises(honua_arcpy.ExecuteError) as info:
+        with honua_arcpy.da.SearchCursor("roads", ["OID@"]) as cursor:
+            next(iter(cursor))
+    assert info.value.function == "da.SearchCursor"
+    assert info.value.error_kind == "RuntimeError"
+    assert "compatibility-matrix" in (info.value.compat_anchor or "")
+
+
+def test_update_cursor_flush_failure_wraps_in_execute_error_and_audits_error() -> None:
+    """apply_edits failures during flush surface as ExecuteError and audit as error."""
+
+    import json
+    import os
+    from pathlib import Path
+
+    class _ExplodingSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter([
+                {"attributes": {"OBJECTID": 1, "STATUS": "OPEN"}},
+            ])
+
+        def apply_edits(self, **_: Any) -> Any:
+            raise RuntimeError("apply_edits exploded")
+
+    class _ExplodingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _ExplodingSource()
+
+    honua_arcpy.configure(client=_ExplodingClient())
+
+    with pytest.raises(honua_arcpy.ExecuteError) as info:
+        with honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+            row = next(cursor)
+            row[1] = "ARCHIVED"
+            cursor.updateRow(row)
+    assert info.value.function == "da.UpdateCursor"
+    assert info.value.error_kind == "RuntimeError"
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files
+    records = [
+        json.loads(line)
+        for line in files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    cursor_records = [r for r in records if r["function"] == "da.UpdateCursor"]
+    assert cursor_records, "UpdateCursor audit record missing"
+    # Before the fix, the audit recorded status="ok" because __exit__ passed
+    # exc_type=None into record_call even though _close raised.
+    assert cursor_records[-1]["status"] == "error"
+    assert cursor_records[-1]["error_kind"] == "RuntimeError"
+
+
+def test_insert_cursor_flush_failure_wraps_in_execute_error_and_audits_error() -> None:
+    import json
+    import os
+    from pathlib import Path
+
+    class _ExplodingSource:
+        def apply_edits(self, **_: Any) -> Any:
+            raise RuntimeError("insert exploded")
+
+    class _ExplodingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _ExplodingSource()
+
+    honua_arcpy.configure(client=_ExplodingClient())
+
+    with pytest.raises(honua_arcpy.ExecuteError) as info:
+        with honua_arcpy.da.InsertCursor("roads", ["STATUS"]) as cursor:
+            cursor.insertRow(["OPEN"])
+    assert info.value.function == "da.InsertCursor"
+    assert info.value.error_kind == "RuntimeError"
+
+    audit_dir = Path(os.environ["HONUA_ARCPY_AUDIT_DIR"])
+    records = [
+        json.loads(line)
+        for path in sorted(audit_dir.glob("audit-*.jsonl"))
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    insert_records = [r for r in records if r["function"] == "da.InsertCursor"]
+    assert insert_records and insert_records[-1]["status"] == "error"
+    assert insert_records[-1]["error_kind"] == "RuntimeError"
+
+
 def test_cursor_open_failure_reports_real_error_kind(tmp_path) -> None:
     # Unconfigured session: _open() raises HonuaArcpyConfigurationError before
     # the caller's `with` block starts. The audit should record that real

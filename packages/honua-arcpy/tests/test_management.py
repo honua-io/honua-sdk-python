@@ -57,8 +57,15 @@ def test_select_layer_by_attribute_switch_is_unsupported(stub_clients) -> None:
     # cannot model as a SQL where clause; the previous behaviour silently
     # cleared the selection. Surface it as unsupported instead.
     honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
-    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError) as info:
         honua_arcpy.management.SelectLayerByAttribute("roads_lyr", "SWITCH_SELECTION")
+    # The error must be scoped to the SWITCH_SELECTION mode, not claim the
+    # whole SelectLayerByAttribute function is unimplemented (the compatibility
+    # matrix lists it as Supported, just not in this mode).
+    assert "SWITCH_SELECTION" in info.value.function
+    assert info.value.replacement_hint and "invert_where_clause" in info.value.replacement_hint
+    # The compat anchor still points at the SelectLayerByAttribute matrix row.
+    assert "selectlayerbyattribute" in (info.value.compat_anchor or "").lower()
 
 
 def test_select_layer_by_attribute_unknown_selection_type_raises(stub_clients) -> None:
@@ -98,6 +105,41 @@ def test_select_layer_by_attribute_propagates_backend_failures() -> None:
     select_records = [r for r in records if r["function"] == "management.SelectLayerByAttribute"]
     assert select_records and select_records[-1]["status"] == "error"
     assert select_records[-1]["error_kind"] == "RuntimeError"
+
+
+def test_select_layer_by_attribute_rolls_back_alias_on_backend_failure() -> None:
+    """A failed selection must not leave the candidate where on the alias.
+
+    Subsequent cursors over the layer would otherwise apply a selection that
+    never successfully reached the backend, silently filtering rows the user
+    never asked to filter.
+    """
+
+    class _ExplodingSource:
+        def query(self, **_: object) -> object:
+            raise RuntimeError("backend exploded")
+
+    class _ExplodingClient:
+        def source(self, descriptor: object) -> object:
+            return _ExplodingSource()
+
+    honua_arcpy.configure(client=_ExplodingClient())
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+
+    alias = honua_arcpy.get_session().get_layer("roads_lyr")
+    assert alias is not None
+    assert alias.where == "STATUS = 'OPEN'"
+    original_selection = dict(alias.selection)
+
+    with pytest.raises(honua_arcpy.ExecuteError):
+        honua_arcpy.management.SelectLayerByAttribute(
+            "roads_lyr", "SUBSET_SELECTION", "name LIKE 'A%'"
+        )
+
+    # The alias.where / alias.selection must still reflect the prior state,
+    # not the candidate where that the backend rejected.
+    assert alias.where == "STATUS = 'OPEN'"
+    assert alias.selection == original_selection
 
 
 def test_get_count_with_and_without_selection(stub_clients) -> None:

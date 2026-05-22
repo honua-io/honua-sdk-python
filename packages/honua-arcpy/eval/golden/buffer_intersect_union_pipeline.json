@@ -1,0 +1,5 @@
+{
+  "audit_lines": 3,
+  "expected_failure": false,
+  "stdout_contains": "buffer_intersect_union_pipeline ok"
+}

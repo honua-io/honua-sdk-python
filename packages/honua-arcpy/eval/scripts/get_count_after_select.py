@@ -1,0 +1,25 @@
+"""GetCount on a selection layer."""
+
+import sys
+from pathlib import Path
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk", PACKAGE_ROOT.parent.parent / "packages" / "honua-admin"):
+    candidate = str(path)
+    if candidate not in sys.path:
+        sys.path.insert(0, candidate)
+
+from eval._stub import install_stub, stub_active
+
+if stub_active():
+    install_stub()
+
+import honua_arcpy as arcpy
+
+arcpy.env.workspace = "honua://services/transport"
+arcpy.env.overwriteOutput = True
+
+arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
+count = arcpy.management.GetCount("roads_lyr")
+print(f"get_count_after_select ok count={count}")

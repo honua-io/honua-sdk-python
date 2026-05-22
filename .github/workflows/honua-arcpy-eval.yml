@@ -1,0 +1,187 @@
+name: honua-arcpy eval
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [trunk]
+    paths:
+      - "packages/honua-arcpy/**"
+      - "packages/honua-sdk/**"
+      - "packages/honua-admin/**"
+      - ".github/workflows/honua-arcpy-eval.yml"
+  pull_request:
+    branches: [trunk]
+    paths:
+      - "packages/honua-arcpy/**"
+      - "packages/honua-sdk/**"
+      - "packages/honua-admin/**"
+      - ".github/workflows/honua-arcpy-eval.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  PYTHONDONTWRITEBYTECODE: "1"
+  FORCE_COLOR: "1"
+  HONUA_ARCPY_EVAL_USE_STUB: "1"
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/honua-sdk/pyproject.toml
+            packages/honua-admin/pyproject.toml
+            packages/honua-arcpy/pyproject.toml
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e packages/honua-sdk
+          pip install -e packages/honua-admin
+          pip install -e packages/honua-arcpy
+          pip install pytest
+
+      - name: Generate compatibility matrix (drift check)
+        run: |
+          python -m honua_arcpy._cli matrix \
+            --output packages/honua-arcpy/docs/compatibility-matrix.md \
+            --check packages/honua-arcpy/docs/compatibility-matrix.md
+
+      - name: Run honua-arcpy unit tests
+        run: |
+          python -m pytest packages/honua-arcpy/tests -q --tb=short
+
+      - name: Run honua-arcpy eval (stub mode)
+        run: |
+          python packages/honua-arcpy/eval/run_eval.py \
+            --output-json packages/honua-arcpy/eval-results.json \
+            --output-junit packages/honua-arcpy/eval-results.xml \
+            --audit-root packages/honua-arcpy/eval/.audit \
+            --pass-threshold 0.70
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: honua-arcpy-eval
+          path: |
+            packages/honua-arcpy/eval-results.json
+            packages/honua-arcpy/eval-results.xml
+          retention-days: 30
+
+      - name: Build honua-arcpy wheel
+        run: |
+          pip install --upgrade build twine
+          python -m build --wheel packages/honua-arcpy/
+          twine check packages/honua-arcpy/dist/*
+
+      - name: Upload honua-arcpy wheel artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: honua-arcpy-wheel
+          path: packages/honua-arcpy/dist/*.whl
+          retention-days: 30
+
+  ephemeral-server-smoke:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    needs: eval
+    permissions:
+      contents: read
+      packages: read
+    environment: staging
+    env:
+      HONUA_BASE_URL: ${{ vars.HONUA_BASE_URL }}
+      HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
+      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:latest-aot' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: packages/honua-arcpy/pyproject.toml
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e packages/honua-sdk
+          pip install -e packages/honua-admin
+          pip install -e packages/honua-arcpy
+          pip install pytest
+
+      - name: Detect ephemeral honua-server target
+        id: target
+        run: |
+          if [[ -n "${HONUA_BASE_URL}" ]]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+            echo "local_stack=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+            echo "local_stack=true" >> "${GITHUB_OUTPUT}"
+            {
+              echo "## honua-arcpy smoke"
+              echo '- ``HONUA_BASE_URL`` not configured; reusing the seeded client-compat Docker target.'
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Checkout Honua Server seed fixtures
+        if: ${{ steps.target.outputs.local_stack == 'true' }}
+        uses: actions/checkout@v6
+        with:
+          repository: honua-io/honua-server
+          path: honua-server
+
+      - name: Start seeded local Honua target
+        if: ${{ steps.target.outputs.local_stack == 'true' }}
+        env:
+          COMPOSE_PROJECT_NAME: honua-arcpy-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          server_root="${GITHUB_WORKSPACE}/honua-server"
+          compose_file="${server_root}/docker/client-compat/compose.yml"
+          if [[ ! -f "${compose_file}" ]]; then
+            echo "::warning::honua-server compose file not found; skipping ephemeral smoke."
+            exit 0
+          fi
+          override_file="${RUNNER_TEMP}/honua-arcpy-smoke.override.yml"
+          cat > "${override_file}" <<YAML
+          services:
+            honua:
+              image: ${HONUA_LOCAL_SERVER_IMAGE}
+              ports:
+                - "5000:5000"
+          YAML
+          docker compose -f "${compose_file}" -f "${override_file}" up -d honua
+          echo "HONUA_BASE_URL=http://localhost:5000" >> "${GITHUB_ENV}"
+          for _ in $(seq 1 60); do
+            if curl -fsS "${HONUA_BASE_URL}/health" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Run ephemeral smoke
+        env:
+          HONUA_ARCPY_EVAL_USE_STUB: "0"
+        run: |
+          python -m pytest packages/honua-arcpy/tests/test_ephemeral_smoke.py -q --tb=short || \
+            python packages/honua-arcpy/eval/run_eval.py \
+              --output-json packages/honua-arcpy/smoke-eval.json \
+              --no-fail-under

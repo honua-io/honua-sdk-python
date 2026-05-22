@@ -1,0 +1,5 @@
+{
+  "audit_lines": 1,
+  "expected_failure": false,
+  "stdout_contains": "delete_field_legacy ok"
+}

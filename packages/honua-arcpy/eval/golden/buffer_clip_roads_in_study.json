@@ -1,0 +1,5 @@
+{
+  "audit_lines": 2,
+  "expected_failure": false,
+  "stdout_contains": "buffer_clip_roads_in_study ok"
+}

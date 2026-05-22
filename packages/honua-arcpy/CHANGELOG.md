@@ -91,3 +91,14 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   and whose `replacement_hint` points at `invert_where_clause=True`. The
   prior code claimed the whole `SelectLayerByAttribute` function was
   unimplemented, contradicting the compatibility matrix.
+- `honua-arcpy assess` now reads the
+  `honua_sdk.migration.scan_arcpy_source(...).to_dict()` shape (entries
+  under the top-level `calls` key) in addition to the
+  `honua_admin.scan_arcpy_script` shape (`toolCalls` / `tool_calls`).
+  Both scanners are documented inputs; previously the SDK shape
+  silently produced an empty assessment.
+- `da.SearchCursor` / `da.UpdateCursor` now preserve a zero-valued
+  `OBJECTID` (or `FID`) when resolving `OID@`. The previous
+  `attrs.get('OBJECTID') or ...` falsy chain collapsed `0` to `None`,
+  which caused `updateRow` / `deleteRow` to raise
+  `HonuaArcpyConfigurationError` against legitimate rows with OID 0.

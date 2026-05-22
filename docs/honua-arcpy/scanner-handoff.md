@@ -7,19 +7,39 @@ get a per-call translation TODO list against the compatibility matrix.
 
 ## Inputs
 
-The scanner emits an `ArcPyScriptInventoryArtifact` JSON document. The shim
-consumes the `toolCalls` (or legacy `tool_calls`) array. Each entry should
-include either a fully-qualified `call` such as `arcpy.analysis.Buffer`, or a
-`(toolbox, tool)` pair. Entries without classifiable names are skipped.
+`assess` accepts both documented scanner shapes:
 
-Example inventory excerpt:
+* `honua_admin.scan_arcpy_script(...)` (and the `honua-arcpy-scan` console
+  command) emit an `ArcPyScriptInventoryArtifact` with the per-call list
+  under `toolCalls` (legacy `tool_calls` is also accepted). Each entry
+  should include either a fully-qualified `call` such as
+  `arcpy.analysis.Buffer`, or a `(toolbox, tool)` pair.
+* `honua_sdk.migration.scan_arcpy_source(...).to_dict()` (or
+  `scan_arcpy_file(...)`) emits an `ArcPyScanReport` with the per-call
+  list under `calls`. Each entry carries `qualifiedName`, `family`, and
+  `tool` keys, which `assess` matches against the compatibility manifest.
+
+Entries without classifiable names are skipped.
+
+Example inventory excerpts:
 
 ```jsonc
+// honua_admin.scan_arcpy_script shape
 {
   "toolCalls": [
     { "call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis" },
     { "call": "arcpy.management.SelectLayerByLocation", "tool": "SelectLayerByLocation", "toolbox": "management" },
     { "call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa" }
+  ]
+}
+```
+
+```jsonc
+// honua_sdk.migration.scan_arcpy_source(...).to_dict() shape
+{
+  "calls": [
+    { "qualifiedName": "arcpy.analysis.Buffer", "family": "analysis", "tool": "Buffer" },
+    { "qualifiedName": "arcpy.management.SelectLayerByLocation", "family": "management", "tool": "SelectLayerByLocation" }
   ]
 }
 ```

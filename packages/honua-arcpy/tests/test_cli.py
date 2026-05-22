@@ -83,3 +83,47 @@ def test_render_compat_matrix_contains_anchors() -> None:
     text = render_compat_matrix()
     assert "<a id=\"analysisbuffer\"></a>" in text
     assert "<a id=\"dasearchcursor\"></a>" in text
+
+
+def test_assess_inventory_accepts_sdk_migration_scan_report_calls_key() -> None:
+    """The honua_sdk.migration.scan_arcpy_source(...).to_dict() report stores
+    its entries under the top-level ``calls`` key (vs. honua_admin's
+    ``toolCalls`` / ``tool_calls``). ``assess_inventory`` must accept both."""
+
+    from honua_sdk.migration import scan_arcpy_source
+
+    report = scan_arcpy_source(
+        "import arcpy\n"
+        "arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters')\n"
+        "arcpy.management.SelectLayerByLocation('roads', 'INTERSECT', 'parcels')\n"
+    )
+    rows = assess_inventory(report.to_dict())
+    statuses = {row.qualified_name: (row.status, row.occurrences) for row in rows}
+    assert statuses["analysis.Buffer"] == ("supported", 1)
+    assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
+
+
+def test_assess_inventory_accepts_minimal_sdk_calls_shape() -> None:
+    """A hand-rolled SDK-shape payload (``calls`` + ``qualifiedName``)
+    must classify cleanly, since the SDK scan report is one of the two
+    documented assess inputs."""
+
+    rows = assess_inventory(
+        {
+            "calls": [
+                {
+                    "qualifiedName": "arcpy.analysis.Buffer",
+                    "family": "analysis",
+                    "tool": "Buffer",
+                },
+                {
+                    "qualifiedName": "arcpy.management.SelectLayerByLocation",
+                    "family": "management",
+                    "tool": "SelectLayerByLocation",
+                },
+            ]
+        }
+    )
+    statuses = {row.qualified_name: row.status for row in rows}
+    assert statuses["analysis.Buffer"] == "supported"
+    assert statuses["management.SelectLayerByLocation"] == "stub"

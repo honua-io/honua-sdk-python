@@ -54,7 +54,15 @@ class AssessmentRow:
 
 
 def _iter_tool_calls(inventory: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]:
-    raw = inventory.get("toolCalls") or inventory.get("tool_calls") or []
+    # ``toolCalls`` / ``tool_calls`` is the honua_admin.scan_arcpy_script
+    # inventory shape; ``calls`` is the honua_sdk.migration.scan_arcpy_source
+    # report shape (both are documented inputs for ``assess``).
+    raw = (
+        inventory.get("toolCalls")
+        or inventory.get("tool_calls")
+        or inventory.get("calls")
+        or []
+    )
     if isinstance(raw, list):
         for entry in raw:
             if isinstance(entry, Mapping):

@@ -256,6 +256,98 @@ def test_insert_cursor_flush_failure_wraps_in_execute_error_and_audits_error() -
     assert insert_records[-1]["error_kind"] == "RuntimeError"
 
 
+def test_search_cursor_preserves_zero_valued_objectid() -> None:
+    """A valid OBJECTID of 0 must surface as 0, not None.
+
+    Before the fix, ``attrs.get('OBJECTID') or attrs.get('oid') or attrs.get('FID')``
+    collapsed ``0`` into the fallback chain and returned ``None``.
+    """
+
+    class _ZeroOidSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter([
+                {"attributes": {"OBJECTID": 0, "STATUS": "OPEN"}},
+                {"attributes": {"OBJECTID": 1, "STATUS": "CLOSED"}},
+            ])
+
+    class _ZeroOidClient:
+        def source(self, descriptor: Any) -> Any:
+            return _ZeroOidSource()
+
+    honua_arcpy.configure(client=_ZeroOidClient())
+
+    with honua_arcpy.da.SearchCursor("roads", ["OID@", "STATUS"]) as cursor:
+        rows = list(cursor)
+
+    assert rows[0] == (0, "OPEN")
+    assert rows[1] == (1, "CLOSED")
+
+
+def test_search_cursor_preserves_zero_valued_fid_fallback() -> None:
+    """Layers that expose ``FID`` (not ``OBJECTID``) must also preserve a zero
+    value when ``OID@`` is requested."""
+
+    class _FidSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter([
+                {"attributes": {"FID": 0, "NAME": "first"}},
+            ])
+
+    class _FidClient:
+        def source(self, descriptor: Any) -> Any:
+            return _FidSource()
+
+    honua_arcpy.configure(client=_FidClient())
+
+    with honua_arcpy.da.SearchCursor("parcels", ["OID@", "NAME"]) as cursor:
+        rows = list(cursor)
+
+    assert rows == [(0, "first")]
+
+
+def test_update_cursor_preserves_zero_valued_oid_for_updates_and_deletes() -> None:
+    """UpdateCursor.updateRow / deleteRow must accept a feature with OBJECTID=0.
+
+    Before the fix, _extract_oid returned None for OBJECTID=0 and both
+    methods raised HonuaArcpyConfigurationError, masking a valid edit.
+    """
+
+    edits: dict[str, Any] = {}
+
+    class _ZeroOidSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter([
+                {"attributes": {"OBJECTID": 0, "STATUS": "OPEN"}},
+                {"attributes": {"OBJECTID": 1, "STATUS": "OPEN"}},
+            ])
+
+        def apply_edits(self, **kwargs: Any) -> Any:
+            edits.update(kwargs)
+            return {"ok": True}
+
+    class _ZeroOidClient:
+        def source(self, descriptor: Any) -> Any:
+            return _ZeroOidSource()
+
+    honua_arcpy.configure(client=_ZeroOidClient())
+
+    with honua_arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+        first = next(cursor)
+        assert first[0] == 0  # The zero OID must reach the caller.
+        first[1] = "ARCHIVED"
+        cursor.updateRow(first)
+
+        second = next(cursor)
+        cursor.deleteRow()  # OBJECTID=1
+
+    # The buffered update must carry OBJECTID=0 verbatim, and the delete
+    # must enqueue OID 1 (proving the deleteRow path also reads the OID
+    # without relying on the truthy chain).
+    assert edits["updates"][0]["attributes"]["OBJECTID"] == 0
+    assert edits["deletes"] == [1]
+    _ = second  # silence unused-var warnings
+
+
 def test_cursor_open_failure_reports_real_error_kind(tmp_path) -> None:
     # Unconfigured session: _open() raises HonuaArcpyConfigurationError before
     # the caller's `with` block starts. The audit should record that real

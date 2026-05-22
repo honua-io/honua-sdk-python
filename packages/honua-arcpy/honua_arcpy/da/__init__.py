@@ -18,7 +18,7 @@ ticket. They are listed in the compatibility manifest so the matrix and
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
 from .._audit import _shape_of, record_call
@@ -84,6 +84,23 @@ def _combine_where(*clauses: str | None) -> str | None:
     return " AND ".join(f"({clause})" for clause in parts)
 
 
+_OID_KEYS: tuple[str, ...] = ("OBJECTID", "oid", "FID")
+
+
+def _oid_from_attrs(attrs: Mapping[str, Any]) -> Any:
+    """Return the first present OID-shaped value in ``attrs``.
+
+    Uses explicit key-presence checks so a valid zero-valued OID
+    (``OBJECTID = 0`` / ``FID = 0``) is preserved rather than collapsed to
+    ``None`` by a ``get(...) or ...`` falsy chain.
+    """
+
+    for key in _OID_KEYS:
+        if key in attrs:
+            return attrs[key]
+    return None
+
+
 def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
     if hasattr(feature, "attributes"):
         attrs = dict(feature.attributes or {})
@@ -101,7 +118,7 @@ def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
         if field.upper() in {"SHAPE@", "SHAPE@JSON"}:
             out.append(_shape_value(geometry, field.upper()))
         elif field.upper() == "OID@":
-            out.append(attrs.get("OBJECTID") or attrs.get("oid") or attrs.get("FID"))
+            out.append(_oid_from_attrs(attrs))
         else:
             out.append(attrs.get(field))
     return tuple(out)
@@ -440,7 +457,7 @@ class UpdateCursor(_BaseCursor):
 
     def _extract_oid(self, feature: Any) -> Any:
         attrs = getattr(feature, "attributes", None) or (feature.get("attributes") if isinstance(feature, dict) else None) or {}
-        return attrs.get("OBJECTID") or attrs.get("oid") or attrs.get("FID")
+        return _oid_from_attrs(attrs)
 
 
 class InsertCursor(_BaseCursor):

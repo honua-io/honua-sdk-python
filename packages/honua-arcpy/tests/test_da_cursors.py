@@ -48,6 +48,37 @@ def test_search_cursor_inherits_alias_where_from_make_feature_layer() -> None:
     assert captured["where"] == "STATUS = 'OPEN'"
 
 
+def test_search_cursor_uses_alias_workspace_after_env_workspace_changes() -> None:
+    """An alias must keep the workspace captured when it was created.
+
+    ``SearchCursor`` used to resolve ``alias.source`` instead of the alias
+    name, so descriptor projection fell back to the *current* session
+    workspace. A later ``arcpy.env.workspace`` change could therefore retarget
+    an existing layer alias at a different service.
+    """
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter(())
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            captured["descriptor"] = descriptor
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+    honua_arcpy.env.workspace = "honua://services/original"
+    honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
+    honua_arcpy.env.workspace = "honua://services/changed"
+
+    with honua_arcpy.da.SearchCursor("roads_lyr", ["OID@"]) as cursor:
+        list(cursor)
+
+    assert captured["descriptor"]["locator"] == {"serviceId": "original", "layerId": 0}
+
+
 def test_search_cursor_combines_alias_where_with_cursor_where() -> None:
     """A cursor-supplied where_clause must AND with the alias-resident filter."""
 

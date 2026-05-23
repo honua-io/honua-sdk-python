@@ -210,6 +210,7 @@ def _assess(args: argparse.Namespace) -> int:
     if output_dir is None:
         output_dir = args.inventory.parent
     machine_path = output_dir / "honua-arcpy-assessment.json"
+    machine_path.parent.mkdir(parents=True, exist_ok=True)
     machine_path.write_text(
         json.dumps(
             {

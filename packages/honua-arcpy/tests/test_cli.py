@@ -70,6 +70,19 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
     assert summary["out-of-scope"] >= 1
 
 
+def test_assess_cli_creates_output_dir(tmp_path: Path) -> None:
+    inventory_path = tmp_path / "inventory.json"
+    inventory_path.write_text(json.dumps(SAMPLE_INVENTORY), encoding="utf-8")
+    output_dir = tmp_path / "missing" / "nested"
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        exit_code = main(["assess", str(inventory_path), "--output-dir", str(output_dir)])
+
+    assert exit_code == 0
+    assert (output_dir / "honua-arcpy-assessment.json").exists()
+
+
 def test_matrix_renders_and_check_detects_drift(tmp_path: Path) -> None:
     matrix_path = tmp_path / "matrix.md"
     assert main(["matrix", "--output", str(matrix_path)]) == 0

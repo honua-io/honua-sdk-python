@@ -25,6 +25,40 @@ def test_make_feature_layer_overwrite_protection(stub_clients) -> None:
     assert honua_arcpy.get_session().get_layer("roads_lyr").source == "roads_alt"
 
 
+def test_get_count_uses_make_feature_layer_workspace() -> None:
+    """GetCount over an alias must project the alias-bound workspace.
+
+    The alias stores the workspace from ``MakeFeatureLayer(..., workspace=...)``.
+    Counting ``alias.source`` directly loses that workspace and builds a
+    descriptor for service ``roads`` instead of the intended workspace service.
+    """
+
+    captured: dict[str, object] = {}
+
+    class _RecordingSource:
+        def query(self, **_: object) -> object:
+            class _Result:
+                total_count = 0
+                features: list[object] = []
+
+            return _Result()
+
+    class _RecordingClient:
+        def source(self, descriptor: object) -> object:
+            captured["descriptor"] = descriptor
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+    honua_arcpy.management.MakeFeatureLayer(
+        "roads",
+        "roads_lyr",
+        workspace="honua://services/transport",
+    )
+
+    assert honua_arcpy.management.GetCount("roads_lyr") == 0
+    assert captured["descriptor"]["locator"] == {"serviceId": "transport", "layerId": 0}
+
+
 def test_select_layer_by_attribute_updates_where_and_returns_count(stub_clients) -> None:
     honua_arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
     selection = honua_arcpy.management.SelectLayerByAttribute(

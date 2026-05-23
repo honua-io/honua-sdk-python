@@ -59,11 +59,7 @@ def _client_source(name: str) -> Any:
     if not hasattr(client, "source"):
         raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")
     alias = session.get_layer(name)
-    resolved = (
-        resolve(alias.source, session=session)
-        if alias is not None
-        else resolve(name, session=session)
-    )
+    resolved = resolve(alias.name if alias is not None else name, session=session)
     descriptor = descriptor_mapping(resolved, session=session)
     return client.source(descriptor), alias
 

@@ -67,7 +67,11 @@ Admin / OGC Processes clients so the next backend call rebuilds against
 the new settings. Explicit `client=` / `admin_client=` /
 `processes_client=` arguments passed in the same call still win.
 Idempotent reconfigures (re-passing the same values) leave the cache
-untouched.
+untouched. `configure(..., **client_kwargs)` extras (`timeout`,
+`transport`, `auth_provider`, `follow_redirects`, `max_retries`, ...)
+are mirrored onto both the data client and the admin client; the admin
+builder adds the session-level `api_key` / `bearer_token` only when those
+keys are absent from the constructor kwargs.
 
 Path resolution: customers can declare an explicit alias map via
 `HONUA_ARCPY_PATH_MAP='{"local_name": "honua://services/foo/bar"}'` for
@@ -112,7 +116,20 @@ feature attributes in the order `OBJECTID`, `oid`, `FID`, using explicit
 key-presence checks so a valid zero-valued OID (e.g. shapefile `FID = 0`)
 is preserved instead of being collapsed to `None`. `UpdateCursor.updateRow`
 and `UpdateCursor.deleteRow` require an OID-bearing row and raise
-`HonuaArcpyConfigurationError` when none is present.
+`HonuaArcpyConfigurationError` when none is present. A row passed to
+`updateRow` / `insertRow` whose length disagrees with `field_names` raises
+`HonuaArcpyConfigurationError` (a subclass of `ExecuteError`) with the
+expected / got counts in the message, so the documented
+`except arcpy.ExecuteError:` idiom catches the mismatch instead of letting
+a bare `ValueError` escape from the underlying `zip(..., strict=True)`.
+
+`InsertCursor.reset()` is explicitly refused. Real `arcpy.da.InsertCursor`
+has no `reset()` method; the shim's inherited `BaseCursor.reset` would
+otherwise discard the buffered inserts before `__exit__`'s flush ran, with
+no audit signal. The refusal surfaces as `HonuaArcpyConfigurationError`
+pointing the caller at `flush()` or the context-manager exit; the buffered
+rows survive the refusal so the caller can recover by catching the error
+and calling `flush()` manually.
 
 Selection rollback: `SelectLayerByAttribute` only writes the new
 `alias.where` / `alias.selection` after the backend count succeeds. If

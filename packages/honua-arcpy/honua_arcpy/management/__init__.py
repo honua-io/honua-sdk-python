@@ -254,7 +254,7 @@ def _layer_count(session, alias: LayerAlias, where: str | None) -> int:
     client = session.client()
     if not hasattr(client, "source"):
         raise HonuaArcpyConfigurationError("Configured Honua client does not expose Source facade.")
-    resolved = resolve(alias.source, session=session)
+    resolved = resolve(alias.name, session=session)
     descriptor = descriptor_mapping(resolved, session=session)
     source = client.source(descriptor)
     result = source.query(where=where) if where else source.query()
@@ -281,11 +281,7 @@ def GetCount(in_rows: Any) -> int:
     with record_call(qualified, args=(in_rows,), kwargs={}, writer=session.audit_writer()) as record:
         layer_name = str(in_rows) if isinstance(in_rows, str) else None
         alias = session.get_layer(layer_name) if layer_name is not None else None
-        resolved = (
-            resolve(alias.source, session=session)
-            if alias is not None
-            else resolve(in_rows, session=session)
-        )
+        resolved = resolve(alias.name if alias is not None else in_rows, session=session)
         where = alias.where if alias is not None else None
 
         client = session.client()

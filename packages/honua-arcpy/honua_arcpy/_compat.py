@@ -301,8 +301,12 @@ COMPAT: dict[str, FunctionEntry] = {
     ),
     "management.SelectLayerByAttribute": FunctionEntry(
         backend="source",
-        status="supported",
-        notes="Where-clause selection; updates the in-process layer state.",
+        status="partial",
+        notes=(
+            "Where-clause selection; updates the in-process layer state. "
+            "SWITCH_SELECTION is not supported because the shim cannot invert "
+            "the prior OID selection set as a SQL where clause."
+        ),
         param_map={
             "in_layer_or_view": "layer_name",
             "selection_type": "selection_type",

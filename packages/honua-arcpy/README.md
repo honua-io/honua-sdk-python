@@ -89,9 +89,9 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 45 functions (15 analysis + 20 management + 10 da); see
   [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
-- **Coverage today:** 7 mapped end-to-end (session-backed
-  ``MakeFeatureLayer`` / ``MakeTableView``, source-backed
-  ``SelectLayerByAttribute`` / ``GetCount``, the three ``da`` cursors)
+- **Coverage today:** 4 supported entries and 3 partial entries
+  (session-backed ``MakeFeatureLayer`` / ``MakeTableView``, source-backed
+  ``SelectLayerByAttribute`` / ``GetCount``, and the three ``da`` cursors)
   + 38 stubs. The 11 previously process-backed entries (``Buffer``,
   ``Clip``, ``Intersect``, ``Union``, ``Erase``, ``SpatialJoin``,
   ``CalculateField``, ``Dissolve``, ``Copy``, ``Delete``, ``Project``)

@@ -28,9 +28,9 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   reading; the stubs surface the gap with a replacement hint and a
   `honua-server#layer-schema-mutate` / `honua-server#layer-schema-read`
   tracking ticket so the migration scanner picks them up.
-- `GetCount` is `partial`: it materializes the full result set because the
-  `Source` facade does not expose a count-only helper yet. Use bounded
-  `where` clauses for large layers.
+- `GetCount`, `SelectLayerByAttribute`, and `SearchCursor` are `partial`:
+  they run on Honua with documented deviations, and `honua-arcpy assess`
+  reports them separately from APIs that run unchanged.
 - `SourceDescriptor` mappings emitted by `_resolve.descriptor_mapping`
   default to `geoservices-feature-service` and treat unrecognized paths as
   `service_id=<name>, layer_id=0`. Customers with non-default layer IDs
@@ -106,7 +106,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
 ### Fixes (review pass 4)
 
 - `honua-arcpy assess` now canonicalizes
-  `arcpy.management.CopyFeatures` to the supported `management.Copy`
+  `arcpy.management.CopyFeatures` to the canonical `management.Copy`
   manifest entry. The shim already exposed
   `management.CopyFeatures = Copy`, but `assess` keyed straight off the
   scanner's qualified name, so SDK / admin inventories of
@@ -230,9 +230,8 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   ``backend="process"``); the moment a future change promotes one
   back to ``process``, the test enforces that the payload matches
   the server contract.
-- **Coverage shifted to source/session surface.** The supported MVP
-  is now 7 mapped entries (4 management session/source +
-  3 data-access cursors) plus 1 partial (GetCount). 38 entries are
+- **Coverage shifted to source/session surface.** The MVP surface is now
+  4 supported entries plus 3 partial entries. 38 entries are
   stubs that the migration tool surfaces with a replacement hint and
   tracking ticket. ``docs/honua-arcpy/compatibility-matrix.md`` and
   ``packages/honua-arcpy/docs/compatibility-matrix.md`` were

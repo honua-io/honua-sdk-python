@@ -35,7 +35,7 @@ from ._compat import COMPAT, FunctionEntry, anchor_for
 class AssessmentRow:
     qualified_name: str
     occurrences: int
-    status: str  # "supported" | "stub" | "out-of-scope"
+    status: str  # "supported" | "partial" | "stub" | "out-of-scope"
     backend: str
     notes: str
     replacement_hint: str | None
@@ -130,12 +130,11 @@ def assess_inventory(inventory: Mapping[str, Any]) -> list[AssessmentRow]:
     for name, occurrences in sorted(counts.items()):
         entry = COMPAT.get(name)
         if entry is not None:
-            status = "supported" if entry.is_supported else "stub"
             rows.append(
                 AssessmentRow(
                     qualified_name=name,
                     occurrences=occurrences,
-                    status=status,
+                    status=entry.status,
                     backend=entry.backend,
                     notes=entry.notes,
                     replacement_hint=entry.replacement_hint,
@@ -163,7 +162,12 @@ def render_assessment(rows: Sequence[AssessmentRow]) -> str:
     if not rows:
         return "No arcpy tool calls detected in the supplied inventory."
 
-    buckets: dict[str, list[AssessmentRow]] = {"supported": [], "stub": [], "out-of-scope": []}
+    buckets: dict[str, list[AssessmentRow]] = {
+        "supported": [],
+        "partial": [],
+        "stub": [],
+        "out-of-scope": [],
+    }
     for row in rows:
         buckets.setdefault(row.status, []).append(row)
 
@@ -171,11 +175,17 @@ def render_assessment(rows: Sequence[AssessmentRow]) -> str:
     out.append("honua-arcpy assessment")
     out.append("=" * len(out[-1]))
     out.append("")
-    out.append(f"Supported: {len(buckets['supported'])}  Stubs: {len(buckets['stub'])}  Out-of-scope: {len(buckets['out-of-scope'])}")
+    out.append(
+        f"Supported: {len(buckets['supported'])}  "
+        f"Partial: {len(buckets['partial'])}  "
+        f"Stubs: {len(buckets['stub'])}  "
+        f"Out-of-scope: {len(buckets['out-of-scope'])}"
+    )
     out.append("")
 
     for bucket_name, label in (
         ("supported", "Supported (run unchanged)"),
+        ("partial", "Partial (runs with documented deviations)"),
         ("stub", "Stubs (will raise -- replacement hint shown)"),
         ("out-of-scope", "Out of MVP scope"),
     ):
@@ -228,7 +238,7 @@ def _assess(args: argparse.Namespace) -> int:
 
 
 def _assessment_summary(rows: Sequence[AssessmentRow]) -> dict[str, Any]:
-    counts = {"supported": 0, "stub": 0, "out-of-scope": 0}
+    counts = {"supported": 0, "partial": 0, "stub": 0, "out-of-scope": 0}
     for row in rows:
         counts[row.status] = counts.get(row.status, 0) + 1
     return counts

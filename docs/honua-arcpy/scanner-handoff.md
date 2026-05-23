@@ -38,6 +38,7 @@ Example inventory excerpts:
 {
   "toolCalls": [
     { "call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management" },
+    { "call": "arcpy.management.GetCount", "tool": "GetCount", "toolbox": "management" },
     { "call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis" },
     { "call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa" }
   ]
@@ -65,6 +66,7 @@ The CLI:
 1. Pivots `toolCalls` against the compatibility manifest (`honua_arcpy._compat.COMPAT`).
 2. Prints a per-call bucketed list to stdout:
    * **Supported** -- function runs unchanged on Honua.
+   * **Partial** -- function runs on Honua with documented deviations.
    * **Stub** -- function will raise `HonuaArcpyUnsupportedError` with a
      replacement hint and a honua-server tracking ticket.
    * **Out-of-scope** -- sa / na / ddd / mp toolboxes outside the MVP.
@@ -77,11 +79,15 @@ Example output:
 honua-arcpy assessment
 ======================
 
-Supported: 1  Stubs: 1  Out-of-scope: 1
+Supported: 1  Partial: 1  Stubs: 1  Out-of-scope: 1
 
 Supported (run unchanged)
 -------------------------
   [  1x] management.MakeFeatureLayer  --  Creates an in-process layer alias; deviation: alias is bound to a Honua source descriptor.
+
+Partial (runs with documented deviations)
+-----------------------------------------
+  [  1x] management.GetCount  --  Returns a row count via Source.query; currently materializes the full result set because Source has no count-only helper yet.
 
 Stubs (will raise -- replacement hint shown)
 --------------------------------------------

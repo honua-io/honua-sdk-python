@@ -22,6 +22,7 @@ SAMPLE_INVENTORY = {
         {"call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis"},
         {"call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis"},
         {"call": "arcpy.management.SelectLayerByLocation", "tool": "SelectLayerByLocation", "toolbox": "management"},
+        {"call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management"},
         {"call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa"},
         {"call": "arcpy.da.SearchCursor", "tool": "SearchCursor", "toolbox": "da"},
     ]
@@ -37,14 +38,16 @@ def test_assess_inventory_buckets_supported_stub_and_out_of_scope() -> None:
     # so customers know the projection adapter is still pending.
     assert statuses["analysis.Buffer"] == ("stub", 2)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
+    assert statuses["management.MakeFeatureLayer"] == ("supported", 1)
     assert statuses["sa.Slope"] == ("out-of-scope", 1)
-    assert statuses["da.SearchCursor"] == ("supported", 1)
+    assert statuses["da.SearchCursor"] == ("partial", 1)
 
 
 def test_render_assessment_prints_buckets() -> None:
     rows = assess_inventory(SAMPLE_INVENTORY)
     text = render_assessment(rows)
     assert "Supported" in text
+    assert "Partial" in text
     assert "analysis.Buffer" in text
     assert "SelectLayerByLocation" in text
     assert "Out of MVP scope" in text
@@ -62,10 +65,11 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
 
     machine = json.loads((tmp_path / "honua-arcpy-assessment.json").read_text(encoding="utf-8"))
     summary = machine["summary"]
-    # SearchCursor remains supported; Buffer + SelectLayerByLocation are
-    # stubs (audit pass 8 downgraded the process-backed entries); Slope is
-    # out-of-scope.
+    # MakeFeatureLayer is supported, SearchCursor is partial, Buffer +
+    # SelectLayerByLocation are stubs (audit pass 8 downgraded the
+    # process-backed entries), and Slope is out-of-scope.
     assert summary["supported"] >= 1
+    assert summary["partial"] >= 1
     assert summary["stub"] >= 2
     assert summary["out-of-scope"] >= 1
 
@@ -163,19 +167,19 @@ def test_assess_inventory_accepts_minimal_sdk_calls_shape() -> None:
         }
     )
     statuses = {row.qualified_name: row.status for row in rows}
-    # Both are stubs today; only the source/session-backed shims (cursors,
-    # MakeFeatureLayer, GetCount, SelectLayerByAttribute) currently classify
-    # as ``supported``.
+    # Both are stubs today; only the source/session-backed shims classify as
+    # ``supported`` or ``partial``.
     assert statuses["analysis.Buffer"] == "stub"
     assert statuses["management.SelectLayerByLocation"] == "stub"
 
 
-def test_assess_inventory_canonicalizes_copy_features_to_supported() -> None:
+def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     """``arcpy.management.CopyFeatures`` is the SDK scanner's name for the
     same operation the shim exposes as ``management.Copy``; the shim itself
     exports ``CopyFeatures = Copy``. ``assess`` must report scans of
-    ``CopyFeatures`` as supported instead of dropping them into the
-    out-of-scope bucket because COMPAT only keys ``management.Copy``."""
+    ``CopyFeatures`` against the canonical manifest row instead of dropping
+    them into the out-of-scope bucket because COMPAT only keys
+    ``management.Copy``."""
 
     sdk_payload = {
         "calls": [
@@ -213,8 +217,8 @@ def test_assess_inventory_canonicalizes_copy_features_to_supported() -> None:
 
 def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
     """When a scan reports both ``Copy`` and ``CopyFeatures`` calls, they
-    should aggregate under ``management.Copy`` so the assessment surfaces
-    a single supported row with the combined occurrence count."""
+    should aggregate under ``management.Copy`` so the assessment surfaces a
+    single canonical row with the combined occurrence count."""
 
     rows = assess_inventory(
         {

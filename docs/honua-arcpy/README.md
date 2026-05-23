@@ -210,6 +210,13 @@ Notable status changes versus the initial design draft:
   the resolved path, returns `Result.total_count` when the server provides
   it, and otherwise falls back to `len(result.features)`. Use bounded
   `where` clauses on large layers until a count-only helper lands.
+* `management.SelectLayerByAttribute` is **partial**. Standard SQL-backed
+  selection modes update the in-process alias, but `SWITCH_SELECTION` is
+  rejected because the shim cannot invert a prior OID selection set as a SQL
+  predicate.
+* `da.SearchCursor` is **partial**. It forwards `where`, `out_fields`,
+  `order_by`, and `out_sr` where the Source facade supports them, and rejects
+  unsupported `sql_clause` variants and `explode_to_points`.
 
 ## Error model
 

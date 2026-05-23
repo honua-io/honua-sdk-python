@@ -1,0 +1,5 @@
+{
+  "audit_lines": 3,
+  "expected_failure": false,
+  "stdout_contains": "get_count_after_select ok"
+}

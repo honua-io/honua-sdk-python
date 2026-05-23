@@ -9,6 +9,7 @@ Current package capabilities are summarized in [docs/features/README.md](docs/fe
 |---------|-----------|-------------|
 | [`packages/honua-sdk`](packages/honua-sdk/) | `honua-sdk` | Data-plane client -- feature queries, geocoding, gRPC streaming, GeoPandas integration |
 | [`packages/honua-admin`](packages/honua-admin/) | `honua-admin` | Control-plane client -- services, connections, layers, styles, metadata, manifests |
+| [`packages/honua-arcpy`](packages/honua-arcpy/) | `honua-arcpy` | **Proprietary** arcpy compatibility shim; private PyPI only -- see [docs/honua-arcpy/](docs/honua-arcpy/) |
 
 ## Install
 

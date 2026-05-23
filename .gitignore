@@ -12,3 +12,7 @@ packages/*/dist/
 release-smoke-results.json
 staging-smoke-results.json
 staging-smoke-junit.xml
+.honua-arcpy/
+packages/honua-arcpy/eval-results.json
+packages/honua-arcpy/eval-results.xml
+packages/honua-arcpy/eval/.audit/

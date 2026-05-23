@@ -94,6 +94,21 @@ jobs:
           services:
             seed:
               image: client-compat-seed:latest
+              entrypoint:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  echo "Waiting for postgres postgres:5432..."
+                  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+                    if pg_isready -h postgres -p 5432 -U postgres >/dev/null 2>&1; then
+                      break
+                    fi
+                    sleep 2
+                  done
+                  echo "Applying SDK smoke seed: tests/seed/client-compat-v1.sql"
+                  psql -v ON_ERROR_STOP=1 -f tests/seed/client-compat-v1.sql
+                  echo "SDK smoke seed complete."
             honua:
               image: ${HONUA_LOCAL_SERVER_IMAGE}
               ports:
@@ -108,7 +123,7 @@ jobs:
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \
             "${server_root}"
 
-          docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build postgres redis seed honua
+          docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua
 
           for _ in $(seq 1 60); do
             if curl -fsS http://localhost:5000/healthz/ready >/dev/null; then

@@ -1,0 +1,61 @@
+Honua Proprietary License
+=========================
+
+Copyright (c) 2026 Honua, Inc. All rights reserved.
+
+This software (the "Software"), including its source code, compiled artifacts,
+documentation, and associated assets, is the proprietary and confidential
+property of Honua, Inc. ("Honua").
+
+NOTICE: This package is intentionally closed-source. The Apache-2.0 license
+that applies to the surrounding honua-sdk-python monorepo (in particular, to
+the `honua-sdk` and `honua-admin` sub-packages) does NOT extend to this
+`honua-arcpy` package or to anything contained under
+`packages/honua-arcpy/`. The license terms below govern the Software in this
+package exclusively.
+
+1. License Grant.
+   Subject to a separately executed written agreement with Honua and timely
+   payment of the applicable fees, Honua grants the licensed entity (the
+   "Licensee") a limited, non-exclusive, non-transferable, non-sublicensable
+   license to install, execute, and integrate the Software internally with
+   Honua-hosted services for the Licensee's own business purposes.
+
+2. Restrictions.
+   Licensee shall NOT, and shall not permit any third party to:
+   a. Redistribute, sell, sublicense, rent, lease, or otherwise transfer the
+      Software or any portion thereof;
+   b. Make the source code, in whole or in part, publicly available;
+   c. Modify, adapt, translate, reverse-engineer, decompile, or disassemble
+      the Software, except to the extent such activity is permitted by
+      applicable law notwithstanding this restriction;
+   d. Remove or alter any proprietary notices, marks, or labels;
+   e. Use the Software to provide a competing geospatial migration or
+      execution service.
+
+3. Ownership.
+   The Software is licensed, not sold. Honua retains all right, title, and
+   interest in and to the Software, including all intellectual property
+   rights.
+
+4. Telemetry.
+   The Software emits operator-controlled audit JSONL records describing
+   shim invocations. Licensee acknowledges that these records are designed
+   to feed Honua's fine-tuning corpus and may be transmitted to Honua per
+   the executed agreement.
+
+5. Termination.
+   This license terminates automatically on any breach. Upon termination,
+   Licensee shall cease all use and destroy all copies of the Software.
+
+6. Warranty Disclaimer.
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+7. Limitation of Liability.
+   IN NO EVENT SHALL HONUA BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+   CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUE,
+   ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE.
+
+For licensing inquiries: legal@honua.io

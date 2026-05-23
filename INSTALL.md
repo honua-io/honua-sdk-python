@@ -6,6 +6,7 @@
 |---------|-------------|
 | `honua-sdk` | Data-plane client for Honua Server -- REST queries, geocoding, gRPC features |
 | `honua-admin` | Control-plane / admin client for Honua Server (depends on `honua-sdk`) |
+| `honua-arcpy` | **Proprietary** drop-in `arcpy` compatibility shim -- private PyPI only (not on pypi.org) |
 
 ## Prerequisites
 
@@ -30,6 +31,10 @@ pip install honua-admin
 # Everything
 pip install honua-sdk[grpc,geopandas] honua-admin
 ```
+
+`honua-arcpy` is closed-source and is **not** published to public PyPI. See
+[docs/honua-arcpy/](docs/honua-arcpy/README.md) for the private-index install
+flow once the host (Gemfury / CodeArtifact / GitHub Packages) is configured.
 
 ## Quick Start
 

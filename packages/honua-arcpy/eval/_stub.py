@@ -137,7 +137,7 @@ class StubHonuaClient:
         if isinstance(descriptor, Mapping):
             name = str(descriptor.get("id") or descriptor.get("source") or "")
         elif hasattr(descriptor, "id"):
-            name = str(getattr(descriptor, "id") or "")
+            name = str(descriptor.id or "")
         else:
             raise TypeError("descriptor must be a SourceDescriptor or mapping.")
         if not name:

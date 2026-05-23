@@ -198,6 +198,7 @@ jobs:
 
           docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua
           echo "HONUA_BASE_URL=http://localhost:5000" >> "${GITHUB_ENV}"
+          echo "HONUA_API_KEY=ClientCompatAdmin123!" >> "${GITHUB_ENV}"
           # Poll the same readiness endpoint the compose healthcheck uses
           # (``/healthz/ready``); ``/health`` is not registered on
           # honua-server. The loop tracks success and exits non-zero if it

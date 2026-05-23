@@ -168,12 +168,35 @@ jobs:
           override_file="${RUNNER_TEMP}/honua-arcpy-smoke.override.yml"
           cat > "${override_file}" <<YAML
           services:
+            seed:
+              image: client-compat-seed:latest
+              entrypoint:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  echo "Waiting for postgres postgres:5432..."
+                  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+                    if pg_isready -h postgres -p 5432 -U postgres >/dev/null 2>&1; then
+                      break
+                    fi
+                    sleep 2
+                  done
+                  echo "Applying honua-arcpy smoke seed: tests/seed/client-compat-v1.sql"
+                  psql -v ON_ERROR_STOP=1 -f tests/seed/client-compat-v1.sql
+                  echo "honua-arcpy smoke seed complete."
             honua:
               image: ${HONUA_LOCAL_SERVER_IMAGE}
               ports:
                 - "5000:5000"
           YAML
-          docker compose -f "${compose_file}" -f "${override_file}" up -d honua
+          docker pull "${HONUA_LOCAL_SERVER_IMAGE}"
+          docker build \
+            -t client-compat-seed:latest \
+            -f "${server_root}/docker/client-compat/seed/Dockerfile" \
+            "${server_root}"
+
+          docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua
           echo "HONUA_BASE_URL=http://localhost:5000" >> "${GITHUB_ENV}"
           # Poll the same readiness endpoint the compose healthcheck uses
           # (``/healthz/ready``); ``/health`` is not registered on

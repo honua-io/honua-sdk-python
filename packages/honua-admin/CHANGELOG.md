@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/honua-io/honua-sdk-python/compare/python-admin-vv0.1.1...python-admin-vv0.1.2) (2026-05-23)
+
+
+### Features
+
+* add ArcPy migration scanner ([#59](https://github.com/honua-io/honua-sdk-python/issues/59)) ([#60](https://github.com/honua-io/honua-sdk-python/issues/60)) ([7813832](https://github.com/honua-io/honua-sdk-python/commit/78138322b235e9a31504c794db2bbde18d445a15))
+
 ## [0.1.1](https://github.com/honua-io/honua-sdk-python/compare/python-admin-vv0.1.0...python-admin-vv0.1.1) (2026-04-28)
 
 

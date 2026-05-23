@@ -500,8 +500,11 @@ COMPAT: dict[str, FunctionEntry] = {
     # -----------------------------------------------------------------
     "da.SearchCursor": FunctionEntry(
         backend="source",
-        status="supported",
-        notes="Read-only iteration over Source.iter_features; context-manager safe.",
+        status="partial",
+        notes=(
+            "Read-only iteration over Source.iter_features; forwards where/out_fields/order_by/out_sr where possible "
+            "and rejects unsupported sql_clause variants or explode_to_points."
+        ),
         param_map={
             "in_table": "layer_name",
             "field_names": "fields",

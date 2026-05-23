@@ -30,6 +30,7 @@ def test_env_unknown_attribute_falls_into_extra_env_options() -> None:
     honua_arcpy.env.someExperimentalFlag = "yes"
     session = honua_arcpy.get_session()
     assert session.extra_env_options["someExperimentalFlag"] == "yes"
+    assert honua_arcpy.env.someExperimentalFlag == "yes"
     # The legacy bag stays empty -- unknown env attrs must not be forwarded
     # to the SDK constructor.
     assert "someExperimentalFlag" not in session.extra_client_options

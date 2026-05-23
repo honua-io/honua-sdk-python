@@ -111,8 +111,10 @@ class HonuaSession:
                 self.bearer_token = bearer_token
                 connection_changed = True
             if client_kwargs:
-                self.extra_client_options = {**self.extra_client_options, **client_kwargs}
-                connection_changed = True
+                extra_client_options = {**self.extra_client_options, **client_kwargs}
+                if extra_client_options != self.extra_client_options:
+                    self.extra_client_options = extra_client_options
+                    connection_changed = True
             if connection_changed:
                 # Connection settings shifted; drop cached clients so the next
                 # accessor call rebuilds against the new endpoint / auth.

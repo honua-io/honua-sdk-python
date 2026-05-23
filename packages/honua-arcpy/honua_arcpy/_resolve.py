@@ -187,8 +187,20 @@ def descriptor_mapping(
         if len(parts) >= 2:
             try:
                 layer_id = int(parts[1])
-            except ValueError:
-                layer_id = 0
+            except ValueError as exc:
+                raise HonuaArcpyResolveError(
+                    source,
+                    hint=(
+                        "honua://services URIs must use a numeric layer id "
+                        "(for example honua://services/transport/0); layer "
+                        "name lookup is not implemented by the shim."
+                    ),
+                ) from exc
+            if layer_id < 0:
+                raise HonuaArcpyResolveError(
+                    source,
+                    hint="honua://services URIs must use a non-negative numeric layer id.",
+                )
     elif isinstance(workspace, str) and workspace.startswith("honua://services/"):
         ws_parts = [part for part in workspace[len("honua://services/") :].split("/") if part]
         if ws_parts:

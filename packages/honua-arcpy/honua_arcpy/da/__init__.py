@@ -28,6 +28,7 @@ from .._errors import (
     ExecuteError,
     HonuaArcpyConfigurationError,
     HonuaArcpyResolveError,
+    HonuaArcpyUnsupportedError,
 )
 from .._resolve import descriptor_mapping, resolve
 from .._session import get_session
@@ -161,6 +162,66 @@ def _payload_for_row(row: Sequence[Any], fields: Sequence[str]) -> dict[str, Any
     if geometry is not None:
         payload["geometry"] = geometry
     return payload
+
+
+def _out_fields_for_cursor(fields: Sequence[str]) -> tuple[str, ...] | None:
+    if any(field == "*" for field in fields):
+        return None
+    out_fields: list[str] = []
+    for field in fields:
+        upper = field.upper()
+        if upper == "OID@":
+            out_fields.append("OBJECTID")
+        elif upper in {"SHAPE@", "SHAPE@JSON"}:
+            continue
+        else:
+            out_fields.append(field)
+    if not out_fields:
+        return None
+    return tuple(dict.fromkeys(out_fields))
+
+
+def _return_geometry_for_cursor(fields: Sequence[str]) -> bool:
+    return any(field.upper() in {"SHAPE@", "SHAPE@JSON"} for field in fields)
+
+
+def _unsupported_search_cursor_option(option: str, detail: str) -> None:
+    raise HonuaArcpyUnsupportedError(
+        "da.SearchCursor",
+        compat_anchor=anchor_for("da.SearchCursor"),
+        replacement_hint=f"{option} is not supported by honua-arcpy SearchCursor. {detail}",
+    )
+
+
+def _order_by_from_sql_clause(sql_clause: Any) -> str | None:
+    if sql_clause is None:
+        return None
+    if not isinstance(sql_clause, (tuple, list)) or len(sql_clause) != 2:
+        _unsupported_search_cursor_option(
+            "sql_clause",
+            "Pass a two-item (prefix, postfix) tuple; only ORDER BY postfix clauses are translated.",
+        )
+
+    prefix, postfix = sql_clause
+    if prefix not in (None, "") and str(prefix).strip():
+        _unsupported_search_cursor_option(
+            "sql_clause prefix",
+            "DISTINCT, TOP, and other SQL prefixes are not exposed by the Source query facade.",
+        )
+    if postfix in (None, "") or not str(postfix).strip():
+        return None
+
+    text = str(postfix).strip()
+    marker = "ORDER BY "
+    if text.upper().startswith(marker):
+        order_by = text[len(marker) :].strip()
+        if order_by:
+            return order_by
+    _unsupported_search_cursor_option(
+        "sql_clause postfix",
+        "Only ORDER BY postfix clauses are translated to the Source query order_by option.",
+    )
+    return None
 
 
 class _BaseCursor:
@@ -311,8 +372,20 @@ class SearchCursor(_BaseCursor):
         combined = _combine_where(alias_where, self.where_clause)
         if combined:
             kwargs["where"] = combined
+        out_fields = _out_fields_for_cursor(self.fields)
+        if out_fields is not None:
+            kwargs["out_fields"] = out_fields
+        kwargs["return_geometry"] = _return_geometry_for_cursor(self.fields)
         if self.extra.get("spatial_reference") is not None:
             kwargs["out_sr"] = self.extra["spatial_reference"]
+        if self.extra.get("explode_to_points"):
+            _unsupported_search_cursor_option(
+                "explode_to_points",
+                "The Source facade does not expose point-explosion semantics.",
+            )
+        order_by = _order_by_from_sql_clause(self.extra.get("sql_clause"))
+        if order_by:
+            kwargs["order_by"] = order_by
         return kwargs
 
     def _reset(self) -> None:
@@ -391,6 +464,10 @@ class UpdateCursor(_BaseCursor):
             combined = _combine_where(alias_where, self.where_clause)
             if combined:
                 kwargs["where"] = combined
+            out_fields = _out_fields_for_cursor(self.fields)
+            if out_fields is not None:
+                kwargs["out_fields"] = out_fields
+            kwargs["return_geometry"] = _return_geometry_for_cursor(self.fields)
             try:
                 self._iterator = iter(self._source.iter_features(**kwargs))
             except (ExecuteError, HonuaArcpyConfigurationError, HonuaArcpyResolveError):

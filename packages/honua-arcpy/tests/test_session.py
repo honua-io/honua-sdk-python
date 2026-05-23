@@ -159,3 +159,14 @@ def test_configure_idempotent_does_not_invalidate_cache() -> None:
 
     honua_arcpy.configure(base_url="https://a.example.com", api_key="k", bearer_token="b")
     assert session._client is sentinel, "Idempotent configure must not invalidate cache"  # noqa: SLF001
+
+
+def test_configure_idempotent_client_kwargs_do_not_invalidate_cache() -> None:
+    session = get_session()
+    sentinel = object()
+    honua_arcpy.configure(base_url="https://a.example.com", timeout=30.0, client=sentinel)
+    assert session._client is sentinel  # noqa: SLF001
+
+    honua_arcpy.configure(timeout=30.0)
+    assert session._client is sentinel  # noqa: SLF001
+    assert session.extra_client_options == {"timeout": 30.0}

@@ -283,7 +283,7 @@ def test_dispatch_process_path_map_applies_to_list_inputs(
 
     monkeypatch.setenv(
         "HONUA_ARCPY_PATH_MAP",
-        '{"roads": "honua://services/transport/roads", "parcels": "honua://services/land/parcels"}',
+        '{"roads": "honua://services/transport/0", "parcels": "honua://services/land/1"}',
     )
     proc = _CapturingProcessesClient()
     honua_arcpy.configure(processes_client=proc)
@@ -297,8 +297,8 @@ def test_dispatch_process_path_map_applies_to_list_inputs(
 
     payload = proc.calls[0][1]
     assert payload["inputs"]["input_features"] == [
-        "honua://services/transport/roads",
-        "honua://services/land/parcels",
+        "honua://services/transport/0",
+        "honua://services/land/1",
     ]
 
 
@@ -313,7 +313,7 @@ def test_dispatch_process_path_map_does_not_rewrite_non_source_params(
 
     monkeypatch.setenv(
         "HONUA_ARCPY_PATH_MAP",
-        '{"roads": "honua://services/transport/roads",'
+        '{"roads": "honua://services/transport/0",'
         ' "ALL": "honua://services/policy/all"}',
     )
     proc = _CapturingProcessesClient()
@@ -328,7 +328,7 @@ def test_dispatch_process_path_map_does_not_rewrite_non_source_params(
     )
 
     payload = proc.calls[0][1]
-    assert payload["inputs"]["input_features"] == "honua://services/transport/roads"
+    assert payload["inputs"]["input_features"] == "honua://services/transport/0"
     # ``extra`` is not declared as a source param in the test entry, so
     # the path-map alias for "ALL" must not rewrite it.
     assert payload["inputs"]["extra"] == "ALL"

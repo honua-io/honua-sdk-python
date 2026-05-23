@@ -24,6 +24,8 @@ class _EnvProxy:
         session = get_session()
         if name in self._ALIASES:
             return getattr(session, self._ALIASES[name])
+        if name in session.extra_env_options:
+            return session.extra_env_options[name]
         return None  # arcpy.env returns None for unset attributes.
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -39,7 +41,7 @@ class _EnvProxy:
         session.extra_env_options[name] = value
 
     def __dir__(self) -> list[str]:
-        return sorted(self._ALIASES)
+        return sorted((*self._ALIASES, *get_session().extra_env_options))
 
 
 workspace = None  # type: ignore[assignment]  # placeholder for IDE introspection only

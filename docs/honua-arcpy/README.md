@@ -74,7 +74,7 @@ builder adds the session-level `api_key` / `bearer_token` only when those
 keys are absent from the constructor kwargs.
 
 Path resolution: customers can declare an explicit alias map via
-`HONUA_ARCPY_PATH_MAP='{"local_name": "honua://services/foo/bar"}'` for
+`HONUA_ARCPY_PATH_MAP='{"local_name": "honua://services/foo/0"}'` for
 unrecognized GDB / SDE / file paths. `MakeFeatureLayer` and `MakeTableView`
 also register in-process aliases that subsequent calls can reference.
 
@@ -141,10 +141,10 @@ Source descriptor projection: `HonuaClient.source(...)` requires a
 `SourceDescriptor` or mapping. The shim builds one from each arcpy path via
 `honua_arcpy._resolve.descriptor_mapping`. The default heuristic is
 `protocol="geoservices-feature-service"`, with `serviceId`/`layerId`
-parsed from `honua://services/<service>/<layer>` URIs when possible and
-falling back to `service_id=<input name>, layer_id=0`. Customers with
-non-default layer IDs or non-FeatureServer protocols should declare them
-through `HONUA_ARCPY_PATH_MAP` so the descriptor matches their deployment.
+parsed from `honua://services/<service>/<numeric-layer-id>` URIs when
+possible and falling back to `service_id=<input name>, layer_id=0`.
+Named layer lookup is not implemented; use numeric layer IDs in
+`HONUA_ARCPY_PATH_MAP` so the descriptor matches the deployment.
 
 ## Audit JSONL
 

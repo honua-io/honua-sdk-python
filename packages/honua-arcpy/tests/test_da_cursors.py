@@ -115,6 +115,58 @@ def test_search_cursor_combines_alias_where_with_cursor_where() -> None:
     assert "OBJECTID > 0" in where
 
 
+def test_search_cursor_forwards_supported_query_options() -> None:
+    captured: dict[str, Any] = {}
+
+    class _RecordingSource:
+        def iter_features(self, **kwargs: Any) -> Any:
+            captured.update(kwargs)
+            return iter(())
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+
+    with honua_arcpy.da.SearchCursor(
+        "roads",
+        ["OID@", "STATUS"],
+        where_clause="STATUS = 'OPEN'",
+        spatial_reference=4326,
+        sql_clause=(None, "ORDER BY STATUS DESC"),
+    ) as cursor:
+        list(cursor)
+
+    assert captured == {
+        "where": "STATUS = 'OPEN'",
+        "out_fields": ("OBJECTID", "STATUS"),
+        "return_geometry": False,
+        "out_sr": 4326,
+        "order_by": "STATUS DESC",
+    }
+
+
+def test_search_cursor_rejects_unsupported_options() -> None:
+    class _RecordingSource:
+        def iter_features(self, **kwargs: Any) -> Any:
+            return iter(())
+
+    class _RecordingClient:
+        def source(self, descriptor: Any) -> Any:
+            return _RecordingSource()
+
+    honua_arcpy.configure(client=_RecordingClient())
+
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        with honua_arcpy.da.SearchCursor("roads", ["OID@"], explode_to_points=True) as cursor:
+            list(cursor)
+
+    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError):
+        with honua_arcpy.da.SearchCursor("roads", ["OID@"], sql_clause=("DISTINCT", None)) as cursor:
+            list(cursor)
+
+
 def test_update_cursor_inherits_alias_where() -> None:
     captured: dict[str, Any] = {}
 

@@ -18,9 +18,9 @@ def test_alias_takes_precedence_over_other_classifications() -> None:
 
 
 def test_honua_uri_is_passed_through() -> None:
-    resolved = resolve("honua://services/transport/roads")
+    resolved = resolve("honua://services/transport/0")
     assert resolved.kind == "honua-uri"
-    assert resolved.source == "honua://services/transport/roads"
+    assert resolved.source == "honua://services/transport/0"
 
 
 def test_in_memory_paths_are_recognized() -> None:
@@ -47,10 +47,10 @@ def test_workspace_relative_is_default_classification() -> None:
 
 
 def test_honua_path_map_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HONUA_ARCPY_PATH_MAP", '{"roads": "honua://services/transport/roads"}')
+    monkeypatch.setenv("HONUA_ARCPY_PATH_MAP", '{"roads": "honua://services/transport/0"}')
     resolved = resolve("roads")
     assert resolved.kind == "honua-uri"
-    assert resolved.source == "honua://services/transport/roads"
+    assert resolved.source == "honua://services/transport/0"
 
 
 def test_descriptor_mapping_parses_honua_uri_service_and_layer() -> None:
@@ -58,6 +58,12 @@ def test_descriptor_mapping_parses_honua_uri_service_and_layer() -> None:
     descriptor = descriptor_mapping(resolved)
     assert descriptor["protocol"] == "geoservices-feature-service"
     assert descriptor["locator"] == {"serviceId": "transport", "layerId": 2}
+
+
+def test_descriptor_mapping_rejects_named_honua_uri_layer() -> None:
+    resolved = resolve("honua://services/transport/roads")
+    with pytest.raises(honua_arcpy.HonuaArcpyResolveError):
+        descriptor_mapping(resolved)
 
 
 def test_descriptor_mapping_falls_back_to_workspace_context() -> None:

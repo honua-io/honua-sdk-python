@@ -49,7 +49,9 @@ from .models import (
 
 if TYPE_CHECKING:
     from .auth import AuthProvider
+    from .etl import HonuaEtl
     from .geocoding import HonuaGeocodingClient
+    from .geoprocessing import HonuaGeoprocessing
     from .ogc import HonuaOgcFeatures
     from .protocols import (
         GeoServicesFeatureServerClient,
@@ -250,6 +252,18 @@ class HonuaClient:
         from .protocols import OgcRecordsClient
 
         return OgcRecordsClient(self)
+
+    def geoprocessing(self) -> "HonuaGeoprocessing":
+        """Return a first-class geoprocessing (GP) client bound to this client."""
+        from .geoprocessing import HonuaGeoprocessing
+
+        return HonuaGeoprocessing(self)
+
+    def etl(self) -> "HonuaEtl":
+        """Return a GeoETL pipeline client bound to this client."""
+        from .etl import HonuaEtl
+
+        return HonuaEtl(self)
 
     def stac(self) -> "StacClient":
         """Return a STAC API wrapper."""

@@ -50,6 +50,8 @@ from .models import (
 if TYPE_CHECKING:
     from .auth import AuthProvider
     from .async_geocoding import AsyncHonuaGeocodingClient
+    from .etl import AsyncHonuaEtl
+    from .geoprocessing import AsyncHonuaGeoprocessing
     from .ogc import AsyncHonuaOgcFeatures
     from .protocols import (
         AsyncGeoServicesFeatureServerClient,
@@ -250,6 +252,18 @@ class AsyncHonuaClient:
         from .protocols import AsyncOgcRecordsClient
 
         return AsyncOgcRecordsClient(self)
+
+    def geoprocessing(self) -> "AsyncHonuaGeoprocessing":
+        """Return an async first-class geoprocessing (GP) client bound to this client."""
+        from .geoprocessing import AsyncHonuaGeoprocessing
+
+        return AsyncHonuaGeoprocessing(self)
+
+    def etl(self) -> "AsyncHonuaEtl":
+        """Return an async GeoETL pipeline client bound to this client."""
+        from .etl import AsyncHonuaEtl
+
+        return AsyncHonuaEtl(self)
 
     def stac(self) -> "AsyncStacClient":
         """Return an async STAC API wrapper."""

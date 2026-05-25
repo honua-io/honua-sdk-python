@@ -434,6 +434,53 @@ def geodataframe_to_features(
     return features
 
 
+def geodataframe_to_geojson(
+    gdf: "gpd.GeoDataFrame",
+) -> dict[str, Any]:
+    """Convert a GeoDataFrame to a GeoJSON ``FeatureCollection`` dict.
+
+    This is the inverse of :func:`ogc_features_to_geodataframe` and is the
+    natural input for layer-scope geoprocessing
+    (:pymeth:`honua_sdk.HonuaGeoprocessing.execute_layer`) and for GeoETL inline
+    GeoJSON sources. Non-geometry columns become feature ``properties`` and the
+    geometry column becomes a GeoJSON ``geometry``.
+
+    Parameters
+    ----------
+    gdf:
+        A GeoDataFrame whose non-geometry columns become ``properties`` and
+        whose geometry column becomes a GeoJSON ``geometry``.
+
+    Returns
+    -------
+    dict
+        A GeoJSON ``FeatureCollection`` dict.
+    """
+    _ensure_deps()
+
+    from shapely.geometry import mapping as _mapping
+
+    geometry_name = gdf.geometry.name
+    attr_columns = [col for col in gdf.columns if col != geometry_name]
+
+    features: list[dict[str, Any]] = []
+    for idx in range(len(gdf)):
+        row = gdf.iloc[idx]
+        properties = {col: _json_safe_value(row[col]) for col in attr_columns}
+        geom_obj = row[geometry_name]
+        geometry = None if geom_obj is None or _is_missing_geometry(geom_obj) else _mapping(geom_obj)
+        features.append({"type": "Feature", "properties": properties, "geometry": geometry})
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _is_missing_geometry(geom: Any) -> bool:
+    try:
+        return bool(pd.isna(geom))
+    except (TypeError, ValueError):
+        return False
+
+
 def _json_safe_value(value: Any) -> Any:
     if value is None:
         return None

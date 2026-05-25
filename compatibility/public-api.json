@@ -3409,7 +3409,9 @@
         "AsyncGeoServicesImageServerClient",
         "AsyncGeoServicesMapServerClient",
         "AsyncHonuaClient",
+        "AsyncHonuaEtl",
         "AsyncHonuaGeocodingClient",
+        "AsyncHonuaGeoprocessing",
         "AsyncHonuaOgcFeatureCollection",
         "AsyncHonuaOgcFeatures",
         "AsyncODataClient",
@@ -3431,6 +3433,7 @@
         "CAPABILITIES",
         "CallableAuthProvider",
         "Capability",
+        "ConnectorConfig",
         "CsvValue",
         "DEFAULT_CAPABILITIES",
         "DataPlaneCapabilities",
@@ -3447,10 +3450,14 @@
         "GeoServicesMapServerClient",
         "GeocodeResult",
         "GeocodeSuggestion",
+        "GeoprocessingJob",
+        "GeoprocessingJobError",
         "HonuaCapabilityNotSupportedError",
         "HonuaClient",
         "HonuaError",
+        "HonuaEtl",
         "HonuaGeocodingClient",
+        "HonuaGeoprocessing",
         "HonuaGrpcError",
         "HonuaHttpError",
         "HonuaOgcFeatureCollection",
@@ -3458,6 +3465,7 @@
         "InMemoryTokenStore",
         "JsonObject",
         "JsonResponseFormat",
+        "LayerReference",
         "ODataClient",
         "ODataOrderBy",
         "ODataQuery",
@@ -3471,6 +3479,10 @@
         "PROTOCOLS",
         "PROTOCOL_ALIASES",
         "Pagination",
+        "PipelineDefinition",
+        "PipelineExecution",
+        "PipelineExecutionError",
+        "PipelineStage",
         "Protocol",
         "Query",
         "QueryFeature",
@@ -3479,12 +3491,16 @@
         "Result",
         "ReverseGeocodeResult",
         "ServiceSummary",
+        "SinkStage",
         "Source",
         "SourceDescriptor",
         "SourceLocator",
+        "SourceStage",
         "StacClient",
         "StaticAuthProvider",
         "TokenStore",
+        "TransformConfig",
+        "TransformStage",
         "WfsClient",
         "WfsVersion",
         "WmsClient",
@@ -3717,6 +3733,10 @@
               "kind": "method",
               "signature": "(self) -> 'None'"
             },
+            "etl": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncHonuaEtl'\""
+            },
             "export_map": {
               "async": true,
               "kind": "method",
@@ -3733,6 +3753,10 @@
             "geometry_server": {
               "kind": "method",
               "signature": "(self) -> \"'AsyncGeoServicesGeometryServerClient'\""
+            },
+            "geoprocessing": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncHonuaGeoprocessing'\""
             },
             "image_server": {
               "kind": "method",
@@ -3839,6 +3863,69 @@
           "qualname": "AsyncHonuaClient",
           "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
         },
+        "AsyncHonuaEtl": {
+          "kind": "class",
+          "methods": {
+            "create": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, definition: 'PipelineDefinition') -> 'PipelineDefinition'"
+            },
+            "delete": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'None'"
+            },
+            "dry_run": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'PipelineExecution'"
+            },
+            "execution": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', execution_id: 'str') -> 'PipelineExecution'"
+            },
+            "executions": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'list[PipelineExecution]'"
+            },
+            "get": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'PipelineDefinition'"
+            },
+            "list": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'list[PipelineDefinition]'"
+            },
+            "run": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'PipelineExecution'"
+            },
+            "run_to_completion": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', *, dry_run: 'bool' = False, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0, raise_on_failure: 'bool' = True) -> 'PipelineExecution'"
+            },
+            "update": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', definition: 'PipelineDefinition') -> 'PipelineDefinition'"
+            },
+            "wait": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', execution: 'PipelineExecution | str', *, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0) -> 'PipelineExecution'"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "AsyncHonuaEtl",
+          "signature": "(client: 'Any', *, api_version: 'str' = '1.0') -> 'None'"
+        },
         "AsyncHonuaGeocodingClient": {
           "kind": "class",
           "methods": {
@@ -3866,6 +3953,74 @@
           "module": "honua_sdk.async_geocoding",
           "qualname": "AsyncHonuaGeocodingClient",
           "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+        },
+        "AsyncHonuaGeoprocessing": {
+          "kind": "class",
+          "methods": {
+            "describe": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str') -> 'JsonObject'"
+            },
+            "dismiss": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'None'"
+            },
+            "execute": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', inputs: 'Mapping[str, Any]', *, response_mode: 'str | None' = 'document', respond_async: 'bool' = False) -> 'GeoprocessingJob'"
+            },
+            "execute_geometry": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', inputs: 'Mapping[str, Any]', *, response_mode: 'str | None' = 'document', respond_async: 'bool' = False) -> 'GeoprocessingJob'"
+            },
+            "execute_layer": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', layer: 'LayerReference', *, parameters: 'Mapping[str, Any] | None' = None, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0, raise_on_failure: 'bool' = True) -> 'JsonObject'"
+            },
+            "execute_layer_dataframe": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', gdf: \"'gpd.GeoDataFrame'\", *, parameters: 'Mapping[str, Any] | None' = None, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0) -> \"'gpd.GeoDataFrame'\""
+            },
+            "job": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'GeoprocessingJob'"
+            },
+            "jobs": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "processes": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "results": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'JsonObject'"
+            },
+            "submit_layer": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', layer: 'LayerReference', *, parameters: 'Mapping[str, Any] | None' = None, response_mode: 'str | None' = 'document', respond_async: 'bool' = True) -> 'GeoprocessingJob'"
+            },
+            "wait": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, job: 'GeoprocessingJob | str', *, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0) -> 'GeoprocessingJob'"
+            }
+          },
+          "module": "honua_sdk.geoprocessing",
+          "qualname": "AsyncHonuaGeoprocessing",
+          "signature": "(client: 'Any') -> 'None'"
         },
         "AsyncHonuaOgcFeatureCollection": {
           "kind": "class",
@@ -4748,6 +4903,29 @@
           "type": "_UnionGenericAlias",
           "value": "typing.Union[typing.Literal['query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'render', 'tiles', 'sql', 'stream', 'pbf', 'connect', 'image', 'geometry', 'geoprocess', 'processes'], str]"
         },
+        "ConnectorConfig": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "type"
+            },
+            {
+              "annotation": "Mapping[str, str]",
+              "defaultFactory": "dict",
+              "name": "options"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "ConnectorConfig",
+          "signature": "(type: 'str', options: 'Mapping[str, str]' = <factory>) -> None"
+        },
         "CsvValue": {
           "kind": "constant",
           "type": "UnionType",
@@ -5224,6 +5402,75 @@
           "qualname": "GeocodeSuggestion",
           "signature": "(text: 'str', magic_key: 'str', is_collection: 'bool') -> None"
         },
+        "GeoprocessingJob": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "job_id"
+            },
+            {
+              "annotation": "str",
+              "name": "status"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "process_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "message"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "progress"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "created"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "updated"
+            },
+            {
+              "annotation": "tuple[Mapping[str, Any], ...]",
+              "default": "()",
+              "name": "links"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_status_info": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'GeoprocessingJob'\""
+            },
+            "is_terminal": {
+              "kind": "property"
+            },
+            "succeeded": {
+              "kind": "property"
+            }
+          },
+          "module": "honua_sdk.geoprocessing",
+          "qualname": "GeoprocessingJob",
+          "signature": "(job_id: 'str', status: 'str', process_id: 'str | None' = None, message: 'str | None' = None, progress: 'int | None' = None, created: 'str | None' = None, updated: 'str | None' = None, links: 'tuple[Mapping[str, Any], ...]' = (), raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "GeoprocessingJobError": {
+          "kind": "class",
+          "module": "honua_sdk.geoprocessing",
+          "qualname": "GeoprocessingJobError",
+          "signature": "(job: \"'GeoprocessingJob'\") -> 'None'"
+        },
         "HonuaCapabilityNotSupportedError": {
           "kind": "class",
           "module": "honua_sdk.errors",
@@ -5249,6 +5496,10 @@
               "kind": "method",
               "signature": "(self) -> 'None'"
             },
+            "etl": {
+              "kind": "method",
+              "signature": "(self) -> \"'HonuaEtl'\""
+            },
             "export_map": {
               "kind": "method",
               "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None) -> 'bytes'"
@@ -5264,6 +5515,10 @@
             "geometry_server": {
               "kind": "method",
               "signature": "(self) -> \"'GeoServicesGeometryServerClient'\""
+            },
+            "geoprocessing": {
+              "kind": "method",
+              "signature": "(self) -> \"'HonuaGeoprocessing'\""
             },
             "image_server": {
               "kind": "method",
@@ -5367,6 +5622,58 @@
           "module": "honua_sdk.errors",
           "qualname": "HonuaError"
         },
+        "HonuaEtl": {
+          "kind": "class",
+          "methods": {
+            "create": {
+              "kind": "method",
+              "signature": "(self, definition: 'PipelineDefinition') -> 'PipelineDefinition'"
+            },
+            "delete": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'None'"
+            },
+            "dry_run": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'PipelineExecution'"
+            },
+            "execution": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', execution_id: 'str') -> 'PipelineExecution'"
+            },
+            "executions": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'list[PipelineExecution]'"
+            },
+            "get": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'PipelineDefinition'"
+            },
+            "list": {
+              "kind": "method",
+              "signature": "(self) -> 'list[PipelineDefinition]'"
+            },
+            "run": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str') -> 'PipelineExecution'"
+            },
+            "run_to_completion": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', *, dry_run: 'bool' = False, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0, raise_on_failure: 'bool' = True) -> 'PipelineExecution'"
+            },
+            "update": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', definition: 'PipelineDefinition') -> 'PipelineDefinition'"
+            },
+            "wait": {
+              "kind": "method",
+              "signature": "(self, pipeline_id: 'str', execution: 'PipelineExecution | str', *, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0) -> 'PipelineExecution'"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "HonuaEtl",
+          "signature": "(client: 'Any', *, api_version: 'str' = '1.0') -> 'None'"
+        },
         "HonuaGeocodingClient": {
           "kind": "class",
           "methods": {
@@ -5390,6 +5697,62 @@
           "module": "honua_sdk.geocoding",
           "qualname": "HonuaGeocodingClient",
           "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+        },
+        "HonuaGeoprocessing": {
+          "kind": "class",
+          "methods": {
+            "describe": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str') -> 'JsonObject'"
+            },
+            "dismiss": {
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'None'"
+            },
+            "execute": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str', inputs: 'Mapping[str, Any]', *, response_mode: 'str | None' = 'document', respond_async: 'bool' = False) -> 'GeoprocessingJob'"
+            },
+            "execute_geometry": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str', inputs: 'Mapping[str, Any]', *, response_mode: 'str | None' = 'document', respond_async: 'bool' = False) -> 'GeoprocessingJob'"
+            },
+            "execute_layer": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str', layer: 'LayerReference', *, parameters: 'Mapping[str, Any] | None' = None, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0, raise_on_failure: 'bool' = True) -> 'JsonObject'"
+            },
+            "execute_layer_dataframe": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str', gdf: \"'gpd.GeoDataFrame'\", *, parameters: 'Mapping[str, Any] | None' = None, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0) -> \"'gpd.GeoDataFrame'\""
+            },
+            "job": {
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'GeoprocessingJob'"
+            },
+            "jobs": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "processes": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            },
+            "results": {
+              "kind": "method",
+              "signature": "(self, job_id: 'str') -> 'JsonObject'"
+            },
+            "submit_layer": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str', layer: 'LayerReference', *, parameters: 'Mapping[str, Any] | None' = None, response_mode: 'str | None' = 'document', respond_async: 'bool' = True) -> 'GeoprocessingJob'"
+            },
+            "wait": {
+              "kind": "method",
+              "signature": "(self, job: 'GeoprocessingJob | str', *, poll_interval: 'float' = 0.5, timeout: 'float | None' = 120.0) -> 'GeoprocessingJob'"
+            }
+          },
+          "module": "honua_sdk.geoprocessing",
+          "qualname": "HonuaGeoprocessing",
+          "signature": "(client: 'Any') -> 'None'"
         },
         "HonuaGrpcError": {
           "kind": "class",
@@ -5552,6 +5915,56 @@
           "kind": "constant",
           "type": "_UnionGenericAlias",
           "value": "typing.Union[typing.Literal['json', 'pjson'], str]"
+        },
+        "LayerReference": {
+          "fields": [
+            {
+              "annotation": "LayerReferenceKind",
+              "name": "kind"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "inline_geojson"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "layer_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "query_result_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "where"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_geojson": {
+              "kind": "classmethod",
+              "signature": "(cls, feature_collection: 'Mapping[str, Any]') -> \"'LayerReference'\""
+            },
+            "from_layer": {
+              "kind": "classmethod",
+              "signature": "(cls, layer_id: 'str', *, where: 'str | None' = None) -> \"'LayerReference'\""
+            },
+            "from_query_result": {
+              "kind": "classmethod",
+              "signature": "(cls, query_result_id: 'str', *, where: 'str | None' = None) -> \"'LayerReference'\""
+            },
+            "to_inputs": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.geoprocessing",
+          "qualname": "LayerReference",
+          "signature": "(kind: 'LayerReferenceKind', inline_geojson: 'Mapping[str, Any] | None' = None, layer_id: 'str | None' = None, query_result_id: 'str | None' = None, where: 'str | None' = None) -> None"
         },
         "ODataClient": {
           "kind": "class",
@@ -5981,6 +6394,192 @@
           "qualname": "Pagination",
           "signature": "(limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, offset: 'int | None' = None) -> None"
         },
+        "PipelineDefinition": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "Sequence[PipelineStage]",
+              "name": "stages"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "description"
+            },
+            {
+              "annotation": "int",
+              "default": "1",
+              "name": "schema_version"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "id"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "version"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "created_at"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "updated_at"
+            },
+            {
+              "annotation": "tuple[str, ...]",
+              "default": "()",
+              "name": "advisories"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'PipelineDefinition'\""
+            },
+            "to_request": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "PipelineDefinition",
+          "signature": "(name: 'str', stages: 'Sequence[PipelineStage]', description: 'str | None' = None, schema_version: 'int' = 1, id: 'str | None' = None, version: 'int | None' = None, created_at: 'str | None' = None, updated_at: 'str | None' = None, advisories: 'tuple[str, ...]' = ()) -> None"
+        },
+        "PipelineExecution": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "pipeline_id"
+            },
+            {
+              "annotation": "str",
+              "name": "status"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "pipeline_version"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "execution_job_id"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "is_dry_run"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "features_read"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "features_written"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "features_quarantined"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "batch_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "error_message"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "created_at"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "completed_at"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'PipelineExecution'\""
+            },
+            "is_terminal": {
+              "kind": "property"
+            },
+            "succeeded": {
+              "kind": "property"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "PipelineExecution",
+          "signature": "(id: 'str', pipeline_id: 'str', status: 'str', pipeline_version: 'int | None' = None, execution_job_id: 'str | None' = None, is_dry_run: 'bool' = False, features_read: 'int' = 0, features_written: 'int' = 0, features_quarantined: 'int' = 0, batch_id: 'str | None' = None, error_message: 'str | None' = None, created_at: 'str | None' = None, completed_at: 'str | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "PipelineExecutionError": {
+          "kind": "class",
+          "module": "honua_sdk.etl",
+          "qualname": "PipelineExecutionError",
+          "signature": "(execution: \"'PipelineExecution'\") -> 'None'"
+        },
+        "PipelineStage": {
+          "fields": [
+            {
+              "annotation": "StageKind",
+              "name": "kind"
+            },
+            {
+              "annotation": "ConnectorConfig | None",
+              "default": "None",
+              "name": "connector"
+            },
+            {
+              "annotation": "TransformConfig | None",
+              "default": "None",
+              "name": "transform"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'PipelineStage'\""
+            },
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "PipelineStage",
+          "signature": "(kind: 'StageKind', connector: 'ConnectorConfig | None' = None, transform: 'TransformConfig | None' = None) -> None"
+        },
         "Protocol": {
           "kind": "constant",
           "type": "_UnionGenericAlias",
@@ -6247,6 +6846,12 @@
           "qualname": "ServiceSummary",
           "signature": "(name: 'str', type: 'str | None' = None, url: 'str | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
+        "SinkStage": {
+          "kind": "function",
+          "module": "honua_sdk.etl",
+          "qualname": "SinkStage",
+          "signature": "(connector_type: 'str', options: 'Mapping[str, str] | None' = None) -> 'PipelineStage'"
+        },
         "Source": {
           "kind": "class",
           "methods": {
@@ -6369,6 +6974,12 @@
           "qualname": "SourceLocator",
           "signature": "(service_id: 'str | None' = None, layer_id: 'int | None' = None, collection_id: 'str | None' = None, entity_set: 'str | None' = None, type_name: 'str | None' = None) -> None"
         },
+        "SourceStage": {
+          "kind": "function",
+          "module": "honua_sdk.etl",
+          "qualname": "SourceStage",
+          "signature": "(connector_type: 'str', options: 'Mapping[str, str] | None' = None) -> 'PipelineStage'"
+        },
         "StacClient": {
           "kind": "class",
           "methods": {
@@ -6456,6 +7067,35 @@
           "module": "honua_sdk.auth",
           "qualname": "TokenStore",
           "signature": "(*args, **kwargs)"
+        },
+        "TransformConfig": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "type"
+            },
+            {
+              "annotation": "Mapping[str, str]",
+              "defaultFactory": "dict",
+              "name": "options"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "to_dict": {
+              "kind": "method",
+              "signature": "(self) -> 'JsonObject'"
+            }
+          },
+          "module": "honua_sdk.etl",
+          "qualname": "TransformConfig",
+          "signature": "(type: 'str', options: 'Mapping[str, str]' = <factory>) -> None"
+        },
+        "TransformStage": {
+          "kind": "function",
+          "module": "honua_sdk.etl",
+          "qualname": "TransformStage",
+          "signature": "(transform_type: 'str', options: 'Mapping[str, str] | None' = None) -> 'PipelineStage'"
         },
         "WfsClient": {
           "kind": "class",

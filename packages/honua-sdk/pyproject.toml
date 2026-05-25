@@ -27,6 +27,9 @@ Homepage = "https://github.com/honua-io"
 Repository = "https://github.com/honua-io/honua-sdk-python"
 Issues = "https://github.com/honua-io/honua-sdk-python/issues"
 
+[project.scripts]
+honua-migrate = "honua_sdk.migration._cli:main"
+
 [project.optional-dependencies]
 grpc = ["grpcio>=1.70.0", "protobuf>=5.27"]
 geopandas = ["geopandas>=0.14.0", "shapely>=2.0.0"]

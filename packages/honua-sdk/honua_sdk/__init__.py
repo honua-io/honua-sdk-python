@@ -29,6 +29,11 @@ from .async_client import AsyncHonuaClient
 from .async_geocoding import AsyncHonuaGeocodingClient
 from .client import HonuaClient
 from .errors import HonuaCapabilityNotSupportedError, HonuaError, HonuaGrpcError, HonuaHttpError
+# Eagerly import the migration subpackage so ``from honua_sdk import migration``
+# and ``honua_sdk.migration`` resolve without a separate import. It is a
+# subpackage, not added to ``__all__`` (module objects are not part of the
+# public-API snapshot surface, which renders exports via ``repr``).
+from . import migration
 from .geocoding import (
     GeocodeResult,
     GeocodeSuggestion,

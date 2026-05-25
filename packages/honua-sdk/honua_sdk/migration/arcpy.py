@@ -16,6 +16,35 @@ from typing import Any, Literal
 JsonObject = dict[str, Any]
 JsonValue = str | int | float | bool | None | JsonObject | list[Any]
 InputKind = Literal["input", "output", "parameter"]
+MigrationStatus = Literal["translatable", "manual-review", "unsupported"]
+
+
+#: Honua process identifiers the honua-server geoprocessing runtime can
+#: actually execute today. A registered ArcPy tool spec is only classified as
+#: ``"translatable"`` (a clean, runnable migration) when its target
+#: ``process_id`` is in this set. Tools whose Honua target is not yet
+#: executable are emitted as ``"manual-review"`` so the codemod never claims a
+#: translation the server cannot run.
+#:
+#: IMPORTANT (coverage<=server-execution coupling): grow this set ONLY when the
+#: server gains a corresponding executable process. The migration coverage
+#: count is gated on it, not on how many ArcPy tools we can parse.
+EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
+    {
+        "buffer",
+        "clip",
+        "intersect",
+        "project",
+        "area",
+        "union",
+        "centroid",
+        "length",
+        "convex-hull",
+        "dissolve",
+        "simplify",
+        "snap",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -37,10 +66,49 @@ class ArcPyCall:
     filename: str | None = None
 
     @property
-    def supported(self) -> bool:
-        """Return whether the call has a first-slice Honua process mapping."""
+    def _spec(self) -> "_ToolSpec | None":
+        return _lookup_spec(self.family, self.tool)
 
-        return _tool_key(self.family, self.tool) in _SUPPORTED_TOOL_SPECS
+    @property
+    def status(self) -> MigrationStatus:
+        """Migration status for this call.
+
+        * ``"translatable"`` -- a registered tool whose Honua process target is
+          executable by the server today (see :data:`EXECUTABLE_PROCESS_IDS`).
+        * ``"manual-review"`` -- a registered tool whose process target is not
+          yet executable, so it is emitted for human migration rather than a
+          runnable payload.
+        * ``"unsupported"`` -- no Honua mapping exists for this ArcPy call.
+        """
+
+        spec = self._spec
+        if spec is None:
+            return "unsupported"
+        return spec.status
+
+    @property
+    def translatable(self) -> bool:
+        """Whether this call yields a runnable Honua OGC Processes payload."""
+
+        return self.status == "translatable"
+
+    @property
+    def process_id(self) -> str | None:
+        """Target Honua process id, when a mapping exists."""
+
+        spec = self._spec
+        return spec.process_id if spec is not None else None
+
+    @property
+    def supported(self) -> bool:
+        """Return whether the call has a Honua process mapping (registered).
+
+        Note: ``supported`` means "we know which Honua process this maps to",
+        which is broader than :attr:`translatable`. A supported-but-not-yet
+        -executable tool is classified ``"manual-review"``.
+        """
+
+        return self._spec is not None
 
     def to_dict(self) -> JsonObject:
         """Return a JSON-serializable call inventory entry."""
@@ -52,6 +120,8 @@ class ArcPyCall:
             "line": self.line,
             "column": self.column,
             "supported": self.supported,
+            "status": self.status,
+            "processId": self.process_id,
             "args": list(self.args),
             "kwargs": dict(self.kwargs),
             "rawArgs": list(self.raw_args),
@@ -77,15 +147,27 @@ class ArcPyScanReport:
 
     @property
     def supported_calls(self) -> tuple[ArcPyCall, ...]:
-        """Calls that can be translated to a Honua OGC Processes request."""
+        """Calls with any known Honua process mapping (translatable or manual)."""
 
         return tuple(call for call in self.calls if call.supported)
+
+    @property
+    def translatable_calls(self) -> tuple[ArcPyCall, ...]:
+        """Calls that produce a runnable Honua OGC Processes payload."""
+
+        return tuple(call for call in self.calls if call.translatable)
+
+    @property
+    def manual_review_calls(self) -> tuple[ArcPyCall, ...]:
+        """Calls with a known mapping whose process is not yet executable."""
+
+        return tuple(call for call in self.calls if call.status == "manual-review")
 
     @property
     def unsupported_calls(self) -> tuple[ArcPyCall, ...]:
         """Calls that were classified but do not have a process mapping yet."""
 
-        return tuple(call for call in self.calls if not call.supported)
+        return tuple(call for call in self.calls if call.status == "unsupported")
 
     @property
     def unsupported_families(self) -> tuple[str, ...]:
@@ -101,6 +183,8 @@ class ArcPyScanReport:
             "imports": dict(self.imports),
             "calls": [call.to_dict() for call in self.calls],
             "supportedCount": len(self.supported_calls),
+            "translatableCount": len(self.translatable_calls),
+            "manualReviewCount": len(self.manual_review_calls),
             "unsupportedCount": len(self.unsupported_calls),
             "unsupportedFamilies": list(self.unsupported_families),
         }
@@ -137,6 +221,12 @@ class ArcPyMigrationPlan:
     translations: tuple[ArcPyProcessTranslation, ...]
 
     @property
+    def manual_review_calls(self) -> tuple[ArcPyCall, ...]:
+        """Calls with a Honua mapping the server cannot yet execute."""
+
+        return self.report.manual_review_calls
+
+    @property
     def unsupported_calls(self) -> tuple[ArcPyCall, ...]:
         """Calls left for manual migration or later translator slices."""
 
@@ -154,6 +244,7 @@ class ArcPyMigrationPlan:
         return {
             "report": self.report.to_dict(),
             "translations": [translation.to_dict() for translation in self.translations],
+            "manualReviewCalls": [call.to_dict() for call in self.manual_review_calls],
             "unsupportedCalls": [call.to_dict() for call in self.unsupported_calls],
             "unsupportedFamilies": list(self.unsupported_families),
         }
@@ -186,6 +277,18 @@ class _ToolSpec:
     args: tuple[_ArgSpec, ...]
     aliases: Mapping[str, str] = field(default_factory=dict)
     notes: tuple[str, ...] = ()
+
+    @property
+    def executable(self) -> bool:
+        """Whether the target Honua process can be executed by the server."""
+
+        return self.process_id in EXECUTABLE_PROCESS_IDS
+
+    @property
+    def status(self) -> MigrationStatus:
+        """Migration status implied by server executability of the target."""
+
+        return "translatable" if self.executable else "manual-review"
 
 
 def _arg(arcpy_name: str, process_name: str | None = None, *, kind: InputKind = "parameter") -> _ArgSpec:
@@ -454,6 +557,125 @@ _register(
     )
 )
 
+# ---------------------------------------------------------------------------
+# Coverage broadening: ArcPy tools that map to EXECUTABLE Honua processes.
+#
+# Each of the tools below targets a process id in EXECUTABLE_PROCESS_IDS
+# (simplify / convex-hull / centroid / snap), so they classify as
+# ``"translatable"`` and emit runnable payloads. Tools that would target a
+# not-yet-executable process are intentionally left as manual-review above.
+# ---------------------------------------------------------------------------
+_register(
+    _ToolSpec(
+        family="cartography",
+        tool="SimplifyPolygon",
+        process_id="simplify",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("out_feature_class", "result", kind="output"),
+            _arg("algorithm", "algorithm"),
+            _arg("tolerance", "tolerance"),
+            _arg("minimum_area", "minimum_area"),
+            _arg("error_option", "error_option"),
+            _arg("collapsed_point_option", "collapsed_point_option"),
+        ),
+        aliases=_aliases(("output", "result"), ("out_features", "result"), ("simplification_tolerance", "tolerance")),
+        notes=("Geometry simplification; ArcPy topology-preservation flags are passed through for server-side review.",),
+    )
+)
+_register(
+    _ToolSpec(
+        family="cartography",
+        tool="SimplifyLine",
+        process_id="simplify",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("out_feature_class", "result", kind="output"),
+            _arg("algorithm", "algorithm"),
+            _arg("tolerance", "tolerance"),
+            _arg("error_resolving_option", "error_option"),
+            _arg("collapsed_point_option", "collapsed_point_option"),
+        ),
+        aliases=_aliases(("output", "result"), ("out_features", "result"), ("simplification_tolerance", "tolerance")),
+        notes=("Geometry simplification; ArcPy topology-preservation flags are passed through for server-side review.",),
+    )
+)
+_register(
+    _ToolSpec(
+        family="management",
+        tool="MinimumBoundingGeometry",
+        process_id="convex-hull",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("out_feature_class", "result", kind="output"),
+            _arg("geometry_type", "geometry_type"),
+            _arg("group_option", "group_option"),
+            _arg("group_field", "group_field"),
+            _arg("mbg_fields_option", "mbg_fields_option"),
+        ),
+        aliases=_aliases(("output", "result"), ("out_features", "result")),
+        notes=(
+            "Maps to the convex-hull process. ArcPy supports several geometry_type "
+            "values (RECTANGLE_BY_AREA, ENVELOPE, CIRCLE); only CONVEX_HULL is a "
+            "faithful translation -- review geometry_type before running.",
+        ),
+    )
+)
+_register(
+    _ToolSpec(
+        family="management",
+        tool="FeatureToPoint",
+        process_id="centroid",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("out_feature_class", "result", kind="output"),
+            _arg("point_location", "point_location"),
+        ),
+        aliases=_aliases(("output", "result"), ("out_features", "result")),
+        notes=(
+            "Maps to the centroid process. point_location=INSIDE forces an on-feature "
+            "point; the centroid process returns the true centroid -- review for "
+            "concave geometries.",
+        ),
+    )
+)
+_register(
+    _ToolSpec(
+        family="management",
+        tool="FeatureToPolygon",
+        process_id="convex-hull",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("out_feature_class", "result", kind="output"),
+            _arg("cluster_tolerance", "cluster_tolerance"),
+            _arg("attributes", "attributes"),
+            _arg("label_features", "label_features", kind="input"),
+        ),
+        aliases=_aliases(("output", "result"), ("out_features", "result")),
+        notes=(
+            "Closest executable target is convex-hull; FeatureToPolygon builds polygons "
+            "from line/point topology, so verify the convex-hull result matches intent.",
+        ),
+    )
+)
+_register(
+    _ToolSpec(
+        family="editing",
+        tool="Snap",
+        process_id="snap",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("snap_environment", "snap_environment"),
+        ),
+        aliases=_aliases(("snap_features", "snap_environment")),
+        notes=(
+            "Maps to the snap process. ArcPy Snap mutates in_features in place using a "
+            "snap_environment list of [features, type, distance]; the snap process "
+            "returns snapped geometries -- review the environment list shape.",
+        ),
+    )
+)
+
 _PAIRWISE_TOOL_ALIASES = {
     ("analysis", "pairwisebuffer"): ("analysis", "buffer"),
     ("analysis", "pairwiseclip"): ("analysis", "clip"),
@@ -467,6 +689,7 @@ _LEGACY_SUFFIX_FAMILIES: Mapping[str, str] = {
     "management": "management",
     "conversion": "conversion",
     "cartography": "cartography",
+    "edit": "editing",
     "editing": "editing",
     "stats": "statistics",
     "statistics": "statistics",
@@ -480,6 +703,7 @@ _MODULE_FAMILIES: Mapping[str, str] = {
     "management": "management",
     "conversion": "conversion",
     "cartography": "cartography",
+    "edit": "editing",
     "editing": "editing",
     "stats": "statistics",
     "statistics": "statistics",
@@ -616,9 +840,102 @@ def translate_arcpy_report(report: ArcPyScanReport, *, process_id_map: Mapping[s
     """Translate supported calls from a scan report to OGC Processes payloads."""
 
     translations = []
-    for call in report.supported_calls:
+    for call in report.translatable_calls:
         translations.append(_translate_call(call, process_id_map=process_id_map or {}))
     return ArcPyMigrationPlan(report=report, translations=tuple(translations))
+
+
+def build_parity_evidence(plan: ArcPyMigrationPlan) -> JsonObject:
+    """Build the parity-evidence JSON report for one source/plan.
+
+    The report is the migration-story artifact: for every discovered ArcPy
+    call it records the mapped Honua process (or ``manual-review`` /
+    ``unsupported``), an overall coverage percentage, and a per-tool status
+    rollup. Coverage is computed against the set of classified calls and is
+    gated by server executability -- see :data:`EXECUTABLE_PROCESS_IDS`.
+    """
+
+    report = plan.report
+    calls = report.calls
+    total = len(calls)
+    translatable = report.translatable_calls
+    manual = report.manual_review_calls
+    unsupported = report.unsupported_calls
+
+    translation_by_call: dict[int, ArcPyProcessTranslation] = {
+        id(translation.call): translation for translation in plan.translations
+    }
+
+    call_entries: list[JsonObject] = []
+    for call in calls:
+        entry: JsonObject = {
+            "qualifiedName": call.qualified_name,
+            "family": call.family,
+            "tool": call.tool,
+            "line": call.line,
+            "column": call.column,
+            "status": call.status,
+            "processId": call.process_id,
+        }
+        translation = translation_by_call.get(id(call))
+        if translation is not None:
+            entry["payload"] = translation.payload
+            if translation.notes:
+                entry["notes"] = list(translation.notes)
+        elif call.status == "manual-review":
+            entry["reason"] = (
+                f"Honua process {call.process_id!r} is not executable by the server yet."
+            )
+            spec = _lookup_spec(call.family, call.tool)
+            if spec is not None and spec.notes:
+                entry["notes"] = list(spec.notes)
+        else:
+            entry["reason"] = "No Honua process mapping is registered for this ArcPy call."
+        call_entries.append(entry)
+
+    # Per-tool status rollup keyed by family.tool.
+    tools: dict[str, JsonObject] = {}
+    for call in calls:
+        key = f"{call.family}.{call.tool}"
+        bucket = tools.setdefault(
+            key,
+            {
+                "family": call.family,
+                "tool": call.tool,
+                "status": call.status,
+                "processId": call.process_id,
+                "count": 0,
+            },
+        )
+        bucket["count"] = int(bucket["count"]) + 1
+
+    coverage_pct = round(100.0 * len(translatable) / total, 2) if total else 0.0
+
+    return {
+        "schema": "honua.migration.arcpy.parity-evidence/v1",
+        "source": report.filename,
+        "syntaxError": report.syntax_error,
+        "summary": {
+            "totalCalls": total,
+            "translatableCalls": len(translatable),
+            "manualReviewCalls": len(manual),
+            "unsupportedCalls": len(unsupported),
+            "coveragePercent": coverage_pct,
+            "executableProcessIds": sorted(EXECUTABLE_PROCESS_IDS),
+            "unsupportedFamilies": list(report.unsupported_families),
+        },
+        "calls": call_entries,
+        "toolStatus": [tools[key] for key in sorted(tools)],
+    }
+
+
+def build_parity_evidence_for_source(
+    source: str, *, filename: str | None = None, process_id_map: Mapping[str, str] | None = None
+) -> JsonObject:
+    """Scan + translate ``source`` and return its parity-evidence report."""
+
+    plan = translate_arcpy_source(source, filename=filename, process_id_map=process_id_map)
+    return build_parity_evidence(plan)
 
 
 class ArcPyProcessRunner:
@@ -646,14 +963,24 @@ class ArcPyProcessRunner:
         return tuple(self.execute(translation) for translation in plan.translations)
 
 
-def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> ArcPyProcessTranslation:
-    key = _tool_key(call.family, call.tool)
+def _lookup_spec(family: str, tool: str) -> "_ToolSpec | None":
+    key = _tool_key(family, tool)
     spec = _SUPPORTED_TOOL_SPECS.get(key)
     if spec is None:
         aliased = _PAIRWISE_TOOL_ALIASES.get(key)
         spec = _SUPPORTED_TOOL_SPECS.get(aliased) if aliased is not None else None
+    return spec
+
+
+def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> ArcPyProcessTranslation:
+    spec = _lookup_spec(call.family, call.tool)
     if spec is None:
         raise UnsupportedArcPyCallError(f"ArcPy call {call.qualified_name!r} is not supported by the translator.")
+    if not spec.executable:
+        raise UnsupportedArcPyCallError(
+            f"ArcPy call {call.qualified_name!r} maps to Honua process {spec.process_id!r}, "
+            "which the server cannot execute yet (status: manual-review)."
+        )
 
     inputs: JsonObject = {}
     outputs: JsonObject = {}

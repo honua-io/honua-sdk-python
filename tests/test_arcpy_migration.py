@@ -45,14 +45,16 @@ def test_scan_arcpy_source_classifies_aliases_legacy_tools_and_unsupported_calls
     assert report.unsupported_families == ("data-access", "spatial-analyst")
 
 
-def test_translate_arcpy_source_builds_ogc_process_payloads_for_supported_vector_tools() -> None:
+def test_translate_arcpy_source_builds_ogc_process_payloads_for_executable_vector_tools() -> None:
     plan = translate_arcpy_source(ARCPY_SOURCE, filename="workflow.py")
 
+    # Only tools whose Honua process is server-executable are translated.
+    # SelectLayerByAttribute maps to "select-by-attribute", which is NOT in
+    # EXECUTABLE_PROCESS_IDS, so it is classified manual-review (not a payload).
     assert [translation.process_id for translation in plan.translations] == [
         "buffer",
         "clip",
         "project",
-        "select-by-attribute",
     ]
     buffer_payload = plan.translations[0].payload
     assert buffer_payload["inputs"] == {
@@ -64,12 +66,9 @@ def test_translate_arcpy_source_builds_ogc_process_payloads_for_supported_vector
     assert buffer_payload["metadata"]["honuaMigration"]["qualifiedName"] == "arcpy.Buffer_analysis"
     assert buffer_payload["metadata"]["honuaMigration"]["assignmentTargets"] == ["buffered"]
 
-    select_payload = plan.translations[3].payload
-    assert select_payload["inputs"] == {
-        "input_features": "roads_layer",
-        "selection_type": "NEW_SELECTION",
-        "where": "STATUS = 'OPEN'",
-    }
+    # SelectLayerByAttribute is a known mapping but not yet executable.
+    manual = [(call.family, call.tool, call.process_id, call.status) for call in plan.manual_review_calls]
+    assert ("management", "SelectLayerByAttribute", "select-by-attribute", "manual-review") in manual
     assert plan.unsupported_families == ("data-access", "spatial-analyst")
 
 

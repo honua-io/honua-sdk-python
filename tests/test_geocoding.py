@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from honua_sdk import HonuaGeocodingClient, HonuaHttpError
+from honua_sdk.errors import HonuaTransportError
 from honua_sdk.geocoding import GeocodeResult, GeocodeSuggestion, ReverseGeocodeResult
 
 
@@ -331,18 +332,17 @@ def test_http_error_500() -> None:
     assert err.message == "Server error"
 
 
-def test_transport_error_raises_honua_http_error() -> None:
+def test_transport_error_raises_honua_transport_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
 
     transport = httpx.MockTransport(handler)
     with HonuaGeocodingClient("http://example.test", client=httpx.Client(base_url="http://example.test/", transport=transport)) as client:
-        with pytest.raises(HonuaHttpError) as exc_info:
+        with pytest.raises(HonuaTransportError) as exc_info:
             client.forward_geocode("test")
 
     err = exc_info.value
-    assert err.status_code == 0
-    assert "Transport error" in err.message
+    assert "Transport error" in str(err)
 
 
 def test_custom_locator_name_in_path() -> None:

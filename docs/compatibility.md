@@ -24,7 +24,7 @@ Matching control-plane APIs marked `deprecated` remain supported, but
 before the API major is removed.
 
 The machine-readable matrix lives in
-[`compatibility/server-matrix.json`](../compatibility/server-matrix.json). It
+[`compatibility/server-matrix.json`](https://github.com/honua-io/honua-sdk-python/blob/trunk/compatibility/server-matrix.json). It
 contains supported and unsupported server examples and is validated in CI by:
 
 ```bash

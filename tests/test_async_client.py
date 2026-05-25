@@ -8,7 +8,7 @@ import pytest
 
 from honua_sdk import CallableAuthProvider, FeatureQuery, Pagination, Query, SourceDescriptor, SourceLocator
 from honua_sdk.async_client import AsyncHonuaClient
-from honua_sdk.errors import HonuaHttpError
+from honua_sdk.errors import HonuaHttpError, HonuaTransportError
 
 
 @pytest.fixture
@@ -473,21 +473,35 @@ async def test_context_manager_closes_client() -> None:
     assert closed["called"] is True
 
 
-async def test_transport_errors_are_normalized_to_honua_http_error() -> None:
+async def test_transport_errors_are_normalized_to_honua_transport_error() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection failed", request=request)
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaClient("http://example.test", transport=transport) as client:
-        with pytest.raises(HonuaHttpError) as exc_info:
+        with pytest.raises(HonuaTransportError) as exc_info:
             await client.readiness()
 
     err = exc_info.value
-    assert err.status_code == 0
-    assert err.message == "Transport error: connection failed"
-    assert isinstance(err.body, dict)
-    assert err.body["type"] == "ConnectError"
-    assert err.body["url"] == "http://example.test/healthz/ready"
+    assert "Transport error: connection failed" in str(err)
+    assert err.cause_type == "ConnectError"
+    assert err.url == "http://example.test/healthz/ready"
+
+
+async def test_timeout_errors_are_normalized_to_honua_timeout_error() -> None:
+    from honua_sdk.errors import HonuaTimeoutError
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("connect timed out", request=request)
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        with pytest.raises(HonuaTimeoutError) as exc_info:
+            await client.readiness()
+
+    err = exc_info.value
+    assert isinstance(err, HonuaTransportError)
+    assert err.cause_type == "ConnectTimeout"
 
 
 async def test_apply_edits_posts_json_payload() -> None:
@@ -569,3 +583,25 @@ async def test_external_client_not_closed() -> None:
 
     # Clean up the external client
     await original_aclose()
+
+
+@pytest.mark.parametrize("protocol", ["ogc-features", "stac"])
+async def test_async_dispatcher_rejects_silent_where_to_cql_forwarding(protocol: str) -> None:
+    """Async dispatcher mirrors :class:`AsyncSource` filter-routing rule."""
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"features": []}))
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        with pytest.raises(ValueError, match="cql_filter"):
+            await client.query(
+                "collection-1",
+                protocol=protocol,
+                where="STATE='CA'",
+                limit=1,
+            )
+        with pytest.raises(ValueError, match="cql_filter"):
+            async for _ in client.iter_query(
+                "collection-1",
+                protocol=protocol,
+                where="STATE='CA'",
+                limit=1,
+            ):
+                pass

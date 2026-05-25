@@ -46,7 +46,7 @@ def resolve_feature_query(
 
     effective_protocol = protocol or "feature-server"
     effective_layer_id = layer_id
-    if effective_layer_id is None and normalize_query_protocol(effective_protocol) == "feature-server":
+    if effective_layer_id is None and normalize_query_protocol(effective_protocol) == "feature-server":  # type: ignore[arg-type]
         effective_layer_id = 0
 
     return FeatureQuery(
@@ -208,3 +208,68 @@ def _first_present(payload: Mapping[str, Any], *keys: str) -> Any:
         if value is not None:
             return value
     return None
+
+
+def ogc_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None, bool]:
+    """Extract ``(total_count, exceeded_transfer_limit)`` from an OGC/STAC page.
+
+    OGC API - Features and STAC both expose ``numberMatched`` (the server's
+    estimated total) and a ``links`` array. When a ``rel="next"`` link is
+    present on the last page walked the caller is paginating against an
+    incomplete result — that's our ``exceeded_transfer_limit`` signal for
+    these protocols.
+    """
+    if page is None:
+        return None, False
+    total_count: int | None = None
+    raw_total = page.get("numberMatched") if isinstance(page, Mapping) else None
+    if isinstance(raw_total, int):
+        total_count = raw_total
+    elif isinstance(raw_total, str) and raw_total.isdigit():
+        total_count = int(raw_total)
+    exceeded = _has_next_link(page)
+    return total_count, exceeded
+
+
+def odata_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None, bool]:
+    """Extract ``(total_count, exceeded_transfer_limit)`` from an OData page.
+
+    OData surfaces totals via ``@odata.count`` and pagination via
+    ``@odata.nextLink``.
+    """
+    if page is None:
+        return None, False
+    total_count: int | None = None
+    raw_total = page.get("@odata.count") if isinstance(page, Mapping) else None
+    if isinstance(raw_total, int):
+        total_count = raw_total
+    elif isinstance(raw_total, str) and raw_total.isdigit():
+        total_count = int(raw_total)
+    exceeded = bool(page.get("@odata.nextLink")) if isinstance(page, Mapping) else False
+    return total_count, exceeded
+
+
+def odata_features_from_page(page: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Extract the ``value`` array from an OData page payload."""
+    value = page.get("value") if isinstance(page, Mapping) else None
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, Mapping)]
+    return []
+
+
+def features_from_geojson_page(page: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Extract a list of GeoJSON-shaped features from a FeatureCollection page."""
+    features = page.get("features") if isinstance(page, Mapping) else None
+    if isinstance(features, list):
+        return [item for item in features if isinstance(item, Mapping)]
+    return []
+
+
+def _has_next_link(payload: Mapping[str, Any]) -> bool:
+    links = payload.get("links") if isinstance(payload, Mapping) else None
+    if not isinstance(links, list):
+        return False
+    return any(
+        isinstance(link, Mapping) and str(link.get("rel", "")).lower() == "next"
+        for link in links
+    )

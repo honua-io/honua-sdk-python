@@ -1,0 +1,17 @@
+[run]
+omit =
+    packages/honua-sdk/honua_sdk/grpc/_generated/*
+    */honua_sdk/grpc/_generated/*
+    # geopandas integration lives behind the optional ``geopandas`` extra and
+    # is exercised (via importorskip) only in the ``grpc,geopandas`` matrix.
+    # Omitting it keeps the combined coverage gate stable across the
+    # extra-less ``grpc`` matrix where the module is intentionally unimportable.
+    packages/honua-sdk/honua_sdk/geopandas.py
+    */honua_sdk/geopandas.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:

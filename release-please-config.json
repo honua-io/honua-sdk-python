@@ -4,7 +4,7 @@
     "packages/honua-sdk": {
       "release-type": "python",
       "component": "python-sdk",
-      "tag-separator": "-v",
+      "tag-separator": "-",
       "include-component-in-tag": true,
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
@@ -20,7 +20,7 @@
     "packages/honua-admin": {
       "release-type": "python",
       "component": "python-admin",
-      "tag-separator": "-v",
+      "tag-separator": "-",
       "include-component-in-tag": true,
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,

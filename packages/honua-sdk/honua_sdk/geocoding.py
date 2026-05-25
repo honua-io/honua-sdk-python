@@ -8,7 +8,6 @@ from typing import Any
 
 import httpx
 
-from ._retry import RetryTransport
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -20,6 +19,7 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
 )
+from ._retry import RetryTransport
 from .auth import AuthProvider
 
 
@@ -103,14 +103,18 @@ class HonuaGeocodingClient:
             event_hooks={"request": [_request_hook]},
         )
 
-    def __enter__(self) -> "HonuaGeocodingClient":
+    def __enter__(self) -> HonuaGeocodingClient:
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         self.close()
 
     def close(self) -> None:
-        """Release underlying resources if this instance owns the HTTP client."""
+        """Release underlying HTTP resources if this instance owns the client.
+
+        When constructed with an externally supplied :class:`httpx.Client`,
+        ownership stays with the caller and this method is a no-op.
+        """
         if self._owns_client:
             self._client.close()
 
@@ -121,8 +125,31 @@ class HonuaGeocodingClient:
         max_results: int = 10,
         country_codes: str | None = None,
         spatial_reference_wkid: int = 4326,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> list[GeocodeResult]:
-        """Find address candidates for a single-line address string."""
+        """Find address candidates for a single-line address string.
+
+        Args:
+            address: Free-form single-line address.
+            max_results: Maximum number of candidates the server may
+                return (forwarded as ``maxLocations``).
+            country_codes: Optional ISO country-code filter (forwarded as
+                ``countryCode``).
+            spatial_reference_wkid: WKID for returned coordinates
+                (forwarded as ``outSR``); defaults to ``4326`` (WGS84).
+
+        Returns:
+            A list of :class:`GeocodeResult` candidates, ordered by the
+            server-reported match score.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server returned a non-success status.
+            HonuaTransportError: The request failed at the transport layer.
+        """
         locator_segment = _encode_path_segment(self._locator_name)
         params: dict[str, Any] = {
             "f": "json",
@@ -137,6 +164,8 @@ class HonuaGeocodingClient:
             "GET",
             f"/rest/services/{locator_segment}/GeocodeServer/findAddressCandidates",
             params=params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
         results: list[GeocodeResult] = []
@@ -159,8 +188,30 @@ class HonuaGeocodingClient:
         longitude: float,
         *,
         spatial_reference_wkid: int = 4326,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> ReverseGeocodeResult | None:
-        """Reverse-geocode a coordinate pair into an address."""
+        """Reverse-geocode a coordinate pair into a postal address.
+
+        Args:
+            latitude: Latitude of the input coordinate.
+            longitude: Longitude of the input coordinate.
+            spatial_reference_wkid: WKID for both the input coordinate
+                interpretation and the response location; defaults to
+                ``4326`` (WGS84).
+
+        Returns:
+            A :class:`ReverseGeocodeResult` when the server returned
+            either an address or a location; ``None`` when neither field
+            was present in the response.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server returned a non-success status.
+            HonuaTransportError: The request failed at the transport layer.
+        """
         locator_segment = _encode_path_segment(self._locator_name)
         params: dict[str, Any] = {
             "f": "json",
@@ -172,6 +223,8 @@ class HonuaGeocodingClient:
             "GET",
             f"/rest/services/{locator_segment}/GeocodeServer/reverseGeocode",
             params=params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
         if not data.get("address") and not data.get("location"):
@@ -195,8 +248,30 @@ class HonuaGeocodingClient:
         *,
         max_suggestions: int = 5,
         country_codes: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> list[GeocodeSuggestion]:
-        """Get typeahead suggestions for partial address text."""
+        """Fetch typeahead suggestions for partial address text.
+
+        Args:
+            text: Partial address text the user has typed so far.
+            max_suggestions: Maximum number of suggestions to return
+                (forwarded as ``maxSuggestions``).
+            country_codes: Optional ISO country-code filter (forwarded as
+                ``countryCode``).
+
+        Returns:
+            A list of :class:`GeocodeSuggestion` objects. Pair the
+            ``magic_key`` field with a follow-up
+            :meth:`forward_geocode` call to resolve a chosen suggestion.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server returned a non-success status.
+            HonuaTransportError: The request failed at the transport layer.
+        """
         locator_segment = _encode_path_segment(self._locator_name)
         params: dict[str, Any] = {
             "f": "json",
@@ -210,6 +285,8 @@ class HonuaGeocodingClient:
             "GET",
             f"/rest/services/{locator_segment}/GeocodeServer/suggest",
             params=params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
         results: list[GeocodeSuggestion] = []
@@ -230,8 +307,19 @@ class HonuaGeocodingClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        response = self._request(method, path, params=params, json_body=json_body)
+        response = self._request(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        )
         if not response.content:
             return {}
 
@@ -251,14 +339,30 @@ class HonuaGeocodingClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> httpx.Response:
-        try:
-            response = self._client.request(
-                method=method,
-                url=path,
-                params=params,
-                json=json_body,
+        headers: dict[str, str] | None = None
+        if extra_headers is not None or idempotency_key is not None:
+            headers = {}
+            if extra_headers:
+                headers.update(extra_headers)
+            if idempotency_key is not None:
+                headers["Idempotency-Key"] = idempotency_key
+        request_kwargs: dict[str, Any] = {
+            "method": method,
+            "url": path,
+            "params": params,
+            "json": json_body,
+            "headers": headers,
+        }
+        if timeout is not None:
+            request_kwargs["timeout"] = (
+                timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)
             )
+        try:
+            response = self._client.request(**request_kwargs)
         except httpx.HTTPError as exc:
             raise _to_transport_error(exc) from exc
         if response.status_code >= 400:

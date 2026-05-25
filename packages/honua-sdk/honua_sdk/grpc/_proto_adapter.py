@@ -1,7 +1,7 @@
 """Bidirectional conversion between domain models and proto messages."""
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
@@ -39,7 +39,7 @@ def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesR
         for stat in request.out_statistics:
             s = pb2.StatisticDefinition()
             s.on_statistic_field = stat.on_statistic_field
-            s.statistic_type = stat.statistic_type.value
+            s.statistic_type = stat.statistic_type.value  # type: ignore[assignment]
             s.out_statistic_field_name = stat.out_statistic_field_name
             msg.out_statistics.append(s)
     if request.group_by:
@@ -49,9 +49,9 @@ def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesR
 
     if request.spatial_filter:
         sf = request.spatial_filter
-        msg.spatial_filter.spatial_relationship = sf.spatial_relationship.value
+        msg.spatial_filter.spatial_relationship = sf.spatial_relationship.value  # type: ignore[assignment]
         msg.spatial_filter.distance = sf.distance
-        msg.spatial_filter.distance_unit = sf.distance_unit.value
+        msg.spatial_filter.distance_unit = sf.distance_unit.value  # type: ignore[assignment]
         msg.spatial_filter.nearest_count = sf.nearest_count
         msg.spatial_filter.return_distance = sf.return_distance
         geometry_spatial_reference: pb2.SpatialReference | None = None
@@ -152,7 +152,7 @@ def _convert_feature(f: Any) -> models.Feature:
     return models.Feature(id=f.id, attributes=attributes, geometry=geometry)
 
 
-def _convert_attribute(attr: Any) -> Any:
+def _convert_attribute(attr: Any) -> Any:  # noqa: PLR0911 -- proto oneof dispatch
     """Convert a proto AttributeValue to a Python value."""
     which = attr.WhichOneof("value")
     if which == "string_value":
@@ -176,7 +176,7 @@ def _convert_attribute(attr: Any) -> Any:
     return None
 
 
-def _convert_geometry(geom: Any) -> dict[str, Any] | None:
+def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912, PLR0915 -- proto oneof + per-shape conversion
     """Convert a proto Geometry to Esri JSON dict."""
     which = geom.WhichOneof("shape")
     if which == "point":
@@ -377,4 +377,4 @@ def _extract_spatial_reference(geom: dict[str, Any], pb2_module: Any) -> pb2.Spa
     if sr.wkid == 0 and sr.latest_wkid == 0 and not sr.wkt:
         return None
 
-    return sr
+    return cast("pb2.SpatialReference", sr)

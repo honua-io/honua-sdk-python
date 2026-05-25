@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from honua_sdk import CallableAuthProvider, DataPlaneCapabilities, FeatureQuery, HonuaClient, HonuaHttpError
+from honua_sdk.errors import HonuaTransportError
 
 
 def test_query_features_builds_expected_request() -> None:
@@ -741,18 +742,118 @@ def test_follow_redirects_does_not_forward_auth_provider_headers_to_different_ho
     ]
 
 
-def test_transport_errors_are_normalized_to_honua_http_error() -> None:
+def test_transport_errors_are_normalized_to_honua_transport_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection failed", request=request)
 
     transport = httpx.MockTransport(handler)
     with HonuaClient("http://example.test", transport=transport) as client:
-        with pytest.raises(HonuaHttpError) as exc_info:
+        with pytest.raises(HonuaTransportError) as exc_info:
             client.readiness()
 
     err = exc_info.value
-    assert err.status_code == 0
-    assert err.message == "Transport error: connection failed"
-    assert isinstance(err.body, dict)
-    assert err.body["type"] == "ConnectError"
-    assert err.body["url"] == "http://example.test/healthz/ready"
+    assert "Transport error: connection failed" in str(err)
+    assert err.cause_type == "ConnectError"
+    assert err.url == "http://example.test/healthz/ready"
+
+
+def test_timeout_errors_are_normalized_to_honua_timeout_error() -> None:
+    from honua_sdk.errors import HonuaTimeoutError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("read timed out", request=request)
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        with pytest.raises(HonuaTimeoutError) as exc_info:
+            client.readiness()
+
+    err = exc_info.value
+    assert isinstance(err, HonuaTransportError)
+    assert err.cause_type == "ReadTimeout"
+
+
+def test_http_401_raises_honua_auth_error() -> None:
+    from honua_sdk.errors import HonuaAuthError
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(401, json={"error": {"message": "no token"}})
+    )
+    with HonuaClient("http://example.test", transport=transport, max_retries=0) as client:
+        with pytest.raises(HonuaAuthError) as exc_info:
+            client.readiness()
+
+    err = exc_info.value
+    assert isinstance(err, HonuaHttpError)
+    assert err.status_code == 401
+    assert err.message == "no token"
+
+
+def test_http_429_raises_rate_limit_error_with_retry_after() -> None:
+    from honua_sdk.errors import HonuaRateLimitError
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(429, headers={"Retry-After": "12"}, json={"detail": "slow down"})
+    )
+    with HonuaClient("http://example.test", transport=transport, max_retries=0) as client:
+        with pytest.raises(HonuaRateLimitError) as exc_info:
+            client.readiness()
+
+    err = exc_info.value
+    assert isinstance(err, HonuaHttpError)
+    assert err.status_code == 429
+    assert err.retry_after == 12.0
+    assert err.message == "slow down"
+
+
+@pytest.mark.parametrize("protocol", ["ogc-features", "stac"])
+def test_dispatcher_rejects_silent_where_to_cql_forwarding(protocol: str) -> None:
+    """Mirror ``Source.query``: legacy dispatcher must not silently route SQL ``where`` to CQL.
+
+    The dispatcher previously fed ``where`` directly into the OGC/STAC
+    ``filter`` slot, which silently mis-typed SQL as CQL2-text. The
+    canonical :class:`Source` facade raises here; this test pins the
+    same shape on :meth:`HonuaClient.query` / :meth:`HonuaClient.iter_query`.
+    """
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"features": []}))
+    with HonuaClient("http://example.test", transport=transport) as client:
+        with pytest.raises(ValueError, match="cql_filter"):
+            client.query(
+                "collection-1",
+                protocol=protocol,
+                where="STATE='CA'",
+                limit=1,
+            )
+        with pytest.raises(ValueError, match="cql_filter"):
+            list(
+                client.iter_query(
+                    "collection-1",
+                    protocol=protocol,
+                    where="STATE='CA'",
+                    limit=1,
+                )
+            )
+
+
+@pytest.mark.parametrize("protocol", ["ogc-features", "stac"])
+def test_dispatcher_accepts_filter_for_cql_protocols(protocol: str) -> None:
+    """``filter=`` (CQL slot) keeps working on the legacy dispatcher."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.raw_path.decode("ascii").split("?")[0]
+        if path.startswith("/ogc/features/") or path.startswith("/stac/"):
+            return httpx.Response(
+                200,
+                json={"type": "FeatureCollection", "features": []},
+            )
+        raise AssertionError(f"unexpected path {path}")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        result = client.query(
+            "collection-1",
+            protocol=protocol,
+            filter="STATE='CA'",
+            limit=1,
+        )
+    assert result.protocol == protocol

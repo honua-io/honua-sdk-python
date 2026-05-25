@@ -12,9 +12,9 @@ The SDK builds those paths for you.
 
 ## Auth And Environment Variables
 
-Set these environment variables for the staging smoke suite and release smoke runner:
+Set these environment variables for the staging smoke lane and release smoke runner:
 
-- `HONUA_BASE_URL` required for local pytest runs and `scripts/release_smoke.py`; optional in GitHub Actions when the seeded local compatibility target is acceptable
+- `HONUA_BASE_URL` required
 - `HONUA_SERVICE_ID` defaults to `test_service`
 - `HONUA_LAYER_ID` defaults to `0`
 - `HONUA_API_KEY` optional, for staging environments that do not allow anonymous access
@@ -26,22 +26,17 @@ Set these environment variables for the staging smoke suite and release smoke ru
 - `HONUA_OGC_PROCESS_ID` plus `HONUA_OGC_PROCESS_PAYLOAD_JSON` opt in to OGC Processes execution coverage; without both, the process execution probe is recorded as skipped
 - `HONUA_PROTOCOL_BBOX` optionally overrides the render/export bbox as four comma-separated numbers and defaults to `-180,-90,180,90`
 
-The GitHub Actions smoke lane uses `HONUA_BASE_URL` when it is set in the repo or the
-`staging` environment. `HONUA_SERVICE_ID` and `HONUA_LAYER_ID` stay optional and fall
-back to `test_service` / `0`; set protocol-specific variables only when staging uses
-non-default seed IDs. Set `HONUA_API_KEY` as a secret when the target deployment
-requires auth.
+The GitHub Actions live smoke lane only requires `HONUA_BASE_URL`. Set it in the repo or the
+`staging` environment before enabling the workflow as a required PR check. `HONUA_SERVICE_ID`
+and `HONUA_LAYER_ID` stay optional and fall back to `test_service` / `0`; set protocol-specific
+variables only when staging uses non-default seed IDs. Set `HONUA_API_KEY` as a secret when the
+target deployment requires auth.
 
-When `HONUA_BASE_URL` is absent, GitHub Actions starts the Honua Server
-client-compat Docker target from `ghcr.io/honua-io/honua-server:latest-aot` (or
-`HONUA_LOCAL_SERVER_IMAGE`), seeds the canonical `test_service` / layer `0`
-fixture, and runs the same smoke suite against `http://localhost:5000`. That
-fallback restores release evidence for SDK behavior but does not replace the
-separate live-staging configuration task.
+Same-repo pull requests skip the live smoke lane until `HONUA_BASE_URL` is configured so the
+branch does not fail purely on missing GitHub Actions setup. `trunk`, scheduled, and manual
+runs still fail fast when that required base URL is absent.
 
-The opted-in local staging suite and `scripts/release_smoke.py` both fail fast when
-`HONUA_BASE_URL` is unset so local validation cannot silently pass without an
-explicit target.
+The opted-in staging suite and `scripts/release_smoke.py` both fail fast when `HONUA_BASE_URL` is unset so CI cannot silently pass without exercising a real deployment.
 
 Run the opt-in staging suite locally with:
 
@@ -83,7 +78,7 @@ The smoke probes assume the same seeded data-plane contract used by the server t
 - minimum read-smoke field subset asserted by `query_seeded_layer`: `objectid`, `name`, `status`, `count`, `ratio`, `uid`
 
 The read smoke checks `readiness()`, `list_services()`, and `query_features(...)`.
-The same seeded layer also exposes `description`. The write smoke uses that same service/layer for a minimal add -> query -> update -> query -> delete cycle, records a human-readable tag in `description`, uses that text tag for cleanup queries so UUID-field filtering does not block cleanup, validates the `uid` UUID field on the smoke-created record, and verifies that the queried point geometry matches both the add and update payloads.
+The same seeded layer also exposes `description`. The write smoke uses that same service/layer for a minimal add -> query -> update -> query -> delete cycle, records a human-readable tag in `description`, validates the `uid` UUID field on the smoke-created record, and now verifies that the queried point geometry matches both the add and update payloads.
 
 The protocol smoke extension also records public-SDK probes for FeatureServer metadata, optional
 MapServer rendering and identify, optional ImageServer metadata/export/identify, OGC Features,
@@ -117,26 +112,34 @@ Example cleanup snippet:
 ```python
 import os
 
-from honua_sdk import HonuaClient
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
 prefix = os.environ.get("HONUA_SMOKE_UID_PREFIX", "sdk-python-smoke")
 escaped_prefix = prefix.replace("'", "''")
 where = f"description LIKE '{escaped_prefix}:%'"  # simple SQL-style filter
 
 with HonuaClient(os.environ["HONUA_BASE_URL"], api_key=os.environ.get("HONUA_API_KEY")) as client:
-    response = client.query_features(
-        "test_service",
-        0,
-        where=where,
-        out_fields=["objectid", "uid", "description"],
+    source = client.source(
+        SourceDescriptor(
+            id="test_service",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="test_service", layer_id=0),
+        )
+    )
+    result = source.query(
+        Query(where=where, out_fields=["objectid", "uid", "description"])
     )
     objectids = [
-        feature["attributes"]["objectid"]
-        for feature in response.get("features", [])
-        if feature.get("attributes", {}).get("objectid") is not None
+        feature.properties["objectid"]
+        for feature in result.features
+        if feature.properties.get("objectid") is not None
     ]
     if objectids:
-        client.apply_edits("test_service", 0, deletes=objectids)
+        client.apply_edits(
+            service_id="test_service",
+            layer_id=0,
+            deletes=objectids,
+        )
 ```
 
 ## Failure Interpretation

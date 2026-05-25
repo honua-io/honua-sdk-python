@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
-from .auth import AuthProvider, SENSITIVE_AUTH_HEADER_NAMES, normalize_auth_headers
-from .errors import HonuaHttpError
+from .auth import SENSITIVE_AUTH_HEADER_NAMES, AuthProvider, normalize_auth_headers
+from .errors import (
+    HonuaAuthError,
+    HonuaHttpError,
+    HonuaRateLimitError,
+    HonuaTimeoutError,
+    HonuaTransportError,
+)
 
 
 def _normalize_base_url(base_url: str) -> str:
@@ -105,6 +113,43 @@ def _auth_provider_headers(auth_provider: AuthProvider | None) -> dict[str, str]
     return normalize_auth_headers(auth_provider.auth_headers())
 
 
+def parse_retry_after(value: str | None) -> float | None:
+    """Parse a ``Retry-After`` header value into seconds, if possible.
+
+    Accepts either the delta-seconds form (``"120"``) or the RFC 7231
+    HTTP-date form (``"Wed, 21 Oct 2026 07:28:00 GMT"``). For HTTP-date
+    values the returned delay is ``max(0, target - now)`` so a date in
+    the past becomes ``0.0``. Returns ``None`` for ``None`` input or any
+    value that cannot be parsed as either form.
+    """
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        seconds = float(text)
+    except (TypeError, ValueError):
+        seconds = None
+    if seconds is not None:
+        return max(0.0, seconds)
+    try:
+        target = parsedate_to_datetime(text)
+    except (TypeError, ValueError):
+        return None
+    if target is None:
+        return None
+    if target.tzinfo is None:
+        # RFC 7231 dates carry a zone; treat naive as UTC for safety.
+        target = target.replace(tzinfo=UTC)
+    return max(0.0, (target - datetime.now(UTC)).total_seconds())
+
+
+# Back-compat alias for callers still pinned to the underscore spelling
+# (re-exported from ``honua_sdk._shared`` and ``honua_sdk.http``).
+_parse_retry_after = parse_retry_after
+
+
 def _to_http_error(response: httpx.Response) -> HonuaHttpError:
     body: Any | None = None
     message = response.reason_phrase or "Request failed"
@@ -125,13 +170,58 @@ def _to_http_error(response: httpx.Response) -> HonuaHttpError:
             if isinstance(candidate, str) and candidate:
                 message = candidate
 
-    return HonuaHttpError(response.status_code, message, body=body)
+    status_code = response.status_code
+    request_id = (
+        response.headers.get("x-request-id")
+        or response.headers.get("honua-request-id")
+        or response.headers.get("x-correlation-id")
+    )
+    headers = dict(response.headers)
+    if status_code in (401, 403):
+        return HonuaAuthError(
+            status_code,
+            message,
+            body=body,
+            request_id=request_id,
+            headers=headers,
+        )
+    if status_code == 429:
+        retry_after = _parse_retry_after(response.headers.get("retry-after"))
+        return HonuaRateLimitError(
+            status_code,
+            message,
+            body=body,
+            retry_after=retry_after,
+            request_id=request_id,
+            headers=headers,
+        )
+    return HonuaHttpError(
+        status_code,
+        message,
+        body=body,
+        request_id=request_id,
+        headers=headers,
+    )
 
 
-def _to_transport_error(error: httpx.HTTPError) -> HonuaHttpError:
+def _to_transport_error(error: httpx.HTTPError) -> HonuaTransportError:
+    """Map an httpx transport-level error to the Honua exception hierarchy.
+
+    ``httpx.TimeoutException`` becomes :class:`HonuaTimeoutError`; every
+    other transport-level :class:`httpx.RequestError` (and any other
+    :class:`httpx.HTTPError` arriving without a response) becomes
+    :class:`HonuaTransportError`.
+    """
     message = str(error) or error.__class__.__name__
-    body: dict[str, Any] = {"type": error.__class__.__name__, "message": message}
     request = getattr(error, "request", None)
-    if request is not None:
-        body["url"] = str(request.url)
-    return HonuaHttpError(0, f"Transport error: {message}", body=body)
+    url = str(request.url) if request is not None else None
+    detail = f"Transport error: {message}"
+
+    if isinstance(error, httpx.TimeoutException):
+        exc: HonuaTransportError = HonuaTimeoutError(detail)
+    else:
+        exc = HonuaTransportError(detail)
+
+    exc.cause_type = error.__class__.__name__  # type: ignore[attr-defined]
+    exc.url = url  # type: ignore[attr-defined]
+    return exc

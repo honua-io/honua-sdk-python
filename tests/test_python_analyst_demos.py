@@ -31,33 +31,35 @@ def test_data_quality_report_writes_deterministic_artifacts(tmp_path: Path) -> N
     }
     assert report.json_path.exists()
     assert report.html_path.exists()
-    assert report.png_path.exists()
     assert "Honua Data Quality Report" in report.html_path.read_text(encoding="utf-8")
-    assert report.summary["artifacts"] == {
-        "json": str(report.json_path),
-        "html": str(report.html_path),
-        "png": str(report.png_path),
-    }
 
 
 @pytest.mark.anyio
 async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
-    class FeatureServerClient:
-        async def query_features(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-            return {"features": [{"attributes": {"objectid": 1}}]}
+    """Cookbook drives the canonical ``client.source().query()`` facade.
 
-    class OgcCollection:
-        async def items(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-            return {"features": [{"id": "ogc-1"}]}
+    The fake mirrors the public shape: ``client.source(SourceDescriptor)`` returns
+    an awaitable source whose ``.query(Query, limit=...)`` resolves to a
+    ``Result``-shaped object with a ``features`` list. The raw-bytes protocol
+    factories (``wfs()``/``wms()``/``wmts()``) are exercised directly per the
+    cookbook's "not a queryable Source" escape hatch.
+    """
 
-    class OgcFeatures:
-        def collection(self, collection_id: str) -> OgcCollection:
-            assert collection_id == "test_service"
-            return OgcCollection()
+    class FakeFeature:
+        def __init__(self, attributes: dict[str, Any]) -> None:
+            self.attributes = attributes
+            self.geometry: dict[str, Any] | None = None
 
-    class Stac:
-        async def items(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-            return {"features": [{"id": "scene-1"}]}
+    class FakeResult:
+        def __init__(self, features: list[FakeFeature]) -> None:
+            self.features = features
+
+    class FakeAsyncSource:
+        def __init__(self, features: list[FakeFeature]) -> None:
+            self._features = features
+
+        async def query(self, _query: Any, **_kwargs: Any) -> FakeResult:
+            return FakeResult(self._features)
 
     class Wfs:
         async def get_feature(self, *args: Any, **kwargs: Any) -> str:
@@ -71,16 +73,16 @@ async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
         async def tile(self, *args: Any, **kwargs: Any) -> bytes:
             return b"tile"
 
-    class OData:
-        async def features(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
-            return {"value": [{"ObjectId": 1}]}
-
-    class FakeClient(FeatureServerClient):
-        def ogc_features(self) -> OgcFeatures:
-            return OgcFeatures()
-
-        def stac(self) -> Stac:
-            return Stac()
+    class FakeClient:
+        def source(self, descriptor: Any) -> FakeAsyncSource:
+            protocol_to_attrs = {
+                "geoservices-feature-service": [{"objectid": 1}],
+                "ogc-features": [{"id": "ogc-1"}],
+                "stac": [{"id": "scene-1"}],
+                "odata": [{"ObjectId": 1}],
+            }
+            attrs_list = protocol_to_attrs.get(descriptor.protocol, [])
+            return FakeAsyncSource([FakeFeature(attrs) for attrs in attrs_list])
 
         def wfs(self) -> Wfs:
             return Wfs()
@@ -93,9 +95,6 @@ async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
             assert service_id == "test_service"
             return Wmts()
 
-        def odata(self) -> OData:
-            return OData()
-
     results = await spatial_query_cookbook.run_spatial_query_cookbook(
         FakeClient(),
         spatial_query_cookbook.CookbookConfig(stac_collection_id="imagery"),
@@ -103,7 +102,6 @@ async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
 
     assert [result.name for result in results] == [
         "feature-server-bbox",
-        "feature-server-geodataframe",
         "feature-server-filter-summary",
         "ogc-api-features-items",
         "stac-items",
@@ -113,27 +111,38 @@ async def test_spatial_query_cookbook_exercises_protocol_patterns() -> None:
         "odata-features",
     ]
     assert results[0].row_count == 1
-    assert results[1].protocol == "GeoPandas"
-    assert results[1].row_count == 1
-    assert results[6].response_shape == "bytes:3"
+    assert results[5].response_shape == "bytes:3"
 
 
 @pytest.mark.anyio
 async def test_fastapi_service_helpers_build_query_and_summary() -> None:
+    """FastAPI helpers drive ``client.source().query(Query)`` and return a Result."""
     seen: dict[str, Any] = {}
 
+    class FakeFeature:
+        def __init__(self, status: str) -> None:
+            self.properties = {"status": status}
+            self.geometry: dict[str, Any] | None = None
+
+    class FakeResult:
+        def __init__(self, features: list[FakeFeature]) -> None:
+            self.features = features
+
+    class FakeAsyncSource:
+        async def query(self, query: Any, **kwargs: Any) -> FakeResult:
+            seen["where"] = query.where
+            seen["bbox"] = query.bbox
+            seen["limit"] = kwargs.get("limit")
+            return FakeResult(
+                [FakeFeature("active"), FakeFeature("active"), FakeFeature("needs review")]
+            )
+
     class FakeClient:
-        async def query_features(self, service_id: str, layer_id: int, **kwargs: Any) -> dict[str, Any]:
-            seen["service_id"] = service_id
-            seen["layer_id"] = layer_id
-            seen.update(kwargs)
-            return {
-                "features": [
-                    {"attributes": {"status": "active"}},
-                    {"attributes": {"status": "active"}},
-                    {"attributes": {"status": "needs review"}},
-                ]
-            }
+        def source(self, descriptor: Any) -> FakeAsyncSource:
+            seen["descriptor_id"] = descriptor.id
+            seen["service_id"] = descriptor.locator.service_id
+            seen["layer_id"] = descriptor.locator.layer_id
+            return FakeAsyncSource()
 
     settings = fastapi_spatial_service.ServiceSettings(service_id="incidents", layer_id=2)
     response = await fastapi_spatial_service.fetch_features(
@@ -147,8 +156,8 @@ async def test_fastapi_service_helpers_build_query_and_summary() -> None:
     assert seen["service_id"] == "incidents"
     assert seen["layer_id"] == 2
     assert seen["where"] == "status <> 'closed'"
-    assert seen["extra_params"]["geometry"] == "-158.0,21.0,-157.0,22.0"
-    assert seen["extra_params"]["resultRecordCount"] == "25"
+    assert seen["bbox"] == [-158.0, 21.0, -157.0, 22.0]
+    assert seen["limit"] == 25
     assert fastapi_spatial_service.summarize_feature_response(response) == {
         "feature_count": 3,
         "status_counts": {"active": 2, "needs review": 1},

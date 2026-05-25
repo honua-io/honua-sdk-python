@@ -26,13 +26,64 @@ env:
   PYTHON_VERSION: "3.11"
 
 jobs:
+  pre-publish-typecheck:
+    # Run mypy on the same Python matrix as ci.yml *before* uploading any
+    # distribution. ci.yml's typecheck job only blocks PR merges; without
+    # this gate a tag pushed against a green PR could still publish if a
+    # later change regressed 3.12 / 3.13. Running here keeps the publish
+    # smoke aligned with the broader CI matrix.
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' && (startsWith(github.ref_name, 'python-sdk-v') || startsWith(github.ref_name, 'python-admin-v')))
+      || github.event_name == 'workflow_dispatch'
+    strategy:
+      # Keep all matrix cells running so a 3.12 regression doesn't mask
+      # whether 3.13 (or 3.11) is also affected; one signal per Python
+      # version is more actionable than a single short-circuited failure.
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            packages/honua-sdk/pyproject.toml
+            packages/honua-admin/pyproject.toml
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./packages/honua-sdk[grpc]"
+          pip install -e ./packages/honua-admin
+          pip install mypy
+
+      - name: Run mypy
+        run: |
+          python -m mypy \
+            packages/honua-sdk/honua_sdk \
+            packages/honua-admin/honua_admin
+
   publish-honua-sdk:
+    needs: pre-publish-typecheck
     if: >
       (github.event_name == 'push' && startsWith(github.ref_name, 'python-sdk-v'))
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.package == 'honua-sdk' || github.event.inputs.package == 'both'))
     runs-on: ubuntu-latest
+    # PyPI Trusted Publishing requires `id-token: write` so the action can mint
+    # an OIDC token and exchange it for a short-lived upload credential. The
+    # Trusted Publisher MUST be configured at:
+    #   https://pypi.org/manage/project/honua-sdk/settings/publishing/
+    # with workflow `publish-python-sdk.yml` (and the matching environment, if
+    # any) bound to this repository. See: https://docs.pypi.org/trusted-publishers/
     permissions:
       contents: read
+      id-token: write
     defaults:
       run:
         working-directory: packages/honua-sdk
@@ -51,14 +102,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[grpc]"
-          pip install pytest hatch twine
+          pip install pytest hatch
 
       - name: Run compatibility gate
         run: python scripts/compatibility_gate.py
         working-directory: ${{ github.workspace }}
 
+      - name: Install honua-admin (for full smoke coverage)
+        run: pip install -e "${{ github.workspace }}/packages/honua-admin"
+
       - name: Run SDK tests
-        run: python -m pytest ../../tests/ -q --tb=short -k "not admin"
+        # Exercise both packages so the publish smoke test mirrors CI; the prior
+        # `-k "not admin"` filter let admin regressions slip past sdk releases.
+        run: python -m pytest ../../tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk
@@ -82,25 +138,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish to PyPI
+      - name: Publish to PyPI (Trusted Publishing)
         if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          if [[ -z "${TWINE_PASSWORD}" ]]; then
-            echo "PYPI_API_TOKEN secret is required for publishing."
-            exit 1
-          fi
-          twine upload --skip-existing dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/honua-sdk/dist
+          skip-existing: true
 
   publish-honua-admin:
+    needs: pre-publish-typecheck
     if: >
       (github.event_name == 'push' && startsWith(github.ref_name, 'python-admin-v'))
       || (github.event_name == 'workflow_dispatch' && (github.event.inputs.package == 'honua-admin' || github.event.inputs.package == 'both'))
     runs-on: ubuntu-latest
+    # PyPI Trusted Publishing requires `id-token: write` so the action can mint
+    # an OIDC token and exchange it for a short-lived upload credential. The
+    # Trusted Publisher MUST be configured at:
+    #   https://pypi.org/manage/project/honua-admin/settings/publishing/
+    # with workflow `publish-python-sdk.yml` (and the matching environment, if
+    # any) bound to this repository. See: https://docs.pypi.org/trusted-publishers/
     permissions:
       contents: read
+      id-token: write
     defaults:
       run:
         working-directory: packages/honua-admin
@@ -122,7 +181,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e "${{ github.workspace }}/packages/honua-sdk[grpc]"
           pip install -e .
-          pip install pytest hatch twine
+          pip install pytest hatch
 
       - name: Run compatibility gate
         run: python scripts/compatibility_gate.py
@@ -151,14 +210,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish to PyPI
+      - name: Publish to PyPI (Trusted Publishing)
         if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_ADMIN_API_TOKEN }}
-        run: |
-          if [[ -z "${TWINE_PASSWORD}" ]]; then
-            echo "PYPI_ADMIN_API_TOKEN secret is required for publishing."
-            exit 1
-          fi
-          twine upload --skip-existing dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/honua-admin/dist
+          skip-existing: true

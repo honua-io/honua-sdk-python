@@ -1,4 +1,18 @@
-"""Retry transport wrapper with exponential backoff for httpx."""
+"""Sync retry transport wrapper for httpx.
+
+This module owns only the **sync I/O dispatch** for retries: it calls
+``self._wrapped.handle_request`` and ``time.sleep`` between attempts.
+Every pure policy decision (transient-exception set, should-retry-on
+status/method, exponential backoff math, ``Retry-After`` parsing) lives
+in :mod:`honua_sdk._retry_core` and is shared verbatim with the async
+counterpart in :mod:`honua_sdk._async_retry`.
+
+Boundary recap::
+
+    _retry_core   -> pure functions, no I/O
+    _retry        -> sync I/O dispatch + ``time.sleep``   (this module)
+    _async_retry  -> async I/O dispatch + ``asyncio.sleep``
+"""
 
 from __future__ import annotations
 
@@ -6,19 +20,50 @@ import time
 
 import httpx
 
-_RETRYABLE_STATUS_CODES = frozenset({429, 502, 503})
+from ._retry_core import (
+    _DEFAULT_INITIAL_BACKOFF,
+    _DEFAULT_MAX_BACKOFF,
+    _DEFAULT_MAX_RETRIES,
+    _DEFAULT_RETRY_METHODS,
+    _DEFAULT_RETRY_STATUSES,
+    _RETRIABLE_TRANSPORT_EXCEPTIONS,
+    compute_backoff,
+    compute_delay,
+    normalize_retry_methods,
+    should_retry_method,
+    should_retry_status,
+)
 
-_DEFAULT_MAX_RETRIES = 3
-_DEFAULT_INITIAL_BACKOFF = 0.5  # 500 ms
-_DEFAULT_MAX_BACKOFF = 5.0  # 5 s
+# Re-export for back-compat with tests that imported the constants from
+# this module before the policy was moved into ``_retry_core``.
+__all__ = [
+    "RetryTransport",
+]
 
 
 class RetryTransport(httpx.BaseTransport):
     """An httpx transport wrapper that retries on transient HTTP errors.
 
-    Retries are triggered for responses with status codes 429, 502, or 503.
-    Exponential backoff is applied between attempts, and the ``Retry-After``
-    header is honoured on 429 and 503 responses.
+    Retries are triggered for responses whose status codes are listed in
+    ``retry_statuses`` (default: ``429``, ``502``, ``503``, ``504``).
+    Exponential backoff is applied between attempts, and the
+    ``Retry-After`` header is honoured on 429/503 responses (either
+    delta-seconds or an RFC 7231 HTTP-date).
+
+    **Idempotency gating.** Only requests whose method is in
+    ``retry_methods`` (default: ``GET``, ``HEAD``, ``PUT``, ``DELETE``,
+    ``OPTIONS``) are retried. ``POST`` and other non-idempotent methods
+    are intentionally excluded so that mutations are never silently
+    duplicated. Callers who know their POSTs are safe (e.g. carry an
+    idempotency key) can opt-in by passing ``retry_methods`` explicitly.
+
+    **Backoff math.** For retry attempt ``n`` (0-indexed), the cap is
+    ``min(backoff_initial * 2**n, backoff_max)``. When ``jitter`` is
+    ``True`` (default), the actual sleep is drawn from
+    ``random.uniform(0, cap)`` (full-jitter). When ``False``, the
+    deterministic ``cap`` value is used. The ``Retry-After`` header,
+    when present and parseable, is honoured verbatim and is never
+    jittered. The attempt counter resets per request.
 
     Parameters
     ----------
@@ -28,9 +73,19 @@ class RetryTransport(httpx.BaseTransport):
         Maximum number of retry attempts (excluding the initial request).
         Set to ``0`` to disable retrying.
     backoff_initial:
-        Initial backoff duration in seconds (doubled on each subsequent retry).
+        Initial backoff base in seconds. The exponential schedule is
+        ``backoff_initial * 2**attempt`` (capped at ``backoff_max``).
     backoff_max:
         Upper bound for the backoff duration in seconds.
+    jitter:
+        When ``True`` (default) apply *full jitter* to the computed
+        exponential backoff cap.
+    retry_methods:
+        HTTP methods (uppercase) eligible for retry. Defaults to the
+        idempotent set ``{GET, HEAD, PUT, DELETE, OPTIONS}``.
+    retry_statuses:
+        Response status codes that trigger a retry. Defaults to
+        ``{429, 502, 503, 504}``.
     """
 
     def __init__(
@@ -40,20 +95,56 @@ class RetryTransport(httpx.BaseTransport):
         max_retries: int = _DEFAULT_MAX_RETRIES,
         backoff_initial: float = _DEFAULT_INITIAL_BACKOFF,
         backoff_max: float = _DEFAULT_MAX_BACKOFF,
+        jitter: bool = True,
+        retry_methods: frozenset[str] = _DEFAULT_RETRY_METHODS,
+        retry_statuses: frozenset[int] = _DEFAULT_RETRY_STATUSES,
     ) -> None:
         self._wrapped = wrapped
         self._max_retries = max_retries
         self._backoff_initial = backoff_initial
         self._backoff_max = backoff_max
+        self._jitter = jitter
+        self._retry_methods = normalize_retry_methods(retry_methods)
+        self._retry_statuses = retry_statuses
+
+    @property
+    def retry_methods(self) -> frozenset[str]:
+        """The set of HTTP methods that this transport will retry."""
+        return self._retry_methods
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
-        response = self._wrapped.handle_request(request)
+        # Idempotency gate: non-retriable methods get a single attempt.
+        if not should_retry_method(request.method, self._retry_methods):
+            return self._wrapped.handle_request(request)
 
-        retries_remaining = self._max_retries
-        backoff = self._backoff_initial
+        # Per-request override: ``HonuaClient.with_options(max_retries=…)``
+        # signals an override by stashing the value in ``request.extensions``.
+        override = request.extensions.get("honua_max_retries")
+        retries_remaining = override if isinstance(override, int) else self._max_retries
+        attempt = 0
+        response: httpx.Response | None = None
+        last_exc: Exception | None = None
 
-        while retries_remaining > 0 and response.status_code in _RETRYABLE_STATUS_CODES:
-            delay = self._compute_delay(response, backoff)
+        while True:
+            try:
+                response = self._wrapped.handle_request(request)
+                last_exc = None
+            except _RETRIABLE_TRANSPORT_EXCEPTIONS as exc:
+                last_exc = exc
+                if retries_remaining <= 0:
+                    raise
+                delay = self._compute_backoff(attempt)
+                time.sleep(delay)
+                retries_remaining -= 1
+                attempt += 1
+                continue
+
+            if retries_remaining <= 0 or not should_retry_status(
+                response.status_code, self._retry_statuses
+            ):
+                return response
+
+            delay = self._compute_delay(response, attempt)
             time.sleep(delay)
 
             # Read and close the unsuccessful response before retrying so the
@@ -61,28 +152,31 @@ class RetryTransport(httpx.BaseTransport):
             response.read()
             response.close()
 
-            response = self._wrapped.handle_request(request)
-
             retries_remaining -= 1
-            backoff = min(backoff * 2, self._backoff_max)
+            attempt += 1
 
+        # Unreachable: the loop only exits via ``return`` or by re-raising.
+        if last_exc is not None:  # pragma: no cover
+            raise last_exc
+        assert response is not None  # noqa: S101 -- type narrowing for unreachable branch  # pragma: no cover
         return response
 
-    @staticmethod
-    def _compute_delay(response: httpx.Response, backoff: float) -> float:
-        """Return the delay to use before the next retry attempt.
+    def _compute_delay(self, response: httpx.Response, attempt: int) -> float:
+        return compute_delay(
+            response,
+            attempt,
+            backoff_initial=self._backoff_initial,
+            backoff_max=self._backoff_max,
+            jitter=self._jitter,
+        )
 
-        If the response contains a ``Retry-After`` header with a valid
-        integer value, that value (in seconds) is used instead of the
-        calculated exponential backoff.
-        """
-        retry_after = response.headers.get("retry-after")
-        if retry_after is not None:
-            try:
-                return max(0.0, float(retry_after))
-            except (ValueError, OverflowError):
-                pass
-        return backoff
+    def _compute_backoff(self, attempt: int) -> float:
+        return compute_backoff(
+            attempt,
+            backoff_initial=self._backoff_initial,
+            backoff_max=self._backoff_max,
+            jitter=self._jitter,
+        )
 
     def close(self) -> None:
         self._wrapped.close()

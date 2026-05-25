@@ -40,7 +40,7 @@ with HonuaClient("https://honua.example") as client:
     if capabilities.supports("stac"):
         items = client.stac().items("imagery")
 
-    if client.supports("feature-server"):
+    if client.supports("geoservices-feature-service"):
         services = client.list_service_summaries()
 ```
 
@@ -83,10 +83,13 @@ with HonuaClient("https://honua.example") as client:
 ```
 
 The source facade uses canonical cross-SDK protocol ids such as
-`grpc`, `geoservices-feature-service`, `ogc-features`, `stac`, and `odata`;
-common aliases such as `feature-server` and `ogc_api_features` are accepted. Python
-uses snake_case for query fields (`out_fields`, `return_geometry`,
-`query_all()`), while TypeScript and .NET use their idiomatic casing.
+`geoservices-feature-service`, `ogc-features`, `stac`, and `odata`; common
+aliases such as `feature-server`, `featureserver`, `feature-service`, and
+`ogc_api_features` are accepted. The full alias table is exposed as
+`honua_sdk.PROTOCOL_ALIASES` and normalized through
+`honua_sdk.normalize_protocol(...)`. Python uses snake_case for query fields
+(`out_fields`, `return_geometry`, `query_all()`), while TypeScript and .NET use
+their idiomatic casing.
 `SourceDescriptor.supports(...)` reflects protocol-advertised capabilities;
 `source.supports(...)` reflects the normalized operations this Python facade can
 execute directly. Use `source.protocol(...)` for native protocol operations that
@@ -135,13 +138,18 @@ server-specific query options, or endpoint metadata.
 `query_features()` returns the raw FeatureServer response. `query_feature_set()`
 wraps the same response in a `FeatureSet` with typed `Feature` entries:
 
+> **Legacy typed shape.** `Feature.attributes` is the raw GeoServices key-value
+> shape. The canonical `Source.query()` shown above returns `QueryFeature` with
+> GeoJSON-style `feature.properties`. Use `query_feature_set()` when you want
+> the FeatureServer-shaped wrapper; prefer the `Source` facade in new code.
+
 ```python
 from honua_sdk import HonuaClient
 
 with HonuaClient("https://honua.example") as client:
     feature_set = client.query_feature_set(
-        "parcels",
-        0,
+        service_id="parcels",
+        layer_id=0,
         where="status = 'active'",
         out_fields=["objectid", "name", "status"],
     )
@@ -164,18 +172,18 @@ from honua_sdk import HonuaClient
 
 with HonuaClient("https://honua.example") as client:
     features = client.query_features_all(
-        "parcels",
-        0,
+        service_id="parcels",
+        layer_id=0,
         where="1=1",
         page_size=500,
         limit=2000,
     )
 
     feature_server = client.feature_server("parcels")
-    for page in feature_server.query_pages(0, page_size=500, limit=2000):
+    for page in feature_server.query_pages(layer_id=0, page_size=500, limit=2000):
         print(len(page.features), page.exceeded_transfer_limit)
 
-    for feature in feature_server.query_items(0, page_size=500, limit=2000):
+    for feature in feature_server.query_items(layer_id=0, page_size=500, limit=2000):
         print(feature.object_id)
 ```
 
@@ -195,9 +203,13 @@ The async client exposes the same methods:
 from honua_sdk import AsyncHonuaClient
 
 async with AsyncHonuaClient("https://honua.example") as client:
-    features = await client.query_features_all("parcels", 0, page_size=500)
+    features = await client.query_features_all(
+        service_id="parcels",
+        layer_id=0,
+        page_size=500,
+    )
 
-    async for feature in client.feature_server("parcels").query_items(0, page_size=500):
+    async for feature in client.feature_server("parcels").query_items(layer_id=0, page_size=500):
         print(feature.object_id)
 ```
 
@@ -208,8 +220,8 @@ delete outcomes in typed operation results:
 
 ```python
 result = client.apply_edits_result(
-    "parcels",
-    0,
+    service_id="parcels",
+    layer_id=0,
     updates=[
         {
             "attributes": {"objectid": 10, "status": "retired"},

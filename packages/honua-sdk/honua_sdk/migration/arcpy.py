@@ -29,6 +29,19 @@ MigrationStatus = Literal["translatable", "manual-review", "unsupported"]
 #: IMPORTANT (coverage<=server-execution coupling): grow this set ONLY when the
 #: server gains a corresponding executable process. The migration coverage
 #: count is gated on it, not on how many ArcPy tools we can parse.
+#:
+#: The first twelve ids are the single-geometry primitive executors. The
+#: server now also executes four processes at LAYER scope (feature-collection
+#: in/out): ``generalization.simplify-layer`` (simplify), ``conversion.feature
+#: -project`` (project), ``geometry.make-valid`` (make-valid), and
+#: ``geometry.difference``. ``simplify`` and ``project`` were already executable
+#: as single-geometry primitives, so the only NET-NEW executable operation the
+#: layer-scope work unlocks for the codemod is ``make-valid`` -- which maps
+#: cleanly 1:1 from ArcPy ``RepairGeometry``. ``geometry.difference`` at layer
+#: scope erases against a single WKT region, which is NOT the same as ArcPy
+#: ``Erase``/``PairwiseErase`` (which erase against a whole feature class), so we
+#: deliberately do NOT mark ``erase`` executable -- that would inflate coverage
+#: beyond honest parity.
 EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
     {
         "buffer",
@@ -43,6 +56,9 @@ EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
         "dissolve",
         "simplify",
         "snap",
+        # Net-new executable operation unlocked by layer-scope GP execution
+        # (geometry.make-valid runs over a feature collection).
+        "make-valid",
     }
 )
 
@@ -675,6 +691,33 @@ _register(
         ),
     )
 )
+# ---------------------------------------------------------------------------
+# Layer-scope coverage uplift: RepairGeometry -> make-valid.
+#
+# The server now executes ``geometry.make-valid`` at layer scope (over a
+# feature collection), so the make-valid process id is executable. ArcPy
+# ``RepairGeometry`` repairs invalid geometries in place; the make-valid
+# process returns repaired geometries, which is a clean 1:1 translation.
+# ---------------------------------------------------------------------------
+_register(
+    _ToolSpec(
+        family="management",
+        tool="RepairGeometry",
+        process_id="make-valid",
+        args=(
+            _arg("in_features", "input_features", kind="input"),
+            _arg("delete_null", "delete_null"),
+            _arg("validation_method", "validation_method"),
+        ),
+        aliases=_aliases(("input_layer", "input_features"), ("output", "result")),
+        notes=(
+            "Maps to the make-valid process, executable at layer scope. ArcPy "
+            "RepairGeometry mutates in_features in place and can delete null-geometry "
+            "rows (delete_null=DELETE_NULL); the make-valid process returns a repaired "
+            "FeatureCollection -- review null-geometry handling before running.",
+        ),
+    )
+)
 
 _PAIRWISE_TOOL_ALIASES = {
     ("analysis", "pairwisebuffer"): ("analysis", "buffer"),
@@ -939,22 +982,43 @@ def build_parity_evidence_for_source(
 
 
 class ArcPyProcessRunner:
-    """Execute translated ArcPy migration steps with ``client.ogc_processes()``.
+    """Execute translated ArcPy migration steps against a Honua server.
 
-    Pass either a :class:`honua_sdk.HonuaClient` or an object exposing an
-    ``execute(process_id, payload)`` method with the same shape as
-    :class:`honua_sdk.protocols.OgcProcessesClient`.
+    Prefers the first-class geoprocessing (GP) client
+    (:class:`honua_sdk.HonuaGeoprocessing`) when the supplied object exposes a
+    ``geoprocessing()`` factory: the translated ``{"inputs", "outputs",
+    "metadata"}`` payload is forwarded verbatim via ``submit_raw`` and the GP
+    job's status document is returned as the execution result.
+
+    For backwards compatibility, an object exposing only ``ogc_processes()``
+    (or a raw client with an ``execute(process_id, payload)`` method matching
+    :class:`honua_sdk.protocols.OgcProcessesClient`) is still accepted; that
+    path posts the same execution body through the OGC Processes wrapper.
     """
 
     def __init__(self, client_or_processes: Any) -> None:
-        self._processes = client_or_processes.ogc_processes() if hasattr(client_or_processes, "ogc_processes") else client_or_processes
+        self._geoprocessing = (
+            client_or_processes.geoprocessing()
+            if hasattr(client_or_processes, "geoprocessing")
+            else None
+        )
+        if self._geoprocessing is not None:
+            self._processes = None
+        elif hasattr(client_or_processes, "ogc_processes"):
+            self._processes = client_or_processes.ogc_processes()
+        else:
+            self._processes = client_or_processes
 
     def execute(self, translation: ArcPyProcessTranslation) -> ArcPyProcessExecution:
-        """Execute one translated ArcPy call as an OGC process."""
+        """Execute one translated ArcPy call as a Honua geoprocessing job."""
 
         if not translation.process_id:
             raise UnsupportedArcPyCallError(f"ArcPy call {translation.call.qualified_name!r} does not have a process mapping.")
-        result = self._processes.execute(translation.process_id, translation.payload)
+        if self._geoprocessing is not None:
+            job = self._geoprocessing.submit_raw(translation.process_id, translation.payload)
+            result = dict(job.raw)
+        else:
+            result = self._processes.execute(translation.process_id, translation.payload)
         return ArcPyProcessExecution(translation=translation, result=result)
 
     def execute_plan(self, plan: ArcPyMigrationPlan) -> tuple[ArcPyProcessExecution, ...]:

@@ -286,6 +286,30 @@ class HonuaGeoprocessing:
             respond_async=respond_async,
         )
 
+    def submit_raw(
+        self,
+        process_id: str,
+        body: Mapping[str, Any],
+        *,
+        respond_async: bool = False,
+    ) -> GeoprocessingJob:
+        """Submit a pre-built OGC execute body (``{"inputs": ...}`` and friends).
+
+        Use this when you already have a complete execution body -- for example
+        the codemod's translated ``{"inputs", "outputs", "metadata"}`` payload --
+        and want it forwarded verbatim rather than rebuilt from keyword inputs.
+        """
+        response = self.client._request(
+            "POST",
+            _execution_path(self.root, process_id),
+            json_body=dict(body),
+            headers=_async_prefer_header(respond_async),
+        )
+        result = response.json() if response.content else {}
+        if not isinstance(result, Mapping):
+            result = {}
+        return GeoprocessingJob.from_status_info(result)
+
     # -- layer-ref-in -> layer-out ----------------------------------------
 
     def submit_layer(
@@ -460,6 +484,25 @@ class AsyncHonuaGeoprocessing:
             response_mode=response_mode,
             respond_async=respond_async,
         )
+
+    async def submit_raw(
+        self,
+        process_id: str,
+        body: Mapping[str, Any],
+        *,
+        respond_async: bool = False,
+    ) -> GeoprocessingJob:
+        """Submit a pre-built OGC execute body (``{"inputs": ...}`` and friends)."""
+        response = await self.client._request(
+            "POST",
+            _execution_path(self.root, process_id),
+            json_body=dict(body),
+            headers=_async_prefer_header(respond_async),
+        )
+        result = response.json() if response.content else {}
+        if not isinstance(result, Mapping):
+            result = {}
+        return GeoprocessingJob.from_status_info(result)
 
     # -- layer-ref-in -> layer-out ----------------------------------------
 

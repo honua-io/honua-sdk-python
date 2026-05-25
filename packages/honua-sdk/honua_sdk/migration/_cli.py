@@ -9,8 +9,9 @@ Usage (either form works once the SDK is installed)::
     honua-migrate pyt path/to/toolbox.pyt
 
 The ``scan`` and ``translate`` commands work offline (AST-only, no ArcGIS or
-network). The ``run`` command executes the translatable steps through
-``HonuaClient.ogc_processes().execute(...)`` against ``--server``.
+network). The ``run`` command executes the translatable steps through the
+first-class geoprocessing client (``HonuaClient.geoprocessing()``) against
+``--server``.
 """
 
 from __future__ import annotations

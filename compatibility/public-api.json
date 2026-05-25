@@ -4012,6 +4012,11 @@
               "kind": "method",
               "signature": "(self, process_id: 'str', layer: 'LayerReference', *, parameters: 'Mapping[str, Any] | None' = None, response_mode: 'str | None' = 'document', respond_async: 'bool' = True) -> 'GeoprocessingJob'"
             },
+            "submit_raw": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, process_id: 'str', body: 'Mapping[str, Any]', *, respond_async: 'bool' = False) -> 'GeoprocessingJob'"
+            },
             "wait": {
               "async": true,
               "kind": "method",
@@ -5744,6 +5749,10 @@
             "submit_layer": {
               "kind": "method",
               "signature": "(self, process_id: 'str', layer: 'LayerReference', *, parameters: 'Mapping[str, Any] | None' = None, response_mode: 'str | None' = 'document', respond_async: 'bool' = True) -> 'GeoprocessingJob'"
+            },
+            "submit_raw": {
+              "kind": "method",
+              "signature": "(self, process_id: 'str', body: 'Mapping[str, Any]', *, respond_async: 'bool' = False) -> 'GeoprocessingJob'"
             },
             "wait": {
               "kind": "method",

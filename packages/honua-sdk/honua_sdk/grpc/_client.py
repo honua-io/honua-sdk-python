@@ -1,14 +1,14 @@
 """gRPC clients for Honua FeatureService."""
 from __future__ import annotations
 
-from collections.abc import Iterator
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 
 import grpc
 
 from honua_sdk._http import _build_sensitive_auth_headers, _validate_auth_configuration
 from honua_sdk.auth import AuthProvider, normalize_auth_headers
 from honua_sdk.errors import HonuaGrpcError
+
 from . import _models as models
 from . import _proto_adapter as adapter
 
@@ -62,7 +62,7 @@ class HonuaGrpcClient:
 
         from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2_grpc
 
-        self._stub = feature_service_pb2_grpc.FeatureServiceStub(self._channel)
+        self._stub = feature_service_pb2_grpc.FeatureServiceStub(self._channel)  # type: ignore[no-untyped-call]
 
     def __enter__(self) -> HonuaGrpcClient:
         return self
@@ -140,7 +140,7 @@ class HonuaGrpcAsyncClient:
 
         from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2_grpc
 
-        self._stub = feature_service_pb2_grpc.FeatureServiceStub(self._channel)
+        self._stub = feature_service_pb2_grpc.FeatureServiceStub(self._channel)  # type: ignore[no-untyped-call]
 
     async def __aenter__(self) -> HonuaGrpcAsyncClient:
         return self
@@ -168,7 +168,7 @@ class HonuaGrpcAsyncClient:
             raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
         return adapter.from_proto_response(proto_response)
 
-    async def query_features_stream(
+    async def query_features_stream(  # type: ignore[no-untyped-def]
         self, request: models.QueryFeaturesRequest
     ):  # -> AsyncIterator[models.FeaturePage]
         """Execute a streaming feature query, yielding one page at a time."""

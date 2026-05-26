@@ -1,5 +1,21 @@
 """Honua Python SDK -- data-plane and protocol clients.
 
+The top-level namespace exposes the *task-oriented* public surface: the
+sync/async :class:`HonuaClient` and :class:`AsyncHonuaClient`, the geocoding
+clients, typed models (:class:`Query`, :class:`Result`,
+:class:`SourceDescriptor`, etc.), the :class:`Source` / :class:`AsyncSource`
+facade, the auth helpers, and the error hierarchy.
+
+Per-protocol HTTP handler classes (``GeoServicesFeatureServerClient``,
+``StacClient``, ``WfsClient``, ``HonuaOgcFeatures``, the ``Async*`` variants,
+helper dataclasses like ``BinaryResponse`` / ``ODataQuery``, and the
+``BboxValue`` / ``CsvValue`` / ``JsonObject`` type aliases) live under the
+``honua_sdk.protocols`` and ``honua_sdk.ogc`` submodules to keep the
+top-level namespace focused::
+
+    from honua_sdk.protocols import BinaryResponse, ODataQuery, WfsClient
+    from honua_sdk.ogc import HonuaOgcFeatures
+
 Optional GeoPandas integration is available via ``honua_sdk.geopandas``::
 
     from honua_sdk.geopandas import features_to_geodataframe, geodataframe_to_features
@@ -16,6 +32,8 @@ try:
 except Exception:  # pragma: no cover -- editable / not-installed fallback
     __version__ = "0.0.0.dev0"
 
+from .async_client import AsyncHonuaClient
+from .async_geocoding import AsyncHonuaGeocodingClient
 from .auth import (
     AuthProvider,
     BearerToken,
@@ -25,10 +43,17 @@ from .auth import (
     StaticAuthProvider,
     TokenStore,
 )
-from .async_client import AsyncHonuaClient
-from .async_geocoding import AsyncHonuaGeocodingClient
 from .client import HonuaClient
-from .errors import HonuaCapabilityNotSupportedError, HonuaError, HonuaGrpcError, HonuaHttpError
+from .errors import (
+    HonuaAuthError,
+    HonuaCapabilityNotSupportedError,
+    HonuaError,
+    HonuaGrpcError,
+    HonuaHttpError,
+    HonuaRateLimitError,
+    HonuaTimeoutError,
+    HonuaTransportError,
+)
 from .geocoding import (
     GeocodeResult,
     GeocodeSuggestion,
@@ -36,11 +61,11 @@ from .geocoding import (
     ReverseGeocodeResult,
 )
 from .models import (
-    ApplyEditsResult,
     CAPABILITIES,
     DEFAULT_CAPABILITIES,
-    PROTOCOLS,
     PROTOCOL_ALIASES,
+    PROTOCOLS,
+    ApplyEditsResult,
     Capability,
     DataPlaneCapabilities,
     DegradedReason,
@@ -63,150 +88,69 @@ from .models import (
     normalize_capability,
     normalize_protocol,
 )
-from .ogc import (
-    AsyncHonuaOgcFeatureCollection,
-    AsyncHonuaOgcFeatures,
-    HonuaOgcFeatureCollection,
-    HonuaOgcFeatures,
-)
-from .protocols import (
-    AsyncGeoServicesFeatureServerClient,
-    AsyncGeoServicesGeometryServerClient,
-    AsyncGeoServicesImageServerClient,
-    AsyncGeoServicesMapServerClient,
-    AsyncODataClient,
-    AsyncOgcCoveragesClient,
-    AsyncOgcMapsClient,
-    AsyncOgcProcessesClient,
-    AsyncOgcRecordsClient,
-    AsyncOgcRecordsCollectionClient,
-    AsyncOgcTilesClient,
-    AsyncStacClient,
-    AsyncWfsClient,
-    AsyncWmsClient,
-    AsyncWmtsClient,
-    BboxValue,
-    BinaryResponse,
-    CsvValue,
-    FeatureId,
-    GeoServicesFeatureServerClient,
-    GeoServicesGeometryServerClient,
-    GeoServicesImageServerClient,
-    GeoServicesMapServerClient,
-    JsonObject,
-    JsonResponseFormat,
-    ODataClient,
-    ODataOrderBy,
-    ODataQuery,
-    OgcCoveragesClient,
-    OgcImageFormat,
-    OgcMapsClient,
-    OgcProcessesClient,
-    OgcRecordsClient,
-    OgcRecordsCollectionClient,
-    OgcTilesClient,
-    StacClient,
-    WfsClient,
-    WfsVersion,
-    WmsClient,
-    WmsVersion,
-    WmtsClient,
-    WmtsVersion,
-)
 from .source import AsyncSource, Source
 
-__all__ = [
+# Per-protocol handler classes (sync + async), helper dataclasses, and type
+# aliases intentionally do NOT appear in ``__all__``. Import them from
+# ``honua_sdk.protocols`` or ``honua_sdk.ogc`` instead.
+
+__all__ = [  # noqa: RUF022 -- grouped by category for human discoverability
     "__version__",
-    "AuthProvider",
-    "AsyncHonuaClient",
-    "AsyncHonuaGeocodingClient",
-    "AsyncGeoServicesFeatureServerClient",
-    "AsyncGeoServicesGeometryServerClient",
-    "AsyncGeoServicesImageServerClient",
-    "AsyncGeoServicesMapServerClient",
-    "AsyncHonuaOgcFeatureCollection",
-    "AsyncHonuaOgcFeatures",
-    "AsyncODataClient",
-    "AsyncOgcCoveragesClient",
-    "AsyncOgcMapsClient",
-    "AsyncOgcProcessesClient",
-    "AsyncOgcRecordsClient",
-    "AsyncOgcRecordsCollectionClient",
-    "AsyncOgcTilesClient",
-    "AsyncSource",
-    "AsyncStacClient",
-    "AsyncWfsClient",
-    "AsyncWmsClient",
-    "AsyncWmtsClient",
-    "ApplyEditsResult",
-    "BboxValue",
-    "BearerToken",
-    "BinaryResponse",
-    "CAPABILITIES",
-    "DEFAULT_CAPABILITIES",
-    "Capability",
-    "CallableAuthProvider",
-    "CsvValue",
-    "DataPlaneCapabilities",
-    "DegradedReason",
-    "EditOperationResult",
-    "Feature",
-    "FeatureQuery",
-    "FeatureQueryResult",
-    "FeatureId",
-    "FeatureSet",
-    "GeocodeResult",
-    "GeocodeSuggestion",
-    "GeoServicesFeatureServerClient",
-    "GeoServicesGeometryServerClient",
-    "GeoServicesImageServerClient",
-    "GeoServicesMapServerClient",
+    # Clients (sync + async, data-plane + geocoding)
     "HonuaClient",
-    "HonuaCapabilityNotSupportedError",
-    "HonuaError",
-    "HonuaGrpcError",
-    "HonuaHttpError",
+    "AsyncHonuaClient",
     "HonuaGeocodingClient",
-    "HonuaOgcFeatureCollection",
-    "HonuaOgcFeatures",
-    "InMemoryTokenStore",
-    "JsonObject",
-    "JsonResponseFormat",
-    "ODataClient",
-    "ODataOrderBy",
-    "ODataQuery",
-    "OgcCoveragesClient",
-    "OgcImageFormat",
-    "OgcMapsClient",
-    "OgcProcessesClient",
-    "OgcRecordsClient",
-    "OgcRecordsCollectionClient",
-    "OgcTilesClient",
-    "PROTOCOLS",
-    "PROTOCOL_ALIASES",
-    "Pagination",
-    "Protocol",
-    "Query",
-    "QueryFeature",
-    "QueryProtocol",
-    "RefreshableBearerTokenProvider",
-    "ReverseGeocodeResult",
-    "Result",
-    "ServiceSummary",
+    "AsyncHonuaGeocodingClient",
+    # Source / Query facade
     "Source",
+    "AsyncSource",
     "SourceDescriptor",
     "SourceLocator",
-    "StacClient",
-    "StaticAuthProvider",
-    "TokenStore",
-    "WfsClient",
-    "WfsVersion",
-    "WmsClient",
-    "WmsVersion",
-    "WmtsClient",
-    "WmtsVersion",
+    "Query",
+    "Pagination",
+    "Result",
+    "QueryFeature",
+    "DegradedReason",
+    "FeatureQuery",
+    "FeatureQueryResult",
+    # Legacy / protocol-shaped models still surfaced at the top level
+    "Feature",
+    "FeatureSet",
+    "ApplyEditsResult",
+    "EditOperationResult",
+    "DataPlaneCapabilities",
+    "ServiceSummary",
+    # Geocoding result models
+    "GeocodeResult",
+    "GeocodeSuggestion",
+    "ReverseGeocodeResult",
+    # Protocol / capability registry + normalization helpers
+    "Protocol",
+    "QueryProtocol",
+    "Capability",
+    "PROTOCOLS",
+    "PROTOCOL_ALIASES",
+    "CAPABILITIES",
+    "DEFAULT_CAPABILITIES",
+    "normalize_protocol",
+    "normalize_capability",
     "capability_set",
     "default_capabilities",
-    "normalize_capability",
-    "normalize_protocol",
+    # Auth
+    "AuthProvider",
+    "BearerToken",
+    "CallableAuthProvider",
+    "InMemoryTokenStore",
+    "RefreshableBearerTokenProvider",
+    "StaticAuthProvider",
+    "TokenStore",
+    # Error hierarchy
+    "HonuaError",
+    "HonuaCapabilityNotSupportedError",
+    "HonuaHttpError",
+    "HonuaAuthError",
+    "HonuaRateLimitError",
+    "HonuaTransportError",
+    "HonuaTimeoutError",
+    "HonuaGrpcError",
 ]

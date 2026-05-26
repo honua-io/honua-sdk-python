@@ -6,7 +6,6 @@
 |---------|-------------|
 | `honua-sdk` | Data-plane client for Honua Server -- REST queries, geocoding, gRPC features |
 | `honua-admin` | Control-plane / admin client for Honua Server (depends on `honua-sdk`) |
-| `honua-arcpy` | **Proprietary** drop-in `arcpy` compatibility shim -- private PyPI only (not on pypi.org) |
 
 ## Prerequisites
 
@@ -32,39 +31,58 @@ pip install honua-admin
 pip install honua-sdk[grpc,geopandas] honua-admin
 ```
 
-`honua-arcpy` is closed-source and is **not** published to public PyPI. See
-[docs/honua-arcpy/](docs/honua-arcpy/README.md) for the private-index install
-flow once the host (Gemfury / CodeArtifact / GitHub Packages) is configured.
-
 ## Quick Start
 
 ```python
-from honua_sdk import HonuaClient
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
-client = HonuaClient(base_url="https://your-honua-server.com")
+with HonuaClient(base_url="https://your-honua-server.com") as client:
+    # Query features through the shared Source/Query/Result API
+    source = client.source(
+        SourceDescriptor(
+            id="test_service",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="test_service", layer_id=0),
+        )
+    )
+    result = source.query(
+        Query(where="status = 'active'", out_fields=["*"])
+    )
 
-# Query features
-features = client.query_features(
-    service_id="my-service",
-    layer_id=0,
-    where="status = 'active'",
-    return_geometry=True,
-)
-
-print(f"Found {len(features)} features")
+    print(f"Found {len(result.features)} features")
 ```
+
+The context-manager form (`with HonuaClient(...) as client:`) is the
+recommended default -- it guarantees underlying `httpx` connections are
+returned to the pool when the block exits, even if a request raises.
 
 ## With gRPC
 
 ```python
-from honua_sdk.grpc import HonuaGrpcClient
+import grpc
 
-client = HonuaGrpcClient(target="grpc.your-honua-server.com:443")
+from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
 
-# Stream features
-for page in client.query_features_stream(request):
-    print(page)
+request = QueryFeaturesRequest(service_id="test_service", layer_id=0)
+
+# Production: TLS via channel credentials
+with HonuaGrpcClient(
+    "grpc.your-honua-server.com:443",
+    credentials=grpc.ssl_channel_credentials(),
+) as client:
+    # Stream features
+    for page in client.query_features_stream(request):
+        print(page)
+
+# Local dev: plaintext channel (must opt in explicitly)
+with HonuaGrpcClient("localhost:50051", insecure=True) as client:
+    for page in client.query_features_stream(request):
+        print(page)
 ```
+
+The constructor takes `target` positionally; pass exactly one of
+`credentials=`, `channel=`, or `insecure=True`. The same shape is used
+in [docs/quickstart.md](docs/quickstart.md#step-6-query-via-grpc-optional-60-seconds).
 
 ## Admin
 
@@ -104,3 +122,59 @@ The coarse feature flags exposed today are:
 - `manifest_apply`
 - `manifest_dry_run`
 - `manifest_prune`
+
+## Canonical vs legacy API
+
+New code should prefer the canonical `Source` / `Query` / `Result`
+surface:
+
+```python
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+
+with HonuaClient(base_url="https://your-honua-server.com") as client:
+    source = client.source(
+        SourceDescriptor(
+            id="test_service",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="test_service", layer_id=0),
+        )
+    )
+    result = source.query(Query(where="status = 'active'", out_fields=["*"]))
+    for feature in result.features:
+        # Typed ``QueryFeature`` -- attributes live under ``.properties``.
+        print(feature.id, feature.properties)
+```
+
+`client.query_features(service_id, layer_id, where=...)` and the rest
+of the raw-dict FeatureServer helpers remain available as the **legacy
+/ compact form**. They return raw JSON dicts (FeatureServer
+`attributes`-shaped payloads) and are useful for one-liners, scripting,
+and protocol-debugging. New library code should reach for the canonical
+form so it gets:
+
+- typed `Result[QueryFeature]` with `.properties` / `.geometry` /
+  `.protocol`
+- protocol-aware filter routing (CQL2-text vs SQL `WHERE`) -- including
+  the `where_as_cql=True` opt-in for callers who *want* a SQL-style
+  string forwarded as CQL on OGC Features or STAC
+- consistent pagination signals across FeatureServer, OGC Features,
+  STAC, and OData
+
+## Troubleshooting
+
+See [docs/troubleshooting.md](docs/troubleshooting.md) for the full
+guide. The most common install-time failures:
+
+- **gRPC wheel build fails on macOS Apple Silicon** -- upgrade pip
+  (`python -m pip install --upgrade pip`) so it picks the prebuilt
+  `grpcio` arm64 wheel instead of falling back to source.
+- **GeoPandas / Shapely fails on Windows** -- install the
+  `honua-sdk[geopandas]` extra inside a `conda` env (or under WSL); the
+  pip path on Windows requires a working GEOS / GDAL toolchain.
+- **Python 3.10 install fails with a version-pin error** -- the SDK
+  requires Python 3.11+. Upgrade your interpreter or pin a 3.11+ venv.
+- **"Microsoft Visual C++ 14.0 is required" / "command 'gcc' failed"**
+  -- a transitive dep is building from source because no wheel matched
+  your platform. Install your platform's C compiler (Build Tools for
+  Visual Studio on Windows, `xcode-select --install` on macOS,
+  `build-essential` on Debian/Ubuntu) and re-run pip.

@@ -19,7 +19,6 @@ from honua_sdk import (
 SERVER = "https://your-honua-server.com"
 GRPC_TARGET = "your-honua-server.com:50051"
 COLLECTION_ID = "parcels"
-RECORD_COLLECTION_ID = "metadata"
 STAC_COLLECTION_ID = "imagery"
 SERVICE_ID = "basemap"
 FEATURE_SERVICE_ID = "natural-earth"
@@ -62,11 +61,6 @@ def sync_http_protocol_examples() -> None:
         process_list: dict[str, Any] = processes.processes()
         process_description: dict[str, Any] = processes.process("buffer")
 
-        records = client.ogc_records().collection(RECORD_COLLECTION_ID)
-        record_page: dict[str, Any] = records.records(q="shoreline", bbox=BBOX, limit=10)
-        record_list: list[dict[str, Any]] = records.records_all(page_size=100, limit=500)
-        record_detail: dict[str, Any] = records.record("dataset-001")
-
         stac = client.stac()
         stac_catalog: dict[str, Any] = stac.catalog()
         stac_items: dict[str, Any] = stac.items(STAC_COLLECTION_ID, extra_params={"limit": 10})
@@ -102,7 +96,6 @@ def sync_http_protocol_examples() -> None:
         print(f"OGC Tiles JSON keys: {sorted(tile_matrix_sets)}; tile bytes: {len(tile_png)}")
         print(f"OGC Coverage collections keys: {sorted(coverage_collections)}; bytes: {len(coverage_tiff)}")
         print(f"OGC Processes keys: {sorted(process_list)}; process keys: {sorted(process_description)}")
-        print(f"OGC Records page keys: {sorted(record_page)}; records: {len(record_list)}; detail keys: {sorted(record_detail)}")
         print(f"STAC catalog keys: {sorted(stac_catalog)}; items: {len(stac_items.get('features', []))}")
         print(f"STAC search items: {len(stac_search.get('features', []))}")
         print(f"WFS XML chars: {len(wfs_capabilities_xml)}; feature XML chars: {len(wfs_feature_xml)}")
@@ -136,7 +129,10 @@ def geopandas_shape_example() -> None:
     )
 
     with HonuaClient(SERVER) as client:
-        feature_server_response = client.query_features(FEATURE_SERVICE_ID, LAYER_ID)
+        feature_server_response = client.query_features(
+            service_id=FEATURE_SERVICE_ID,
+            layer_id=LAYER_ID,
+        )
         ogc_response = client.ogc_features().collection(COLLECTION_ID).items(limit=100)
         stac_response = client.stac().items(STAC_COLLECTION_ID, extra_params={"limit": 10})
 
@@ -180,7 +176,6 @@ async def async_supported_protocol_examples() -> None:
         tile_png = await client.ogc_tiles().tile("WebMercatorQuad", "0", 0, 0, collection_id=COLLECTION_ID)
         coverage_tiff = await client.ogc_coverages().coverage("elevation", response_format="tiff")
         processes = await client.ogc_processes().processes()
-        records = await client.ogc_records().collection(RECORD_COLLECTION_ID).records(q="shoreline", limit=10)
         stac_items = await client.stac().items(STAC_COLLECTION_ID, extra_params={"limit": 10})
         wfs_xml = await client.wfs().get_feature(type_names=COLLECTION_ID, extra_params={"count": 10})
         wms_map = await client.wms(SERVICE_ID).map(layers=COLLECTION_ID, bbox=BBOX, width=512, height=512)
@@ -198,7 +193,6 @@ async def async_supported_protocol_examples() -> None:
         print(f"Async OGC Features paged feature dicts: {len(all_items)}")
         print(f"Async OGC map bytes: {len(map_png)}; tile bytes: {len(tile_png)}")
         print(f"Async coverage bytes: {len(coverage_tiff)}; process keys: {sorted(processes)}")
-        print(f"Async OGC Records keys: {sorted(records)}")
         print(f"Async STAC items: {len(stac_items.get('features', []))}")
         print(f"Async WFS XML chars: {len(wfs_xml)}; WMS bytes: {len(wms_map)}; WMTS bytes: {len(wmts_tile)}")
         print(f"Async OData feature rows: {len(odata_features.get('value', []))}")

@@ -154,7 +154,6 @@ It uses the same GeoPandas conversion and validation functions as the ETL workfl
 
 - `data-quality-report.json`
 - `data-quality-report.html`
-- `data-quality-report.png`
 
 The report covers duplicate `uid` values, missing required attributes, missing coordinates / null geometries, invalid geometries, and schema drift against the source CSV contract.
 

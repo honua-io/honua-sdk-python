@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "honua-admin"
-version = "0.1.2"
+version = "0.1.1"
 description = "Admin / control-plane client for Honua geospatial server"
 readme = "README.md"
 license = "Apache-2.0"
@@ -12,23 +12,25 @@ requires-python = ">=3.11"
 authors = [{ name = "Honua" }]
 keywords = ["geospatial", "admin", "gis", "honua", "control-plane"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: GIS",
+  "Typing :: Typed",
 ]
 dependencies = [
-  "honua-sdk>=0.1.0",
+  "honua-sdk>=0.1.1,<0.2",
 ]
 
 [project.urls]
 Homepage = "https://github.com/honua-io"
 Repository = "https://github.com/honua-io/honua-sdk-python"
 Issues = "https://github.com/honua-io/honua-sdk-python/issues"
-
-[project.scripts]
-honua-arcpy-scan = "honua_admin._arcpy_scanner:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

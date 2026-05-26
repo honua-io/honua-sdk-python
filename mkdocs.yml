@@ -1,0 +1,84 @@
+site_name: Honua Python SDK
+site_description: Honua data-plane and control-plane Python clients
+repo_url: https://github.com/honua-io/honua-sdk-python
+docs_dir: docs
+
+exclude_docs: |
+  README.md
+
+validation:
+  omitted_files: info
+  links:
+    # `warn` so intra-doc typos (broken relative links inside docs/) surface
+    # as warnings under `mkdocs build --strict`. Cross-repo relative links
+    # pointing outside the docs_dir (e.g. ../examples/..., ../INSTALL.md,
+    # ../compatibility/...) are documented as resolving on the GitHub render
+    # and are deliberately allowed: mkdocs warns about them but they are
+    # routed through the `unrecognized_links: info` channel below for
+    # paths it cannot resolve at all.
+    not_found: warn
+    absolute_links: warn
+    unrecognized_links: info
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Guides:
+      - Core client: core-client.md
+      - Protocol examples: protocol-examples.md
+      - Protocol parity: protocol-parity.md
+      - Authentication: auth.md
+      - Compatibility: compatibility.md
+      - Troubleshooting: troubleshooting.md
+  - Examples: examples.md
+  - Deep dives:
+      - Retries and timeouts: retries-and-timeouts.md
+      - Pagination: pagination.md
+  - API Reference:
+      - honua-sdk: reference/honua_sdk.md
+      - honua-admin: reference/honua_admin.md
+  - Project:
+      - Operating cadence: operating-cadence.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - packages/honua-sdk
+            - packages/honua-admin
+          options:
+            show_root_heading: true
+            show_source: false
+            members_order: source
+            docstring_style: google
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+extra:
+  # `mike` reads this block to render the version selector in the
+  # Material theme. The deploy job in .github/workflows/docs.yml runs
+  # `mike deploy --push --update-aliases latest` on every `trunk` push,
+  # so the `latest` alias always points at the most recent build.
+  version:
+    provider: mike
+    default: latest

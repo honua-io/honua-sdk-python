@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from threading import RLock
 from typing import Any, Protocol, runtime_checkable
 
@@ -43,7 +43,7 @@ class BearerToken:
 
     access_token: str
     expires_at: datetime | None = None
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token_type label, not a secret
 
     def __post_init__(self) -> None:
         if not self.access_token:
@@ -59,10 +59,10 @@ class BearerToken:
         access_token: str,
         expires_in_seconds: int | float,
         *,
-        token_type: str = "Bearer",
+        token_type: str = "Bearer",  # noqa: S107 -- OAuth2 token_type label, not a secret
         now: datetime | None = None,
     ) -> "BearerToken":
-        base = now or datetime.now(timezone.utc)
+        base = now or datetime.now(UTC)
         return cls(
             access_token=access_token,
             expires_at=base + timedelta(seconds=float(expires_in_seconds)),
@@ -81,7 +81,7 @@ class BearerToken:
     ) -> bool:
         if self.expires_at is None:
             return False
-        reference = now or datetime.now(timezone.utc)
+        reference = now or datetime.now(UTC)
         return self.expires_at <= reference + window
 
 
@@ -226,7 +226,7 @@ def _parse_expires_at(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return _normalize_datetime(value)
     if isinstance(value, int | float):
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        return datetime.fromtimestamp(float(value), tz=UTC)
     if isinstance(value, str):
         normalized = value.replace("Z", "+00:00")
         return _normalize_datetime(datetime.fromisoformat(normalized))
@@ -235,5 +235,5 @@ def _parse_expires_at(value: Any) -> datetime | None:
 
 def _normalize_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

@@ -16,3 +16,6 @@ staging-smoke-junit.xml
 packages/honua-arcpy/eval-results.json
 packages/honua-arcpy/eval-results.xml
 packages/honua-arcpy/eval/.audit/
+
+# Generated MkDocs static site output
+/site/

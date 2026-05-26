@@ -47,6 +47,12 @@ def _camel_keys(d: dict[str, Any]) -> dict[str, Any]:
     return {_to_camel(k): v for k, v in d.items()}
 
 
+def _extract_fields(cls: type, data: dict[str, Any]) -> dict[str, Any]:
+    """Extract only the fields that exist on *cls* from a snake-cased dict."""
+    valid = {f.name for f in fields(cls)}
+    return {k: v for k, v in data.items() if k in valid}
+
+
 def _to_dict_value(value: Any) -> Any:
     """Convert nested SDK models to API dictionaries."""
     if hasattr(value, "to_dict"):
@@ -68,17 +74,11 @@ def _dataclass_to_camel_dict(instance: Any) -> dict[str, Any]:
     return d
 
 
-def _model_list(cls: type, values: Any) -> list[Any]:
+def _model_list(cls: Any, values: Any) -> list[Any]:
     """Parse a list of nested dict payloads into model instances."""
     if not isinstance(values, list):
         return []
     return [cls.from_dict(item) if isinstance(item, dict) else item for item in values]
-
-
-def _extract_fields(cls: type, data: dict[str, Any]) -> dict[str, Any]:
-    """Extract only the fields that exist on *cls* from a snake-cased dict."""
-    valid = {f.name for f in fields(cls)}
-    return {k: v for k, v in data.items() if k in valid}
 
 
 def _parse_version_components(version: str | None) -> tuple[int, int, int] | None:
@@ -88,7 +88,7 @@ def _parse_version_components(version: str | None) -> tuple[int, int, int] | Non
     parts = [int(part) for part in _VERSION_COMPONENT_PATTERN.findall(version)]
     if len(parts) < 3:
         return None
-    return tuple(parts[:3])
+    return (parts[0], parts[1], parts[2])
 
 
 # ---------------------------------------------------------------------------
@@ -97,17 +97,31 @@ def _parse_version_components(version: str | None) -> tuple[int, int, int] | Non
 
 
 @dataclass(frozen=True, slots=True)
-class ServiceSummary:
+class AdminServiceSummary:
+    """Admin-API view of a published service (name + protocol roll-up).
+
+    Distinct from :class:`honua_sdk.models.ServiceSummary` (which is the
+    data-plane catalog summary). Renamed from the original
+    ``ServiceSummary`` to remove the cross-package name collision; the old
+    name is kept as a module-level alias below for back-compat.
+    """
+
     service_name: str
     description: str | None
     layer_count: int
     enabled_protocols: list[str]
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ServiceSummary:
+    def from_dict(cls, data: dict[str, Any]) -> AdminServiceSummary:
         d = _snake_keys(data)
         d.setdefault("enabled_protocols", [])
         return cls(**_extract_fields(cls, d))
+
+
+# Deprecated alias preserved for back-compat with callers (and
+# honua_admin._client / _async_client) that still import ``ServiceSummary``
+# from this module. Prefer :class:`AdminServiceSummary` in new code.
+ServiceSummary = AdminServiceSummary
 
 
 @dataclass(frozen=True, slots=True)
@@ -706,6 +720,110 @@ class LayerStyleResponse:
     def from_dict(cls, data: dict[str, Any]) -> LayerStyleResponse:
         d = _snake_keys(data)
         return cls(**_extract_fields(cls, d))
+
+
+# ---------------------------------------------------------------------------
+# Request models (mutable)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class CreateSecureConnectionRequest:
+    name: str
+    description: str | None = None
+    host: str = ""
+    port: int = 5432
+    database_name: str = ""
+    username: str = ""
+    password: str | None = field(default=None, repr=False)
+    secret_reference: str | None = None
+    secret_type: str | None = None
+    ssl_required: bool = False
+    ssl_mode: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {}
+        for f in fields(self):
+            val = getattr(self, f.name)
+            if val is not None:
+                d[_to_camel(f.name)] = val
+        return d
+
+
+@dataclass
+class UpdateSecureConnectionRequest:
+    description: str | None = None
+    host: str | None = None
+    port: int | None = None
+    database_name: str | None = None
+    username: str | None = None
+    password: str | None = field(default=None, repr=False)
+    ssl_required: bool | None = None
+    ssl_mode: str | None = None
+    is_active: bool | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {}
+        for f in fields(self):
+            val = getattr(self, f.name)
+            if val is not None:
+                d[_to_camel(f.name)] = val
+        return d
+
+
+@dataclass
+class PublishLayerRequest:
+    schema: str = "public"
+    table: str = ""
+    layer_name: str | None = None
+    description: str | None = None
+    geometry_column: str | None = None
+    geometry_type: str | None = None
+    srid: int | None = None
+    primary_key: str | None = None
+    fields_list: list[str] | None = None
+    service_name: str | None = None
+    enabled: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {}
+        for f in fields(self):
+            val = getattr(self, f.name)
+            if val is not None:
+                key = f.name
+                # Map fields_list back to "fields" in the API
+                if key == "fields_list":
+                    key = "fields"
+                d[_to_camel(key)] = val
+        return d
+
+
+@dataclass
+class ManifestApplyRequest:
+    resources: list[MetadataResource] = field(default_factory=list)
+    dry_run: bool = False
+    prune: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "resources": [r.to_dict() for r in self.resources],
+            "dryRun": self.dry_run,
+            "prune": self.prune,
+        }
+
+
+@dataclass
+class LayerStyleUpdateRequest:
+    map_libre_style: dict[str, Any] | None = None
+    drawing_info: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {}
+        if self.map_libre_style is not None:
+            d["mapLibreStyle"] = self.map_libre_style
+        if self.drawing_info is not None:
+            d["drawingInfo"] = self.drawing_info
+        return d
 
 
 # ---------------------------------------------------------------------------
@@ -1389,100 +1507,3 @@ class MigrationInventoryScanRequest:
         return _dataclass_to_camel_dict(self)
 
 
-@dataclass
-class CreateSecureConnectionRequest:
-    name: str
-    description: str | None = None
-    host: str = ""
-    port: int = 5432
-    database_name: str = ""
-    username: str = ""
-    password: str | None = field(default=None, repr=False)
-    secret_reference: str | None = None
-    secret_type: str | None = None
-    ssl_required: bool = False
-    ssl_mode: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {}
-        for f in fields(self):
-            val = getattr(self, f.name)
-            if val is not None:
-                d[_to_camel(f.name)] = val
-        return d
-
-
-@dataclass
-class UpdateSecureConnectionRequest:
-    description: str | None = None
-    host: str | None = None
-    port: int | None = None
-    database_name: str | None = None
-    username: str | None = None
-    password: str | None = field(default=None, repr=False)
-    ssl_required: bool | None = None
-    ssl_mode: str | None = None
-    is_active: bool | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {}
-        for f in fields(self):
-            val = getattr(self, f.name)
-            if val is not None:
-                d[_to_camel(f.name)] = val
-        return d
-
-
-@dataclass
-class PublishLayerRequest:
-    schema: str = "public"
-    table: str = ""
-    layer_name: str | None = None
-    description: str | None = None
-    geometry_column: str | None = None
-    geometry_type: str | None = None
-    srid: int | None = None
-    primary_key: str | None = None
-    fields_list: list[str] | None = None
-    service_name: str | None = None
-    enabled: bool = True
-
-    def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {}
-        for f in fields(self):
-            val = getattr(self, f.name)
-            if val is not None:
-                key = f.name
-                # Map fields_list back to "fields" in the API
-                if key == "fields_list":
-                    key = "fields"
-                d[_to_camel(key)] = val
-        return d
-
-
-@dataclass
-class ManifestApplyRequest:
-    resources: list[MetadataResource] = field(default_factory=list)
-    dry_run: bool = False
-    prune: bool = False
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "resources": [r.to_dict() for r in self.resources],
-            "dryRun": self.dry_run,
-            "prune": self.prune,
-        }
-
-
-@dataclass
-class LayerStyleUpdateRequest:
-    map_libre_style: dict[str, Any] | None = None
-    drawing_info: dict[str, Any] | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {}
-        if self.map_libre_style is not None:
-            d["mapLibreStyle"] = self.map_libre_style
-        if self.drawing_info is not None:
-            d["drawingInfo"] = self.drawing_info
-        return d

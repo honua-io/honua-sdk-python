@@ -10,6 +10,7 @@
         "AdminCompatibilityMetadata",
         "AdminControlPlaneApiCompatibility",
         "AdminMetadataSchemaCompatibility",
+        "AdminServiceSummary",
         "AdminVersionResponse",
         "ArcPyEnvironmentAssignment",
         "ArcPyImport",
@@ -350,6 +351,36 @@
           "module": "honua_admin._models",
           "qualname": "AdminMetadataSchemaCompatibility",
           "signature": "(version: 'str', deprecated: 'bool' = False) -> None"
+        },
+        "AdminServiceSummary": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "service_name"
+            },
+            {
+              "annotation": "str | None",
+              "name": "description"
+            },
+            {
+              "annotation": "int",
+              "name": "layer_count"
+            },
+            {
+              "annotation": "list[str]",
+              "name": "enabled_protocols"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'AdminServiceSummary'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "AdminServiceSummary",
+          "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]') -> None"
         },
         "AdminVersionResponse": {
           "fields": [
@@ -732,12 +763,12 @@
             "apply_manifest": {
               "async": true,
               "kind": "method",
-              "signature": "(self, request: 'ManifestApplyRequest') -> 'ManifestApplyResult'"
+              "signature": "(self, request: 'ManifestApplyRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ManifestApplyResult'"
             },
             "check_compatibility": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'AdminCompatibilityCheckResult'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCompatibilityCheckResult'"
             },
             "close": {
               "async": true,
@@ -747,102 +778,102 @@
             "create_connection": {
               "async": true,
               "kind": "method",
-              "signature": "(self, request: 'CreateSecureConnectionRequest') -> 'SecureConnectionSummary'"
+              "signature": "(self, request: 'CreateSecureConnectionRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'SecureConnectionSummary'"
             },
             "create_metadata_resource": {
               "async": true,
               "kind": "method",
-              "signature": "(self, resource: 'MetadataResource') -> 'MetadataResource'"
+              "signature": "(self, resource: 'MetadataResource', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'MetadataResource'"
             },
             "delete_connection": {
               "async": true,
               "kind": "method",
-              "signature": "(self, id: 'str') -> 'None'"
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
             "delete_metadata_resource": {
               "async": true,
               "kind": "method",
-              "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, if_match: 'str | None' = None) -> 'None'"
+              "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, if_match: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
             "discover_tables": {
               "async": true,
               "kind": "method",
-              "signature": "(self, conn_id: 'str') -> 'TableDiscoveryResponse'"
+              "signature": "(self, conn_id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'TableDiscoveryResponse'"
             },
             "get_capabilities": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'AdminCapabilitiesResponse'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCapabilitiesResponse'"
             },
             "get_capability_flags": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'AdminCompatibilityFeatureFlags'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCompatibilityFeatureFlags'"
             },
             "get_config": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'dict[str, Any]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "get_connection": {
               "async": true,
               "kind": "method",
-              "signature": "(self, id: 'str') -> 'SecureConnectionDetail'"
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'SecureConnectionDetail'"
             },
             "get_layer_style": {
               "async": true,
               "kind": "method",
-              "signature": "(self, layer_id: 'int') -> 'LayerStyleResponse'"
+              "signature": "(self, layer_id: 'int', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'LayerStyleResponse'"
             },
             "get_manifest": {
               "async": true,
               "kind": "method",
-              "signature": "(self, namespace: 'str | None' = None) -> 'MetadataManifest'"
+              "signature": "(self, namespace: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'MetadataManifest'"
             },
             "get_metadata_resource": {
               "async": true,
               "kind": "method",
-              "signature": "(self, kind: 'str', ns: 'str', name: 'str') -> 'tuple[MetadataResource, str | None]'"
+              "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[MetadataResource, str | None]'"
             },
             "get_service_settings": {
               "async": true,
               "kind": "method",
-              "signature": "(self, name: 'str') -> 'ServiceSettingsResponse'"
+              "signature": "(self, name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ServiceSettingsResponse'"
             },
             "get_version": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'AdminVersionResponse'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminVersionResponse'"
             },
             "list_connections": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'list[SecureConnectionSummary]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[SecureConnectionSummary]'"
             },
             "list_layers": {
               "async": true,
               "kind": "method",
-              "signature": "(self, conn_id: 'str', service_name: 'str | None' = None) -> 'list[PublishedLayerSummary]'"
+              "signature": "(self, conn_id: 'str', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[PublishedLayerSummary]'"
             },
             "list_metadata_resources": {
               "async": true,
               "kind": "method",
-              "signature": "(self, kind: 'str | None' = None, namespace: 'str | None' = None) -> 'list[MetadataResource]'"
+              "signature": "(self, kind: 'str | None' = None, namespace: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[MetadataResource]'"
             },
             "list_services": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'list[ServiceSummary]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
             },
             "publish_layer": {
               "async": true,
               "kind": "method",
-              "signature": "(self, conn_id: 'str', request: 'PublishLayerRequest') -> 'PublishedLayerSummary'"
+              "signature": "(self, conn_id: 'str', request: 'PublishLayerRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'PublishedLayerSummary'"
             },
             "rotate_encryption_key": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'KeyRotationResult'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'KeyRotationResult'"
             },
             "scan_migration_source": {
               "async": true,
@@ -852,52 +883,56 @@
             "set_layer_enabled": {
               "async": true,
               "kind": "method",
-              "signature": "(self, conn_id: 'str', layer_id: 'int', enabled: 'bool', service_name: 'str | None' = None) -> 'PublishedLayerSummary'"
+              "signature": "(self, conn_id: 'str', layer_id: 'int', enabled: 'bool', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'PublishedLayerSummary'"
             },
             "set_service_layers_enabled": {
               "async": true,
               "kind": "method",
-              "signature": "(self, conn_id: 'str', enabled: 'bool', service_name: 'str | None' = None) -> 'list[PublishedLayerSummary]'"
+              "signature": "(self, conn_id: 'str', enabled: 'bool', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'list[PublishedLayerSummary]'"
             },
             "test_connection": {
               "async": true,
               "kind": "method",
-              "signature": "(self, id: 'str') -> 'ConnectionTestResult'"
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ConnectionTestResult'"
             },
             "test_draft_connection": {
               "async": true,
               "kind": "method",
-              "signature": "(self, request: 'CreateSecureConnectionRequest') -> 'ConnectionTestResult'"
+              "signature": "(self, request: 'CreateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ConnectionTestResult'"
             },
             "update_connection": {
               "async": true,
               "kind": "method",
-              "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest') -> 'SecureConnectionSummary'"
+              "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'SecureConnectionSummary'"
             },
             "update_layer_style": {
               "async": true,
               "kind": "method",
-              "signature": "(self, layer_id: 'int', request: 'LayerStyleUpdateRequest') -> 'LayerStyleResponse'"
+              "signature": "(self, layer_id: 'int', request: 'LayerStyleUpdateRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'LayerStyleResponse'"
             },
             "update_mapserver_settings": {
               "async": true,
               "kind": "method",
-              "signature": "(self, name: 'str', **kwargs: 'Any') -> 'ServiceSettingsResponse'"
+              "signature": "(self, name: 'str', *, max_image_width: 'int | None' = None, max_image_height: 'int | None' = None, default_image_width: 'int | None' = None, default_image_height: 'int | None' = None, default_dpi: 'int | None' = None, default_format: 'str | None' = None, default_transparent: 'bool | None' = None, max_features_per_layer: 'int | None' = None, extra_settings: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
             },
             "update_metadata_resource": {
               "async": true,
               "kind": "method",
-              "signature": "(self, kind: 'str', ns: 'str', name: 'str', resource: 'MetadataResource', *, if_match: 'str | None' = None) -> 'MetadataResource'"
+              "signature": "(self, kind: 'str', ns: 'str', name: 'str', resource: 'MetadataResource', *, if_match: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'MetadataResource'"
             },
             "update_protocols": {
               "async": true,
               "kind": "method",
-              "signature": "(self, name: 'str', protocols: 'list[str]') -> 'ServiceSettingsResponse'"
+              "signature": "(self, name: 'str', protocols: 'list[str]', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
             },
             "validate_encryption": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'EncryptionValidationResult'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'EncryptionValidationResult'"
+            },
+            "with_options": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> 'AsyncHonuaAdminClient'"
             }
           },
           "module": "honua_admin._async_client",
@@ -1075,11 +1110,11 @@
           "methods": {
             "apply_manifest": {
               "kind": "method",
-              "signature": "(self, request: 'ManifestApplyRequest') -> 'ManifestApplyResult'"
+              "signature": "(self, request: 'ManifestApplyRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ManifestApplyResult'"
             },
             "check_compatibility": {
               "kind": "method",
-              "signature": "(self) -> 'AdminCompatibilityCheckResult'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCompatibilityCheckResult'"
             },
             "close": {
               "kind": "method",
@@ -1087,83 +1122,83 @@
             },
             "create_connection": {
               "kind": "method",
-              "signature": "(self, request: 'CreateSecureConnectionRequest') -> 'SecureConnectionSummary'"
+              "signature": "(self, request: 'CreateSecureConnectionRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'SecureConnectionSummary'"
             },
             "create_metadata_resource": {
               "kind": "method",
-              "signature": "(self, resource: 'MetadataResource') -> 'MetadataResource'"
+              "signature": "(self, resource: 'MetadataResource', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'MetadataResource'"
             },
             "delete_connection": {
               "kind": "method",
-              "signature": "(self, id: 'str') -> 'None'"
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
             "delete_metadata_resource": {
               "kind": "method",
-              "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, if_match: 'str | None' = None) -> 'None'"
+              "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, if_match: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
             "discover_tables": {
               "kind": "method",
-              "signature": "(self, conn_id: 'str') -> 'TableDiscoveryResponse'"
+              "signature": "(self, conn_id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'TableDiscoveryResponse'"
             },
             "get_capabilities": {
               "kind": "method",
-              "signature": "(self) -> 'AdminCapabilitiesResponse'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCapabilitiesResponse'"
             },
             "get_capability_flags": {
               "kind": "method",
-              "signature": "(self) -> 'AdminCompatibilityFeatureFlags'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCompatibilityFeatureFlags'"
             },
             "get_config": {
               "kind": "method",
-              "signature": "(self) -> 'dict[str, Any]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "get_connection": {
               "kind": "method",
-              "signature": "(self, id: 'str') -> 'SecureConnectionDetail'"
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'SecureConnectionDetail'"
             },
             "get_layer_style": {
               "kind": "method",
-              "signature": "(self, layer_id: 'int') -> 'LayerStyleResponse'"
+              "signature": "(self, layer_id: 'int', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'LayerStyleResponse'"
             },
             "get_manifest": {
               "kind": "method",
-              "signature": "(self, namespace: 'str | None' = None) -> 'MetadataManifest'"
+              "signature": "(self, namespace: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'MetadataManifest'"
             },
             "get_metadata_resource": {
               "kind": "method",
-              "signature": "(self, kind: 'str', ns: 'str', name: 'str') -> 'tuple[MetadataResource, str | None]'"
+              "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[MetadataResource, str | None]'"
             },
             "get_service_settings": {
               "kind": "method",
-              "signature": "(self, name: 'str') -> 'ServiceSettingsResponse'"
+              "signature": "(self, name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ServiceSettingsResponse'"
             },
             "get_version": {
               "kind": "method",
-              "signature": "(self) -> 'AdminVersionResponse'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminVersionResponse'"
             },
             "list_connections": {
               "kind": "method",
-              "signature": "(self) -> 'list[SecureConnectionSummary]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[SecureConnectionSummary]'"
             },
             "list_layers": {
               "kind": "method",
-              "signature": "(self, conn_id: 'str', service_name: 'str | None' = None) -> 'list[PublishedLayerSummary]'"
+              "signature": "(self, conn_id: 'str', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[PublishedLayerSummary]'"
             },
             "list_metadata_resources": {
               "kind": "method",
-              "signature": "(self, kind: 'str | None' = None, namespace: 'str | None' = None) -> 'list[MetadataResource]'"
+              "signature": "(self, kind: 'str | None' = None, namespace: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[MetadataResource]'"
             },
             "list_services": {
               "kind": "method",
-              "signature": "(self) -> 'list[ServiceSummary]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
             },
             "publish_layer": {
               "kind": "method",
-              "signature": "(self, conn_id: 'str', request: 'PublishLayerRequest') -> 'PublishedLayerSummary'"
+              "signature": "(self, conn_id: 'str', request: 'PublishLayerRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'PublishedLayerSummary'"
             },
             "rotate_encryption_key": {
               "kind": "method",
-              "signature": "(self) -> 'KeyRotationResult'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'KeyRotationResult'"
             },
             "scan_migration_source": {
               "kind": "method",
@@ -1171,43 +1206,47 @@
             },
             "set_layer_enabled": {
               "kind": "method",
-              "signature": "(self, conn_id: 'str', layer_id: 'int', enabled: 'bool', service_name: 'str | None' = None) -> 'PublishedLayerSummary'"
+              "signature": "(self, conn_id: 'str', layer_id: 'int', enabled: 'bool', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'PublishedLayerSummary'"
             },
             "set_service_layers_enabled": {
               "kind": "method",
-              "signature": "(self, conn_id: 'str', enabled: 'bool', service_name: 'str | None' = None) -> 'list[PublishedLayerSummary]'"
+              "signature": "(self, conn_id: 'str', enabled: 'bool', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'list[PublishedLayerSummary]'"
             },
             "test_connection": {
               "kind": "method",
-              "signature": "(self, id: 'str') -> 'ConnectionTestResult'"
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ConnectionTestResult'"
             },
             "test_draft_connection": {
               "kind": "method",
-              "signature": "(self, request: 'CreateSecureConnectionRequest') -> 'ConnectionTestResult'"
+              "signature": "(self, request: 'CreateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ConnectionTestResult'"
             },
             "update_connection": {
               "kind": "method",
-              "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest') -> 'SecureConnectionSummary'"
+              "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'SecureConnectionSummary'"
             },
             "update_layer_style": {
               "kind": "method",
-              "signature": "(self, layer_id: 'int', request: 'LayerStyleUpdateRequest') -> 'LayerStyleResponse'"
+              "signature": "(self, layer_id: 'int', request: 'LayerStyleUpdateRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'LayerStyleResponse'"
             },
             "update_mapserver_settings": {
               "kind": "method",
-              "signature": "(self, name: 'str', **kwargs: 'Any') -> 'ServiceSettingsResponse'"
+              "signature": "(self, name: 'str', *, max_image_width: 'int | None' = None, max_image_height: 'int | None' = None, default_image_width: 'int | None' = None, default_image_height: 'int | None' = None, default_dpi: 'int | None' = None, default_format: 'str | None' = None, default_transparent: 'bool | None' = None, max_features_per_layer: 'int | None' = None, extra_settings: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
             },
             "update_metadata_resource": {
               "kind": "method",
-              "signature": "(self, kind: 'str', ns: 'str', name: 'str', resource: 'MetadataResource', *, if_match: 'str | None' = None) -> 'MetadataResource'"
+              "signature": "(self, kind: 'str', ns: 'str', name: 'str', resource: 'MetadataResource', *, if_match: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'MetadataResource'"
             },
             "update_protocols": {
               "kind": "method",
-              "signature": "(self, name: 'str', protocols: 'list[str]') -> 'ServiceSettingsResponse'"
+              "signature": "(self, name: 'str', protocols: 'list[str]', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
             },
             "validate_encryption": {
               "kind": "method",
-              "signature": "(self) -> 'EncryptionValidationResult'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'EncryptionValidationResult'"
+            },
+            "with_options": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> 'HonuaAdminClient'"
             }
           },
           "module": "honua_admin._client",
@@ -3225,11 +3264,11 @@
           "methods": {
             "from_dict": {
               "kind": "classmethod",
-              "signature": "(cls, data: 'dict[str, Any]') -> 'ServiceSummary'"
+              "signature": "(cls, data: 'dict[str, Any]') -> 'AdminServiceSummary'"
             }
           },
           "module": "honua_admin._models",
-          "qualname": "ServiceSummary",
+          "qualname": "AdminServiceSummary",
           "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]') -> None"
         },
         "TableDiscoveryResponse": {
@@ -3404,70 +3443,35 @@
     "honua_sdk": {
       "exports": [
         "ApplyEditsResult",
-        "AsyncGeoServicesFeatureServerClient",
-        "AsyncGeoServicesGeometryServerClient",
-        "AsyncGeoServicesImageServerClient",
-        "AsyncGeoServicesMapServerClient",
         "AsyncHonuaClient",
         "AsyncHonuaGeocodingClient",
-        "AsyncHonuaOgcFeatureCollection",
-        "AsyncHonuaOgcFeatures",
-        "AsyncODataClient",
-        "AsyncOgcCoveragesClient",
-        "AsyncOgcMapsClient",
-        "AsyncOgcProcessesClient",
-        "AsyncOgcRecordsClient",
-        "AsyncOgcRecordsCollectionClient",
-        "AsyncOgcTilesClient",
         "AsyncSource",
-        "AsyncStacClient",
-        "AsyncWfsClient",
-        "AsyncWmsClient",
-        "AsyncWmtsClient",
         "AuthProvider",
-        "BboxValue",
         "BearerToken",
-        "BinaryResponse",
         "CAPABILITIES",
         "CallableAuthProvider",
         "Capability",
-        "CsvValue",
         "DEFAULT_CAPABILITIES",
         "DataPlaneCapabilities",
         "DegradedReason",
         "EditOperationResult",
         "Feature",
-        "FeatureId",
         "FeatureQuery",
         "FeatureQueryResult",
         "FeatureSet",
-        "GeoServicesFeatureServerClient",
-        "GeoServicesGeometryServerClient",
-        "GeoServicesImageServerClient",
-        "GeoServicesMapServerClient",
         "GeocodeResult",
         "GeocodeSuggestion",
+        "HonuaAuthError",
         "HonuaCapabilityNotSupportedError",
         "HonuaClient",
         "HonuaError",
         "HonuaGeocodingClient",
         "HonuaGrpcError",
         "HonuaHttpError",
-        "HonuaOgcFeatureCollection",
-        "HonuaOgcFeatures",
+        "HonuaRateLimitError",
+        "HonuaTimeoutError",
+        "HonuaTransportError",
         "InMemoryTokenStore",
-        "JsonObject",
-        "JsonResponseFormat",
-        "ODataClient",
-        "ODataOrderBy",
-        "ODataQuery",
-        "OgcCoveragesClient",
-        "OgcImageFormat",
-        "OgcMapsClient",
-        "OgcProcessesClient",
-        "OgcRecordsClient",
-        "OgcRecordsCollectionClient",
-        "OgcTilesClient",
         "PROTOCOLS",
         "PROTOCOL_ALIASES",
         "Pagination",
@@ -3482,15 +3486,8 @@
         "Source",
         "SourceDescriptor",
         "SourceLocator",
-        "StacClient",
         "StaticAuthProvider",
         "TokenStore",
-        "WfsClient",
-        "WfsVersion",
-        "WmsClient",
-        "WmsVersion",
-        "WmtsClient",
-        "WmtsVersion",
         "__version__",
         "capability_set",
         "default_capabilities",
@@ -3535,192 +3532,37 @@
           "qualname": "ApplyEditsResult",
           "signature": "(add_results: 'tuple[EditOperationResult, ...]' = (), update_results: 'tuple[EditOperationResult, ...]' = (), delete_results: 'tuple[EditOperationResult, ...]' = (), raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
-        "AsyncGeoServicesFeatureServerClient": {
-          "kind": "class",
-          "methods": {
-            "apply_edits": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "layer_metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "path": {
-              "kind": "property"
-            },
-            "query": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "query_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'list[Feature]'"
-            },
-            "query_items": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'AsyncIterator[Feature]'"
-            },
-            "query_pages": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'AsyncIterator[FeatureSet]'"
-            },
-            "query_related_records": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, object_ids: 'CsvValue', relationship_id: 'int', response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncGeoServicesFeatureServerClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
-        },
-        "AsyncGeoServicesGeometryServerClient": {
-          "kind": "class",
-          "methods": {
-            "buffer": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, geometries: 'Any', *, in_sr: 'int | str', distances: 'CsvValue', unit: 'str | None' = None, **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "operation": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, name: 'str', *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, method: 'str' = 'GET', response_format: 'str' = 'json') -> 'JsonObject'"
-            },
-            "project": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, geometries: 'Any', *, in_sr: 'int | str', out_sr: 'int | str', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "simplify": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, geometries: 'Any', *, sr: 'int | str | None' = None, **kwargs: 'Any') -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncGeoServicesGeometryServerClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncGeoServicesImageServerClient": {
-          "kind": "class",
-          "methods": {
-            "export_image": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, bbox: 'BboxValue', *, size: 'tuple[int, int] | None' = None, image_format: 'str' = 'png', response_format: 'str' = 'image', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "identify": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, geometry: 'Mapping[str, Any] | str', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "legend": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "path": {
-              "kind": "property"
-            },
-            "query": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "tile": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, level: 'int', row: 'int', col: 'int') -> 'bytes'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncGeoServicesImageServerClient",
-          "signature": "(client: 'Any', service_id: 'str | None' = None) -> 'None'"
-        },
-        "AsyncGeoServicesMapServerClient": {
-          "kind": "class",
-          "methods": {
-            "export": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, bbox: 'BboxValue', **kwargs: 'Any') -> 'bytes'"
-            },
-            "identify": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, geometry: 'Mapping[str, Any] | str', map_extent: 'BboxValue', image_display: 'str', tolerance: 'int' = 3, layers: 'str | None' = None, return_geometry: 'bool' = True, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "layer_metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "path": {
-              "kind": "property"
-            },
-            "tile": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, level: 'int', row: 'int', col: 'int') -> 'bytes'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncGeoServicesMapServerClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
-        },
         "AsyncHonuaClient": {
           "kind": "class",
           "methods": {
             "apply_edits": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "apply_edits_result": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', **kwargs: 'Any') -> 'ApplyEditsResult'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
             },
             "capabilities": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'DataPlaneCapabilities'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'DataPlaneCapabilities'"
             },
             "close": {
               "async": true,
               "kind": "method",
               "signature": "(self) -> 'None'"
             },
+            "elevation": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncElevationClient'\""
+            },
             "export_map": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None) -> 'bytes'"
+              "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bytes'"
             },
             "feature_server": {
               "kind": "method",
@@ -3740,17 +3582,17 @@
             },
             "iter_query": {
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'AsyncIterator[QueryFeature]'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
             },
             "list_service_summaries": {
               "async": true,
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json') -> 'list[ServiceSummary]'"
+              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
             },
             "list_services": {
               "async": true,
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json') -> 'dict[str, Any]'"
+              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "map_server": {
               "kind": "method",
@@ -3787,27 +3629,31 @@
             "query": {
               "async": true,
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'FeatureQueryResult'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'FeatureQueryResult'"
             },
             "query_feature_set": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', **kwargs: 'Any') -> 'FeatureSet'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'FeatureSet'"
             },
             "query_features": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "query_features_all": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None) -> 'list[Feature]'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[Feature]'"
             },
             "readiness": {
               "async": true,
               "kind": "method",
-              "signature": "(self) -> 'dict[str, Any]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+            },
+            "scenes": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncSceneClient'\""
             },
             "source": {
               "kind": "method",
@@ -3820,11 +3666,15 @@
             "supports": {
               "async": true,
               "kind": "method",
-              "signature": "(self, capability: 'str') -> 'bool'"
+              "signature": "(self, capability: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bool'"
             },
             "wfs": {
               "kind": "method",
               "signature": "(self) -> \"'AsyncWfsClient'\""
+            },
+            "with_options": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> \"'AsyncHonuaClient'\""
             },
             "wms": {
               "kind": "method",
@@ -3850,558 +3700,22 @@
             "forward_geocode": {
               "async": true,
               "kind": "method",
-              "signature": "(self, address: 'str', *, max_results: 'int' = 10, country_codes: 'str | None' = None, spatial_reference_wkid: 'int' = 4326) -> 'list[GeocodeResult]'"
+              "signature": "(self, address: 'str', *, max_results: 'int' = 10, country_codes: 'str | None' = None, spatial_reference_wkid: 'int' = 4326, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[GeocodeResult]'"
             },
             "reverse_geocode": {
               "async": true,
               "kind": "method",
-              "signature": "(self, latitude: 'float', longitude: 'float', *, spatial_reference_wkid: 'int' = 4326) -> 'ReverseGeocodeResult | None'"
+              "signature": "(self, latitude: 'float', longitude: 'float', *, spatial_reference_wkid: 'int' = 4326, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ReverseGeocodeResult | None'"
             },
             "suggest": {
               "async": true,
               "kind": "method",
-              "signature": "(self, text: 'str', *, max_suggestions: 'int' = 5, country_codes: 'str | None' = None) -> 'list[GeocodeSuggestion]'"
+              "signature": "(self, text: 'str', *, max_suggestions: 'int' = 5, country_codes: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[GeocodeSuggestion]'"
             }
           },
           "module": "honua_sdk.async_geocoding",
           "qualname": "AsyncHonuaGeocodingClient",
           "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
-        },
-        "AsyncHonuaOgcFeatureCollection": {
-          "kind": "class",
-          "methods": {
-            "create_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "delete_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'None'"
-            },
-            "item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
-            },
-            "items_pages": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "patch_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', patch: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "queryables": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "replace_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.ogc",
-          "qualname": "AsyncHonuaOgcFeatureCollection",
-          "signature": "(client: 'Any', collection_id: 'FeatureId') -> 'None'"
-        },
-        "AsyncHonuaOgcFeatures": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> \"'AsyncHonuaOgcFeatureCollection'\""
-            },
-            "collections": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "conformance": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "create_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "delete_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'None'"
-            },
-            "get_collection": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
-            },
-            "items_pages": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "landing": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "patch_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', patch: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "queryables": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "replace_item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.ogc",
-          "qualname": "AsyncHonuaOgcFeatures",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncODataClient": {
-          "kind": "class",
-          "methods": {
-            "feature": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', object_id: 'int') -> 'JsonObject'"
-            },
-            "feature_pages": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
-            },
-            "features": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "features_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
-            },
-            "features_pages": {
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "iter_features": {
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "iter_layers": {
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "layer": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "layer_pages": {
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "layers": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "layers_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "service_document": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncODataClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncOgcCoveragesClient": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "collections": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "coverage": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "landing": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncOgcCoveragesClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncOgcMapsClient": {
-          "kind": "class",
-          "methods": {
-            "collection_map": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "collection_tileset": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', tile_matrix_set_id: 'str') -> 'JsonObject'"
-            },
-            "collection_tilesets": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "conformance": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "landing": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "map": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, collections: 'CsvValue', bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "openapi": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "styled_collection_map": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', style_id: 'str', *, bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncOgcMapsClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncOgcProcessesClient": {
-          "kind": "class",
-          "methods": {
-            "conformance": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "dismiss_job": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, job_id: 'str') -> 'None'"
-            },
-            "execute": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, process_id: 'str', payload: 'Mapping[str, Any]') -> 'JsonObject'"
-            },
-            "job": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, job_id: 'str') -> 'JsonObject'"
-            },
-            "job_results": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, job_id: 'str') -> 'JsonObject'"
-            },
-            "jobs": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "landing": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "process": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, process_id: 'str') -> 'JsonObject'"
-            },
-            "processes": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncOgcProcessesClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncOgcRecordsClient": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> \"'AsyncOgcRecordsCollectionClient'\""
-            },
-            "collections": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "conformance": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "get_collection": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "items": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "iter_records": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
-            },
-            "landing": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "openapi": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "queryables": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record_pages": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
-            },
-            "records": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
-            },
-            "records_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'list[JsonObject]'"
-            },
-            "search": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, collection_id: 'FeatureId | None' = None, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncOgcRecordsClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncOgcRecordsCollectionClient": {
-          "kind": "class",
-          "methods": {
-            "item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "items": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "items_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
-            },
-            "iter_records": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'AsyncIterator[JsonObject]'"
-            },
-            "metadata": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "queryables": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record_pages": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "records": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
-            },
-            "records_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
-            },
-            "search": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncOgcRecordsCollectionClient",
-          "signature": "(client: 'Any', collection_id: 'FeatureId') -> 'None'"
-        },
-        "AsyncOgcTilesClient": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "collection_tilesets": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "collections": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "conformance": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "dataset_tilesets": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "landing": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "tile": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, tile_matrix_set_id: 'str', tile_matrix: 'str', row: 'int', col: 'int', *, collection_id: 'FeatureId | None' = None) -> 'bytes'"
-            },
-            "tile_matrix_set": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, tile_matrix_set_id: 'str') -> 'JsonObject'"
-            },
-            "tile_matrix_sets": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncOgcTilesClient",
-          "signature": "(client: 'Any') -> 'None'"
         },
         "AsyncSource": {
           "kind": "class",
@@ -4409,18 +3723,18 @@
             "apply_edits": {
               "async": true,
               "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'ApplyEditsResult'"
+              "signature": "(self, *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
             },
             "id": {
               "kind": "property"
             },
             "iter_features": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'AsyncIterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
             },
             "protocol": {
               "kind": "method",
-              "signature": "(self, kind: 'Protocol | None' = None) -> 'Any'"
+              "signature": "(self, kind: 'Protocol | str | None' = None) -> 'Any'"
             },
             "protocol_id": {
               "kind": "property"
@@ -4428,198 +3742,25 @@
             "query": {
               "async": true,
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Result'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Result[QueryFeature]'"
             },
             "query_all": {
               "async": true,
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'tuple[QueryFeature, ...]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'tuple[QueryFeature, ...]'"
             },
             "stream": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'AsyncIterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
             },
             "supports": {
               "kind": "method",
-              "signature": "(self, capability: 'Capability') -> 'bool'"
+              "signature": "(self, capability: 'Capability | str') -> 'bool'"
             }
           },
           "module": "honua_sdk.source",
           "qualname": "AsyncSource",
-          "signature": "(client: 'Any', descriptor: 'SourceDescriptor | Mapping[str, Any]') -> 'None'"
-        },
-        "AsyncStacClient": {
-          "kind": "class",
-          "methods": {
-            "catalog": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "collection": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "collections": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "item": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', item_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "item_pages": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "items": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "items_all": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "iter_search_items": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
-            },
-            "search": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "search_items": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
-            },
-            "search_pages": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'AsyncIterator[JsonObject]'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncStacClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncWfsClient": {
-          "kind": "class",
-          "methods": {
-            "capabilities": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "describe_feature_type": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, type_names: 'CsvValue | None' = None) -> 'str'"
-            },
-            "get_feature": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, type_names: 'CsvValue | None' = None, extra_params: 'Params' = None) -> 'str'"
-            },
-            "request": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'str'"
-            },
-            "transaction": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, xml: 'str | bytes') -> 'str'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncWfsClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "AsyncWmsClient": {
-          "kind": "class",
-          "methods": {
-            "capabilities": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "feature_info": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "feature_info_response": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'BinaryResponse'"
-            },
-            "map": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "map_response": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
-            },
-            "request": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
-            },
-            "request_response": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncWmsClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
-        },
-        "AsyncWmtsClient": {
-          "kind": "class",
-          "methods": {
-            "capabilities": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "request": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
-            },
-            "request_response": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
-            },
-            "tile": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "tile_response": {
-              "async": true,
-              "kind": "method",
-              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "AsyncWmtsClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
+          "signature": "(client: 'AsyncSourceClientProtocol', descriptor: 'SourceDescriptor | Mapping[str, Any]') -> 'None'"
         },
         "AuthProvider": {
           "kind": "class",
@@ -4632,11 +3773,6 @@
           "module": "honua_sdk.auth",
           "qualname": "AuthProvider",
           "signature": "(*args, **kwargs)"
-        },
-        "BboxValue": {
-          "kind": "constant",
-          "type": "UnionType",
-          "value": "str | collections.abc.Sequence[int | float]"
         },
         "BearerToken": {
           "fields": [
@@ -4673,59 +3809,6 @@
           "qualname": "BearerToken",
           "signature": "(access_token: 'str', expires_at: 'datetime | None' = None, token_type: 'str' = 'Bearer') -> None"
         },
-        "BinaryResponse": {
-          "fields": [
-            {
-              "annotation": "bytes",
-              "name": "content"
-            },
-            {
-              "annotation": "str | None",
-              "default": "None",
-              "name": "content_type"
-            },
-            {
-              "annotation": "str | None",
-              "default": "None",
-              "name": "cache_control"
-            },
-            {
-              "annotation": "str | None",
-              "default": "None",
-              "name": "etag"
-            },
-            {
-              "annotation": "str | None",
-              "default": "None",
-              "name": "last_modified"
-            },
-            {
-              "annotation": "str | None",
-              "default": "None",
-              "name": "expires"
-            },
-            {
-              "annotation": "Mapping[str, str] | None",
-              "default": "None",
-              "name": "headers"
-            },
-            {
-              "annotation": "int",
-              "default": "200",
-              "name": "status_code"
-            }
-          ],
-          "kind": "class",
-          "methods": {
-            "from_httpx": {
-              "kind": "classmethod",
-              "signature": "(cls, response: 'httpx.Response') -> \"'BinaryResponse'\""
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "BinaryResponse",
-          "signature": "(content: 'bytes', content_type: 'str | None' = None, cache_control: 'str | None' = None, etag: 'str | None' = None, last_modified: 'str | None' = None, expires: 'str | None' = None, headers: 'Mapping[str, str] | None' = None, status_code: 'int' = 200) -> None"
-        },
         "CAPABILITIES": {
           "kind": "constant",
           "type": "tuple",
@@ -4745,13 +3828,8 @@
         },
         "Capability": {
           "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'render', 'tiles', 'sql', 'stream', 'pbf', 'connect', 'image', 'geometry', 'geoprocess', 'processes'], str]"
-        },
-        "CsvValue": {
-          "kind": "constant",
-          "type": "UnionType",
-          "value": "str | collections.abc.Sequence[str | int | float]"
+          "type": "_LiteralGenericAlias",
+          "value": "typing.Literal['query', 'queryAggregate', 'queryExtent', 'queryObjectIds', 'queryRelated', 'applyEdits', 'attachments', 'render', 'tiles', 'sql', 'stream', 'pbf', 'connect', 'image', 'geometry', 'geoprocess', 'processes']"
         },
         "DEFAULT_CAPABILITIES": {
           "kind": "constant",
@@ -4808,11 +3886,11 @@
         "DegradedReason": {
           "fields": [
             {
-              "annotation": "Capability",
+              "annotation": "Capability | str",
               "name": "capability"
             },
             {
-              "annotation": "Protocol",
+              "annotation": "Protocol | str",
               "name": "protocol"
             },
             {
@@ -4829,7 +3907,7 @@
           "kind": "class",
           "module": "honua_sdk.models",
           "qualname": "DegradedReason",
-          "signature": "(capability: 'Capability', protocol: 'Protocol', source_id: 'str | None' = None, reason: 'str' = '') -> None"
+          "signature": "(capability: 'Capability | str', protocol: 'Protocol | str', source_id: 'str | None' = None, reason: 'str' = '') -> None"
         },
         "EditOperationResult": {
           "fields": [
@@ -4900,11 +3978,6 @@
           "qualname": "Feature",
           "signature": "(attributes: 'Mapping[str, Any]', geometry: 'Mapping[str, Any] | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
-        "FeatureId": {
-          "kind": "constant",
-          "type": "UnionType",
-          "value": "str | int"
-        },
         "FeatureQuery": {
           "fields": [
             {
@@ -4912,7 +3985,7 @@
               "name": "source"
             },
             {
-              "annotation": "QueryProtocol",
+              "annotation": "QueryProtocol | str",
               "default": "'feature-server'",
               "name": "protocol"
             },
@@ -4970,7 +4043,7 @@
           "kind": "class",
           "module": "honua_sdk.models",
           "qualname": "FeatureQuery",
-          "signature": "(source: 'str', protocol: 'QueryProtocol' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(source: 'str', protocol: 'QueryProtocol | str' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "FeatureQueryResult": {
           "fields": [
@@ -4989,12 +4062,27 @@
             {
               "annotation": "FeatureQuery",
               "name": "query"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "exceeded_transfer_limit"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "total_count"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "pages_seen"
             }
           ],
           "kind": "class",
           "module": "honua_sdk.models",
           "qualname": "FeatureQueryResult",
-          "signature": "(features: 'tuple[QueryFeature, ...]', protocol: 'str', source: 'str', query: 'FeatureQuery') -> None"
+          "signature": "(features: 'tuple[QueryFeature, ...]', protocol: 'str', source: 'str', query: 'FeatureQuery', exceeded_transfer_limit: 'bool' = False, total_count: 'int | None' = None, pages_seen: 'int' = 0) -> None"
         },
         "FeatureSet": {
           "fields": [
@@ -5038,143 +4126,6 @@
           "module": "honua_sdk.models",
           "qualname": "FeatureSet",
           "signature": "(features: 'tuple[Feature, ...]', fields: 'tuple[Mapping[str, Any], ...]' = (), geometry_type: 'str | None' = None, spatial_reference: 'Mapping[str, Any] | None' = None, exceeded_transfer_limit: 'bool' = False, raw: 'Mapping[str, Any]' = <factory>) -> None"
-        },
-        "GeoServicesFeatureServerClient": {
-          "kind": "class",
-          "methods": {
-            "apply_edits": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "layer_metadata": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "path": {
-              "kind": "property"
-            },
-            "query": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "query_all": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'list[Feature]'"
-            },
-            "query_items": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'Iterator[Feature]'"
-            },
-            "query_pages": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, **kwargs: 'Any') -> 'Iterator[FeatureSet]'"
-            },
-            "query_related_records": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, object_ids: 'CsvValue', relationship_id: 'int', response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "GeoServicesFeatureServerClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
-        },
-        "GeoServicesGeometryServerClient": {
-          "kind": "class",
-          "methods": {
-            "buffer": {
-              "kind": "method",
-              "signature": "(self, geometries: 'Any', *, in_sr: 'int | str', distances: 'CsvValue', unit: 'str | None' = None, **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "operation": {
-              "kind": "method",
-              "signature": "(self, name: 'str', *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, method: 'str' = 'GET', response_format: 'str' = 'json') -> 'JsonObject'"
-            },
-            "project": {
-              "kind": "method",
-              "signature": "(self, geometries: 'Any', *, in_sr: 'int | str', out_sr: 'int | str', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "simplify": {
-              "kind": "method",
-              "signature": "(self, geometries: 'Any', *, sr: 'int | str | None' = None, **kwargs: 'Any') -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "GeoServicesGeometryServerClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "GeoServicesImageServerClient": {
-          "kind": "class",
-          "methods": {
-            "export_image": {
-              "kind": "method",
-              "signature": "(self, bbox: 'BboxValue', *, size: 'tuple[int, int] | None' = None, image_format: 'str' = 'png', response_format: 'str' = 'image', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "identify": {
-              "kind": "method",
-              "signature": "(self, geometry: 'Mapping[str, Any] | str', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "legend": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "path": {
-              "kind": "property"
-            },
-            "query": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "tile": {
-              "kind": "method",
-              "signature": "(self, level: 'int', row: 'int', col: 'int') -> 'bytes'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "GeoServicesImageServerClient",
-          "signature": "(client: 'Any', service_id: 'str | None' = None) -> 'None'"
-        },
-        "GeoServicesMapServerClient": {
-          "kind": "class",
-          "methods": {
-            "export": {
-              "kind": "method",
-              "signature": "(self, bbox: 'BboxValue', **kwargs: 'Any') -> 'bytes'"
-            },
-            "identify": {
-              "kind": "method",
-              "signature": "(self, *, geometry: 'Mapping[str, Any] | str', map_extent: 'BboxValue', image_display: 'str', tolerance: 'int' = 3, layers: 'str | None' = None, return_geometry: 'bool' = True, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "layer_metadata": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "path": {
-              "kind": "property"
-            },
-            "tile": {
-              "kind": "method",
-              "signature": "(self, level: 'int', row: 'int', col: 'int') -> 'bytes'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "GeoServicesMapServerClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
         },
         "GeocodeResult": {
           "fields": [
@@ -5224,6 +4175,12 @@
           "qualname": "GeocodeSuggestion",
           "signature": "(text: 'str', magic_key: 'str', is_collection: 'bool') -> None"
         },
+        "HonuaAuthError": {
+          "kind": "class",
+          "module": "honua_sdk.errors",
+          "qualname": "HonuaAuthError",
+          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None) -> 'None'"
+        },
         "HonuaCapabilityNotSupportedError": {
           "kind": "class",
           "module": "honua_sdk.errors",
@@ -5235,23 +4192,27 @@
           "methods": {
             "apply_edits": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "apply_edits_result": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', **kwargs: 'Any') -> 'ApplyEditsResult'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
             },
             "capabilities": {
               "kind": "method",
-              "signature": "(self) -> 'DataPlaneCapabilities'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'DataPlaneCapabilities'"
             },
             "close": {
               "kind": "method",
               "signature": "(self) -> 'None'"
             },
+            "elevation": {
+              "kind": "method",
+              "signature": "(self) -> \"'ElevationClient'\""
+            },
             "export_map": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None) -> 'bytes'"
+              "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bytes'"
             },
             "feature_server": {
               "kind": "method",
@@ -5271,15 +4232,15 @@
             },
             "iter_query": {
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'Iterator[QueryFeature]'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Iterator[QueryFeature]'"
             },
             "list_service_summaries": {
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json') -> 'list[ServiceSummary]'"
+              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
             },
             "list_services": {
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json') -> 'dict[str, Any]'"
+              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "map_server": {
               "kind": "method",
@@ -5315,23 +4276,27 @@
             },
             "query": {
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None) -> 'FeatureQueryResult'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'FeatureQueryResult'"
             },
             "query_feature_set": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', **kwargs: 'Any') -> 'FeatureSet'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'FeatureSet'"
             },
             "query_features": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "query_features_all": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None) -> 'list[Feature]'"
+              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[Feature]'"
             },
             "readiness": {
               "kind": "method",
-              "signature": "(self) -> 'dict[str, Any]'"
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+            },
+            "scenes": {
+              "kind": "method",
+              "signature": "(self) -> \"'SceneClient'\""
             },
             "source": {
               "kind": "method",
@@ -5343,11 +4308,15 @@
             },
             "supports": {
               "kind": "method",
-              "signature": "(self, capability: 'str') -> 'bool'"
+              "signature": "(self, capability: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bool'"
             },
             "wfs": {
               "kind": "method",
               "signature": "(self) -> \"'WfsClient'\""
+            },
+            "with_options": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> \"'HonuaClient'\""
             },
             "wms": {
               "kind": "method",
@@ -5376,15 +4345,15 @@
             },
             "forward_geocode": {
               "kind": "method",
-              "signature": "(self, address: 'str', *, max_results: 'int' = 10, country_codes: 'str | None' = None, spatial_reference_wkid: 'int' = 4326) -> 'list[GeocodeResult]'"
+              "signature": "(self, address: 'str', *, max_results: 'int' = 10, country_codes: 'str | None' = None, spatial_reference_wkid: 'int' = 4326, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[GeocodeResult]'"
             },
             "reverse_geocode": {
               "kind": "method",
-              "signature": "(self, latitude: 'float', longitude: 'float', *, spatial_reference_wkid: 'int' = 4326) -> 'ReverseGeocodeResult | None'"
+              "signature": "(self, latitude: 'float', longitude: 'float', *, spatial_reference_wkid: 'int' = 4326, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ReverseGeocodeResult | None'"
             },
             "suggest": {
               "kind": "method",
-              "signature": "(self, text: 'str', *, max_suggestions: 'int' = 5, country_codes: 'str | None' = None) -> 'list[GeocodeSuggestion]'"
+              "signature": "(self, text: 'str', *, max_suggestions: 'int' = 5, country_codes: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[GeocodeSuggestion]'"
             }
           },
           "module": "honua_sdk.geocoding",
@@ -5401,127 +4370,23 @@
           "kind": "class",
           "module": "honua_sdk.errors",
           "qualname": "HonuaHttpError",
-          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None) -> 'None'"
+          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None) -> 'None'"
         },
-        "HonuaOgcFeatureCollection": {
+        "HonuaRateLimitError": {
           "kind": "class",
-          "methods": {
-            "create_item": {
-              "kind": "method",
-              "signature": "(self, feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "delete_item": {
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'None'"
-            },
-            "item": {
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items_all": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
-            },
-            "items_pages": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "patch_item": {
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', patch: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "queryables": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "replace_item": {
-              "kind": "method",
-              "signature": "(self, feature_id: 'FeatureId', feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.ogc",
-          "qualname": "HonuaOgcFeatureCollection",
-          "signature": "(client: 'Any', collection_id: 'FeatureId') -> 'None'"
+          "module": "honua_sdk.errors",
+          "qualname": "HonuaRateLimitError",
+          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, retry_after: 'float | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None) -> 'None'"
         },
-        "HonuaOgcFeatures": {
+        "HonuaTimeoutError": {
           "kind": "class",
-          "methods": {
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> \"'HonuaOgcFeatureCollection'\""
-            },
-            "collections": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "conformance": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "create_item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "delete_item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'None'"
-            },
-            "get_collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "items_all": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'list[JsonObject]'"
-            },
-            "items_pages": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, crs: 'str | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "landing": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "patch_item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', patch: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            },
-            "queryables": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "replace_item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', feature_id: 'FeatureId', feature: 'Mapping[str, Any]', *, response_format: 'str' = 'json', extra_params: 'Mapping[str, Any] | None' = None, crs: 'str | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.ogc",
-          "qualname": "HonuaOgcFeatures",
-          "signature": "(client: 'Any') -> 'None'"
+          "module": "honua_sdk.errors",
+          "qualname": "HonuaTimeoutError"
+        },
+        "HonuaTransportError": {
+          "kind": "class",
+          "module": "honua_sdk.errors",
+          "qualname": "HonuaTransportError"
         },
         "InMemoryTokenStore": {
           "kind": "class",
@@ -5542,400 +4407,6 @@
           "module": "honua_sdk.auth",
           "qualname": "InMemoryTokenStore",
           "signature": "(token: 'BearerToken | Mapping[str, Any] | str | None' = None) -> 'None'"
-        },
-        "JsonObject": {
-          "kind": "constant",
-          "type": "GenericAlias",
-          "value": "dict[str, typing.Any]"
-        },
-        "JsonResponseFormat": {
-          "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['json', 'pjson'], str]"
-        },
-        "ODataClient": {
-          "kind": "class",
-          "methods": {
-            "feature": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', object_id: 'int') -> 'JsonObject'"
-            },
-            "feature_pages": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'Iterator[JsonObject]'"
-            },
-            "features": {
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "features_all": {
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
-            },
-            "features_pages": {
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
-            },
-            "iter_features": {
-              "kind": "method",
-              "signature": "(self, *, layer_id: 'int | None' = None, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
-            },
-            "iter_layers": {
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
-            },
-            "layer": {
-              "kind": "method",
-              "signature": "(self, layer_id: 'int', *, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "layer_pages": {
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'Iterator[JsonObject]'"
-            },
-            "layers": {
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "layers_all": {
-              "kind": "method",
-              "signature": "(self, *, query: 'ODataQuery | None' = None, filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Params' = None) -> 'list[JsonObject]'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "service_document": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "ODataClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "ODataOrderBy": {
-          "kind": "constant",
-          "type": "UnionType",
-          "value": "str | collections.abc.Sequence[str]"
-        },
-        "ODataQuery": {
-          "fields": [
-            {
-              "annotation": "str | None",
-              "default": "None",
-              "name": "filter"
-            },
-            {
-              "annotation": "CsvValue | None",
-              "default": "None",
-              "name": "select"
-            },
-            {
-              "annotation": "ODataOrderBy | None",
-              "default": "None",
-              "name": "orderby"
-            },
-            {
-              "annotation": "int | None",
-              "default": "None",
-              "name": "top"
-            },
-            {
-              "annotation": "int | None",
-              "default": "None",
-              "name": "skip"
-            },
-            {
-              "annotation": "bool | None",
-              "default": "None",
-              "name": "count"
-            }
-          ],
-          "kind": "class",
-          "module": "honua_sdk.protocols",
-          "qualname": "ODataQuery",
-          "signature": "(filter: 'str | None' = None, select: 'CsvValue | None' = None, orderby: 'ODataOrderBy | None' = None, top: 'int | None' = None, skip: 'int | None' = None, count: 'bool | None' = None) -> None"
-        },
-        "OgcCoveragesClient": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "collections": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "coverage": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "landing": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "OgcCoveragesClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "OgcImageFormat": {
-          "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['png', 'jpeg', 'jpg', 'webp', 'image/png', 'image/jpeg', 'image/webp'], str]"
-        },
-        "OgcMapsClient": {
-          "kind": "class",
-          "methods": {
-            "collection_map": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "collection_tileset": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', tile_matrix_set_id: 'str') -> 'JsonObject'"
-            },
-            "collection_tilesets": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "conformance": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "landing": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "map": {
-              "kind": "method",
-              "signature": "(self, *, collections: 'CsvValue', bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "openapi": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "styled_collection_map": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', style_id: 'str', *, bbox: 'BboxValue', response_format: 'str' = 'png', extra_params: 'Params' = None) -> 'bytes'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "OgcMapsClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "OgcProcessesClient": {
-          "kind": "class",
-          "methods": {
-            "conformance": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "dismiss_job": {
-              "kind": "method",
-              "signature": "(self, job_id: 'str') -> 'None'"
-            },
-            "execute": {
-              "kind": "method",
-              "signature": "(self, process_id: 'str', payload: 'Mapping[str, Any]') -> 'JsonObject'"
-            },
-            "job": {
-              "kind": "method",
-              "signature": "(self, job_id: 'str') -> 'JsonObject'"
-            },
-            "job_results": {
-              "kind": "method",
-              "signature": "(self, job_id: 'str') -> 'JsonObject'"
-            },
-            "jobs": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "landing": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "process": {
-              "kind": "method",
-              "signature": "(self, process_id: 'str') -> 'JsonObject'"
-            },
-            "processes": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "OgcProcessesClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "OgcRecordsClient": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> \"'OgcRecordsCollectionClient'\""
-            },
-            "collections": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "conformance": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "get_collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "iter_records": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'Iterator[JsonObject]'"
-            },
-            "landing": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "openapi": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "queryables": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record_pages": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "records": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
-            },
-            "records_all": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', **kwargs: 'Any') -> 'list[JsonObject]'"
-            },
-            "search": {
-              "kind": "method",
-              "signature": "(self, *, collection_id: 'FeatureId | None' = None, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "OgcRecordsClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "OgcRecordsCollectionClient": {
-          "kind": "class",
-          "methods": {
-            "item": {
-              "kind": "method",
-              "signature": "(self, record_id: 'FeatureId', **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "items": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'JsonObject'"
-            },
-            "items_all": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'Iterator[JsonObject]'"
-            },
-            "iter_records": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'Iterator[JsonObject]'"
-            },
-            "metadata": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "queryables": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record": {
-              "kind": "method",
-              "signature": "(self, record_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "record_pages": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "records": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None, limit: 'int | None' = None, offset: 'int | None' = None, bbox: 'BboxValue | None' = None, datetime: 'str | None' = None, filter: 'str | None' = None, q: 'str | None' = None, ids: 'CsvValue | None' = None, properties: 'CsvValue | None' = None, sortby: 'str | None' = None, type: 'str | None' = None) -> 'JsonObject'"
-            },
-            "records_all": {
-              "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'list[JsonObject]'"
-            },
-            "search": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "OgcRecordsCollectionClient",
-          "signature": "(client: 'Any', collection_id: 'FeatureId') -> 'None'"
-        },
-        "OgcTilesClient": {
-          "kind": "class",
-          "methods": {
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "collection_tilesets": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "collections": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "conformance": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "dataset_tilesets": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "landing": {
-              "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "tile": {
-              "kind": "method",
-              "signature": "(self, tile_matrix_set_id: 'str', tile_matrix: 'str', row: 'int', col: 'int', *, collection_id: 'FeatureId | None' = None) -> 'bytes'"
-            },
-            "tile_matrix_set": {
-              "kind": "method",
-              "signature": "(self, tile_matrix_set_id: 'str') -> 'JsonObject'"
-            },
-            "tile_matrix_sets": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "OgcTilesClient",
-          "signature": "(client: 'Any') -> 'None'"
         },
         "PROTOCOLS": {
           "kind": "constant",
@@ -5983,8 +4454,8 @@
         },
         "Protocol": {
           "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
+          "type": "_LiteralGenericAlias",
+          "value": "typing.Literal['grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson']"
         },
         "Query": {
           "fields": [
@@ -5992,6 +4463,16 @@
               "annotation": "str | None",
               "default": "None",
               "name": "where"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "cql_filter"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "where_as_cql"
             },
             {
               "annotation": "Mapping[str, Any] | None",
@@ -6060,7 +4541,7 @@
           },
           "module": "honua_sdk.models",
           "qualname": "Query",
-          "signature": "(where: 'str | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, bbox: 'str | Sequence[int | float] | None' = None, out_fields: 'str | Sequence[str] | None' = None, order_by: 'str | Sequence[str] | None' = None, pagination: 'Pagination' = <factory>, aggregation: 'Mapping[str, Any] | None' = None, return_geometry: 'bool' = True, out_sr: 'int | str | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(where: 'str | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool' = False, spatial_filter: 'Mapping[str, Any] | None' = None, bbox: 'str | Sequence[int | float] | None' = None, out_fields: 'str | Sequence[str] | None' = None, order_by: 'str | Sequence[str] | None' = None, pagination: 'Pagination' = <factory>, aggregation: 'Mapping[str, Any] | None' = None, return_geometry: 'bool' = True, out_sr: 'int | str | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "QueryFeature": {
           "fields": [
@@ -6100,8 +4581,8 @@
         },
         "QueryProtocol": {
           "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson'], str]"
+          "type": "_LiteralGenericAlias",
+          "value": "typing.Literal['grpc', 'geoservices-feature-service', 'geoservices-map-service', 'geoservices-image-service', 'geoservices-geometry-service', 'geoservices-gp-service', 'ogc-features', 'ogc-tiles', 'ogc-maps', 'stac', 'wfs', 'wms', 'wmts', 'odata', 'maplibre-vector', 'maplibre-raster', 'maplibre-geojson']"
         },
         "RefreshableBearerTokenProvider": {
           "kind": "class",
@@ -6130,7 +4611,7 @@
         "Result": {
           "fields": [
             {
-              "annotation": "tuple['QueryFeature', ...]",
+              "annotation": "tuple[T, ...]",
               "default": "()",
               "name": "features"
             },
@@ -6183,12 +4664,17 @@
               "annotation": "Mapping[str, Any]",
               "defaultFactory": "dict",
               "name": "raw"
+            },
+            {
+              "annotation": "'FeatureQueryResult | None'",
+              "default": "None",
+              "name": "raw_legacy"
             }
           ],
           "kind": "class",
           "module": "honua_sdk.models",
           "qualname": "Result",
-          "signature": "(features: \"tuple['QueryFeature', ...]\" = (), exceeded_transfer_limit: 'bool' = False, total_count: 'int | None' = None, aggregate_rows: 'tuple[Mapping[str, Any], ...]' = (), extent: 'Mapping[str, Any] | None' = None, fields: 'tuple[Mapping[str, Any], ...]' = (), degraded: 'tuple[DegradedReason, ...]' = (), protocol: 'str' = '', source_id: 'str' = '', query: 'Query | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(features: 'tuple[T, ...]' = (), exceeded_transfer_limit: 'bool' = False, total_count: 'int | None' = None, aggregate_rows: 'tuple[Mapping[str, Any], ...]' = (), extent: 'Mapping[str, Any] | None' = None, fields: 'tuple[Mapping[str, Any], ...]' = (), degraded: 'tuple[DegradedReason, ...]' = (), protocol: 'str' = '', source_id: 'str' = '', query: 'Query | None' = None, raw: 'Mapping[str, Any]' = <factory>, raw_legacy: \"'FeatureQueryResult | None'\" = None) -> None"
         },
         "ReverseGeocodeResult": {
           "fields": [
@@ -6252,42 +4738,42 @@
           "methods": {
             "apply_edits": {
               "kind": "method",
-              "signature": "(self, **kwargs: 'Any') -> 'ApplyEditsResult'"
+              "signature": "(self, *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
             },
             "id": {
               "kind": "property"
             },
             "iter_features": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Iterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'Iterator[QueryFeature]'"
             },
             "protocol": {
               "kind": "method",
-              "signature": "(self, kind: 'Protocol | None' = None) -> 'Any'"
+              "signature": "(self, kind: 'Protocol | str | None' = None) -> 'Any'"
             },
             "protocol_id": {
               "kind": "property"
             },
             "query": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Result'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Result[QueryFeature]'"
             },
             "query_all": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'tuple[QueryFeature, ...]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'tuple[QueryFeature, ...]'"
             },
             "stream": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **kwargs: 'Any') -> 'Iterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Iterator[QueryFeature]'"
             },
             "supports": {
               "kind": "method",
-              "signature": "(self, capability: 'Capability') -> 'bool'"
+              "signature": "(self, capability: 'Capability | str') -> 'bool'"
             }
           },
           "module": "honua_sdk.source",
           "qualname": "Source",
-          "signature": "(client: 'Any', descriptor: 'SourceDescriptor | Mapping[str, Any]') -> 'None'"
+          "signature": "(client: 'SourceClientProtocol', descriptor: 'SourceDescriptor | Mapping[str, Any]') -> 'None'"
         },
         "SourceDescriptor": {
           "fields": [
@@ -6296,7 +4782,7 @@
               "name": "id"
             },
             {
-              "annotation": "Protocol",
+              "annotation": "Protocol | str",
               "name": "protocol"
             },
             {
@@ -6323,12 +4809,12 @@
             },
             "supports": {
               "kind": "method",
-              "signature": "(self, capability: 'Capability') -> 'bool'"
+              "signature": "(self, capability: 'Capability | str') -> 'bool'"
             }
           },
           "module": "honua_sdk.models",
           "qualname": "SourceDescriptor",
-          "signature": "(id: 'str', protocol: 'Protocol', locator: 'SourceLocator' = <factory>, capabilities: 'frozenset[str]' = <factory>, raw: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(id: 'str', protocol: 'Protocol | str', locator: 'SourceLocator' = <factory>, capabilities: 'frozenset[str]' = <factory>, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "SourceLocator": {
           "fields": [
@@ -6369,62 +4855,6 @@
           "qualname": "SourceLocator",
           "signature": "(service_id: 'str | None' = None, layer_id: 'int | None' = None, collection_id: 'str | None' = None, entity_set: 'str | None' = None, type_name: 'str | None' = None) -> None"
         },
-        "StacClient": {
-          "kind": "class",
-          "methods": {
-            "catalog": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "collection": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "collections": {
-              "kind": "method",
-              "signature": "(self) -> 'JsonObject'"
-            },
-            "item": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', item_id: 'FeatureId') -> 'JsonObject'"
-            },
-            "item_pages": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None) -> 'JsonObject'"
-            },
-            "items_all": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
-            },
-            "iter_items": {
-              "kind": "method",
-              "signature": "(self, collection_id: 'FeatureId', *, extra_params: 'Params' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "iter_search_items": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
-            },
-            "search": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None) -> 'JsonObject'"
-            },
-            "search_items": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'list[JsonObject]'"
-            },
-            "search_pages": {
-              "kind": "method",
-              "signature": "(self, *, params: 'Params' = None, json_body: 'Mapping[str, Any] | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None) -> 'Iterator[JsonObject]'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "StacClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
         "StaticAuthProvider": {
           "kind": "class",
           "methods": {
@@ -6457,113 +4887,6 @@
           "qualname": "TokenStore",
           "signature": "(*args, **kwargs)"
         },
-        "WfsClient": {
-          "kind": "class",
-          "methods": {
-            "capabilities": {
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "describe_feature_type": {
-              "kind": "method",
-              "signature": "(self, type_names: 'CsvValue | None' = None) -> 'str'"
-            },
-            "get_feature": {
-              "kind": "method",
-              "signature": "(self, *, type_names: 'CsvValue | None' = None, extra_params: 'Params' = None) -> 'str'"
-            },
-            "request": {
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'str'"
-            },
-            "transaction": {
-              "kind": "method",
-              "signature": "(self, xml: 'str | bytes') -> 'str'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "WfsClient",
-          "signature": "(client: 'Any') -> 'None'"
-        },
-        "WfsVersion": {
-          "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['2.0.0', '1.1.0', '1.0.0'], str]"
-        },
-        "WmsClient": {
-          "kind": "class",
-          "methods": {
-            "capabilities": {
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "feature_info": {
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "feature_info_response": {
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', query_layers: 'CsvValue', i: 'int', j: 'int', bbox: 'BboxValue', width: 'int', height: 'int', extra_params: 'Params' = None) -> 'BinaryResponse'"
-            },
-            "map": {
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "map_response": {
-              "kind": "method",
-              "signature": "(self, *, layers: 'CsvValue', bbox: 'BboxValue', width: 'int', height: 'int', crs: 'str' = 'EPSG:4326', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
-            },
-            "request": {
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
-            },
-            "request_response": {
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "WmsClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
-        },
-        "WmsVersion": {
-          "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['1.3.0', '1.1.1'], str]"
-        },
-        "WmtsClient": {
-          "kind": "class",
-          "methods": {
-            "capabilities": {
-              "kind": "method",
-              "signature": "(self) -> 'str'"
-            },
-            "request": {
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'bytes'"
-            },
-            "request_response": {
-              "kind": "method",
-              "signature": "(self, operation: 'str', *, params: 'Params' = None) -> 'BinaryResponse'"
-            },
-            "tile": {
-              "kind": "method",
-              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'str' = 'image/png', extra_params: 'Params' = None) -> 'bytes'"
-            },
-            "tile_response": {
-              "kind": "method",
-              "signature": "(self, *, layer: 'str', tile_matrix_set: 'str', tile_matrix: 'str', tile_row: 'int', tile_col: 'int', image_format: 'OgcImageFormat' = 'image/png', extra_params: 'Params' = None) -> 'BinaryResponse'"
-            }
-          },
-          "module": "honua_sdk.protocols",
-          "qualname": "WmtsClient",
-          "signature": "(client: 'Any', service_id: 'str') -> 'None'"
-        },
-        "WmtsVersion": {
-          "kind": "constant",
-          "type": "_UnionGenericAlias",
-          "value": "typing.Union[typing.Literal['1.0.0'], str]"
-        },
         "__version__": {
           "kind": "constant",
           "type": "str"
@@ -6572,25 +4895,25 @@
           "kind": "function",
           "module": "honua_sdk.models",
           "qualname": "capability_set",
-          "signature": "(values: 'Iterable[Capability] | None') -> 'frozenset[str]'"
+          "signature": "(values: 'Iterable[Capability | str] | None') -> 'frozenset[str]'"
         },
         "default_capabilities": {
           "kind": "function",
           "module": "honua_sdk.models",
           "qualname": "default_capabilities",
-          "signature": "(protocol: 'Protocol') -> 'frozenset[str]'"
+          "signature": "(protocol: 'Protocol | str') -> 'frozenset[str]'"
         },
         "normalize_capability": {
           "kind": "function",
           "module": "honua_sdk.models",
           "qualname": "normalize_capability",
-          "signature": "(value: 'Capability') -> 'str'"
+          "signature": "(value: 'Capability | str') -> 'str'"
         },
         "normalize_protocol": {
           "kind": "function",
           "module": "honua_sdk.models",
           "qualname": "normalize_protocol",
-          "signature": "(value: 'Protocol') -> 'str'"
+          "signature": "(value: 'Protocol | str') -> 'str'"
         }
       }
     },

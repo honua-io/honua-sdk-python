@@ -1,16 +1,16 @@
 # Workspace root -- individual packages live under packages/.
-# This file configures shared dev tooling only.
-
-[build-system]
-requires = ["hatchling>=1.29.0"]
-build-backend = "hatchling.build"
-
-[project]
-name = "honua-sdk-workspace"
-version = "0.0.0"
-description = "Workspace root for honua-sdk and honua-admin Python packages"
-requires-python = ">=3.11"
-# Not published -- this is a workspace root only.
+# This file configures shared dev tooling only and is intentionally NOT
+# installable: it declares no [build-system] or [project] block, so
+# `pip install .` at the repo root is a no-op (and `pip install -e .`
+# raises rather than building a stub distribution). To install the SDKs,
+# use the per-package directories under ``packages/`` instead, e.g.::
+#
+#     pip install ./packages/honua-sdk
+#     pip install ./packages/honua-admin
+#
+# Tooling (ruff, mypy, pytest, coverage) still discovers configuration
+# from this file because PEP 518 / per-tool conventions resolve
+# ``[tool.*]`` tables without requiring a build-system table.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -25,7 +25,93 @@ line-length = 120
 target-version = "py311"
 extend-exclude = [
   "packages/honua-sdk/honua_sdk/grpc/_generated",
+  # honua-arcpy is a separately-developed package; it is linted under its
+  # own (lenient) gate rather than this workspace-root strict rule set.
+  "packages/honua-arcpy",
 ]
 
 [tool.ruff.lint]
-select = ["E9", "F63", "F7", "F82", "B"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "TID", "PL", "S"]
+# Global ignores intentionally empty: E501, PLR0913, and PLR2004 are now
+# scoped via per-file-ignores so new modules are held to the strict bar.
+# UP037/UP017/PLC0415/I001/E402/F401/E741/SIM10x/PLR091x remain scoped
+# per-file as we ratchet enforcement up incrementally.
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Tests, examples, and scripts: argument-count and magic-value rules don't
+# usefully apply to fixtures, demos, or one-shot scripts. Long lines are
+# also routine inside fixture data.
+"tests/**" = ["E501", "PLR0913", "PLR2004", "SIM", "B017", "PLC0415", "I001", "UP037", "UP017", "F401", "E402", "E741", "PLR0911", "PLR0915", "PLR0912", "RUF022", "RUF043", "PLW0108", "PLR5501", "S101", "S105", "S106"]
+"examples/**" = ["E501", "PLR0913", "PLR2004", "PLC0415", "I001", "UP037", "UP017", "F401", "E402", "E741", "PLR0911", "PLR0915", "PLR0912", "RUF022", "RUF043", "PLW0108", "PLR5501", "SIM108", "SIM105", "S105", "S106"]
+"scripts/**" = ["E501", "PLR0913", "PLR2004", "PLC0415", "I001", "UP037", "UP017", "F401", "E402", "E741", "PLR0911", "PLR0915", "PLR0912", "RUF022", "RUF043", "RUF100", "PLW0108", "PLR5501", "SIM108", "SIM105", "S101", "S603", "S607"]
+# Narrow per-file allowances for runtime-import patterns inside the packages.
+# PLC0415: deliberate lazy imports to avoid hard deps (geopandas, grpc) or to break import cycles.
+# E501: wide public protocol surfaces use multi-keyword signatures where wrapping
+# would hurt readability. PLR0913: same reason — public protocol APIs forward
+# many optional pagination/filter knobs. PLR2004: HTTP status-code comparisons
+# (400/404/429) are inherently magic numbers tied to the protocol, not constants.
+# Per-file ignores have been narrowed so each file only excludes the rules it
+# actually triggers — new rule families surface immediately in CI.
+"packages/honua-sdk/honua_sdk/client.py" = ["PLC0415", "PLR0913", "PLR2004"]
+"packages/honua-sdk/honua_sdk/async_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
+"packages/honua-sdk/honua_sdk/ogc.py" = ["PLR0913"]
+"packages/honua-sdk/honua_sdk/migration/arcpy.py" = ["E501", "PLR2004"]
+"packages/honua-sdk/honua_sdk/source.py" = ["E501"]
+"packages/honua-sdk/honua_sdk/models.py" = ["E501"]
+"packages/honua-sdk/honua_sdk/_http.py" = ["PLR2004"]
+"packages/honua-sdk/honua_sdk/_query.py" = ["PLR0913", "PLR2004"]
+"packages/honua-sdk/honua_sdk/_retry.py" = ["PLR0913"]
+"packages/honua-sdk/honua_sdk/_async_retry.py" = ["PLR0913"]
+"packages/honua-sdk/honua_sdk/geocoding.py" = ["PLR0913", "PLR2004"]
+"packages/honua-sdk/honua_sdk/async_geocoding.py" = ["PLR0913", "PLR2004"]
+"packages/honua-sdk/honua_sdk/geopandas.py" = ["PLC0415"]
+"packages/honua-sdk/honua_sdk/grpc/_client.py" = ["PLC0415", "PLR0913"]
+"packages/honua-sdk/honua_sdk/grpc/_proto_adapter.py" = ["PLC0415", "PLR2004"]
+"packages/honua-admin/honua_admin/_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
+"packages/honua-admin/honua_admin/_async_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
+"packages/honua-admin/honua_admin/_models.py" = ["PLR2004"]
+# _arcpy_scanner.py is an AST-walking inventory scanner: visitor methods use
+# the ast node-class CamelCase names (N802), and the classifier has inherently
+# many branches/returns and protocol-numeric comparisons.
+"packages/honua-admin/honua_admin/_arcpy_scanner.py" = ["N802", "PLR0911", "PLR0912", "PLR0913", "PLR2004"]
+# UP037: keep quoted forward refs in package source. The compatibility-gate snapshot
+# captures inspect.signature output, which renders quoted annotations differently
+# from bare references even with `from __future__ import annotations`. Stripping
+# quotes would silently drift the public-api snapshot.
+"packages/**" = ["UP037"]
+
+[tool.mypy]
+python_version = "3.11"
+# Ratcheted incrementally beyond check_untyped_defs:
+#   * warn_unused_ignores  — keep `# type: ignore` debt visible.
+#   * disallow_untyped_defs — every def in honua_sdk / honua_admin has annotations.
+#   * warn_return_any — enabled globally and enforced everywhere. The
+#     prior ogc/protocols/source/grpc/_retry_core opt-outs have been
+#     retired now that the httpx-JSON return shapes are cast to typed
+#     return signatures at each call site.
+strict = false
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+# Individual strict-mode ratchets added on top of disallow_untyped_defs.
+# Full `strict = true` would also enable warn_no_return / disallow_subclassing_any;
+# those remain queued for a follow-up pass now that warn_return_any is clean.
+disallow_any_generics = true
+disallow_untyped_calls = true
+warn_return_any = true
+ignore_missing_imports = true
+packages = ["honua_sdk", "honua_admin"]
+
+# Generated protobuf shims are untyped upstream; exempt them from the
+# disallow_untyped_defs / disallow_untyped_calls ratchets so we do not
+# regenerate code just to add annotations that the next codegen run would
+# erase.
+[[tool.mypy.overrides]]
+module = "honua_sdk.grpc._generated.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false

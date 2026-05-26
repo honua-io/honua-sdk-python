@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qsl, urlsplit
+
+import httpx
 
 from ._http import _encode_path_segment
 
@@ -155,11 +157,11 @@ class HonuaOgcFeatures:
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
         """Get the OGC API Features landing page."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             "/ogc/features",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     def conformance(
         self,
@@ -168,11 +170,11 @@ class HonuaOgcFeatures:
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
         """Get OGC API conformance classes."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             "/ogc/features/conformance",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     def collections(
         self,
@@ -181,11 +183,11 @@ class HonuaOgcFeatures:
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
         """List OGC API Features collections."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             "/ogc/features/collections",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     def get_collection(
         self,
@@ -195,11 +197,11 @@ class HonuaOgcFeatures:
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
         """Get metadata for one OGC API Features collection."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             _collection_path(collection_id),
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     def queryables(
         self,
@@ -209,11 +211,11 @@ class HonuaOgcFeatures:
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
         """Get queryable property metadata for one collection."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             f"{_collection_path(collection_id)}/queryables",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     def items(
         self,
@@ -230,9 +232,11 @@ class HonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
         """List GeoJSON items for one collection."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             f"{_collection_path(collection_id)}/items",
             params=_items_params(
@@ -248,7 +252,9 @@ class HonuaOgcFeatures:
                 sortby=sortby,
                 crs=crs,
             ),
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+        ))
 
     def items_all(
         self,
@@ -267,6 +273,8 @@ class HonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> list[JsonObject]:
         """Page through collection items and return all fetched features."""
         return list(
@@ -285,6 +293,8 @@ class HonuaOgcFeatures:
                 properties=properties,
                 sortby=sortby,
                 crs=crs,
+                timeout=timeout,
+                extra_headers=extra_headers,
             )
         )
 
@@ -305,6 +315,8 @@ class HonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         yield from self.collection(collection_id).items_pages(
             response_format=response_format,
@@ -320,6 +332,8 @@ class HonuaOgcFeatures:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     def iter_items(
@@ -339,6 +353,8 @@ class HonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         yield from self.collection(collection_id).iter_items(
             response_format=response_format,
@@ -354,6 +370,8 @@ class HonuaOgcFeatures:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     def item(
@@ -366,11 +384,11 @@ class HonuaOgcFeatures:
         crs: str | None = None,
     ) -> JsonObject:
         """Get one GeoJSON feature by id."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "GET",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
-        )
+        ))
 
     def create_item(
         self,
@@ -379,15 +397,21 @@ class HonuaOgcFeatures:
         *,
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         """Create one GeoJSON feature in a collection."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "POST",
             f"{_collection_path(collection_id)}/items",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
             json_body=feature,
             headers={"Content-Type": "application/geo+json"},
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        ))
 
     def replace_item(
         self,
@@ -398,15 +422,21 @@ class HonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         """Replace one GeoJSON feature in a collection."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "PUT",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
             json_body=feature,
             headers={"Content-Type": "application/geo+json"},
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        ))
 
     def patch_item(
         self,
@@ -417,15 +447,21 @@ class HonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         """Patch one GeoJSON feature in a collection."""
-        return self.client._request_json(
+        return cast(JsonObject, self.client._request_json(
             "PATCH",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
             json_body=patch,
             headers={"Content-Type": "application/merge-patch+json"},
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        ))
 
     def delete_item(
         self,
@@ -435,12 +471,18 @@ class HonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> None:
         """Delete one GeoJSON feature from a collection."""
         self.client._request_json(
             "DELETE",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
 
@@ -489,6 +531,8 @@ class HonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
         return HonuaOgcFeatures(self.client).items(
             self.collection_id,
@@ -503,6 +547,8 @@ class HonuaOgcFeatureCollection:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     def items_all(
@@ -521,6 +567,8 @@ class HonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> list[JsonObject]:
         return list(
             self.iter_items(
@@ -537,6 +585,8 @@ class HonuaOgcFeatureCollection:
                 properties=properties,
                 sortby=sortby,
                 crs=crs,
+                timeout=timeout,
+                extra_headers=extra_headers,
             )
         )
 
@@ -556,6 +606,8 @@ class HonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_size(page_size, limit)
         effective_max_pages = _normalize_max_pages(max_pages)
@@ -574,7 +626,13 @@ class HonuaOgcFeatureCollection:
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
                 path, params = _path_and_params_from_href(next_href)
-                response = self.client._request_json("GET", path, params=params)
+                response = self.client._request_json(
+                    "GET",
+                    path,
+                    params=params,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
             else:
                 response = self.items(
                     response_format=response_format,
@@ -588,6 +646,8 @@ class HonuaOgcFeatureCollection:
                     properties=properties,
                     sortby=sortby,
                     crs=crs,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
             yield response
             page_features = _features_from_collection(response)
@@ -612,6 +672,8 @@ class HonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         emitted = 0
         for page in self.items_pages(
@@ -628,6 +690,8 @@ class HonuaOgcFeatureCollection:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         ):
             for item in _features_from_collection(page):
                 if limit is not None and emitted >= limit:
@@ -657,12 +721,18 @@ class HonuaOgcFeatureCollection:
         *,
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         return HonuaOgcFeatures(self.client).create_item(
             self.collection_id,
             feature,
             response_format=response_format,
             extra_params=extra_params,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
     def replace_item(
@@ -673,6 +743,9 @@ class HonuaOgcFeatureCollection:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         return HonuaOgcFeatures(self.client).replace_item(
             self.collection_id,
@@ -681,6 +754,9 @@ class HonuaOgcFeatureCollection:
             response_format=response_format,
             extra_params=extra_params,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
     def patch_item(
@@ -691,6 +767,9 @@ class HonuaOgcFeatureCollection:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         return HonuaOgcFeatures(self.client).patch_item(
             self.collection_id,
@@ -699,6 +778,9 @@ class HonuaOgcFeatureCollection:
             response_format=response_format,
             extra_params=extra_params,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
     def delete_item(
@@ -708,6 +790,9 @@ class HonuaOgcFeatureCollection:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> None:
         HonuaOgcFeatures(self.client).delete_item(
             self.collection_id,
@@ -715,6 +800,9 @@ class HonuaOgcFeatureCollection:
             response_format=response_format,
             extra_params=extra_params,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
 
@@ -734,11 +822,11 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             "/ogc/features",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     async def conformance(
         self,
@@ -746,11 +834,11 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             "/ogc/features/conformance",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     async def collections(
         self,
@@ -758,11 +846,11 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             "/ogc/features/collections",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     async def get_collection(
         self,
@@ -771,11 +859,11 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             _collection_path(collection_id),
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     async def queryables(
         self,
@@ -784,11 +872,11 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             f"{_collection_path(collection_id)}/queryables",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
-        )
+        ))
 
     async def items(
         self,
@@ -805,8 +893,10 @@ class AsyncHonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             f"{_collection_path(collection_id)}/items",
             params=_items_params(
@@ -822,7 +912,9 @@ class AsyncHonuaOgcFeatures:
                 sortby=sortby,
                 crs=crs,
             ),
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+        ))
 
     async def items_all(
         self,
@@ -841,6 +933,8 @@ class AsyncHonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> list[JsonObject]:
         return [
             item
@@ -859,6 +953,8 @@ class AsyncHonuaOgcFeatures:
                 properties=properties,
                 sortby=sortby,
                 crs=crs,
+                timeout=timeout,
+                extra_headers=extra_headers,
             )
         ]
 
@@ -879,6 +975,8 @@ class AsyncHonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         async for page in self.collection(collection_id).items_pages(
             response_format=response_format,
@@ -894,6 +992,8 @@ class AsyncHonuaOgcFeatures:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         ):
             yield page
 
@@ -914,6 +1014,8 @@ class AsyncHonuaOgcFeatures:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         async for item in self.collection(collection_id).iter_items(
             response_format=response_format,
@@ -929,6 +1031,8 @@ class AsyncHonuaOgcFeatures:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         ):
             yield item
 
@@ -941,11 +1045,11 @@ class AsyncHonuaOgcFeatures:
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "GET",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
-        )
+        ))
 
     async def create_item(
         self,
@@ -954,14 +1058,20 @@ class AsyncHonuaOgcFeatures:
         *,
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "POST",
             f"{_collection_path(collection_id)}/items",
             params=_metadata_params(response_format=response_format, extra_params=extra_params),
             json_body=feature,
             headers={"Content-Type": "application/geo+json"},
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        ))
 
     async def replace_item(
         self,
@@ -972,14 +1082,20 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "PUT",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
             json_body=feature,
             headers={"Content-Type": "application/geo+json"},
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        ))
 
     async def patch_item(
         self,
@@ -990,14 +1106,20 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
-        return await self.client._request_json(
+        return cast(JsonObject, await self.client._request_json(
             "PATCH",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
             json_body=patch,
             headers={"Content-Type": "application/merge-patch+json"},
-        )
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        ))
 
     async def delete_item(
         self,
@@ -1007,11 +1129,17 @@ class AsyncHonuaOgcFeatures:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> None:
         await self.client._request_json(
             "DELETE",
             _item_path(collection_id, feature_id),
             params=_item_params(response_format=response_format, extra_params=extra_params, crs=crs),
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
 
@@ -1060,6 +1188,8 @@ class AsyncHonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
         return await AsyncHonuaOgcFeatures(self.client).items(
             self.collection_id,
@@ -1074,6 +1204,8 @@ class AsyncHonuaOgcFeatureCollection:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     async def items_all(
@@ -1092,6 +1224,8 @@ class AsyncHonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> list[JsonObject]:
         return [
             item
@@ -1109,6 +1243,8 @@ class AsyncHonuaOgcFeatureCollection:
                 properties=properties,
                 sortby=sortby,
                 crs=crs,
+                timeout=timeout,
+                extra_headers=extra_headers,
             )
         ]
 
@@ -1128,6 +1264,8 @@ class AsyncHonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_size(page_size, limit)
         effective_max_pages = _normalize_max_pages(max_pages)
@@ -1146,7 +1284,13 @@ class AsyncHonuaOgcFeatureCollection:
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
                 path, params = _path_and_params_from_href(next_href)
-                response = await self.client._request_json("GET", path, params=params)
+                response = await self.client._request_json(
+                    "GET",
+                    path,
+                    params=params,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
             else:
                 response = await self.items(
                     response_format=response_format,
@@ -1160,6 +1304,8 @@ class AsyncHonuaOgcFeatureCollection:
                     properties=properties,
                     sortby=sortby,
                     crs=crs,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
             yield response
             page_features = _features_from_collection(response)
@@ -1184,6 +1330,8 @@ class AsyncHonuaOgcFeatureCollection:
         properties: CsvValue | None = None,
         sortby: str | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         emitted = 0
         async for page in self.items_pages(
@@ -1200,6 +1348,8 @@ class AsyncHonuaOgcFeatureCollection:
             properties=properties,
             sortby=sortby,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
         ):
             for item in _features_from_collection(page):
                 if limit is not None and emitted >= limit:
@@ -1229,12 +1379,18 @@ class AsyncHonuaOgcFeatureCollection:
         *,
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         return await AsyncHonuaOgcFeatures(self.client).create_item(
             self.collection_id,
             feature,
             response_format=response_format,
             extra_params=extra_params,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
     async def replace_item(
@@ -1245,6 +1401,9 @@ class AsyncHonuaOgcFeatureCollection:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         return await AsyncHonuaOgcFeatures(self.client).replace_item(
             self.collection_id,
@@ -1253,6 +1412,9 @@ class AsyncHonuaOgcFeatureCollection:
             response_format=response_format,
             extra_params=extra_params,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
     async def patch_item(
@@ -1263,6 +1425,9 @@ class AsyncHonuaOgcFeatureCollection:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> JsonObject:
         return await AsyncHonuaOgcFeatures(self.client).patch_item(
             self.collection_id,
@@ -1271,6 +1436,9 @@ class AsyncHonuaOgcFeatureCollection:
             response_format=response_format,
             extra_params=extra_params,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )
 
     async def delete_item(
@@ -1280,6 +1448,9 @@ class AsyncHonuaOgcFeatureCollection:
         response_format: str = "json",
         extra_params: Mapping[str, Any] | None = None,
         crs: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> None:
         await AsyncHonuaOgcFeatures(self.client).delete_item(
             self.collection_id,
@@ -1287,4 +1458,7 @@ class AsyncHonuaOgcFeatureCollection:
             response_format=response_format,
             extra_params=extra_params,
             crs=crs,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
         )

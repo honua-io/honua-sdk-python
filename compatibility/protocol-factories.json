@@ -3,6 +3,11 @@
   "allowedSyncMissing": {},
   "clients": {
     "async": {
+      "elevation": {
+        "parameters": "(self)",
+        "returns": "AsyncElevationClient",
+        "signature": "(self) -> \"'AsyncElevationClient'\""
+      },
       "feature_server": {
         "parameters": "(self, service_id: 'str')",
         "returns": "AsyncGeoServicesFeatureServerClient",
@@ -63,6 +68,11 @@
         "returns": "AsyncOgcTilesClient",
         "signature": "(self) -> \"'AsyncOgcTilesClient'\""
       },
+      "scenes": {
+        "parameters": "(self)",
+        "returns": "AsyncSceneClient",
+        "signature": "(self) -> \"'AsyncSceneClient'\""
+      },
       "stac": {
         "parameters": "(self)",
         "returns": "AsyncStacClient",
@@ -85,6 +95,11 @@
       }
     },
     "sync": {
+      "elevation": {
+        "parameters": "(self)",
+        "returns": "ElevationClient",
+        "signature": "(self) -> \"'ElevationClient'\""
+      },
       "feature_server": {
         "parameters": "(self, service_id: 'str')",
         "returns": "GeoServicesFeatureServerClient",
@@ -144,6 +159,11 @@
         "parameters": "(self)",
         "returns": "OgcTilesClient",
         "signature": "(self) -> \"'OgcTilesClient'\""
+      },
+      "scenes": {
+        "parameters": "(self)",
+        "returns": "SceneClient",
+        "signature": "(self) -> \"'SceneClient'\""
       },
       "stac": {
         "parameters": "(self)",

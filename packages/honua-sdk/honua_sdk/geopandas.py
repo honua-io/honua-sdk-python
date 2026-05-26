@@ -21,6 +21,8 @@ try:
         MultiPoint,
         Point,
         Polygon,
+    )
+    from shapely.geometry import (
         shape as _shape,
     )
 
@@ -119,7 +121,7 @@ def _normalize_geojson_crs_identifier(identifier: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:
+def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0911, PLR0912 -- geometry type dispatch
     """Convert a single Esri JSON geometry dict to a Shapely geometry.
 
     Returns ``None`` when *geom* is ``None`` or empty.
@@ -178,10 +180,9 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:
             if idx == 0 or not lr.is_ccw:
                 exteriors.append(coords)
                 holes_for.append([])
-            else:
-                # Hole - attach to most recent exterior
-                if holes_for:
-                    holes_for[-1].append(coords)
+            # Hole - attach to most recent exterior
+            elif holes_for:
+                holes_for[-1].append(coords)
 
         if not exteriors:
             return None
@@ -206,7 +207,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:
+def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
     """Convert a Shapely geometry to an Esri JSON geometry dict.
 
     Returns ``None`` when *geom* is ``None``.
@@ -216,10 +217,20 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:
 
     from shapely.geometry import (
         LineString,
+    )
+    from shapely.geometry import (
         MultiLineString as _MLS,
+    )
+    from shapely.geometry import (
         MultiPoint as _MP,
+    )
+    from shapely.geometry import (
         MultiPolygon as _MPoly,
+    )
+    from shapely.geometry import (
         Point as _Pt,
+    )
+    from shapely.geometry import (
         Polygon as _Poly,
     )
 
@@ -261,7 +272,7 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:
 
 def features_to_geodataframe(
     response: dict[str, Any],
-) -> "gpd.GeoDataFrame":
+) -> gpd.GeoDataFrame:
     """Convert an Esri JSON feature-query response to a GeoDataFrame.
 
     Parameters
@@ -303,7 +314,7 @@ def features_to_geodataframe(
 
 def ogc_features_to_geodataframe(
     response: dict[str, Any],
-) -> "gpd.GeoDataFrame":
+) -> gpd.GeoDataFrame:
     """Convert an OGC API Features GeoJSON response to a GeoDataFrame.
 
     Parameters
@@ -330,7 +341,7 @@ def ogc_features_to_geodataframe(
 
 def stac_items_to_geodataframe(
     response: dict[str, Any],
-) -> "gpd.GeoDataFrame":
+) -> gpd.GeoDataFrame:
     """Convert a STAC ItemCollection or search response to a GeoDataFrame.
 
     Parameters
@@ -368,7 +379,7 @@ def _geojson_feature_collection_to_geodataframe(
     feature_collection: Mapping[str, Any],
     *,
     feature_fields: tuple[str, ...],
-) -> "gpd.GeoDataFrame":
+) -> gpd.GeoDataFrame:
     _ensure_deps()
 
     rows: list[dict[str, Any]] = []
@@ -396,7 +407,7 @@ def _geojson_feature_collection_to_geodataframe(
 
 
 def geodataframe_to_features(
-    gdf: "gpd.GeoDataFrame",
+    gdf: gpd.GeoDataFrame,
 ) -> list[dict[str, Any]]:
     """Convert a GeoDataFrame to a list of Esri JSON feature dicts.
 
@@ -434,7 +445,7 @@ def geodataframe_to_features(
     return features
 
 
-def _json_safe_value(value: Any) -> Any:
+def _json_safe_value(value: Any) -> Any:  # noqa: PLR0911 -- value type dispatch
     if value is None:
         return None
     if isinstance(value, dict):

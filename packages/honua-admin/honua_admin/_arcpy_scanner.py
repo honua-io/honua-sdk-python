@@ -12,8 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, parse_qsl, urlsplit, urlunsplit
-
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 _ARTIFACT_KIND = "honua.migration.arcpy-script-inventory"
 _ARTIFACT_VERSION = "1.0"
@@ -368,21 +367,21 @@ class _ArcPyAstScanner(ast.NodeVisitor):
         self.tool_calls: list[ArcPyToolCall] = []
         self.literals: list[ArcPyLiteralReference] = []
 
-    def visit_Assign(self, node: ast.Assign) -> None:  # noqa: N802
+    def visit_Assign(self, node: ast.Assign) -> None:
         self._record_environment_assignment(node.targets, node.value, node.lineno)
         self._visit_value_with_context(node.value, _assignment_context(node.targets))
 
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:  # noqa: N802
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if node.value is None:
             return
         self._record_environment_assignment([node.target], node.value, node.lineno)
         self._visit_value_with_context(node.value, _assignment_context([node.target]))
 
-    def visit_AugAssign(self, node: ast.AugAssign) -> None:  # noqa: N802
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self._record_environment_assignment([node.target], node.value, node.lineno)
         self._visit_value_with_context(node.value, _assignment_context([node.target]))
 
-    def visit_Dict(self, node: ast.Dict) -> None:  # noqa: N802
+    def visit_Dict(self, node: ast.Dict) -> None:
         for key, value in zip(node.keys, node.values, strict=False):
             context = self._current_literal_context()
             if isinstance(key, ast.Constant) and isinstance(key.value, str):
@@ -394,7 +393,7 @@ class _ArcPyAstScanner(ast.NodeVisitor):
     def visit_keyword(self, node: ast.keyword) -> None:
         self._visit_value_with_context(node.value, node.arg)
 
-    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+    def visit_Call(self, node: ast.Call) -> None:
         path = self._resolve_path(node.func)
         if path is not None and _is_arcpy_path(path):
             self._record_arcpy_call(node, path)
@@ -404,7 +403,7 @@ class _ArcPyAstScanner(ast.NodeVisitor):
         for keyword in node.keywords:
             self.visit(keyword)
 
-    def visit_Constant(self, node: ast.Constant) -> None:  # noqa: N802
+    def visit_Constant(self, node: ast.Constant) -> None:
         if not isinstance(node.value, str):
             return
         context = self._current_literal_context()

@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 
 import pytest
 
+from scripts import validate_publish_tag
+
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = ROOT / "scripts" / "validate_publish_tag.py"
-SPEC = importlib.util.spec_from_file_location("validate_publish_tag", SCRIPT_PATH)
-assert SPEC is not None
-assert SPEC.loader is not None
-validate_publish_tag = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(validate_publish_tag)
 
 
 @pytest.mark.parametrize(

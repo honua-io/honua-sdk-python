@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
+T = TypeVar("T")
+
+#: Canonical cross-SDK protocol identifier. Pass aliases through
+#: :func:`normalize_protocol` to coerce them before storing in typed code paths.
 Protocol: TypeAlias = Literal[
     "grpc",
     "geoservices-feature-service",
@@ -24,7 +29,9 @@ Protocol: TypeAlias = Literal[
     "maplibre-vector",
     "maplibre-raster",
     "maplibre-geojson",
-] | str
+]
+#: Canonical cross-SDK capability identifier. Use :func:`normalize_capability`
+#: to coerce snake_case or alias forms before passing into typed APIs.
 Capability: TypeAlias = Literal[
     "query",
     "queryAggregate",
@@ -43,7 +50,7 @@ Capability: TypeAlias = Literal[
     "geometry",
     "geoprocess",
     "processes",
-] | str
+]
 QueryProtocol: TypeAlias = Protocol
 
 PROTOCOLS = (
@@ -168,8 +175,14 @@ _NORMALIZED_PROTOCOL_ALIASES = {key.lower().replace("_", "-"): value for key, va
 _CAPABILITY_BY_KEY = {"".join(ch for ch in capability.lower() if ch.isalnum()): capability for capability in CAPABILITIES}
 
 
-def normalize_protocol(value: Protocol) -> str:
-    """Return the canonical cross-SDK protocol id for a protocol name or alias."""
+def normalize_protocol(value: Protocol | str) -> str:
+    """Return the canonical cross-SDK protocol id for a protocol name or alias.
+
+    Accepts any string at runtime — the :data:`Protocol` ``Literal`` is the
+    strict static type, and this helper is the explicit validate/coerce
+    boundary for arbitrary input (alias resolution, snake_case, case
+    folding). Raises :class:`ValueError` for unknown protocols.
+    """
     normalized = str(value).strip().lower().replace("_", "-")
     protocol = _NORMALIZED_PROTOCOL_ALIASES.get(normalized, normalized)
     if protocol in PROTOCOLS:
@@ -178,8 +191,14 @@ def normalize_protocol(value: Protocol) -> str:
     raise ValueError(f"Unsupported protocol {value!r}. Expected one of: {expected}.")
 
 
-def normalize_capability(value: Capability) -> str:
-    """Return the canonical cross-SDK capability id for a capability name."""
+def normalize_capability(value: Capability | str) -> str:
+    """Return the canonical cross-SDK capability id for a capability name.
+
+    Accepts any string at runtime — :data:`Capability` is a strict
+    ``Literal``; this helper is the explicit validate/coerce boundary
+    that resolves snake_case and case variants. Raises :class:`ValueError`
+    for unknown capabilities.
+    """
     key = "".join(ch for ch in str(value).strip().lower() if ch.isalnum())
     try:
         return _CAPABILITY_BY_KEY[key]
@@ -188,14 +207,14 @@ def normalize_capability(value: Capability) -> str:
         raise ValueError(f"Unsupported capability {value!r}. Expected one of: {expected}.") from exc
 
 
-def capability_set(values: Iterable[Capability] | None) -> frozenset[str]:
+def capability_set(values: Iterable[Capability | str] | None) -> frozenset[str]:
     """Normalize a capability iterable into canonical capability ids."""
     if values is None:
         return frozenset()
     return frozenset(normalize_capability(value) for value in values)
 
 
-def default_capabilities(protocol: Protocol) -> frozenset[str]:
+def default_capabilities(protocol: Protocol | str) -> frozenset[str]:
     """Return the default capabilities advertised for a canonical protocol id."""
     return frozenset(DEFAULT_CAPABILITIES.get(normalize_protocol(protocol), ()))
 
@@ -281,7 +300,15 @@ class DataPlaneCapabilities:
 
 @dataclass(frozen=True)
 class SourceLocator:
-    """Protocol-specific source address using Pythonic field names."""
+    """Protocol-specific source address using Pythonic field names.
+
+    Attributes:
+        service_id: GeoServices service identifier (FeatureServer/MapServer/ImageServer).
+        layer_id: Numeric layer index within a GeoServices service.
+        collection_id: OGC API / STAC collection identifier.
+        entity_set: OData entity-set name (e.g. ``"Features"``).
+        type_name: WFS ``typeName`` value.
+    """
 
     service_id: str | None = None
     layer_id: int | None = None
@@ -302,10 +329,22 @@ class SourceLocator:
 
 @dataclass(frozen=True)
 class SourceDescriptor:
-    """Cross-SDK source description used by the source facade."""
+    """Cross-SDK source description used by the source facade.
+
+    ``protocol`` accepts any string (including alias forms) at construction
+    time; ``__post_init__`` normalizes it through :func:`normalize_protocol`
+    so the stored value is always a canonical :data:`Protocol` literal.
+
+    Attributes:
+        id: Stable source identifier used by the canonical facade.
+        protocol: Canonical protocol literal after normalization.
+        locator: Protocol-specific addressing fields.
+        capabilities: Frozen set of canonical capability names advertised.
+        raw: Free-form mapping preserving the source's underlying payload.
+    """
 
     id: str
-    protocol: Protocol
+    protocol: Protocol | str
     locator: SourceLocator = field(default_factory=SourceLocator)
     capabilities: frozenset[str] = field(default_factory=frozenset)
     raw: Mapping[str, Any] = field(default_factory=dict)
@@ -328,14 +367,21 @@ class SourceDescriptor:
             raw=dict(payload),
         )
 
-    def supports(self, capability: Capability) -> bool:
+    def supports(self, capability: Capability | str) -> bool:
         """Return whether the source descriptor advertises a capability."""
         return normalize_capability(capability) in self.capabilities
 
 
 @dataclass(frozen=True)
 class Pagination:
-    """Pagination options shared by queryable source protocols."""
+    """Pagination options shared by queryable source protocols.
+
+    Attributes:
+        limit: Maximum features to return across all pages.
+        page_size: Per-request page size for paginated protocols.
+        max_pages: Cap on the number of pages walked.
+        offset: Starting offset for the first page (when supported).
+    """
 
     limit: int | None = None
     page_size: int | None = None
@@ -354,9 +400,48 @@ class Pagination:
 
 @dataclass(frozen=True)
 class Query:
-    """Cross-SDK query model with Pythonic field names."""
+    """Cross-SDK query model with Pythonic field names.
+
+    Filter routing
+    --------------
+
+    Pick exactly one of three forms, matched to the target protocol:
+
+    * ``where`` — SQL-style ``WHERE`` clause for SQL protocols
+      (GeoServices FeatureServer, OData). On CQL-based protocols (OGC
+      Features, STAC) this raises :class:`ValueError` at routing time,
+      because silently forwarding SQL syntax to a CQL endpoint is a
+      footgun that masks bugs.
+    * ``cql_filter`` — CQL2-text filter for CQL protocols (OGC Features,
+      STAC). On SQL-style protocols this raises :class:`ValueError` —
+      CQL2-text is not valid for FeatureServer / OData.
+    * ``where_as_cql=True`` — escape hatch for protocol-agnostic callers
+      that have already verified the ``where`` string is valid CQL2-text.
+      With the flag set, ``where`` is forwarded to the CQL ``filter``
+      field on OGC/STAC without raising. The flag is a no-op on SQL-style
+      protocols (``where`` still routes to SQL ``where``).
+
+    When both ``where`` and ``cql_filter`` are set on a CQL-based
+    protocol, ``cql_filter`` wins.
+
+    Attributes:
+        where: SQL-style filter for FeatureServer/OData endpoints.
+        cql_filter: CQL2-text filter for OGC Features / STAC.
+        where_as_cql: When True, forwards ``where`` to CQL endpoints without raising.
+        spatial_filter: Free-form spatial-filter mapping (geometry, relation, SR).
+        bbox: ``(minx, miny, maxx, maxy)`` spatial filter; comma-string also accepted.
+        out_fields: Field selector; ``["*"]`` or ``"*"`` selects all.
+        order_by: Sort specification forwarded to the protocol.
+        pagination: :class:`Pagination` options (``limit``, ``page_size``, ...).
+        aggregation: Protocol-neutral aggregation request mapping.
+        return_geometry: Whether to include geometry in the response.
+        out_sr: Output spatial reference (EPSG code or WKID).
+        extra_params: Free-form per-protocol query parameter overrides.
+    """
 
     where: str | None = None
+    cql_filter: str | None = None
+    where_as_cql: bool = False
     spatial_filter: Mapping[str, Any] | None = None
     bbox: str | Sequence[int | float] | None = None
     out_fields: str | Sequence[str] | None = None
@@ -381,6 +466,8 @@ class Query:
         pagination = _first_present(payload, "pagination", "page")
         return cls(
             where=_optional_str(payload.get("where")),
+            cql_filter=_optional_str(_first_present(payload, "cqlFilter", "cql_filter")),
+            where_as_cql=bool(_first_present(payload, "whereAsCql", "where_as_cql") or False),
             spatial_filter=_mapping_value(_first_present(payload, "spatialFilter", "spatial_filter")),
             bbox=_first_present(payload, "bbox", "boundingBox", "bounding_box"),
             out_fields=_first_present(payload, "outFields", "out_fields", "fields"),
@@ -413,10 +500,16 @@ class Query:
 
 @dataclass(frozen=True)
 class DegradedReason:
-    """Reason a result used a lower-fidelity path for a requested capability."""
+    """Reason a result used a lower-fidelity path for a requested capability.
 
-    capability: Capability
-    protocol: Protocol
+    ``capability`` and ``protocol`` are normalized to their canonical
+    Literal form in ``__post_init__`` via :func:`normalize_capability` /
+    :func:`normalize_protocol`, so aliases passed at construction time are
+    accepted but stored values always match the strict types.
+    """
+
+    capability: Capability | str
+    protocol: Protocol | str
     source_id: str | None = None
     reason: str = ""
 
@@ -426,10 +519,33 @@ class DegradedReason:
 
 
 @dataclass(frozen=True)
-class Result:
-    """Collected result returned by the canonical Source/Query API."""
+class Result(Generic[T]):
+    """Collected result returned by the canonical Source/Query API.
 
-    features: tuple["QueryFeature", ...] = ()
+    Generic over the feature element type ``T`` (defaults to
+    :class:`QueryFeature` at call sites). ``raw_legacy`` exposes the
+    underlying :class:`FeatureQueryResult` (the protocol-neutral query
+    result the canonical facade is built on) for callers that need the
+    unprocessed protocol response — e.g. inspecting ``pages_seen`` or the
+    original ``query`` envelope. ``raw`` remains a free-form mapping
+    reserved for protocol-specific extension fields.
+
+    Attributes:
+        features: Tuple of result features (type parameter ``T``).
+        exceeded_transfer_limit: True when the server signalled more pages remain.
+        total_count: Server-reported total count when available.
+        aggregate_rows: Aggregate result rows when an aggregation was requested.
+        extent: Result extent mapping (``xmin``/``ymin``/``xmax``/``ymax``).
+        fields: Field schema entries returned by the protocol.
+        degraded: Reasons this result fell back to a lower-fidelity path.
+        protocol: Canonical protocol literal the result was served from.
+        source_id: Identifier of the source that produced the result.
+        query: The :class:`Query` instance that produced this result.
+        raw: Free-form mapping for protocol-specific extension fields.
+        raw_legacy: Underlying :class:`FeatureQueryResult` envelope, when available.
+    """
+
+    features: tuple[T, ...] = ()
     exceeded_transfer_limit: bool = False
     total_count: int | None = None
     aggregate_rows: tuple[Mapping[str, Any], ...] = ()
@@ -440,6 +556,7 @@ class Result:
     source_id: str = ""
     query: Query | None = None
     raw: Mapping[str, Any] = field(default_factory=dict)
+    raw_legacy: "FeatureQueryResult | None" = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "features", tuple(self.features))
@@ -452,7 +569,14 @@ class Result:
 
 @dataclass(frozen=True)
 class Feature:
-    """FeatureServer feature with attributes and optional geometry."""
+    """FeatureServer feature with attributes and optional geometry.
+
+    Returned by GeoServices FeatureServer endpoints (``FeatureServerClient``
+    and its async sibling) via :meth:`FeatureSet.features`. Uses the
+    GeoServices ``attributes``/``geometry`` shape verbatim. For the
+    protocol-neutral feature shape used by :meth:`Source.query`, see
+    :class:`QueryFeature` instead.
+    """
 
     attributes: Mapping[str, Any]
     geometry: Mapping[str, Any] | None = None
@@ -512,7 +636,7 @@ class FeatureQuery:
     """Protocol-neutral feature query request."""
 
     source: str
-    protocol: QueryProtocol = "feature-server"
+    protocol: QueryProtocol | str = "feature-server"
     layer_id: int | None = None
     where: str | None = None
     filter: str | None = None
@@ -527,7 +651,22 @@ class FeatureQuery:
 
 @dataclass(frozen=True)
 class QueryFeature:
-    """Protocol-neutral feature returned by the shared query API."""
+    """Protocol-neutral feature returned by the shared query API.
+
+    Returned by :meth:`Source.query`, :meth:`Source.stream`, and the
+    underlying :meth:`HonuaClient.query` / :meth:`AsyncHonuaClient.query`
+    facade across every protocol (FeatureServer, OGC Features, STAC,
+    OData). Uses GeoJSON-shaped ``properties`` + ``geometry``. For the
+    raw GeoServices ``attributes``/``geometry`` shape, see :class:`Feature`.
+
+    Attributes:
+        id: Stable feature identifier from the underlying protocol.
+        properties: GeoJSON-shaped attribute mapping.
+        geometry: Optional GeoJSON-shaped geometry mapping.
+        protocol: Canonical protocol literal the feature was served from.
+        source: Identifier of the source that produced the feature.
+        raw: Free-form mapping preserving the underlying protocol payload.
+    """
 
     id: str | int | None
     properties: Mapping[str, Any]
@@ -539,12 +678,31 @@ class QueryFeature:
 
 @dataclass(frozen=True)
 class FeatureQueryResult:
-    """Collected result returned by the shared query API."""
+    """Collected result returned by the shared query API.
+
+    Pagination signals (``exceeded_transfer_limit``, ``total_count``,
+    ``pages_seen``) are populated from the underlying protocol response
+    when available:
+
+    * GeoServices FeatureServer surfaces ``exceededTransferLimit`` on each
+      page; ``total_count`` defaults to ``len(features)``.
+    * OGC Features / STAC surface ``numberMatched`` (total) and
+      ``numberReturned``; ``exceeded_transfer_limit`` is derived from a
+      ``next`` link being present on the last page walked.
+    * OData surfaces ``@odata.count`` (total) and ``@odata.nextLink``
+      (drives ``exceeded_transfer_limit``).
+
+    When the protocol does not expose a signal the field defaults to a
+    safe value (``False`` / ``None``) — never silently fabricated.
+    """
 
     features: tuple[QueryFeature, ...]
     protocol: str
     source: str
     query: FeatureQuery
+    exceeded_transfer_limit: bool = False
+    total_count: int | None = None
+    pages_seen: int = 0
 
 
 @dataclass(frozen=True)
@@ -699,12 +857,8 @@ def _normalize_advertised_name(value: str) -> str:
 
 def _normalized_surface_keys(value: str) -> set[str]:
     keys = {_normalize_capability_name(value)}
-    try:
+    with contextlib.suppress(ValueError):
         keys.add(normalize_protocol(value))
-    except ValueError:
-        pass
-    try:
+    with contextlib.suppress(ValueError):
         keys.add(normalize_capability(value))
-    except ValueError:
-        pass
     return keys

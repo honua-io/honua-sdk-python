@@ -8,7 +8,8 @@ Static credentials are still available for simple service accounts:
 ```python
 from honua_sdk import HonuaClient
 
-client = HonuaClient("https://honua.example", api_key="honua-api-key")
+with HonuaClient("https://honua.example", api_key="honua-api-key") as client:
+    services = client.list_services()
 ```
 
 For user or workload tokens that expire, use

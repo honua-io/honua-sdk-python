@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from honua_sdk import CallableAuthProvider, HonuaHttpError
+from honua_sdk.errors import HonuaTransportError
 from honua_admin import (
     HonuaAdminClient,
     ServiceSettingsResponse,
@@ -307,18 +308,16 @@ def test_custom_http_client_rejects_sdk_auth_options() -> None:
         client.close()
 
 
-def test_transport_errors_are_normalized_to_honua_http_error() -> None:
+def test_transport_errors_are_normalized_to_honua_transport_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("dial failed", request=request)
 
     transport = httpx.MockTransport(handler)
     with HonuaAdminClient("http://test.honua.io", transport=transport) as client:
-        with pytest.raises(HonuaHttpError) as exc_info:
+        with pytest.raises(HonuaTransportError) as exc_info:
             client.list_services()
 
     err = exc_info.value
-    assert err.status_code == 0
-    assert err.message == "Transport error: dial failed"
-    assert isinstance(err.body, dict)
-    assert err.body["type"] == "ConnectError"
-    assert err.body["url"] == "http://test.honua.io/api/v1/admin/services/"
+    assert "Transport error: dial failed" in str(err)
+    assert err.cause_type == "ConnectError"
+    assert err.url == "http://test.honua.io/api/v1/admin/services/"

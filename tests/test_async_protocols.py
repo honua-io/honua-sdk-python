@@ -5,7 +5,8 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import AsyncHonuaClient, BinaryResponse, HonuaClient, ODataQuery
+from honua_sdk import AsyncHonuaClient, HonuaClient
+from honua_sdk.protocols import BinaryResponse, ODataQuery
 
 
 @pytest.fixture
@@ -27,7 +28,6 @@ def test_async_client_exposes_sync_protocol_factories() -> None:
         "ogc_tiles",
         "ogc_coverages",
         "ogc_processes",
-        "ogc_records",
         "stac",
         "wfs",
         "wms",
@@ -113,64 +113,6 @@ async def test_async_ogc_maps_tiles_coverages_and_processes_build_expected_paths
     ]
     assert seen[1]["query"] == {"f": "png", "bbox": "-180,-90,180,90"}
     assert seen[4]["query"] == {"f": "tiff"}
-
-
-async def test_async_ogc_records_builds_requests_and_iterates_pages() -> None:
-    seen: list[dict[str, Any]] = []
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
-        query = dict(request.url.params.multi_items())
-        seen.append({"method": request.method, "raw_path": raw_path, "query": query})
-        if raw_path.endswith("/items"):
-            offset = int(query.get("offset", "0"))
-            records = [{"id": f"record-{offset + 1}"}, {"id": f"record-{offset + 2}"}]
-            payload: dict[str, Any] = {"records": records}
-            if offset == 0:
-                payload["links"] = [
-                    {
-                        "rel": "next",
-                        "href": "http://example.test/ogc/records/collections/catalog/items?offset=2&limit=2",
-                    }
-                ]
-            return httpx.Response(200, json=payload)
-        return httpx.Response(200, json={"ok": True})
-
-    transport = httpx.MockTransport(handler)
-    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
-        assert (await client.ogc_records().landing())["ok"] is True
-        assert (await client.ogc_records().collection("catalog").metadata())["ok"] is True
-        assert (await client.ogc_records().record("catalog", "record/1"))["ok"] is True
-        records = [
-            record
-            async for record in client.ogc_records().collection("catalog").iter_records(
-                page_size=2,
-                limit=3,
-                bbox=[-158, 21, -157, 22],
-                datetime="2026-01-01/..",
-                filter="properties.kind = 'dataset'",
-                q="coast",
-            )
-        ]
-
-    assert [record["id"] for record in records] == ["record-1", "record-2", "record-3"]
-    assert [(entry["method"], entry["raw_path"]) for entry in seen] == [
-        ("GET", "/ogc/records"),
-        ("GET", "/ogc/records/collections/catalog"),
-        ("GET", "/ogc/records/collections/catalog/items/record%2F1"),
-        ("GET", "/ogc/records/collections/catalog/items"),
-        ("GET", "/ogc/records/collections/catalog/items"),
-    ]
-    assert seen[3]["query"] == {
-        "f": "json",
-        "limit": "2",
-        "offset": "0",
-        "bbox": "-158,21,-157,22",
-        "datetime": "2026-01-01/..",
-        "filter": "properties.kind = 'dataset'",
-        "q": "coast",
-    }
-    assert seen[4]["query"] == {"offset": "2", "limit": "2"}
 
 
 async def test_async_stac_classic_ogc_and_odata_build_expected_paths() -> None:
@@ -306,3 +248,162 @@ async def test_async_wms_response_helper_returns_binary_metadata() -> None:
     assert response.content_type == "image/png"
     assert response.etag == '"map-v1"'
     assert seen["request"] == "GetMap"
+
+
+async def test_async_ogc_records_builds_requests_and_iterates_pages() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        query = dict(request.url.params.multi_items())
+        seen.append({"method": request.method, "raw_path": raw_path, "query": query})
+        if raw_path.endswith("/items"):
+            offset = int(query.get("offset", "0"))
+            records = [{"id": f"record-{offset + 1}"}, {"id": f"record-{offset + 2}"}]
+            payload: dict[str, Any] = {"records": records}
+            if offset == 0:
+                payload["links"] = [
+                    {
+                        "rel": "next",
+                        "href": "http://example.test/ogc/records/collections/catalog/items?offset=2&limit=2",
+                    }
+                ]
+            return httpx.Response(200, json=payload)
+        return httpx.Response(200, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        assert (await client.ogc_records().landing())["ok"] is True
+        assert (await client.ogc_records().collection("catalog").metadata())["ok"] is True
+        assert (await client.ogc_records().record("catalog", "record/1"))["ok"] is True
+        records = [
+            record
+            async for record in client.ogc_records().collection("catalog").iter_records(
+                page_size=2,
+                limit=3,
+                bbox=[-158, 21, -157, 22],
+                datetime="2026-01-01/..",
+                filter="properties.kind = 'dataset'",
+                q="coast",
+            )
+        ]
+
+    assert [record["id"] for record in records] == ["record-1", "record-2", "record-3"]
+    assert [(entry["method"], entry["raw_path"]) for entry in seen] == [
+        ("GET", "/ogc/records"),
+        ("GET", "/ogc/records/collections/catalog"),
+        ("GET", "/ogc/records/collections/catalog/items/record%2F1"),
+        ("GET", "/ogc/records/collections/catalog/items"),
+        ("GET", "/ogc/records/collections/catalog/items"),
+    ]
+    assert seen[3]["query"] == {
+        "f": "json",
+        "limit": "2",
+        "offset": "0",
+        "bbox": "-158,21,-157,22",
+        "datetime": "2026-01-01/..",
+        "filter": "properties.kind = 'dataset'",
+        "q": "coast",
+    }
+    assert seen[4]["query"] == {"offset": "2", "limit": "2"}
+
+
+async def test_async_ogc_records_helpers_aliases_and_search() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        query = dict(request.url.params.multi_items())
+        seen.append({"method": request.method, "raw_path": raw_path, "query": query})
+        if raw_path.endswith("/items"):
+            offset = int(query.get("offset", "0"))
+            records = [{"id": f"record-{offset + 1}"}, {"id": f"record-{offset + 2}"}]
+            payload: dict[str, Any] = {"records": records}
+            if offset == 0:
+                payload["links"] = [
+                    {
+                        "rel": "next",
+                        "href": "http://example.test/ogc/records/collections/catalog/items?offset=2&limit=2",
+                    }
+                ]
+            return httpx.Response(200, json=payload)
+        return httpx.Response(200, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        records_client = client.ogc_records()
+
+        # Top-level async record_pages/records_all/iter_records delegate to the collection.
+        pages = [page async for page in records_client.record_pages("catalog", page_size=2, limit=4)]
+        assert [r["id"] for page in pages for r in page["records"]] == [
+            "record-1",
+            "record-2",
+            "record-3",
+            "record-4",
+        ]
+        assert [r["id"] for r in await records_client.records_all("catalog", page_size=2, limit=2)] == [
+            "record-1",
+            "record-2",
+        ]
+        assert [r["id"] async for r in records_client.iter_records("catalog", page_size=2, limit=2)] == [
+            "record-1",
+            "record-2",
+        ]
+
+        # Collection-level aliases (items/item/iter_items/items_all) + search.
+        collection = records_client.collection("catalog")
+        assert (await collection.items(limit=1))["records"][0]["id"] == "record-1"
+        # item() fetches a single record detail (non-/items path -> handler returns {"ok": True}).
+        assert (await collection.item("record/9"))["ok"] is True
+        assert [r["id"] for r in await collection.items_all(page_size=2, limit=2)] == ["record-1", "record-2"]
+        assert [r["id"] async for r in collection.iter_items(page_size=2, limit=2)] == ["record-1", "record-2"]
+        assert (await collection.search(json_body={"q": "x"}))["records"][0]["id"] == "record-1"
+
+    # search with json_body on a collection POSTs to the collection items path.
+    assert ("POST", "/ogc/records/collections/catalog/items") in [
+        (entry["method"], entry["raw_path"]) for entry in seen
+    ]
+
+
+async def test_async_ogc_records_pagination_edge_cases() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        # Always a single short page with no next link, to exercise the
+        # short-page termination branch.
+        return httpx.Response(200, json={"records": [{"id": "only-1"}]})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        collection = client.ogc_records().collection("catalog")
+        # limit=0 -> generator yields nothing (early return branch).
+        assert [page async for page in collection.record_pages(limit=0)] == []
+        # Single short page, no next link -> terminates after one page.
+        pages = [page async for page in collection.record_pages(page_size=5, limit=5)]
+        assert len(pages) == 1
+        assert [r["id"] for r in await collection.records_all(page_size=5, limit=5)] == ["only-1"]
+
+
+async def test_async_ogc_records_top_level_aliases_and_search_variants() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raw_path = request.url.raw_path.decode("ascii").split("?")[0]
+        seen.append({"method": request.method, "raw_path": raw_path})
+        return httpx.Response(200, json={"records": [{"id": "r-1"}]})
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        records = client.ogc_records()
+        # Discovery endpoints: conformance/openapi/collections.
+        assert "records" in await records.conformance()
+        assert "records" in await records.openapi()
+        assert "records" in await records.collections()
+        # Top-level client items()/item() aliases (delegate to records()/record()).
+        assert (await records.items("catalog", limit=1))["records"][0]["id"] == "r-1"
+        assert (await records.item("catalog", "rec/1"))["records"][0]["id"] == "r-1"
+        # queryables() on the async collection wrapper.
+        assert (await records.collection("catalog").queryables())["records"][0]["id"] == "r-1"
+        # search() without a collection GETs the catalog-wide /search endpoint.
+        assert (await records.search(params={"q": "x"}))["records"][0]["id"] == "r-1"
+
+    assert ("GET", "/ogc/records/search") in [(e["method"], e["raw_path"]) for e in seen]
+    assert ("GET", "/ogc/records/collections/catalog/queryables") in [(e["method"], e["raw_path"]) for e in seen]

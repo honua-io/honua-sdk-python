@@ -244,8 +244,8 @@ def query_target_snapshot(
     fallback_target_crs: str = DEFAULT_TARGET_CRS,
 ) -> TargetSnapshot:
     response = client.query_features(
-        service_id,
-        layer_id,
+        service_id=service_id,
+        layer_id=layer_id,
         where=where,
         out_fields=["*"],
         return_geometry=True,
@@ -457,8 +457,8 @@ def run_workflow(
 
     try:
         apply_response = client.apply_edits(
-            service_id,
-            layer_id,
+            service_id=service_id,
+            layer_id=layer_id,
             adds=plan.add_features or None,
             updates=plan.update_features or None,
             rollback_on_failure=True,

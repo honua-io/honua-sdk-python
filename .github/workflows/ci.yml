@@ -38,12 +38,49 @@ jobs:
       - name: Run Ruff
         run: ruff check .
 
-  test:
+  typecheck:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            packages/honua-sdk/pyproject.toml
+            packages/honua-admin/pyproject.toml
+
+      - name: Install packages and mypy
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "packages/honua-sdk[grpc]"
+          pip install -e "packages/honua-admin"
+          pip install mypy
+
+      - name: Run mypy
+        run: python -m mypy packages/honua-sdk/honua_sdk packages/honua-admin/honua_admin
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+        extras: ["grpc", "grpc,geopandas"]
+        include:
+          - os: macos-latest
+            python-version: "3.11"
+            extras: "grpc,geopandas"
+          - os: windows-latest
+            python-version: "3.11"
+            extras: "grpc,geopandas"
     steps:
       - uses: actions/checkout@v6
 
@@ -59,12 +96,37 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e "packages/honua-sdk[grpc]"
+          pip install -e "packages/honua-sdk[${{ matrix.extras }}]"
           pip install -e "packages/honua-admin"
-          pip install pytest
+          pip install pytest pytest-cov
 
-      - name: Run tests
-        run: python -m pytest tests/ -q --tb=short
+      - name: Run tests with combined coverage gate
+        run: |
+          python -m pytest tests/ -q --tb=short \
+            --cov=honua_sdk --cov=honua_admin \
+            --cov-report=term-missing --cov-report=xml --cov-fail-under=94
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && matrix.extras == 'grpc,geopandas'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          # The local ``--cov-fail-under=94`` step above is the real
+          # coverage gate; a Codecov upload hiccup is a third-party
+          # availability issue, not a coverage regression.
+          fail_ci_if_error: false
+
+      - name: Per-package coverage floor (honua_sdk)
+        run: |
+          python -m pytest tests/ -q --tb=short \
+            --cov=honua_sdk --cov-report=term \
+            --cov-fail-under=93
+
+      - name: Per-package coverage floor (honua_admin)
+        run: |
+          python -m pytest tests/admin -q --tb=short \
+            --cov=honua_admin --cov-report=term \
+            --cov-fail-under=93
 
   compatibility:
     runs-on: ubuntu-latest
@@ -88,6 +150,30 @@ jobs:
 
       - name: Run compatibility gate
         run: python scripts/compatibility_gate.py
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            packages/honua-sdk/pyproject.toml
+            packages/honua-admin/pyproject.toml
+
+      - name: Install packages and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+          pip install -e "packages/honua-sdk[grpc,geopandas]"
+          pip install -e "packages/honua-admin"
+
+      - name: Security audit (pip-audit)
+        run: python -m pip_audit --strict
 
   package:
     runs-on: ubuntu-latest
@@ -123,3 +209,11 @@ jobs:
       - name: Check honua-admin distribution
         run: twine check dist/*
         working-directory: packages/honua-admin
+
+      - name: Smoke-install built wheels in a fresh venv
+        run: |
+          python -m venv /tmp/wheel-smoke
+          /tmp/wheel-smoke/bin/pip install --upgrade pip
+          /tmp/wheel-smoke/bin/pip install packages/honua-sdk/dist/honua_sdk-*.whl
+          /tmp/wheel-smoke/bin/pip install packages/honua-admin/dist/honua_admin-*.whl
+          /tmp/wheel-smoke/bin/python -c "import honua_sdk; import honua_admin; print('ok', honua_sdk.__version__, honua_admin.__version__)"

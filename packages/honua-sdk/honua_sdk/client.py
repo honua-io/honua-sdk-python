@@ -61,6 +61,7 @@ from .models import (
 if TYPE_CHECKING:
     from .auth import AuthProvider
     from .geocoding import HonuaGeocodingClient
+    from .geoprocessing import HonuaGeoprocessing
     from .models import SourceDescriptor
     from .ogc import HonuaOgcFeatures
     from .protocols import (
@@ -82,6 +83,7 @@ if TYPE_CHECKING:
     )
     from .protocols.scenes import ElevationClient
     from .source import Source
+    from .workflow import HonuaWorkflow
 
 
 class HonuaClient:
@@ -628,6 +630,33 @@ class HonuaClient:
         from .protocols import OgcRecordsClient
 
         return OgcRecordsClient(self)
+
+    def geoprocessing(self) -> "HonuaGeoprocessing":
+        """Return a geoprocessing (OGC API Processes) client.
+
+        Returns:
+            A :class:`~honua_sdk.geoprocessing.HonuaGeoprocessing` bound to
+            this client's transport for listing/describing processes and
+            submitting + polling + fetching the results of process executions.
+        """
+        from .geoprocessing import HonuaGeoprocessing
+
+        return HonuaGeoprocessing(self)
+
+    def workflow(self) -> "HonuaWorkflow":
+        """Return a workflow package authoring + publication client.
+
+        Returns:
+            A :class:`~honua_sdk.workflow.HonuaWorkflow` bound to this client's
+            transport for authoring workflow package drafts, snapshotting
+            immutable versions, validating / dry-running / publishing them, and
+            running publications over the server's ``/api/v1/console`` workflow
+            package surface (the durable replacement for the dropped GeoETL
+            pipeline endpoints; admin authorization required server-side).
+        """
+        from .workflow import HonuaWorkflow
+
+        return HonuaWorkflow(self)
 
     def stac(self) -> "StacClient":
         """Return a STAC API wrapper.

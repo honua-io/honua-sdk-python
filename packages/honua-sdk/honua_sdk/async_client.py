@@ -61,6 +61,7 @@ from .models import (
 if TYPE_CHECKING:
     from .async_geocoding import AsyncHonuaGeocodingClient
     from .auth import AuthProvider
+    from .geoprocessing import AsyncHonuaGeoprocessing
     from .models import SourceDescriptor
     from .ogc import AsyncHonuaOgcFeatures
     from .protocols import (
@@ -82,6 +83,7 @@ if TYPE_CHECKING:
     )
     from .protocols.scenes import AsyncElevationClient
     from .source import AsyncSource
+    from .workflow import AsyncHonuaWorkflow
 
 
 class AsyncHonuaClient:
@@ -626,6 +628,34 @@ class AsyncHonuaClient:
         from .protocols import AsyncOgcRecordsClient
 
         return AsyncOgcRecordsClient(self)
+
+    def geoprocessing(self) -> "AsyncHonuaGeoprocessing":
+        """Return an async geoprocessing (OGC API Processes) client.
+
+        Returns:
+            An :class:`~honua_sdk.geoprocessing.AsyncHonuaGeoprocessing` bound
+            to this client's transport for listing/describing processes and
+            submitting + polling + fetching the results of process executions.
+        """
+        from .geoprocessing import AsyncHonuaGeoprocessing
+
+        return AsyncHonuaGeoprocessing(self)
+
+    def workflow(self) -> "AsyncHonuaWorkflow":
+        """Return an async workflow package authoring + publication client.
+
+        Returns:
+            An :class:`~honua_sdk.workflow.AsyncHonuaWorkflow` bound to this
+            client's transport for authoring workflow package drafts,
+            snapshotting immutable versions, validating / dry-running /
+            publishing them, and running publications over the server's
+            ``/api/v1/console`` workflow package surface (the durable
+            replacement for the dropped GeoETL pipeline endpoints; admin
+            authorization required server-side).
+        """
+        from .workflow import AsyncHonuaWorkflow
+
+        return AsyncHonuaWorkflow(self)
 
     def stac(self) -> "AsyncStacClient":
         """Return an async STAC API wrapper.

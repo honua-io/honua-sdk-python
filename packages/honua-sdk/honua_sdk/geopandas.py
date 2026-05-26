@@ -445,6 +445,49 @@ def geodataframe_to_features(
     return features
 
 
+def geodataframe_to_geojson(
+    gdf: gpd.GeoDataFrame,
+) -> dict[str, Any]:
+    """Convert a GeoDataFrame to a GeoJSON ``FeatureCollection`` dict.
+
+    This is the inverse of :func:`ogc_features_to_geodataframe` and is used to
+    feed a GeoDataFrame into an OGC API Processes execution as an inline
+    ``FeatureCollection`` (see
+    :pymeth:`honua_sdk.geoprocessing.HonuaGeoprocessing.execute_dataframe`).
+
+    Parameters
+    ----------
+    gdf:
+        A GeoDataFrame whose non-geometry columns become each feature's
+        ``properties`` and whose geometry column becomes a GeoJSON
+        ``geometry``.
+
+    Returns
+    -------
+    dict
+        A GeoJSON ``FeatureCollection`` mapping with a ``features`` list.
+    """
+    _ensure_deps()
+
+    from shapely.geometry import mapping as _mapping
+
+    attr_columns = [col for col in gdf.columns if col != gdf.geometry.name]
+
+    features: list[dict[str, Any]] = []
+    for idx in range(len(gdf)):
+        row = gdf.iloc[idx]
+        properties = {col: _json_safe_value(row[col]) for col in attr_columns}
+        geom_obj = row[gdf.geometry.name]
+        feature: dict[str, Any] = {
+            "type": "Feature",
+            "properties": properties,
+            "geometry": None if geom_obj is None or geom_obj.is_empty else _mapping(geom_obj),
+        }
+        features.append(feature)
+
+    return {"type": "FeatureCollection", "features": features}
+
+
 def _json_safe_value(value: Any) -> Any:  # noqa: PLR0911 -- value type dispatch
     if value is None:
         return None

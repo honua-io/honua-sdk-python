@@ -98,7 +98,8 @@ def test_parse_pyt_source_feeds_execute_body_through_scanner() -> None:
 
     # Buffer maps to an executable process -> a real translation.
     assert [t.process_id for t in buffer_tool.plan.translations] == ["buffer"]
-    # SpatialJoin maps to a non-executable process -> manual-review only.
+    # SpatialJoin's target executes, but a feature-class join input ("districts")
+    # cannot be inlined as joinGeoJson -> gated to manual-review only.
     assert [t.process_id for t in join_tool.plan.translations] == []
     assert [(c.family, c.tool) for c in join_tool.plan.manual_review_calls] == [
         ("analysis", "SpatialJoin")

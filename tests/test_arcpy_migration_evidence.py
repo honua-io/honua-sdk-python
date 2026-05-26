@@ -11,8 +11,11 @@ from honua_sdk.migration import (
 )
 
 # Mix of: executable target (buffer), broadened executable targets
-# (simplify / convex-hull / centroid / snap), a known-but-not-executable target
-# (spatial-join -> manual-review), and a wholly unmapped tool (sa.Slope).
+# (simplify / convex-hull / centroid / snap), a tool whose target process IS
+# executable but whose invocation form is not -- SpatialJoin with a
+# feature-class join input (here "b") cannot be inlined as joinGeoJson, so it
+# is gated to manual-review with a specific reason -- and a wholly unmapped
+# tool (sa.Slope).
 MIXED_SOURCE = """
 import arcpy
 
@@ -62,7 +65,8 @@ def test_status_partitions_into_translatable_manual_unsupported() -> None:
     assert ("cartography", "SimplifyPolygon") in translatable
     assert ("management", "MinimumBoundingGeometry") in translatable
     assert ("editing", "Snap") in translatable
-    # SpatialJoin is mapped (supported) but not executable -> manual-review.
+    # SpatialJoin's target (analytics.spatial-join) is executable, but a
+    # feature-class join input cannot be inlined -> gated to manual-review.
     assert ("analysis", "SpatialJoin") in manual
     # sa.Slope has no Honua mapping at all.
     assert ("spatial-analyst", "Slope") in unsupported
@@ -104,7 +108,8 @@ def test_parity_evidence_report_shape_and_coverage() -> None:
     spatial_join = by_tool[("analysis", "SpatialJoin")]
     assert spatial_join["status"] == "manual-review"
     assert "payload" not in spatial_join
-    assert "not executable" in spatial_join["reason"]
+    # The gate reason is specific: the feature-class join input cannot be inlined.
+    assert "inline GeoJSON FeatureCollection" in spatial_join["reason"]
     # Unsupported calls carry a reason explaining there is no mapping.
     slope = by_tool[("spatial-analyst", "Slope")]
     assert slope["status"] == "unsupported"

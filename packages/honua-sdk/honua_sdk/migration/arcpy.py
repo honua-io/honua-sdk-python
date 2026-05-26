@@ -45,14 +45,24 @@ MigrationStatus = Literal["translatable", "manual-review", "unsupported"]
 #: deliberately do NOT mark ``erase`` executable -- that would inflate coverage
 #: beyond honest parity.
 #:
-#: A further group-aware LAYER-scope process now executes server-side and is
-#: the faithful target for ArcPy ``Dissolve_management``:
+#: Two further group-aware LAYER-scope processes now execute server-side and
+#: are the faithful targets for ArcPy ``Dissolve_management`` /
+#: ``SpatialJoin_analysis``:
 #:
 #: * ``generalization.dissolve`` -- groups input features by attribute field(s)
 #:   (or dissolves all), unions geometry per group, and computes optional
 #:   COUNT/SUM/MEAN/MIN/MAX/FIRST summary stats (output fields named
 #:   ``STAT_field``). This is the layer-scope, attribute-aware dissolve, distinct
 #:   from the bare ``dissolve`` single-geometry primitive above.
+#: * ``analytics.spatial-join`` -- a one-to-one summarizing spatial join: for
+#:   each target feature, find join features matching a spatial predicate
+#:   (intersects/contains/within) and attach ``JOIN_COUNT`` plus numeric
+#:   SUM/MEAN/MIN/MAX. The join layer is supplied inline as ``joinGeoJson``;
+#:   resolving a second catalog-layer id is NOT yet supported, and only the
+#:   one-to-one (``JOIN_ONE_TO_ONE``) form executes -- one-to-many is not. Those
+#:   limitations are enforced per-invocation (see ``Dissolve`` / ``SpatialJoin``
+#:   tool specs) so unsupported forms are classified ``manual-review`` rather
+#:   than faked as runnable.
 EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
     {
         "buffer",
@@ -70,9 +80,10 @@ EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
         # Net-new executable operation unlocked by layer-scope GP execution
         # (geometry.make-valid runs over a feature collection).
         "make-valid",
-        # Group-aware layer-scope dissolve (feature-collection in/out): the
-        # faithful target for ArcPy Dissolve_management.
+        # Group-aware layer-scope processes (feature-collection in/out) that are
+        # the faithful targets for ArcPy Dissolve_management / SpatialJoin_analysis.
         "generalization.dissolve",
+        "analytics.spatial-join",
     }
 )
 
@@ -390,19 +401,20 @@ def _aliases(*pairs: tuple[str, str]) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Helpers for group-aware layer-scope tools (Dissolve).
+# Helpers for group-aware layer-scope tools (Dissolve / SpatialJoin).
 #
 # These tools cannot be translated by the generic positional/keyword arg
-# mapping: their runnable target process (``generalization.dissolve``) takes a
-# bespoke ``inputs`` shape (a ``statistics`` spec). The tool therefore attaches
-# a ``translate`` (per-call payload) and, where the target executes only some
-# ArcGIS invocation forms, a ``gate`` (per-call status).
+# mapping: their runnable target processes (``generalization.dissolve`` /
+# ``analytics.spatial-join``) take a bespoke ``inputs`` shape (a ``statistics``
+# spec, an inline ``joinGeoJson`` + ``predicate``), and the target process only
+# executes *some* ArcGIS invocation forms. Each tool therefore attaches a
+# ``gate`` (per-call status) and a ``translate`` (per-call payload).
 # ---------------------------------------------------------------------------
 
-#: ArcGIS statistic tokens (Dissolve ``statistics_fields``) the layer-scope
-#: process can compute. ArcGIS also defines STD/RANGE/COUNT-as-text variants
-#: that the server does not yet implement; those are reported as a note rather
-#: than silently dropped.
+#: ArcGIS statistic tokens (Dissolve ``statistics_fields`` / SpatialJoin
+#: field-map merge rules) that the layer-scope processes can compute. ArcGIS
+#: also defines STD/RANGE/COUNT-as-text variants that the server does not yet
+#: implement; those are reported as a note rather than silently dropped.
 _DISSOLVE_STAT_TOKENS: frozenset[str] = frozenset(
     {"SUM", "MEAN", "MIN", "MAX", "COUNT", "FIRST"}
 )
@@ -517,6 +529,108 @@ def _dissolve_translate(call: "ArcPyCall") -> tuple[JsonObject, tuple[str, ...]]
     return inputs, tuple(notes)
 
 
+#: ArcGIS SpatialJoin ``match_option`` tokens the server's predicate set covers.
+_SPATIAL_JOIN_PREDICATES: Mapping[str, str] = {
+    "INTERSECT": "intersects",
+    "INTERSECTS": "intersects",
+    "CONTAINS": "contains",
+    "WITHIN": "within",
+}
+
+
+def _spatial_join_gate(call: "ArcPyCall") -> "tuple[MigrationStatus, str] | None":
+    """Classify a SpatialJoin invocation against what analytics.spatial-join runs.
+
+    Supported (``translatable``): a one-to-one summarizing join whose
+    ``join_features`` is an inline GeoJSON ``FeatureCollection`` literal and whose
+    ``match_option`` is one of intersects/contains/within. Everything else is
+    downgraded to ``manual-review`` with a specific reason -- the codemod never
+    claims parity for a form the server cannot execute.
+    """
+
+    join_operation = _arg_value(call, 3, "join_operation")
+    if isinstance(join_operation, str) and join_operation.upper().replace("-", "_") == "JOIN_ONE_TO_MANY":
+        return (
+            "manual-review",
+            "ArcGIS SpatialJoin join_operation=JOIN_ONE_TO_MANY is not supported: "
+            "analytics.spatial-join only executes the one-to-one summarizing form "
+            "(JOIN_COUNT + per-target aggregates).",
+        )
+
+    join_features = _arg_value(call, 1, "join_features")
+    if not _is_inline_geojson(join_features):
+        return (
+            "manual-review",
+            "SpatialJoin join_features must be an inline GeoJSON FeatureCollection "
+            "to translate: analytics.spatial-join takes the join layer as an inline "
+            "joinGeoJson step input, and resolving a second catalog feature-class id "
+            f"is not yet supported (received {_describe_join_features(join_features)}).",
+        )
+
+    match_option = _arg_value(call, 6, "match_option")
+    if isinstance(match_option, str) and match_option.upper() not in _SPATIAL_JOIN_PREDICATES:
+        return (
+            "manual-review",
+            f"ArcGIS SpatialJoin match_option={match_option!r} has no analytics.spatial-join "
+            "predicate (supported: INTERSECT/CONTAINS/WITHIN).",
+        )
+
+    return None
+
+
+def _is_inline_geojson(value: JsonValue | None) -> bool:
+    """Whether ``join_features`` is an inline GeoJSON FeatureCollection literal."""
+
+    return (
+        isinstance(value, Mapping)
+        and value.get("type") == "FeatureCollection"
+        and isinstance(value.get("features"), list)
+    )
+
+
+def _describe_join_features(value: JsonValue | None) -> str:
+    if isinstance(value, Mapping) and "python" in value:
+        return f"non-literal expression {value['python']!r}"
+    if isinstance(value, str):
+        return f"feature-class reference {value!r}"
+    return repr(value)
+
+
+def _spatial_join_translate(call: "ArcPyCall") -> tuple[JsonObject, tuple[str, ...]]:
+    """Build ``analytics.spatial-join`` inputs from a supported ArcPy SpatialJoin.
+
+    Only reached for the gated-supported form (one-to-one + inline join). Maps
+    ``target_features`` -> ``layerId``, ``join_features`` -> ``joinGeoJson``,
+    ``match_option`` -> ``predicate``. ArcGIS ``field_mapping`` merge rules are
+    not generically parseable here, so any field-map is recorded as a note.
+    """
+
+    import json
+
+    notes: list[str] = []
+    inputs: JsonObject = {}
+
+    inputs["layerId"] = _arg_value(call, 0, "target_features")
+    inputs["joinGeoJson"] = json.dumps(_arg_value(call, 1, "join_features"), separators=(",", ":"))
+
+    match_option = _arg_value(call, 6, "match_option")
+    if isinstance(match_option, str):
+        inputs["predicate"] = _SPATIAL_JOIN_PREDICATES[match_option.upper()]
+    else:
+        inputs["predicate"] = "intersects"
+        notes.append("No match_option supplied; defaulting predicate to intersects (ArcGIS default).")
+
+    field_mapping = _arg_value(call, 5, "field_mapping")
+    if field_mapping is not None:
+        notes.append(
+            "ArcGIS field_mapping merge rules are not auto-translated; analytics.spatial-join "
+            "attaches JOIN_COUNT plus SUM/MEAN/MIN/MAX of numeric join fields. Review the "
+            "field_map to confirm the aggregates match."
+        )
+
+    return inputs, tuple(notes)
+
+
 _SUPPORTED_TOOL_SPECS: dict[tuple[str, str], _ToolSpec] = {}
 
 
@@ -610,7 +724,9 @@ _register(
     _ToolSpec(
         family="analysis",
         tool="SpatialJoin",
-        process_id="spatial-join",
+        # Faithful target: the layer-scope one-to-one summarizing spatial join.
+        # Distinct from the (non-executable) bare ``spatial-join`` primitive id.
+        process_id="analytics.spatial-join",
         args=(
             _arg("target_features", "target_features", kind="input"),
             _arg("join_features", "join_features", kind="input"),
@@ -624,6 +740,15 @@ _register(
             _arg("match_fields", "match_fields"),
         ),
         aliases=_aliases(("output", "result"), ("out_features", "result")),
+        gate=_spatial_join_gate,
+        translate=_spatial_join_translate,
+        notes=(
+            "Maps to analytics.spatial-join (one-to-one summarizing join). The join "
+            "layer is inlined as joinGeoJson; match_option becomes the spatial "
+            "predicate (INTERSECT/CONTAINS/WITHIN). One-to-many joins and "
+            "feature-class join inputs that cannot be inlined are classified "
+            "manual-review.",
+        ),
     )
 )
 _register(

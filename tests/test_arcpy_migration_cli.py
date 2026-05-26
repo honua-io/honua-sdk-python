@@ -180,3 +180,20 @@ def test_cli_scan_reports_syntax_error_exit_code(tmp_path: Path, capsys) -> None
 
     assert rc == 2
     assert "syntax error" in capsys.readouterr().err
+
+
+def test_cli_translate_reports_syntax_error_and_emits_no_plan(tmp_path: Path, capsys) -> None:
+    script = _write(tmp_path, "bad.py", "import arcpy\narcpy.analysis.Buffer(")
+    plan_out = tmp_path / "plan.json"
+    evidence_out = tmp_path / "evidence.json"
+
+    rc = main(["translate", str(script), "--output", str(plan_out), "--evidence", str(evidence_out)])
+
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "syntax error" in captured.err
+    # On a syntax error no plan/evidence/coverage is emitted.
+    assert not plan_out.exists()
+    assert not evidence_out.exists()
+    assert "coverage:" not in captured.err
+    assert captured.out == ""

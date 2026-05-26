@@ -352,6 +352,11 @@ def test_execute_dataframe_roundtrip() -> None:
     captured: dict[str, Any] = {}
     gdf = gpd.GeoDataFrame({"name": ["a"]}, geometry=[Point(1.0, 2.0)], crs="EPSG:4326")
 
+    # The /results endpoint returns a document-mode OUTPUTS MAP keyed by output
+    # id, not a bare FeatureCollection; execute_dataframe must select the
+    # FeatureCollection-valued member before converting.
+    results_outputs_map = {"outputFeatureLayer": FEATURE_COLLECTION}
+
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if request.method == "POST":
@@ -360,7 +365,7 @@ def test_execute_dataframe_roundtrip() -> None:
         if path == "/ogc/processes/jobs/job-df":
             return httpx.Response(200, json=_status("job-df", "successful"))
         if path == "/ogc/processes/jobs/job-df/results":
-            return httpx.Response(200, json=FEATURE_COLLECTION)
+            return httpx.Response(200, json=results_outputs_map)
         raise AssertionError(f"unexpected {path}")
 
     with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
@@ -372,6 +377,87 @@ def test_execute_dataframe_roundtrip() -> None:
     sent = json.loads(captured["inputs"]["inputGeoJson"])
     assert sent["type"] == "FeatureCollection"
     assert sent["features"][0]["geometry"]["type"] == "Point"
+
+
+def test_execute_dataframe_selects_value_wrapped_output() -> None:
+    """An OGC ``value``-wrapped output member is unwrapped to a FeatureCollection."""
+    gpd = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    gdf = gpd.GeoDataFrame({"name": ["a"]}, geometry=[Point(1.0, 2.0)], crs="EPSG:4326")
+    # Document-mode outputs map where the member wraps the data under "value".
+    results_outputs_map = {
+        "outputFeatureLayer": {
+            "value": FEATURE_COLLECTION,
+            "mediaType": "application/geo+json",
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "POST":
+            return httpx.Response(201, json=_status("job-vw", "accepted"))
+        if path == "/ogc/processes/jobs/job-vw":
+            return httpx.Response(200, json=_status("job-vw", "successful"))
+        if path == "/ogc/processes/jobs/job-vw/results":
+            return httpx.Response(200, json=results_outputs_map)
+        raise AssertionError(f"unexpected {path}")
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        out = client.geoprocessing().execute_dataframe(
+            "geometry.buffer", gdf, poll_interval=0.0
+        )
+
+    assert list(out["name"]) == ["a"]
+
+
+def test_execute_dataframe_passes_bare_feature_collection_through() -> None:
+    """A results document that is itself a bare FeatureCollection is accepted."""
+    gpd = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    gdf = gpd.GeoDataFrame({"name": ["a"]}, geometry=[Point(1.0, 2.0)], crs="EPSG:4326")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "POST":
+            return httpx.Response(201, json=_status("job-bare", "accepted"))
+        if path == "/ogc/processes/jobs/job-bare":
+            return httpx.Response(200, json=_status("job-bare", "successful"))
+        if path == "/ogc/processes/jobs/job-bare/results":
+            return httpx.Response(200, json=FEATURE_COLLECTION)
+        raise AssertionError(f"unexpected {path}")
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        out = client.geoprocessing().execute_dataframe(
+            "geometry.buffer", gdf, poll_interval=0.0
+        )
+
+    assert list(out["name"]) == ["a"]
+
+
+def test_execute_dataframe_raises_when_no_feature_collection_output() -> None:
+    """A results map with no FeatureCollection output raises a clear error."""
+    gpd = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    from honua_sdk.errors import HonuaError
+
+    gdf = gpd.GeoDataFrame({"name": ["a"]}, geometry=[Point(1.0, 2.0)], crs="EPSG:4326")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "POST":
+            return httpx.Response(201, json=_status("job-bad", "accepted"))
+        if path == "/ogc/processes/jobs/job-bad":
+            return httpx.Response(200, json=_status("job-bad", "successful"))
+        if path == "/ogc/processes/jobs/job-bad/results":
+            return httpx.Response(200, json={"outputScalar": {"value": 42.0}})
+        raise AssertionError(f"unexpected {path}")
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaError, match="does not contain a FeatureCollection"):
+            client.geoprocessing().execute_dataframe("geometry.area", gdf, poll_interval=0.0)
 
 
 # ---------------------------------------------------------------------------

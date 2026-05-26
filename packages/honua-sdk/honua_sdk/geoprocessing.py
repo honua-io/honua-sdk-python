@@ -44,7 +44,7 @@ import json
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
 
 from ._http import _encode_path_segment
 from .errors import HonuaError
@@ -227,6 +227,50 @@ def _layer_inputs(reference: LayerReference, parameters: Mapping[str, Any] | Non
 def _plan_inputs(plan: Mapping[str, Any]) -> JsonObject:
     """Wrap an analysis plan into the canonical process ``inputs`` bag."""
     return {"plan": dict(plan)}
+
+
+def _is_feature_collection(value: Any) -> TypeGuard[Mapping[str, Any]]:
+    """Whether ``value`` looks like a GeoJSON ``FeatureCollection``."""
+    return (
+        isinstance(value, Mapping)
+        and value.get("type") == "FeatureCollection"
+        and isinstance(value.get("features"), list)
+    )
+
+
+def _feature_collection_from_results(results: Mapping[str, Any]) -> JsonObject:
+    """Select the FeatureCollection output from an OGC Processes results document.
+
+    :meth:`HonuaGeoprocessing.results` returns the document-mode outputs map
+    fetched from ``GET /ogc/processes/jobs/{id}/results`` -- not a bare
+    FeatureCollection. The output is keyed by output id and, depending on
+    server response mode, the FeatureCollection may be:
+
+    * the whole document (a bare ``FeatureCollection`` passed through),
+    * an outputs map with a single FeatureCollection-valued member, or
+    * an OGC ``raw``/``value`` wrapped member where the FeatureCollection sits
+      under a ``value`` key.
+
+    The first FeatureCollection found is returned. A :class:`HonuaError` is
+    raised when no FeatureCollection output is present so the failure is clear
+    rather than yielding an empty GeoDataFrame.
+    """
+    if _is_feature_collection(results):
+        return cast(JsonObject, dict(results))
+
+    for member in results.values():
+        if _is_feature_collection(member):
+            return cast(JsonObject, dict(member))
+        if isinstance(member, Mapping):
+            wrapped = member.get("value")
+            if _is_feature_collection(wrapped):
+                return cast(JsonObject, dict(wrapped))
+
+    raise HonuaError(
+        "Geoprocessing results document does not contain a FeatureCollection output; "
+        f"got output keys {sorted(results)!r}. "
+        "execute_dataframe requires a feature-collection-out process."
+    )
 
 
 def _async_prefer_header(respond_async: bool) -> dict[str, str] | None:
@@ -425,7 +469,7 @@ class HonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        return ogc_features_to_geodataframe(result)
+        return ogc_features_to_geodataframe(_feature_collection_from_results(result))
 
     # -- canonical multi-step plan ----------------------------------------
 
@@ -636,7 +680,7 @@ class AsyncHonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        return ogc_features_to_geodataframe(result)
+        return ogc_features_to_geodataframe(_feature_collection_from_results(result))
 
     # -- canonical multi-step plan ----------------------------------------
 

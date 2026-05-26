@@ -57,6 +57,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
 
 def _cmd_translate(args: argparse.Namespace) -> int:
     report = scan_arcpy_file(args.path)
+    if report.syntax_error is not None:
+        print(f"syntax error: {report.syntax_error}", file=sys.stderr)
+        return 2
     plan = translate_arcpy_report(report)
     evidence = build_parity_evidence(plan)
     if args.evidence is not None:

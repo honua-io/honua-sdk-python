@@ -57,6 +57,9 @@ ignore = []
 "packages/honua-sdk/honua_sdk/async_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
 "packages/honua-sdk/honua_sdk/ogc.py" = ["PLR0913"]
 "packages/honua-sdk/honua_sdk/migration/arcpy.py" = ["E501", "PLR2004"]
+# _cli.py imports HonuaClient lazily inside the `run` subcommand so the
+# offline scan/translate/pyt commands work without httpx wired up.
+"packages/honua-sdk/honua_sdk/migration/_cli.py" = ["PLC0415"]
 "packages/honua-sdk/honua_sdk/source.py" = ["E501"]
 "packages/honua-sdk/honua_sdk/models.py" = ["E501"]
 "packages/honua-sdk/honua_sdk/_http.py" = ["PLR2004"]

@@ -8,7 +8,7 @@ inventory work on developer machines without licensed Esri software.
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -30,18 +30,29 @@ MigrationStatus = Literal["translatable", "manual-review", "unsupported"]
 #: server gains a corresponding executable process. The migration coverage
 #: count is gated on it, not on how many ArcPy tools we can parse.
 #:
-#: The first twelve ids are the single-geometry primitive executors. The
-#: server now also executes four processes at LAYER scope (feature-collection
+#: The first twelve ids are the single-geometry primitive executors (for
+#: example bare ``dissolve`` is the ``geometry.dissolve`` primitive that unions a
+#: ``wkbs[]`` array with optional ``groupKeys`` -- NOT a feature-class dissolve).
+#: The server now also executes processes at LAYER scope (feature-collection
 #: in/out): ``generalization.simplify-layer`` (simplify), ``conversion.feature
 #: -project`` (project), ``geometry.make-valid`` (make-valid), and
 #: ``geometry.difference``. ``simplify`` and ``project`` were already executable
-#: as single-geometry primitives, so the only NET-NEW executable operation the
-#: layer-scope work unlocks for the codemod is ``make-valid`` -- which maps
-#: cleanly 1:1 from ArcPy ``RepairGeometry``. ``geometry.difference`` at layer
-#: scope erases against a single WKT region, which is NOT the same as ArcPy
+#: as single-geometry primitives, so the first net-new executable operation the
+#: layer-scope work unlocked was ``make-valid`` -- which maps cleanly 1:1 from
+#: ArcPy ``RepairGeometry``. ``geometry.difference`` at layer scope erases
+#: against a single WKT region, which is NOT the same as ArcPy
 #: ``Erase``/``PairwiseErase`` (which erase against a whole feature class), so we
 #: deliberately do NOT mark ``erase`` executable -- that would inflate coverage
 #: beyond honest parity.
+#:
+#: A further group-aware LAYER-scope process now executes server-side and is
+#: the faithful target for ArcPy ``Dissolve_management``:
+#:
+#: * ``generalization.dissolve`` -- groups input features by attribute field(s)
+#:   (or dissolves all), unions geometry per group, and computes optional
+#:   COUNT/SUM/MEAN/MIN/MAX/FIRST summary stats (output fields named
+#:   ``STAT_field``). This is the layer-scope, attribute-aware dissolve, distinct
+#:   from the bare ``dissolve`` single-geometry primitive above.
 EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
     {
         "buffer",
@@ -59,6 +70,9 @@ EXECUTABLE_PROCESS_IDS: frozenset[str] = frozenset(
         # Net-new executable operation unlocked by layer-scope GP execution
         # (geometry.make-valid runs over a feature collection).
         "make-valid",
+        # Group-aware layer-scope dissolve (feature-collection in/out): the
+        # faithful target for ArcPy Dissolve_management.
+        "generalization.dissolve",
     }
 )
 
@@ -100,7 +114,7 @@ class ArcPyCall:
         spec = self._spec
         if spec is None:
             return "unsupported"
-        return spec.status
+        return spec.status_for(self)
 
     @property
     def translatable(self) -> bool:
@@ -285,6 +299,22 @@ class _ArgSpec:
     kind: InputKind = "parameter"
 
 
+#: A per-invocation gate: given the discovered call, return ``None`` to accept
+#: the spec's default (executability-derived) status, or a
+#: ``(status, reason)`` pair to override it. Used by group-aware layer-scope
+#: tools (Dissolve / SpatialJoin) whose target process executes only *some*
+#: ArcGIS invocation forms -- the unsupported forms must be classified
+#: ``manual-review`` with a specific reason rather than faked as runnable.
+CallGate = Callable[["ArcPyCall"], "tuple[MigrationStatus, str] | None"]
+
+#: A bespoke translator for tools whose runnable payload cannot be produced by
+#: the generic positional/keyword arg mapping (for example
+#: ``generalization.dissolve``'s ``statistics`` spec or
+#: ``analytics.spatial-join``'s inline ``joinGeoJson`` + predicate). Returns the
+#: full OGC ``inputs`` bag plus any per-call notes.
+CallTranslator = Callable[["ArcPyCall"], "tuple[JsonObject, tuple[str, ...]]"]
+
+
 @dataclass(frozen=True)
 class _ToolSpec:
     family: str
@@ -293,6 +323,8 @@ class _ToolSpec:
     args: tuple[_ArgSpec, ...]
     aliases: Mapping[str, str] = field(default_factory=dict)
     notes: tuple[str, ...] = ()
+    gate: CallGate | None = None
+    translate: CallTranslator | None = None
 
     @property
     def executable(self) -> bool:
@@ -302,9 +334,35 @@ class _ToolSpec:
 
     @property
     def status(self) -> MigrationStatus:
-        """Migration status implied by server executability of the target."""
+        """Default migration status implied by server executability of the target.
+
+        This is the *spec-level* status. Tools whose target process executes
+        only some invocation forms attach a :attr:`gate` that can downgrade an
+        individual call to ``manual-review``; use :meth:`status_for` to get the
+        per-call status.
+        """
 
         return "translatable" if self.executable else "manual-review"
+
+    def status_for(self, call: "ArcPyCall") -> MigrationStatus:
+        """Per-call migration status, honoring any :attr:`gate`."""
+
+        if not self.executable:
+            return "manual-review"
+        if self.gate is not None:
+            override = self.gate(call)
+            if override is not None:
+                return override[0]
+        return "translatable"
+
+    def gate_reason(self, call: "ArcPyCall") -> str | None:
+        """Reason a runnable target was downgraded to ``manual-review`` for this call."""
+
+        if self.executable and self.gate is not None:
+            override = self.gate(call)
+            if override is not None and override[0] != "translatable":
+                return override[1]
+        return None
 
 
 def _arg(arcpy_name: str, process_name: str | None = None, *, kind: InputKind = "parameter") -> _ArgSpec:
@@ -329,6 +387,134 @@ def _tool_key(family: str, tool: str) -> tuple[str, str]:
 
 def _aliases(*pairs: tuple[str, str]) -> dict[str, str]:
     return {_normalize_keyword(arcpy): process for arcpy, process in pairs}
+
+
+# ---------------------------------------------------------------------------
+# Helpers for group-aware layer-scope tools (Dissolve).
+#
+# These tools cannot be translated by the generic positional/keyword arg
+# mapping: their runnable target process (``generalization.dissolve``) takes a
+# bespoke ``inputs`` shape (a ``statistics`` spec). The tool therefore attaches
+# a ``translate`` (per-call payload) and, where the target executes only some
+# ArcGIS invocation forms, a ``gate`` (per-call status).
+# ---------------------------------------------------------------------------
+
+#: ArcGIS statistic tokens (Dissolve ``statistics_fields``) the layer-scope
+#: process can compute. ArcGIS also defines STD/RANGE/COUNT-as-text variants
+#: that the server does not yet implement; those are reported as a note rather
+#: than silently dropped.
+_DISSOLVE_STAT_TOKENS: frozenset[str] = frozenset(
+    {"SUM", "MEAN", "MIN", "MAX", "COUNT", "FIRST"}
+)
+
+
+def _arg_value(call: "ArcPyCall", index: int, *arcpy_names: str) -> JsonValue | None:
+    """Resolve an ArcPy argument by positional index or any of its keyword names."""
+
+    for name in arcpy_names:
+        normalized = _normalize_keyword(name)
+        for raw_name, value in call.kwargs.items():
+            if _normalize_keyword(raw_name) == normalized:
+                return value
+    if 0 <= index < len(call.args):
+        return call.args[index]
+    return None
+
+
+def _is_literal_token(value: JsonValue | None) -> bool:
+    """Whether ``value`` is a plain JSON scalar (not a ``{"python": ...}`` expr)."""
+
+    return isinstance(value, str | int | float | bool)
+
+
+def _normalize_stat_pairs(value: JsonValue | None) -> tuple[list[tuple[str, str]], list[str]]:
+    """Parse an ArcGIS ``[[field, STAT], ...]`` spec into (supported, unsupported_tokens).
+
+    Returns the list of ``(field, token)`` pairs whose stat token the server can
+    compute and a sorted list of any tokens that are recognized ArcGIS stats but
+    not yet executable server-side (reported, never silently dropped).
+    """
+
+    pairs: list[tuple[str, str]] = []
+    unsupported: set[str] = set()
+    if not isinstance(value, list):
+        return pairs, []
+    for item in value:
+        if not isinstance(item, list) or len(item) != 2:
+            continue
+        field_name, token = item[0], item[1]
+        if not isinstance(field_name, str) or not isinstance(token, str):
+            continue
+        upper = token.upper()
+        if upper in _DISSOLVE_STAT_TOKENS:
+            pairs.append((field_name, upper))
+        else:
+            unsupported.add(upper)
+    return pairs, sorted(unsupported)
+
+
+def _dissolve_fields(value: JsonValue | None) -> list[str]:
+    """Normalize a Dissolve ``dissolve_field`` arg (str, ``"a;b"`` or list) to fields."""
+
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [part.strip() for part in value.replace(",", ";").split(";") if part.strip()]
+    if isinstance(value, list):
+        fields: list[str] = []
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                fields.append(item.strip())
+        return fields
+    return []
+
+
+def _dissolve_translate(call: "ArcPyCall") -> tuple[JsonObject, tuple[str, ...]]:
+    """Build ``generalization.dissolve`` inputs from an ArcPy ``Dissolve`` call.
+
+    Maps ``in_features`` -> ``layerId``, ``dissolve_field`` -> ``groupByFields``,
+    ``statistics_fields`` -> ``statistics`` (ArcGIS stat tokens preserved), and
+    records the ArcGIS-only ``multi_part`` / ``unsplit_lines`` options as notes
+    rather than claiming a parity the server does not provide.
+    """
+
+    notes: list[str] = []
+    inputs: JsonObject = {}
+
+    in_features = _arg_value(call, 0, "in_features")
+    inputs["layerId"] = in_features
+
+    fields = _dissolve_fields(_arg_value(call, 2, "dissolve_field"))
+    inputs["groupByFields"] = fields
+    if not fields:
+        notes.append("No dissolve_field supplied: dissolves all input features into a single group.")
+
+    stat_pairs, unsupported_tokens = _normalize_stat_pairs(_arg_value(call, 3, "statistics_fields"))
+    if stat_pairs:
+        # Server emits ArcGIS-style STAT_field output columns from this spec.
+        inputs["statistics"] = [{"field": field_name, "statistic": token} for field_name, token in stat_pairs]
+    if unsupported_tokens:
+        notes.append(
+            "Dropped unsupported statistics_fields tokens "
+            f"{unsupported_tokens!r}; generalization.dissolve computes only "
+            "SUM/MEAN/MIN/MAX/COUNT/FIRST. Recompute these client-side."
+        )
+
+    multi_part = _arg_value(call, 4, "multi_part")
+    if multi_part is not None:
+        notes.append(
+            "ArcGIS multi_part option is not expressible in generalization.dissolve "
+            f"(received {multi_part!r}); the server returns multipart dissolved geometry. "
+            "Review single-part splitting if required."
+        )
+    unsplit = _arg_value(call, 5, "unsplit_lines")
+    if unsplit is not None:
+        notes.append(
+            "ArcGIS unsplit_lines option is not expressible in generalization.dissolve "
+            f"(received {unsplit!r}); review line-dissolve semantics."
+        )
+
+    return inputs, tuple(notes)
 
 
 _SUPPORTED_TOOL_SPECS: dict[tuple[str, str], _ToolSpec] = {}
@@ -444,7 +630,9 @@ _register(
     _ToolSpec(
         family="management",
         tool="Dissolve",
-        process_id="dissolve",
+        # Faithful target: the group-aware, layer-scope dissolve. Distinct from
+        # the bare ``dissolve`` single-geometry primitive (wkbs[] + groupKeys).
+        process_id="generalization.dissolve",
         args=(
             _arg("in_features", "input_features", kind="input"),
             _arg("out_feature_class", "result", kind="output"),
@@ -454,6 +642,14 @@ _register(
             _arg("unsplit_lines", "unsplit_lines"),
         ),
         aliases=_aliases(("output", "result"), ("out_features", "result")),
+        translate=_dissolve_translate,
+        notes=(
+            "Maps to generalization.dissolve (group-by + per-group geometry union). "
+            "dissolve_field becomes the group-by fields; statistics_fields becomes the "
+            "COUNT/SUM/MEAN/MIN/MAX/FIRST statistics spec (output fields named "
+            "STAT_field). ArcGIS multi_part / unsplit_lines options are recorded as "
+            "notes where they cannot be faithfully expressed.",
+        ),
     )
 )
 _register(
@@ -926,10 +1122,16 @@ def build_parity_evidence(plan: ArcPyMigrationPlan) -> JsonObject:
             if translation.notes:
                 entry["notes"] = list(translation.notes)
         elif call.status == "manual-review":
-            entry["reason"] = (
-                f"Honua process {call.process_id!r} is not executable by the server yet."
-            )
             spec = _lookup_spec(call.family, call.tool)
+            gate_reason = spec.gate_reason(call) if spec is not None else None
+            if gate_reason is not None:
+                # The target process is executable, but this specific ArcGIS
+                # invocation form is not -- surface the precise reason.
+                entry["reason"] = gate_reason
+            else:
+                entry["reason"] = (
+                    f"Honua process {call.process_id!r} is not executable by the server yet."
+                )
             if spec is not None and spec.notes:
                 entry["notes"] = list(spec.notes)
         else:
@@ -1045,31 +1247,49 @@ def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> Ar
             f"ArcPy call {call.qualified_name!r} maps to Honua process {spec.process_id!r}, "
             "which the server cannot execute yet (status: manual-review)."
         )
+    # A per-call gate may downgrade an otherwise-executable target to
+    # manual-review for an unsupported ArcGIS invocation form (for example a
+    # one-to-many spatial join). Such calls are never present in
+    # ``translatable_calls`` and so should not reach the translator; guard
+    # anyway so a runnable payload is never minted for a gated form.
+    if spec.gate is not None:
+        override = spec.gate(call)
+        if override is not None and override[0] != "translatable":
+            raise UnsupportedArcPyCallError(
+                f"ArcPy call {call.qualified_name!r} maps to Honua process {spec.process_id!r} "
+                f"but this invocation form is not executable (status: manual-review): {override[1]}"
+            )
 
-    inputs: JsonObject = {}
-    outputs: JsonObject = {}
     consumed_keywords: set[str] = set()
+    extra_notes: tuple[str, ...] = ()
+    if spec.translate is not None:
+        inputs, extra_notes = spec.translate(call)
+        outputs: JsonObject = {}
+        consumed_keywords = set(call.kwargs)
+    else:
+        inputs = {}
+        outputs = {}
 
-    for index, value in enumerate(call.args):
-        if index >= len(spec.args):
-            inputs[f"arg_{index + 1}"] = value
-            continue
-        _assign_process_value(spec.args[index], value, inputs=inputs, outputs=outputs)
+        for index, value in enumerate(call.args):
+            if index >= len(spec.args):
+                inputs[f"arg_{index + 1}"] = value
+                continue
+            _assign_process_value(spec.args[index], value, inputs=inputs, outputs=outputs)
 
-    spec_by_keyword = {_normalize_keyword(arg.arcpy_name): arg for arg in spec.args}
-    for raw_name, value in call.kwargs.items():
-        normalized = _normalize_keyword(raw_name)
-        process_name = spec.aliases.get(normalized)
-        arg_spec = spec_by_keyword.get(normalized)
-        if process_name is not None:
-            kind = _kind_for_process_name(process_name, spec)
-            _assign_process_value(_ArgSpec(raw_name, process_name, kind), value, inputs=inputs, outputs=outputs)
-            consumed_keywords.add(raw_name)
-        elif arg_spec is not None:
-            _assign_process_value(arg_spec, value, inputs=inputs, outputs=outputs)
-            consumed_keywords.add(raw_name)
-        else:
-            inputs[_camel_to_snake(raw_name)] = value
+        spec_by_keyword = {_normalize_keyword(arg.arcpy_name): arg for arg in spec.args}
+        for raw_name, value in call.kwargs.items():
+            normalized = _normalize_keyword(raw_name)
+            process_name = spec.aliases.get(normalized)
+            arg_spec = spec_by_keyword.get(normalized)
+            if process_name is not None:
+                kind = _kind_for_process_name(process_name, spec)
+                _assign_process_value(_ArgSpec(raw_name, process_name, kind), value, inputs=inputs, outputs=outputs)
+                consumed_keywords.add(raw_name)
+            elif arg_spec is not None:
+                _assign_process_value(arg_spec, value, inputs=inputs, outputs=outputs)
+                consumed_keywords.add(raw_name)
+            else:
+                inputs[_camel_to_snake(raw_name)] = value
 
     metadata: JsonObject = {
         "source": "arcpy",
@@ -1098,7 +1318,7 @@ def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> Ar
 
     process_key = f"{call.family}.{call.tool}"
     process_id = process_id_map.get(process_key, process_id_map.get(spec.process_id, spec.process_id))
-    return ArcPyProcessTranslation(call=call, process_id=process_id, payload=payload, notes=spec.notes)
+    return ArcPyProcessTranslation(call=call, process_id=process_id, payload=payload, notes=spec.notes + extra_notes)
 
 
 def _assign_process_value(arg_spec: _ArgSpec, value: JsonValue, *, inputs: JsonObject, outputs: JsonObject) -> None:

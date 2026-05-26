@@ -177,7 +177,18 @@ jobs:
           pip install -e "packages/honua-admin"
 
       - name: Security audit (pip-audit)
-        run: python -m pip_audit --strict
+        # --skip-editable: honua-sdk/honua-admin are installed editable from this
+        # workspace and are not published to PyPI, so pip-audit cannot resolve them
+        # and hard-fails ("Dependency not found on PyPI"). Skipping the editable
+        # first-party dists still audits all third-party dependencies for CVEs and
+        # still exits non-zero when a real vulnerability is found.
+        #
+        # NOTE: --strict is intentionally omitted. Under --strict, pip-audit treats
+        # a skipped (editable) dist as a collection failure and aborts; that is the
+        # exact failure we are working around. Dropping --strict only relaxes
+        # behaviour on un-collectable dists (our unpublished first-party packages),
+        # not on real third-party CVE detection.
+        run: python -m pip_audit --skip-editable
 
   package:
     runs-on: ubuntu-latest

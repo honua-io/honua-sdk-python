@@ -353,6 +353,33 @@ def test_resolve_scene_parses_signed_url_access_envelope() -> None:
     assert access.should_refresh(datetime(2026, 4, 28, 18, 25, 0, tzinfo=UTC)) is True
 
 
+def test_resolve_scene_propagates_access_only_expiry_to_top_level() -> None:
+    # When the server advertises expiry only inside the nested ``access``
+    # object (no top-level ``expiresAt``), the resolution's ``expires_at``
+    # should still surface it so callers driving refresh/expiration timing
+    # off the top-level field do not silently miss it.
+    access_only_expiry = {
+        "sceneId": "protected-downtown",
+        "tilesetUrl": "https://cdn.honua.test/scenes/protected-downtown/tileset.json?sig=render",
+        "capabilities": ["3d-tiles"],
+        "auth": {"requiresAuthentication": True, "schemes": ["SignedUrl"]},
+        "access": {
+            "mode": "signed-url",
+            "expiresAtUtc": "2026-04-28T18:30:00Z",
+        },
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=access_only_expiry)
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        resolution = client.scenes().resolve_scene("protected-downtown")
+
+    assert resolution.access is not None
+    assert resolution.access.expires_at == datetime(2026, 4, 28, 18, 30, 0, tzinfo=UTC)
+    assert resolution.expires_at == datetime(2026, 4, 28, 18, 30, 0, tzinfo=UTC)
+
+
 def test_malformed_scene_metadata_raises() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"name": "missing-id"})

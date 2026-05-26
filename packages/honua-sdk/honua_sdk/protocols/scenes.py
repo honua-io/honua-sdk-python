@@ -966,7 +966,8 @@ def parse_scene_resolution(root: Mapping[str, Any], fallback_scene_id: str) -> H
         endpoints=tuple(deduped),
         capabilities=capabilities,
         auth=_parse_auth(root),
-        expires_at=_parse_datetime(root, "expiresAt", "expiration", "validUntil"),
+        expires_at=_parse_datetime(root, "expiresAt", "expiration", "validUntil")
+        or (access.expires_at if access is not None else None),
         access=access,
         raw_response=dict(root),
     )

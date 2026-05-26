@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload eval artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: honua-arcpy-eval
           path: |
@@ -95,7 +95,7 @@ jobs:
 
       - name: Upload honua-arcpy wheel artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: honua-arcpy-wheel
           path: packages/honua-arcpy/dist/*.whl

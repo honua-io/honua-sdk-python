@@ -68,6 +68,11 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    # Use bash on every OS (incl. Windows) so the multi-line ``run`` blocks with
+    # ``\`` continuations parse consistently instead of hitting PowerShell.
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -173,7 +178,11 @@ jobs:
           pip install -e "packages/honua-admin"
 
       - name: Security audit (pip-audit)
-        run: python -m pip_audit --strict
+        # ``--skip-editable`` excludes the two locally installed workspace
+        # packages (honua-sdk / honua-admin), which are not published to PyPI
+        # and therefore cannot be audited. Third-party deps are still audited
+        # strictly.
+        run: python -m pip_audit --strict --skip-editable
 
   package:
     runs-on: ubuntu-latest

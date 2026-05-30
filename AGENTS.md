@@ -73,6 +73,17 @@ python -m pip_audit --strict
 python3 -m pytest tests/integration -q --run-integration \
   -m "integration and staging and smoke"
 
+# Live-server conformance lane: shared geospatial-grpc fixtures vs a pinned
+# honua-server:nightly via the httpx clients (blocking on PR/push to trunk).
+# Fetch the pinned shared fixtures, point a live target at the seeded server,
+# then run the suite (needs HONUA_BASE_URL; opt-in via --run-integration).
+conformance/fetch-fixtures.sh --version "$(cat conformance/FIXTURES_VERSION)" \
+  --repo honua-io/geospatial-grpc \
+  --dest "./conformance-fixtures-$(cat conformance/FIXTURES_VERSION)"
+HONUA_CONFORMANCE_FIXTURES_DIR="./conformance-fixtures-$(cat conformance/FIXTURES_VERSION)" \
+  python3 -m pytest tests/conformance -q --run-integration \
+  -m "integration and conformance" -rsxX
+
 # Release smoke against an installed build (needs HONUA_BASE_URL)
 python3 scripts/release_smoke.py
 ```
@@ -141,9 +152,27 @@ pyproject.toml                   # shared tool config ONLY (not installable)
   `honua_sdk.normalize_protocol` / `PROTOCOL_ALIASES`.
 - **Integration tests are opt-in** (`--run-integration`, markers
   `integration`/`staging`/`smoke`) and require `HONUA_BASE_URL`. Set
-  `HONUA_ENABLE_WRITE_SMOKE=true` to enable the write roundtrip.
+  `HONUA_ENABLE_WRITE_SMOKE=true` to enable the write roundtrip. The same
+  `--run-integration` flag gates `tests/conformance` (marker `conformance`).
+- **Live-server conformance lane** (`tests/conformance`, `scripts/_conformance.py`,
+  `.github/workflows/conformance.yml`): blocking on PR/push to trunk. It pulls a
+  **pinned** `honua-server:nightly` (`nightly-20260530`, recorded with its
+  resolved digest/revision in the job summary), fetches the **shared
+  geospatial-grpc conformance fixtures** with `conformance/fetch-fixtures.sh`
+  (version pinned in `conformance/FIXTURES_VERSION`, 1:1 with a `geospatial.v1`
+  schema release), and exercises them against the live REST surfaces via the
+  `httpx` clients — failing on any drift. The seeded server must run with
+  `ASPNETCORE_ENVIRONMENT=Development` (the client-compat seed activates the
+  metadata-v2 snapshot for `default`/`Development`/`Test`, not `Production`).
+  Known, already-tracked nightly server gaps are marked `xfail` with explicit
+  issue references in `scripts/_conformance.py::KNOWN_SERVER_GAPS`
+  (honua-server#1238 JSONB-attribute projection is the live-checked one today;
+  #1166 temporal, #1167 replica, #1237 analysis list/estimate are reserved);
+  when a fix lands, clear the case's `known_gap_issue` to make it required.
+  New/untracked drift still fails the lane — never blanket `continue-on-error`.
 - CI runs on the `trunk` branch (lint, typecheck, test matrix, compatibility,
-  security-audit, package smoke-install of built wheels).
+  security-audit, package smoke-install of built wheels, and the live-server
+  conformance lane).
 
 ## Shared dev-environment rules (multi-agent WSL)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -48,6 +49,35 @@ def _validate_auth_configuration(
 ) -> None:
     if bearer_token is not None and auth_provider is not None:
         raise ValueError("Provide either `bearer_token` or `auth_provider`, not both.")
+
+
+def _warn_deprecated_bearer_token(
+    bearer_token: str | None,
+    *,
+    stacklevel: int = 3,
+) -> None:
+    """Emit a :class:`DeprecationWarning` when ``bearer_token=`` is used.
+
+    The ``bearer_token=`` constructor kwarg is deprecated in favor of the
+    single ``auth_provider=`` parameter (mirroring the one-auth-parameter
+    convention used by stripe-python / openai-python). Migrate callers to
+    ``auth_provider=StaticAuthProvider({"Authorization": f"Bearer {token}"})``.
+    Scheduled for removal in 0.2.x.
+
+    ``stacklevel`` defaults to 3 so the warning points at the caller's
+    constructor invocation (warn → ``_warn_deprecated_bearer_token`` →
+    ``__init__`` → caller).
+    """
+    if bearer_token is None:
+        return
+    warnings.warn(
+        "The `bearer_token=` constructor argument is deprecated and will be "
+        "removed in 0.2.x. Pass authentication via `auth_provider=` instead, "
+        'e.g. `auth_provider=StaticAuthProvider({"Authorization": f"Bearer '
+        '{token}"})` (StaticAuthProvider is exported from honua_sdk.auth).',
+        DeprecationWarning,
+        stacklevel=stacklevel,
+    )
 
 
 def _validate_external_client_auth_configuration(

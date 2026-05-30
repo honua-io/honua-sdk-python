@@ -775,6 +775,10 @@
               "kind": "method",
               "signature": "(self) -> 'None'"
             },
+            "copy": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> \"'AsyncHonuaAdminClient'\""
+            },
             "create_connection": {
               "async": true,
               "kind": "method",
@@ -1119,6 +1123,10 @@
             "close": {
               "kind": "method",
               "signature": "(self) -> 'None'"
+            },
+            "copy": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> \"'HonuaAdminClient'\""
             },
             "create_connection": {
               "kind": "method",
@@ -3555,6 +3563,10 @@
               "kind": "method",
               "signature": "(self) -> 'None'"
             },
+            "copy": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> \"'AsyncHonuaClient'\""
+            },
             "elevation": {
               "kind": "method",
               "signature": "(self) -> \"'AsyncElevationClient'\""
@@ -4205,6 +4217,10 @@
             "close": {
               "kind": "method",
               "signature": "(self) -> 'None'"
+            },
+            "copy": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None, base_url: 'str | None' = None) -> \"'HonuaClient'\""
             },
             "elevation": {
               "kind": "method",

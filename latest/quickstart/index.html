@@ -1,0 +1,1815 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Honua data-plane and control-plane Python clients">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../core-client/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Quickstart - Honua Python SDK</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#5-minute-quickstart-query-features-and-plot-with-geopandas" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Honua Python SDK" class="md-header__button md-logo" aria-label="Honua Python SDK" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Honua Python SDK
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Quickstart
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/honua-io/honua-sdk-python" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quickstart
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../core-client/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../retries-and-timeouts/" class="md-tabs__link">
+          
+  
+  
+  Deep dives
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/honua_sdk/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../operating-cadence/" class="md-tabs__link">
+          
+  
+  
+  Project
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Honua Python SDK" class="md-nav__button md-logo" aria-label="Honua Python SDK" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Honua Python SDK
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/honua-io/honua-sdk-python" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-youll-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What You'll Build
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-install-takes-a-minute-or-two-on-first-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Install (takes a minute or two on first install)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-query-features-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Query features (60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-convert-to-geodataframe-10-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Convert to GeoDataFrame (10 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-plot-the-data-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Plot the data (60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-add-geocoding-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Add geocoding (60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-query-via-grpc-optional-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Query via gRPC (optional, 60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full script
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#whats-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-manual-esri-json-conversion-without-the-geopandas-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix: Manual Esri JSON conversion (without the geopandas extra)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common errors
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recipe-rate-limit-retry-on-mutating-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe: rate-limit retry on mutating calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipe-retry-a-timeout-with-a-larger-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe: retry a timeout with a larger budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../protocol-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protocol examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../protocol-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protocol parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep dives
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deep dives
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../retries-and-timeouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retries and timeouts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pagination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pagination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua_sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    honua-sdk
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua_admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    honua-admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operating-cadence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operating cadence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-youll-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What You'll Build
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-install-takes-a-minute-or-two-on-first-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Install (takes a minute or two on first install)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-query-features-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Query features (60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-convert-to-geodataframe-10-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Convert to GeoDataFrame (10 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-plot-the-data-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Plot the data (60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-add-geocoding-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Add geocoding (60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-query-via-grpc-optional-60-seconds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Query via gRPC (optional, 60 seconds)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#full-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full script
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#whats-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-manual-esri-json-conversion-without-the-geopandas-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix: Manual Esri JSON conversion (without the geopandas extra)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common errors
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recipe-rate-limit-retry-on-mutating-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe: rate-limit retry on mutating calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipe-retry-a-timeout-with-a-larger-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe: retry a timeout with a larger budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="5-minute-quickstart-query-features-and-plot-with-geopandas">5-Minute Quickstart: Query Features and Plot with GeoPandas<a class="headerlink" href="#5-minute-quickstart-query-features-and-plot-with-geopandas" title="Permanent link">&para;</a></h1>
+<h2 id="what-youll-build">What You'll Build<a class="headerlink" href="#what-youll-build" title="Permanent link">&para;</a></h2>
+<p>A Python script that queries geospatial features from a Honua server,
+converts them to a GeoDataFrame, and plots them with matplotlib.</p>
+<p>By the end you will have a map saved as <code>features.png</code> and a geocoded
+point overlaid on top of it.</p>
+<p>This quickstart is the smallest tour of the SDK surface. The maintained
+script-first example remains the <a href="https://github.com/honua-io/honua-sdk-python/tree/trunk/examples/geospatial_etl">Geospatial ETL demo</a>,
+and the notebook companion imports that same shared workflow module.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Python 3.11+</li>
+<li>A running Honua server (or use the demo endpoint)</li>
+</ul>
+<h2 id="step-1-install-takes-a-minute-or-two-on-first-install">Step 1: Install (takes a minute or two on first install)<a class="headerlink" href="#step-1-install-takes-a-minute-or-two-on-first-install" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;honua-sdk[geopandas]&quot;</span><span class="w"> </span>matplotlib
+</code></pre></div>
+<p>The <code>geopandas</code> extra installs the GeoPandas and Shapely stack used later in this quickstart.</p>
+<h2 id="step-2-query-features-60-seconds">Step 2: Query features (60 seconds)<a class="headerlink" href="#step-2-query-features-60-seconds" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://your-honua-server.com&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
+        <span class="n">SourceDescriptor</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;geoservices-feature-service&quot;</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;1=1&quot;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;*&quot;</span><span class="p">]))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">features</span><span class="p">[:</span><span class="mi">3</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="p">)</span>
+</code></pre></div>
+<p><code>client.source(...)</code> returns a source-bound facade; <code>source.query(...)</code>
+returns a canonical <code>Result</code> whose <code>features</code> are normalized
+<code>QueryFeature</code> entries (<code>id</code>, <code>properties</code>, <code>geometry</code>, <code>protocol</code>,
+<code>source</code>, <code>raw</code>). The <code>raw</code> attribute on each feature -- and
+<code>result.raw</code> on the result -- still expose the underlying protocol
+payload (for FeatureServer that is the GeoServices JSON shape with
+<code>"attributes"</code> and <code>"geometry"</code> sub-keys) when you need it.</p>
+<blockquote>
+<p><strong>Legacy / compact form.</strong> <code>client.query_features("test_service",
+layer_id=0, where="1=1", return_geometry=True, out_fields=["*"])</code>
+still works and returns the raw GeoServices dict; prefer it only for
+one-liners. The <code>Source</code> API above is the recommended idiom and
+returns typed <code>Result</code>/<code>QueryFeature</code> objects.</p>
+</blockquote>
+<h2 id="step-3-convert-to-geodataframe-10-seconds">Step 3: Convert to GeoDataFrame (10 seconds)<a class="headerlink" href="#step-3-convert-to-geodataframe-10-seconds" title="Permanent link">&para;</a></h2>
+<p>The SDK ships <code>features_to_geodataframe</code>, which converts a FeatureServer
+response (including Esri JSON geometries and the layer's <code>spatialReference</code>)
+directly into a GeoDataFrame -- no Shapely glue code required.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geopandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">features_to_geodataframe</span>
+
+<span class="n">gdf</span> <span class="o">=</span> <span class="n">features_to_geodataframe</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">raw</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+</code></pre></div>
+<p><code>features_to_geodataframe</code> accepts the raw FeatureServer payload (as
+exposed via <code>result.raw</code> from the Source API or returned directly by
+<code>query_features</code>), the typed <code>FeatureSet</code> returned by
+<code>query_feature_set</code>, or a list of feature dicts.
+The reverse helper, <code>geodataframe_to_features</code>, turns an edited GeoDataFrame
+back into payloads ready for <code>apply_edits</code>.</p>
+<p>If you prefer to skip the <code>geopandas</code> extra and stay on raw dicts, see the
+appendix at the bottom of this file for the manual Esri JSON conversion.</p>
+<h2 id="step-4-plot-the-data-60-seconds">Step 4: Plot the data (60 seconds)<a class="headerlink" href="#step-4-plot-the-data-60-seconds" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Features from Honua Server&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;features.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p>If your layer does not have a <code>"status"</code> column, drop the <code>column</code>
+argument or replace it with any attribute name from your dataset:</p>
+<div class="highlight"><pre><span></span><code><span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+</code></pre></div>
+<h2 id="step-5-add-geocoding-60-seconds">Step 5: Add geocoding (60 seconds)<a class="headerlink" href="#step-5-add-geocoding-60-seconds" title="Permanent link">&para;</a></h2>
+<p>Use <code>HonuaGeocodingClient</code> to forward-geocode an address and plot it on
+top of the feature map.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGeocodingClient</span>
+
+<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="s2">&quot;https://your-honua-server.com&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">geocoder</span><span class="o">.</span><span class="n">forward_geocode</span><span class="p">(</span><span class="s2">&quot;1600 Pennsylvania Ave NW, Washington, DC&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">results</span><span class="p">:</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">top</span><span class="o">.</span><span class="n">address</span><span class="si">}</span><span class="s2">  (</span><span class="si">{</span><span class="n">top</span><span class="o">.</span><span class="n">latitude</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">top</span><span class="o">.</span><span class="n">longitude</span><span class="si">}</span><span class="s2">)  score=</span><span class="si">{</span><span class="n">top</span><span class="o">.</span><span class="n">score</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">point</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span>
+        <span class="p">[{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">top</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot;geometry&quot;</span><span class="p">:</span> <span class="n">Point</span><span class="p">(</span><span class="n">top</span><span class="o">.</span><span class="n">longitude</span><span class="p">,</span> <span class="n">top</span><span class="o">.</span><span class="n">latitude</span><span class="p">)}],</span>
+        <span class="n">geometry</span><span class="o">=</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span>
+        <span class="n">crs</span><span class="o">=</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;lightgrey&quot;</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+    <span class="n">point</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Geocoded location on feature map&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;geocoded.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<p><code>forward_geocode</code> returns a list of <code>GeocodeResult</code> dataclasses sorted by
+score. Each result exposes <code>address</code>, <code>latitude</code>, <code>longitude</code>, <code>score</code>,
+and <code>attributes</code>.</p>
+<h2 id="step-6-query-via-grpc-optional-60-seconds">Step 6: Query via gRPC (optional, 60 seconds)<a class="headerlink" href="#step-6-query-via-grpc-optional-60-seconds" title="Permanent link">&para;</a></h2>
+<p>If your Honua server exposes a gRPC endpoint, you can use <code>HonuaGrpcClient</code>
+for high-throughput streaming queries. Install the gRPC extras first:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>honua-sdk<span class="o">[</span>grpc<span class="o">]</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Dev-only</strong>: pass <code>credentials=</code> (TLS) in production. <code>insecure=True</code> disables transport security and should never reach production deployments.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGrpcClient</span><span class="p">,</span> <span class="n">QueryFeaturesRequest</span>
+
+<span class="k">with</span> <span class="n">HonuaGrpcClient</span><span class="p">(</span><span class="s2">&quot;your-honua-server.com:50051&quot;</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
+    <span class="c1"># Unary query</span>
+    <span class="n">request</span> <span class="o">=</span> <span class="n">QueryFeaturesRequest</span><span class="p">(</span>
+        <span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span>
+        <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features via gRPC&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Streaming query (pages arrive incrementally)</span>
+    <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features_stream</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Page with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>For async usage, swap in <code>HonuaGrpcAsyncClient</code>:</p>
+<blockquote>
+<p><strong>Dev-only</strong>: pass <code>credentials=</code> (TLS) in production. <code>insecure=True</code> disables transport security and should never reach production deployments.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">,</span> <span class="n">QueryFeaturesRequest</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">(</span><span class="s2">&quot;your-honua-server.com:50051&quot;</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
+    <span class="n">request</span> <span class="o">=</span> <span class="n">QueryFeaturesRequest</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features_stream</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Streamed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="full-script">Full script<a class="headerlink" href="#full-script" title="Permanent link">&para;</a></h2>
+<p>Here is the complete example in one copy-pasteable block:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;quickstart.py -- Honua SDK 5-minute demo.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HonuaClient</span><span class="p">,</span>
+    <span class="n">HonuaGeocodingClient</span><span class="p">,</span>
+    <span class="n">Query</span><span class="p">,</span>
+    <span class="n">SourceDescriptor</span><span class="p">,</span>
+    <span class="n">SourceLocator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geopandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">features_to_geodataframe</span>
+
+<span class="n">SERVER</span> <span class="o">=</span> <span class="s2">&quot;https://your-honua-server.com&quot;</span>
+
+<span class="c1"># --- Query features --------------------------------------------------------</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
+        <span class="n">SourceDescriptor</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;geoservices-feature-service&quot;</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;1=1&quot;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;*&quot;</span><span class="p">]))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- Build GeoDataFrame ----------------------------------------------------</span>
+<span class="n">gdf</span> <span class="o">=</span> <span class="n">features_to_geodataframe</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">raw</span><span class="p">)</span>
+
+<span class="c1"># --- Plot ------------------------------------------------------------------</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;lightgrey&quot;</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Features from Honua Server&quot;</span><span class="p">)</span>
+
+<span class="c1"># --- Geocode and overlay ---------------------------------------------------</span>
+<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
+    <span class="n">hits</span> <span class="o">=</span> <span class="n">geocoder</span><span class="o">.</span><span class="n">forward_geocode</span><span class="p">(</span><span class="s2">&quot;1600 Pennsylvania Ave NW, Washington, DC&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">hits</span><span class="p">:</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">hits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">point</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span>
+        <span class="p">[{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">top</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">&quot;geometry&quot;</span><span class="p">:</span> <span class="n">Point</span><span class="p">(</span><span class="n">top</span><span class="o">.</span><span class="n">longitude</span><span class="p">,</span> <span class="n">top</span><span class="o">.</span><span class="n">latitude</span><span class="p">)}],</span>
+        <span class="n">geometry</span><span class="o">=</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span>
+        <span class="n">crs</span><span class="o">=</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">point</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;features.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+<h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/honua-io/honua-sdk-python/tree/trunk/examples/geospatial_etl">Geospatial ETL demo</a> -- canonical script-first ETL flow plus notebook companion, including the <code>load-summary.json</code> and <code>post-load-preview.png</code> output contract</li>
+<li><a href="../troubleshooting/">Troubleshooting</a> -- base URL selection, auth, staging smoke env vars, optional ETL dependencies, and cleanup guidance</li>
+<li><a href="https://github.com/honua-io/honua-sdk-python/blob/trunk/INSTALL.md">INSTALL.md</a> -- installation options including gRPC extras</li>
+<li><a href="../packages/honua-sdk/honua_sdk/grpc/">gRPC client</a> -- streaming feature queries via <code>HonuaGrpcClient</code></li>
+<li><a href="../packages/honua-admin/honua_admin/">Admin client</a> -- server administration with <code>HonuaAdminClient</code></li>
+</ul>
+<h2 id="appendix-manual-esri-json-conversion-without-the-geopandas-extra">Appendix: Manual Esri JSON conversion (without the <code>geopandas</code> extra)<a class="headerlink" href="#appendix-manual-esri-json-conversion-without-the-geopandas-extra" title="Permanent link">&para;</a></h2>
+<p>If you cannot install the <code>geopandas</code> extra and need to handle the FeatureServer
+response yourself, the JSON shape is straightforward. Each feature has
+<code>"attributes"</code> and <code>"geometry"</code> keys; the geometry uses Esri JSON
+(<code>rings</code>, <code>paths</code>, or <code>x</code>/<code>y</code>) rather than GeoJSON.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">shape</span>
+
+<span class="n">features</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;features&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+<span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">features</span><span class="p">:</span>
+    <span class="n">attrs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;attributes&quot;</span><span class="p">,</span> <span class="p">{}))</span>
+    <span class="n">geom</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Esri JSON rings/paths -&gt; GeoJSON-style dict for shapely</span>
+    <span class="k">if</span> <span class="n">geom</span> <span class="ow">and</span> <span class="s2">&quot;rings&quot;</span> <span class="ow">in</span> <span class="n">geom</span><span class="p">:</span>
+        <span class="n">geom</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;Polygon&quot;</span><span class="p">,</span> <span class="s2">&quot;coordinates&quot;</span><span class="p">:</span> <span class="n">geom</span><span class="p">[</span><span class="s2">&quot;rings&quot;</span><span class="p">]}</span>
+    <span class="k">elif</span> <span class="n">geom</span> <span class="ow">and</span> <span class="s2">&quot;paths&quot;</span> <span class="ow">in</span> <span class="n">geom</span><span class="p">:</span>
+        <span class="n">geom</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;LineString&quot;</span><span class="p">,</span> <span class="s2">&quot;coordinates&quot;</span><span class="p">:</span> <span class="n">geom</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]}</span>
+    <span class="k">elif</span> <span class="n">geom</span> <span class="ow">and</span> <span class="s2">&quot;x&quot;</span> <span class="ow">in</span> <span class="n">geom</span><span class="p">:</span>
+        <span class="n">geom</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;Point&quot;</span><span class="p">,</span> <span class="s2">&quot;coordinates&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">geom</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">geom</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]]}</span>
+
+    <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shape</span><span class="p">(</span><span class="n">geom</span><span class="p">)</span> <span class="k">if</span> <span class="n">geom</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attrs</span><span class="p">)</span>
+
+<span class="n">gdf</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">geometry</span><span class="o">=</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Prefer <code>features_to_geodataframe</code> in real code -- it also handles polylines,
+multipoints, M/Z dimensions, and the layer's actual <code>spatialReference</code> so the
+GeoDataFrame's CRS is correct without guessing <code>EPSG:4326</code>.</p>
+<h2 id="common-errors">Common errors<a class="headerlink" href="#common-errors" title="Permanent link">&para;</a></h2>
+<p>The SDK raises a small hierarchy of typed errors. Catch broadly with
+<code>HonuaError</code>, or narrowly with the specific subclass.</p>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>When it fires</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HonuaAuthError</code> (401/403)</td>
+<td>Missing/invalid API key or bearer token</td>
+<td>Confirm <code>api_key=</code> or <code>bearer_token=</code> is set on the client</td>
+</tr>
+<tr>
+<td><code>HonuaRateLimitError</code> (429)</td>
+<td>Server rate limit hit</td>
+<td>Honor <code>error.retry_after</code> (seconds); the SDK already retries idempotent methods</td>
+</tr>
+<tr>
+<td><code>HonuaHttpError</code> (any 4xx/5xx)</td>
+<td>Other server-side errors</td>
+<td>Inspect <code>error.status_code</code> and <code>error.body</code></td>
+</tr>
+<tr>
+<td><code>HonuaTimeoutError</code></td>
+<td>Request exceeded the configured timeout</td>
+<td>Pass <code>timeout=</code> to the client or use <code>client.with_options(timeout=...)</code> for a one-off</td>
+</tr>
+<tr>
+<td><code>HonuaTransportError</code></td>
+<td>DNS/connect/read failure</td>
+<td>Network issue; the SDK already retries safe methods</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">HonuaRateLimitError</span><span class="p">,</span> <span class="n">HonuaAuthError</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;status = &#39;active&#39;&quot;</span><span class="p">))</span>
+<span class="k">except</span> <span class="n">HonuaAuthError</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="s2">&quot;Auth failed -- check HONUA_API_KEY&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="n">HonuaRateLimitError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rate limited; retry after </span><span class="si">{</span><span class="n">exc</span><span class="o">.</span><span class="n">retry_after</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="recipe-rate-limit-retry-on-mutating-calls">Recipe: rate-limit retry on mutating calls<a class="headerlink" href="#recipe-rate-limit-retry-on-mutating-calls" title="Permanent link">&para;</a></h3>
+<p>The SDK already retries safe methods (<code>GET</code>, <code>HEAD</code>, ...) on 429 automatically,
+honouring the <code>Retry-After</code> header. If you have opted <code>POST</code> into <code>retry_methods</code>
+on the client and still want application-level retries -- for example, to log
+backoff explicitly or to bound the number of attempts -- catch
+<code>HonuaRateLimitError</code> and sleep for <code>exc.retry_after</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">HonuaRateLimitError</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">,</span> <span class="n">retry_methods</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;POST&quot;</span><span class="p">})</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">attempt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">apply_edits</span><span class="p">(</span><span class="s2">&quot;svc&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">adds</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;attributes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;OBJECTID&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}}])</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="n">HonuaRateLimitError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">wait_s</span> <span class="o">=</span> <span class="n">exc</span><span class="o">.</span><span class="n">retry_after</span> <span class="ow">or</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">attempt</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;429; sleeping </span><span class="si">{</span><span class="n">wait_s</span><span class="si">}</span><span class="s2">s before retry </span><span class="si">{</span><span class="n">attempt</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">wait_s</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="s2">&quot;Gave up after 5 retries&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="recipe-retry-a-timeout-with-a-larger-budget">Recipe: retry a timeout with a larger budget<a class="headerlink" href="#recipe-retry-a-timeout-with-a-larger-budget" title="Permanent link">&para;</a></h3>
+<p><code>HonuaTimeoutError</code> fires when a single request exceeds the client's configured
+timeout. For occasional slow queries, retry the same call with a one-shot
+<code>client.with_options(timeout=...)</code> override -- this returns a lightweight clone
+that shares the underlying transport, so it does not reconnect:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">HonuaTimeoutError</span><span class="p">,</span> <span class="n">Query</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;status = &#39;active&#39;&quot;</span><span class="p">))</span>
+    <span class="k">except</span> <span class="n">HonuaTimeoutError</span><span class="p">:</span>
+        <span class="c1"># One-shot bigger budget; original client keeps its 5s default.</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">60.0</span><span class="p">)</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span>
+            <span class="s2">&quot;svc&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">&quot;status = &#39;active&#39;&quot;</span>
+        <span class="p">)</span>
+</code></pre></div>
+<p>See <a href="../troubleshooting/">troubleshooting.md</a> for more.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

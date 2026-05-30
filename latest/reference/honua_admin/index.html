@@ -1022,6 +1022,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        copy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.list_services" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1428,6 +1439,17 @@
     <span class="md-ellipsis">
       
         with_options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        copy
       
     </span>
   </a>
@@ -2293,6 +2315,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        copy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.list_services" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2699,6 +2732,17 @@
     <span class="md-ellipsis">
       
         with_options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        copy
       
     </span>
   </a>
@@ -3440,7 +3484,9 @@ metadata resources, manifests, connections, layers, styles, config)
 and return typed model objects.</p>
 <p>Authentication is configured at construction with at most one of
 <code>api_key</code>, <code>bearer_token</code>, or <code>auth_provider</code> (mutually
-exclusive). When <code>client</code> is supplied as a pre-built
+exclusive). <code>bearer_token=</code> is <strong>deprecated</strong> (removal in 0.2.x);
+prefer <code>auth_provider=StaticAuthProvider({"Authorization": f"Bearer
+{token}"})</code>. When <code>client</code> is supplied as a pre-built
 :class:<code>httpx.Client</code>, no auth kwargs may be passed — configure them
 on the client instead.</p>
 <p>Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
@@ -3890,6 +3936,27 @@ shared with the original.</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="honua_admin.HonuaAdminClient.copy" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">copy</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.HonuaAdminClient.copy" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Alias for :meth:<code>with_options</code>.</p>
+<p>Provided for parity with the stripe-python convention. The
+semantics are identical to :meth:<code>with_options</code>; see that method
+for the full contract.</p>
 
 
     </div>
@@ -8142,7 +8209,9 @@ admin REST endpoints (services, metadata resources, manifests,
 connections, layers, styles, config) and return typed model objects.</p>
 <p>Authentication is configured at construction with at most one of
 <code>api_key</code>, <code>bearer_token</code>, or <code>auth_provider</code> (mutually
-exclusive). When <code>client</code> is supplied as a pre-built
+exclusive). <code>bearer_token=</code> is <strong>deprecated</strong> (removal in 0.2.x);
+prefer <code>auth_provider=StaticAuthProvider({"Authorization": f"Bearer
+{token}"})</code>. When <code>client</code> is supplied as a pre-built
 :class:<code>httpx.AsyncClient</code>, no auth kwargs may be passed — configure
 them on the client instead.</p>
 <p>Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
@@ -8600,6 +8669,27 @@ NOT shared with the original.</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="honua_admin.AsyncHonuaAdminClient.copy" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">copy</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.AsyncHonuaAdminClient.copy" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Alias for :meth:<code>with_options</code>.</p>
+<p>Provided for parity with the stripe-python convention. The
+semantics are identical to :meth:<code>with_options</code>; see that method
+for the full contract.</p>
 
 
     </div>

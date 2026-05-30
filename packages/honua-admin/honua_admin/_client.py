@@ -64,7 +64,9 @@ class HonuaAdminClient:
 
     Authentication is configured at construction with at most one of
     ``api_key``, ``bearer_token``, or ``auth_provider`` (mutually
-    exclusive). When ``client`` is supplied as a pre-built
+    exclusive). ``bearer_token=`` is **deprecated** (removal in 0.2.x);
+    prefer ``auth_provider=StaticAuthProvider({"Authorization": f"Bearer
+    {token}"})``. When ``client`` is supplied as a pre-built
     :class:`httpx.Client`, no auth kwargs may be passed — configure them
     on the client instead.
 

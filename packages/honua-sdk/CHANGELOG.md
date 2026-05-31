@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.2...python-sdk-v0.1.3) (2026-05-31)
+
+
+### Features
+
+* **migration:** expand arcpy tool coverage slice ([#82](https://github.com/honua-io/honua-sdk-python/issues/82)) ([#86](https://github.com/honua-io/honua-sdk-python/issues/86)) ([41d4270](https://github.com/honua-io/honua-sdk-python/commit/41d427088969350f731f89e296955cd83e5ea403))
+
 ## [0.1.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.1...python-sdk-v0.1.2) (2026-05-31)
 
 

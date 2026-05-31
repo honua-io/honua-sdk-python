@@ -130,6 +130,31 @@ jobs:
       - name: Build package
         run: hatch build
 
+      - name: Assert wheel contents
+        # twine check + the fresh-venv import smoke confirm the wheel installs
+        # and imports, but neither asserts that the type marker, the shared
+        # retry core, and the optional grpc/migration subpackages are actually
+        # packaged. A misconfigured `[tool.hatch.build]` could ship an
+        # importable wheel that silently drops py.typed (breaking downstream
+        # type-checking) or the grpc/migration trees. Fail loudly here instead.
+        shell: bash
+        run: |
+          wheel="$(ls dist/honua_sdk-*.whl)"
+          echo "Inspecting ${wheel}"
+          listing="$(python -m zipfile -l "${wheel}")"
+          for expected in \
+            honua_sdk/py.typed \
+            honua_sdk/_retry_core.py \
+            honua_sdk/grpc/__init__.py \
+            honua_sdk/migration/__init__.py; do
+            if ! grep -q -- "${expected}" <<<"${listing}"; then
+              echo "::error::wheel ${wheel} is missing ${expected}"
+              echo "${listing}"
+              exit 1
+            fi
+            echo "ok: ${expected}"
+          done
+
       - name: Upload package artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -188,7 +213,10 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Run admin tests
-        run: python -m pytest ../../tests/admin/ -q --tb=short
+        # Exercise the full suite so the admin publish smoke mirrors the sdk
+        # job; the prior `tests/admin/`-only run let data-plane regressions
+        # slip past admin releases even though honua-admin depends on honua-sdk.
+        run: python -m pytest ../../tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
 
       - name: Validate tag version
@@ -201,6 +229,29 @@ jobs:
 
       - name: Build package
         run: hatch build
+
+      - name: Assert wheel contents
+        # Mirror the sdk wheel-contents gate: confirm the type marker and the
+        # sync/async client + shared endpoint modules are packaged so a
+        # mispackaged wheel that still imports cannot silently drop py.typed
+        # or a client facade.
+        shell: bash
+        run: |
+          wheel="$(ls dist/honua_admin-*.whl)"
+          echo "Inspecting ${wheel}"
+          listing="$(python -m zipfile -l "${wheel}")"
+          for expected in \
+            honua_admin/py.typed \
+            honua_admin/_endpoints.py \
+            honua_admin/_client.py \
+            honua_admin/_async_client.py; do
+            if ! grep -q -- "${expected}" <<<"${listing}"; then
+              echo "::error::wheel ${wheel} is missing ${expected}"
+              echo "${listing}"
+              exit 1
+            fi
+            echo "ok: ${expected}"
+          done
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v7

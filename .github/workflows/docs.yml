@@ -46,6 +46,15 @@ jobs:
           pip install ./packages/honua-admin
       - name: Build site
         run: mkdocs build --strict
+      - name: Upload built site
+        # Attach the rendered site so PR reviewers can download and preview the
+        # docs without checking out the branch and building mkdocs locally.
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-site-${{ github.run_id }}
+          path: site/
+          if-no-files-found: error
+          retention-days: 14
 
   deploy:
     # Versioned docs publish only from `trunk` pushes, never from PR forks.

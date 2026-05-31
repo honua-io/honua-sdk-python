@@ -47,6 +47,18 @@ jobs:
       - name: Build site
         run: mkdocs build --strict
 
+      - name: Upload rendered site artifact
+        # Attach the rendered ``site/`` so PR reviewers can preview the docs
+        # without checking out the branch and building locally. The ``mike``
+        # deploy below only runs on ``trunk`` pushes, so PRs otherwise have no
+        # browsable output.
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-site-${{ github.run_id }}
+          path: site/
+          if-no-files-found: error
+          retention-days: 14
+
   deploy:
     # Versioned docs publish only from `trunk` pushes, never from PR forks.
     if: github.ref == 'refs/heads/trunk' && github.event_name == 'push'

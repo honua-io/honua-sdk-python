@@ -187,9 +187,15 @@ jobs:
         run: python scripts/compatibility_gate.py
         working-directory: ${{ github.workspace }}
 
-      - name: Run admin tests
-        run: python -m pytest ../../tests/admin/ -q --tb=short
+      - name: Run tests
+        # Exercise the full suite (not just ``tests/admin/``) so the admin
+        # publish smoke mirrors the sdk job and CI; an sdk-side regression
+        # should block an admin release just as it blocks an sdk one, since
+        # honua-admin depends on honua-sdk. Both packages are installed above.
+        run: python -m pytest ../../tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk
 
       - name: Validate tag version
         if: github.event_name == 'push'

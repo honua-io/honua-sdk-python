@@ -221,6 +221,38 @@ jobs:
         run: twine check dist/*
         working-directory: packages/honua-sdk
 
+      - name: Assert honua-sdk wheel contents
+        # twine check validates metadata but not packaged files. Assert the
+        # non-obvious payload (PEP 561 marker, shared retry core, the grpc and
+        # migration subpackages) is actually inside the wheel so a packaging
+        # regression — e.g. a dropped ``[tool.hatch.build]`` include or a missed
+        # ``py.typed`` — fails the build instead of shipping a wheel that drops
+        # type hints or whole subpackages.
+        shell: bash
+        working-directory: packages/honua-sdk
+        run: |
+          wheel=$(ls dist/honua_sdk-*.whl)
+          echo "Inspecting $wheel"
+          contents=$(python -m zipfile -l "$wheel")
+          missing=0
+          for expected in \
+            "honua_sdk/py.typed" \
+            "honua_sdk/_retry_core.py" \
+            "honua_sdk/grpc/" \
+            "honua_sdk/migration/"; do
+            if echo "$contents" | grep -q "$expected"; then
+              echo "  ok: $expected"
+            else
+              echo "  MISSING: $expected"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::honua-sdk wheel is missing expected contents"
+            echo "$contents"
+            exit 1
+          fi
+
       - name: Build honua-admin
         run: hatch build
         working-directory: packages/honua-admin

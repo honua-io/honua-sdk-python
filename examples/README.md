@@ -24,6 +24,7 @@ The checked-in examples target the seeded `test_service` layer used by local Hon
 | Spatial query cookbook | Developer or analyst comparing protocol query patterns | core SDK, optional `honua-sdk[geopandas]` for conversions | `python examples/spatial_query_cookbook.py` | printed response-shape summary |
 | Spatial analysis walkthrough | Analyst running buffer / spatial-join / dissolve on queried features | `honua-sdk[geopandas]`, optional `matplotlib` for the map | open `examples/notebooks/spatial_analysis_walkthrough.ipynb` (or run the paired `examples/notebooks/spatial_analysis_walkthrough.py`) | per-district summary table, optional map; runs offline on a bundled fixture |
 | FastAPI spatial service | App developer exposing async Honua-backed API routes | `fastapi`, `uvicorn` | `uvicorn examples.fastapi_spatial_service:create_app --factory --reload` | local `/features` and `/summary` routes |
+| Async feature service | App developer fronting Honua with a pooled async client | `fastapi`, `uvicorn` | `uvicorn examples.async_feature_service.service:create_app --factory --reload` | local `/services` and `/features` routes |
 | Protocol clients | SDK developer checking protocol wrappers | core SDK, optional `honua-sdk[grpc]` and `honua-sdk[geopandas]` | `python examples/protocol_clients.py` | printed protocol response examples |
 
 ## Validation

@@ -3588,6 +3588,10 @@
               "kind": "method",
               "signature": "(self) -> \"'AsyncGeoServicesGeometryServerClient'\""
             },
+            "geoprocessing": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncHonuaGeoprocessing'\""
+            },
             "image_server": {
               "kind": "method",
               "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
@@ -3695,6 +3699,10 @@
             "wmts": {
               "kind": "method",
               "signature": "(self, service_id: 'str') -> \"'AsyncWmtsClient'\""
+            },
+            "workflow": {
+              "kind": "method",
+              "signature": "(self) -> \"'AsyncHonuaWorkflow'\""
             }
           },
           "module": "honua_sdk.async_client",
@@ -4242,6 +4250,10 @@
               "kind": "method",
               "signature": "(self) -> \"'GeoServicesGeometryServerClient'\""
             },
+            "geoprocessing": {
+              "kind": "method",
+              "signature": "(self) -> \"'HonuaGeoprocessing'\""
+            },
             "image_server": {
               "kind": "method",
               "signature": "(self, service_id: 'str | None' = None) -> \"'GeoServicesImageServerClient'\""
@@ -4341,6 +4353,10 @@
             "wmts": {
               "kind": "method",
               "signature": "(self, service_id: 'str') -> \"'WmtsClient'\""
+            },
+            "workflow": {
+              "kind": "method",
+              "signature": "(self) -> \"'HonuaWorkflow'\""
             }
           },
           "module": "honua_sdk.client",

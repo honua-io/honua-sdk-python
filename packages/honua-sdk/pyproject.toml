@@ -28,6 +28,7 @@ dependencies = [
 ]
 
 [project.scripts]
+honua = "honua_sdk.cli:main"
 honua-migrate = "honua_sdk.migration._cli:main"
 
 [project.urls]

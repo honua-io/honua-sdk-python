@@ -46,6 +46,9 @@ ignore = []
 "tests/**" = ["E501", "PLR0913", "PLR2004", "SIM", "B017", "PLC0415", "I001", "UP037", "UP017", "F401", "E402", "E741", "PLR0911", "PLR0915", "PLR0912", "RUF022", "RUF043", "PLW0108", "PLR5501", "S101", "S105", "S106"]
 "examples/**" = ["E501", "PLR0913", "PLR2004", "PLC0415", "I001", "UP037", "UP017", "F401", "E402", "E741", "PLR0911", "PLR0915", "PLR0912", "RUF022", "RUF043", "PLW0108", "PLR5501", "SIM108", "SIM105", "S105", "S106"]
 "scripts/**" = ["E501", "PLR0913", "PLR2004", "PLC0415", "I001", "UP037", "UP017", "F401", "E402", "E741", "PLR0911", "PLR0915", "PLR0912", "RUF022", "RUF043", "RUF100", "PLW0108", "PLR5501", "SIM108", "SIM105", "S101", "S603", "S607"]
+# Jupytext py:percent notebook mirrors render display cells as bare trailing
+# expressions (B018), which is the intended notebook idiom, not dead code.
+"examples/notebooks/*.py" = ["B018"]
 # Narrow per-file allowances for runtime-import patterns inside the packages.
 # PLC0415: deliberate lazy imports to avoid hard deps (geopandas, grpc) or to break import cycles.
 # E501: wide public protocol surfaces use multi-keyword signatures where wrapping

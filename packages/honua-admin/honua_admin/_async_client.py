@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -20,6 +21,7 @@ from honua_sdk.http import (
     to_transport_error,
     validate_auth_configuration,
     validate_external_client_auth_configuration,
+    warn_deprecated_bearer_token,
 )
 
 from . import _endpoints
@@ -62,7 +64,9 @@ class AsyncHonuaAdminClient:
 
     Authentication is configured at construction with at most one of
     ``api_key``, ``bearer_token``, or ``auth_provider`` (mutually
-    exclusive). When ``client`` is supplied as a pre-built
+    exclusive). ``bearer_token=`` is **deprecated** (removal in 0.2.x);
+    prefer ``auth_provider=StaticAuthProvider({"Authorization": f"Bearer
+    {token}"})``. When ``client`` is supplied as a pre-built
     :class:`httpx.AsyncClient`, no auth kwargs may be passed — configure
     them on the client instead.
 
@@ -147,6 +151,7 @@ class AsyncHonuaAdminClient:
         if client is not None and transport is not None:
             raise ValueError("Provide either `client` or `transport`, not both.")
         validate_auth_configuration(bearer_token=bearer_token, auth_provider=auth_provider)
+        warn_deprecated_bearer_token(bearer_token)
         validate_external_client_auth_configuration(
             client=client,
             api_key=api_key,
@@ -301,16 +306,20 @@ class AsyncHonuaAdminClient:
                 if (timeout is not None and timeout < self._init_timeout)
                 else self._init_timeout
             )
-            clone = self.__class__(
-                base_url if base_url is not None else self._init_base_url,
-                timeout=effective_timeout,
-                api_key=self._init_api_key,
-                bearer_token=self._init_bearer_token,
-                auth_provider=self._init_auth_provider,
-                follow_redirects=self._init_follow_redirects,
-                transport=self._init_transport,
-                max_retries=self._init_max_retries,
-            )
+            # Suppress the re-fired bearer_token deprecation on the internal
+            # clone path; the caller acknowledged it at original construction.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                clone = self.__class__(
+                    base_url if base_url is not None else self._init_base_url,
+                    timeout=effective_timeout,
+                    api_key=self._init_api_key,
+                    bearer_token=self._init_bearer_token,
+                    auth_provider=self._init_auth_provider,
+                    follow_redirects=self._init_follow_redirects,
+                    transport=self._init_transport,
+                    max_retries=self._init_max_retries,
+                )
             clone._options_timeout = (
                 timeout if timeout is not None else self._options_timeout
             )
@@ -331,6 +340,23 @@ class AsyncHonuaAdminClient:
             max_retries if max_retries is not None else self._options_max_retries
         )
         return clone
+
+    def copy(
+        self,
+        *,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        base_url: str | None = None,
+    ) -> "AsyncHonuaAdminClient":
+        """Alias for :meth:`with_options`.
+
+        Provided for parity with the stripe-python convention. The
+        semantics are identical to :meth:`with_options`; see that method
+        for the full contract.
+        """
+        return self.with_options(
+            timeout=timeout, max_retries=max_retries, base_url=base_url
+        )
 
     def _idempotency_headers(
         self,

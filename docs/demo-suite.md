@@ -4,7 +4,7 @@ The Python SDK demo suite is designed around workflows where Python is the best 
 
 ## Environment
 
-Use the shared demo contract from [../examples/README.md](../examples/README.md):
+Use the shared demo contract from [`examples/README.md`](https://github.com/honua-io/honua-sdk-python/blob/trunk/examples/README.md):
 
 - `HONUA_BASE_URL`
 - `HONUA_API_KEY`

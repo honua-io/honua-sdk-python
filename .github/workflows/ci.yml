@@ -68,6 +68,11 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    # Use bash on every OS (incl. Windows) so the multi-line ``run`` blocks with
+    # ``\`` continuations parse consistently instead of hitting PowerShell.
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -177,18 +182,17 @@ jobs:
           pip install -e "packages/honua-admin"
 
       - name: Security audit (pip-audit)
-        # --skip-editable: honua-sdk/honua-admin are installed editable from this
-        # workspace and are not published to PyPI, so pip-audit cannot resolve them
-        # and hard-fails ("Dependency not found on PyPI"). Skipping the editable
-        # first-party dists still audits all third-party dependencies for CVEs and
-        # still exits non-zero when a real vulnerability is found.
-        #
-        # NOTE: --strict is intentionally omitted. Under --strict, pip-audit treats
-        # a skipped (editable) dist as a collection failure and aborts; that is the
-        # exact failure we are working around. Dropping --strict only relaxes
-        # behaviour on un-collectable dists (our unpublished first-party packages),
-        # not on real third-party CVE detection.
-        run: python -m pip_audit --skip-editable
+        # The two local workspace packages (honua-sdk / honua-admin) are
+        # installed editable and are not published to PyPI, so pip-audit
+        # cannot resolve them. Under ``--strict`` even ``--skip-editable``
+        # turns those into hard errors, so instead audit a frozen
+        # requirements list with the local editable packages filtered out.
+        # Every third-party dependency is still audited strictly.
+        run: |
+          pip freeze --exclude-editable > audit-requirements.txt
+          echo "Auditing third-party dependencies:"
+          cat audit-requirements.txt
+          python -m pip_audit --strict --requirement audit-requirements.txt
 
   package:
     runs-on: ubuntu-latest

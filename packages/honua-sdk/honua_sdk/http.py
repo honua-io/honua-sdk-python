@@ -26,6 +26,7 @@ HTTP helpers (no leading underscore):
 * :func:`extract_trusted_authority`
 * :func:`validate_auth_configuration`
 * :func:`validate_external_client_auth_configuration`
+* :func:`warn_deprecated_bearer_token`
 * :func:`to_http_error`             — :class:`httpx.Response` → :class:`HonuaHttpError`
 * :func:`to_transport_error`        — :class:`httpx.HTTPError` → :class:`HonuaTransportError`
 * :func:`parse_retry_after`         — accepts seconds-int or HTTP-date
@@ -63,6 +64,7 @@ from ._http import (
     _to_transport_error,
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
+    _warn_deprecated_bearer_token,
 )
 from ._retry import RetryTransport
 from .auth import AuthProvider
@@ -86,6 +88,7 @@ to_http_error = _to_http_error
 to_transport_error = _to_transport_error
 validate_auth_configuration = _validate_auth_configuration
 validate_external_client_auth_configuration = _validate_external_client_auth_configuration
+warn_deprecated_bearer_token = _warn_deprecated_bearer_token
 
 __all__ = [
     "AsyncRetryTransport",
@@ -105,6 +108,7 @@ __all__ = [
     "_to_transport_error",
     "_validate_auth_configuration",
     "_validate_external_client_auth_configuration",
+    "_warn_deprecated_bearer_token",
     "apply_sensitive_auth_headers",
     "build_sensitive_auth_headers",
     "encode_path_segment",
@@ -115,4 +119,5 @@ __all__ = [
     "to_transport_error",
     "validate_auth_configuration",
     "validate_external_client_auth_configuration",
+    "warn_deprecated_bearer_token",
 ]

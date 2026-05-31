@@ -18,6 +18,7 @@ markers = [
     "integration: tests that exercise a real Honua deployment",
     "staging: tests intended for the staging smoke lane",
     "smoke: lightweight release and CI smoke coverage",
+    "conformance: shared geospatial-grpc fixtures checked against a pinned live server",
 ]
 
 [tool.ruff]

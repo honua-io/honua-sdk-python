@@ -22,6 +22,7 @@ The checked-in examples target the seeded `test_service` layer used by local Hon
 | GeoPandas ETL | Analyst loading cleaned point data into Honua | `honua-sdk[geopandas]`, `matplotlib` | `python examples/geospatial_etl/run_etl.py` | `load-summary.json`, `post-load-preview.png` |
 | Data quality report | Analyst reviewing source defects before load | `honua-sdk[geopandas]` | `python examples/data_quality_report.py` | `data-quality-report.json`, `data-quality-report.html` |
 | Spatial query cookbook | Developer or analyst comparing protocol query patterns | core SDK, optional `honua-sdk[geopandas]` for conversions | `python examples/spatial_query_cookbook.py` | printed response-shape summary |
+| Spatial analysis walkthrough | Analyst running buffer / spatial-join / dissolve on queried features | `honua-sdk[geopandas]`, optional `matplotlib` for the map | open `examples/notebooks/spatial_analysis_walkthrough.ipynb` (or run the paired `examples/notebooks/spatial_analysis_walkthrough.py`) | per-district summary table, optional map; runs offline on a bundled fixture |
 | FastAPI spatial service | App developer exposing async Honua-backed API routes | `fastapi`, `uvicorn` | `uvicorn examples.fastapi_spatial_service:create_app --factory --reload` | local `/features` and `/summary` routes |
 | Async feature service | App developer fronting Honua with a pooled async client | `fastapi`, `uvicorn` | `uvicorn examples.async_feature_service.service:create_app --factory --reload` | local `/services` and `/features` routes |
 | Protocol clients | SDK developer checking protocol wrappers | core SDK, optional `honua-sdk[grpc]` and `honua-sdk[geopandas]` | `python examples/protocol_clients.py` | printed protocol response examples |
@@ -31,7 +32,15 @@ The checked-in examples target the seeded `test_service` layer used by local Hon
 Run the focused example tests from the repo root:
 
 ```bash
-pytest tests/test_geospatial_etl_example.py tests/test_python_analyst_demos.py
+pytest tests/test_geospatial_etl_example.py tests/test_python_analyst_demos.py tests/test_spatial_analysis_example.py
 ```
+
+The spatial-analysis walkthrough is notebook-first. Its logic lives in the
+importable `examples/spatial_analysis/analysis.py`, and the committed `.ipynb`
+is paired with a diff-friendly `py:percent` mirror
+(`examples/notebooks/spatial_analysis_walkthrough.py`). `tests/test_spatial_analysis_example.py`
+exercises the pure-Python helpers and verifies the notebook ships with cleared
+outputs. Notebook outputs are intentionally cleared; install `jupytext` if you
+want to keep the `.ipynb`/`.py` pair in sync automatically.
 
 For cloud validation, set the environment variables above and run the scripts manually against a fixture service before attaching artifacts to issue or PR notes.

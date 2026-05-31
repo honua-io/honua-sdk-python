@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.1...python-sdk-v0.1.2) (2026-05-31)
+
+
+### Features
+
+* **cli:** add honua CLI (services/layers/style apply) for SDK parity with JS ([#76](https://github.com/honua-io/honua-sdk-python/issues/76)) ([1a04f03](https://github.com/honua-io/honua-sdk-python/commit/1a04f036dc3b36ffba18f2ba86c69c6fff479c5c))
+* Demo: geospatial ETL pipeline and analyst notebook for Python SDK ([#14](https://github.com/honua-io/honua-sdk-python/issues/14)) ([ec132a2](https://github.com/honua-io/honua-sdk-python/commit/ec132a286cd136f869873f300c57c219eaf4ee22))
+* Python SDK notebooks/examples and staging integration tests (#honua-sdk-python-3) ([e1fdd84](https://github.com/honua-io/honua-sdk-python/commit/e1fdd84cf5001c79780a412b20fb7a6eef8dd5d0))
+* **scenes:** Python scene + elevation + offline-package clients (honua-server[#1198](https://github.com/honua-io/honua-sdk-python/issues/1198)) ([#71](https://github.com/honua-io/honua-sdk-python/issues/71)) ([6a518c1](https://github.com/honua-io/honua-sdk-python/commit/6a518c1f703623283d7c08349917b67f343054f4))
+* **sdk:** reconcile ArcPy codemod hardening + GP/workflow clients onto trunk + reconciled server ([#75](https://github.com/honua-io/honua-sdk-python/issues/75)) ([934dada](https://github.com/honua-io/honua-sdk-python/commit/934dadad2b143dc8d66d3637c441b96cf3f1fc43))
+
 ## [0.1.1](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.0...python-sdk-v0.1.1) (2026-04-28)
 
 

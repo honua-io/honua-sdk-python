@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.3](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.2...python-admin-v0.1.3) (2026-05-31)
+
+
+### Features
+
+* add ArcPy migration scanner ([#59](https://github.com/honua-io/honua-sdk-python/issues/59)) ([#60](https://github.com/honua-io/honua-sdk-python/issues/60)) ([7813832](https://github.com/honua-io/honua-sdk-python/commit/78138322b235e9a31504c794db2bbde18d445a15))
+* Demo: geospatial ETL pipeline and analyst notebook for Python SDK ([#14](https://github.com/honua-io/honua-sdk-python/issues/14)) ([ec132a2](https://github.com/honua-io/honua-sdk-python/commit/ec132a286cd136f869873f300c57c219eaf4ee22))
+* Python SDK notebooks/examples and staging integration tests (#honua-sdk-python-3) ([e1fdd84](https://github.com/honua-io/honua-sdk-python/commit/e1fdd84cf5001c79780a412b20fb7a6eef8dd5d0))
+* **scenes:** Python scene + elevation + offline-package clients (honua-server[#1198](https://github.com/honua-io/honua-sdk-python/issues/1198)) ([#71](https://github.com/honua-io/honua-sdk-python/issues/71)) ([6a518c1](https://github.com/honua-io/honua-sdk-python/commit/6a518c1f703623283d7c08349917b67f343054f4))
+
 ## [0.1.1](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.0...python-admin-v0.1.1) (2026-04-28)
 
 

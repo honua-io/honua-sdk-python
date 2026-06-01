@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest' && matrix.extras == 'grpc,geopandas'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.xml
           # The local ``--cov-fail-under=94`` step above is the real

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field, fields
-from typing import Any
+from typing import Any, Literal, TypeAlias
 
 MINIMUM_SUPPORTED_SERVER_VERSION = "2026.3.0"
 MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR = 1
@@ -720,6 +721,138 @@ class LayerStyleResponse:
     def from_dict(cls, data: dict[str, Any]) -> LayerStyleResponse:
         d = _snake_keys(data)
         return cls(**_extract_fields(cls, d))
+
+
+# ---------------------------------------------------------------------------
+# OGC API - Styles (styleId-keyed; ADR-0048)
+# ---------------------------------------------------------------------------
+
+# Stylesheet encoding identifiers accepted by the styleId-keyed client. These
+# map to the ``Accept`` media types the OGC API - Styles surface negotiates on
+# (``GET /ogc/styles/{styleId}``). ``mapbox-style`` (MapLibre/Mapbox JSON) is
+# canonical; ``sld-1.0`` / ``sld-1.1`` are derived on demand by the server.
+StyleEncoding: "TypeAlias" = Literal["mapbox-style", "sld-1.0", "sld-1.1"]
+
+STYLE_ENCODING_MEDIA_TYPES: dict[str, str] = {
+    "mapbox-style": "application/vnd.mapbox.style+json",
+    "sld-1.0": "application/vnd.ogc.sld+xml;version=1.0",
+    "sld-1.1": "application/vnd.ogc.sld+xml;version=1.1",
+}
+
+DEFAULT_STYLE_ENCODING: "StyleEncoding" = "mapbox-style"
+
+
+def style_encoding_media_type(encoding: "StyleEncoding") -> str:
+    """Return the ``Accept`` media type for a stylesheet *encoding*.
+
+    Raises:
+        ValueError: ``encoding`` is not one of ``mapbox-style``,
+            ``sld-1.0``, or ``sld-1.1``.
+    """
+    try:
+        return STYLE_ENCODING_MEDIA_TYPES[encoding]
+    except KeyError as exc:  # pragma: no cover - guarded by Literal typing
+        valid = ", ".join(sorted(STYLE_ENCODING_MEDIA_TYPES))
+        raise ValueError(f"Unsupported style encoding {encoding!r}; expected one of {valid}.") from exc
+
+
+@dataclass(frozen=True, slots=True)
+class OgcStyleLink:
+    """A single OGC link (``rel`` / ``type`` / ``href`` / ``title``)."""
+
+    href: str
+    rel: str | None = None
+    type: str | None = None
+    title: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OgcStyleLink:
+        d = _snake_keys(data)
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class OgcStyleSummary:
+    """An entry in the OGC API - Styles styles list, keyed by ``style_id``."""
+
+    style_id: str
+    title: str | None = None
+    links: list[OgcStyleLink] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OgcStyleSummary:
+        d = _snake_keys(data)
+        # The wire shape keys the identifier as ``id``; expose it as ``style_id``.
+        if "id" in d and "style_id" not in d:
+            d["style_id"] = d["id"]
+        d["links"] = _model_list(OgcStyleLink, d.get("links", []))
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class OgcStylesList:
+    """Response for ``GET /ogc/styles``: the styles list plus optional default."""
+
+    styles: list[OgcStyleSummary] = field(default_factory=list)
+    default: str | None = None
+    links: list[OgcStyleLink] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OgcStylesList:
+        d = _snake_keys(data)
+        d["styles"] = _model_list(OgcStyleSummary, d.get("styles", []))
+        d["links"] = _model_list(OgcStyleLink, d.get("links", []))
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class OgcStyleMetadata:
+    """Response for ``GET /ogc/styles/{styleId}/metadata``."""
+
+    style_id: str
+    title: str | None = None
+    description: str | None = None
+    keywords: list[str] = field(default_factory=list)
+    license: str | None = None
+    version: str | None = None
+    links: list[OgcStyleLink] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OgcStyleMetadata:
+        d = _snake_keys(data)
+        if "id" in d and "style_id" not in d:
+            d["style_id"] = d["id"]
+        if not isinstance(d.get("keywords"), list):
+            d["keywords"] = []
+        d["links"] = _model_list(OgcStyleLink, d.get("links", []))
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class OgcStylesheet:
+    """A content-negotiated stylesheet returned by ``GET /ogc/styles/{styleId}``.
+
+    ``encoding`` is the requested :data:`StyleEncoding`; ``media_type`` is the
+    ``Content-Type`` the server returned. For ``mapbox-style`` the parsed
+    MapLibre/Mapbox document is available via :meth:`as_json`; SLD encodings
+    are returned as raw XML text in ``content``.
+    """
+
+    style_id: str
+    encoding: "StyleEncoding"
+    media_type: str
+    content: str
+
+    def as_json(self) -> dict[str, Any]:
+        """Parse ``content`` as a JSON object (MapLibre/Mapbox stylesheet).
+
+        Raises:
+            ValueError: ``content`` is not a JSON object (e.g. an SLD payload).
+        """
+        parsed = json.loads(self.content)
+        if not isinstance(parsed, dict):
+            raise ValueError("Stylesheet content is not a JSON object.")
+        return parsed
 
 
 # ---------------------------------------------------------------------------

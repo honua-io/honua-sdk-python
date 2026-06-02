@@ -25,6 +25,10 @@ from honua_sdk.http import (
 )
 
 from . import _endpoints
+from ._client import _json_object
+from ._models import (
+    DEFAULT_STYLE_ENCODING as _DEFAULT_STYLE_ENCODING,
+)
 from ._models import (
     AdminCapabilitiesResponse,
     AdminCompatibilityBaseline,
@@ -43,15 +47,20 @@ from ._models import (
     MetadataResource,
     MigrationInventoryScanRequest,
     MigrationSourceInventoryArtifact,
+    OgcStyleMetadata,
+    OgcStylesheet,
+    OgcStylesList,
     PublishedLayerSummary,
     PublishLayerRequest,
     SecureConnectionDetail,
     SecureConnectionSummary,
     ServiceSettingsResponse,
     ServiceSummary,
+    StyleEncoding,
     TableDiscoveryResponse,
     UpdateSecureConnectionRequest,
     evaluate_admin_compatibility,
+    style_encoding_media_type,
 )
 
 
@@ -1569,6 +1578,153 @@ class AsyncHonuaAdminClient:
     # Styles
     # ======================================================================
 
+    async def list_styles(
+        self,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> OgcStylesList:
+        """List the styles published over OGC API - Styles (``GET /ogc/styles``).
+
+        Returns:
+            An :class:`OgcStylesList` of ``styleId``-keyed entries plus the
+            optional default style and landing links.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server responded with a non-success status.
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        response = await self._request(
+            "GET",
+            "/ogc/styles",
+            params={"f": "json"},
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        return OgcStylesList.from_dict(_json_object(response))
+
+    async def get_stylesheet(
+        self,
+        style_id: str,
+        *,
+        encoding: StyleEncoding = _DEFAULT_STYLE_ENCODING,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> OgcStylesheet:
+        """Fetch a stylesheet by ``style_id`` (``GET /ogc/styles/{styleId}``).
+
+        The encoding is selected by ``Accept`` content negotiation:
+        ``mapbox-style`` (MapLibre/Mapbox JSON, the default), ``sld-1.0``,
+        or ``sld-1.1`` (derived on demand by the server).
+
+        Args:
+            style_id: Stable style identifier.
+            encoding: Desired stylesheet encoding (see :data:`StyleEncoding`).
+
+        Returns:
+            An :class:`OgcStylesheet` carrying the raw ``content`` and the
+            ``media_type`` the server returned.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server responded with a non-success status
+                (e.g. 404 unknown style, 406 unsupported encoding).
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        accept = style_encoding_media_type(encoding)
+        response = await self._request(
+            "GET",
+            f"/ogc/styles/{encode_path_segment(style_id)}",
+            headers={"Accept": accept},
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        return OgcStylesheet(
+            style_id=style_id,
+            encoding=encoding,
+            media_type=response.headers.get("content-type", accept),
+            content=response.text,
+        )
+
+    async def get_style_metadata(
+        self,
+        style_id: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> OgcStyleMetadata:
+        """Fetch style metadata (``GET /ogc/styles/{styleId}/metadata``).
+
+        Args:
+            style_id: Stable style identifier.
+
+        Returns:
+            An :class:`OgcStyleMetadata` describing the style.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server responded with a non-success status.
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        response = await self._request(
+            "GET",
+            f"/ogc/styles/{encode_path_segment(style_id)}/metadata",
+            params={"f": "json"},
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        return OgcStyleMetadata.from_dict(_json_object(response))
+
+    async def update_style(
+        self,
+        style_id: str,
+        style: Mapping[str, Any],
+        *,
+        strict: bool = False,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> None:
+        """Replace an existing style's MapLibre stylesheet (``PUT /ogc/styles/{styleId}``).
+
+        Phase 1 ``manage-styles`` accepts only a MapLibre/Mapbox style
+        document; the server validates and stores it against the existing
+        style. Standalone style creation/deletion is not yet supported.
+
+        Args:
+            style_id: Stable style identifier (must already exist).
+            style: The MapLibre/Mapbox stylesheet document.
+            strict: When ``True``, request strict validation via
+                ``Prefer: handling=strict``.
+
+        Per-request options (``timeout`` / ``extra_headers`` /
+        ``idempotency_key``) are forwarded to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server rejected the update (e.g. 400 invalid
+                style, 404 unknown style, 415 unsupported media type).
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        headers = {"Content-Type": style_encoding_media_type("mapbox-style")}
+        if strict:
+            headers["Prefer"] = "handling=strict"
+        await self._request(
+            "PUT",
+            f"/ogc/styles/{encode_path_segment(style_id)}",
+            json_body=dict(style),
+            headers=headers,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        )
+
     async def get_layer_style(
         self,
         layer_id: int,
@@ -1577,6 +1733,11 @@ class AsyncHonuaAdminClient:
         extra_headers: Mapping[str, str] | None = None,
     ) -> LayerStyleResponse:
         """Fetch the stored renderer / style document for a layer.
+
+        .. deprecated::
+            This ``layerId``-keyed path is a back-compat alias (ADR-0048).
+            Prefer the ``styleId``-keyed :meth:`get_stylesheet` /
+            :meth:`get_style_metadata` over OGC API - Styles.
 
         Args:
             layer_id: Numeric layer identifier.
@@ -1609,6 +1770,11 @@ class AsyncHonuaAdminClient:
         idempotency_key: str | None = None,
     ) -> LayerStyleResponse:
         """Replace the stored renderer / style document for a layer.
+
+        .. deprecated::
+            This ``layerId``-keyed path is a back-compat alias (ADR-0048).
+            Prefer the ``styleId``-keyed :meth:`update_style` over OGC
+            API - Styles.
 
         Args:
             layer_id: Numeric layer identifier.

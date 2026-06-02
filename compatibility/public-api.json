@@ -69,6 +69,11 @@
         "MigrationSourceIdentity",
         "MigrationSourceInventoryArtifact",
         "MigrationSpatialReferenceInfo",
+        "OgcStyleLink",
+        "OgcStyleMetadata",
+        "OgcStyleSummary",
+        "OgcStylesList",
+        "OgcStylesheet",
         "PublishLayerRequest",
         "PublishedLayerSummary",
         "ResourceMetadata",
@@ -76,6 +81,7 @@
         "SecureConnectionSummary",
         "ServiceSettingsResponse",
         "ServiceSummary",
+        "StyleEncoding",
         "TableDiscoveryResponse",
         "TableInfo",
         "TimeInfoResponse",
@@ -844,6 +850,16 @@
               "kind": "method",
               "signature": "(self, name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ServiceSettingsResponse'"
             },
+            "get_style_metadata": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, style_id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStyleMetadata'"
+            },
+            "get_stylesheet": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, style_id: 'str', *, encoding: 'StyleEncoding' = 'mapbox-style', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStylesheet'"
+            },
             "get_version": {
               "async": true,
               "kind": "method",
@@ -868,6 +884,11 @@
               "async": true,
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
+            },
+            "list_styles": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStylesList'"
             },
             "publish_layer": {
               "async": true,
@@ -928,6 +949,11 @@
               "async": true,
               "kind": "method",
               "signature": "(self, name: 'str', protocols: 'list[str]', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
+            },
+            "update_style": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, style_id: 'str', style: 'Mapping[str, Any]', *, strict: 'bool' = False, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
             "validate_encryption": {
               "async": true,
@@ -1180,6 +1206,14 @@
               "kind": "method",
               "signature": "(self, name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ServiceSettingsResponse'"
             },
+            "get_style_metadata": {
+              "kind": "method",
+              "signature": "(self, style_id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStyleMetadata'"
+            },
+            "get_stylesheet": {
+              "kind": "method",
+              "signature": "(self, style_id: 'str', *, encoding: 'StyleEncoding' = 'mapbox-style', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStylesheet'"
+            },
             "get_version": {
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminVersionResponse'"
@@ -1199,6 +1233,10 @@
             "list_services": {
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
+            },
+            "list_styles": {
+              "kind": "method",
+              "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStylesList'"
             },
             "publish_layer": {
               "kind": "method",
@@ -1247,6 +1285,10 @@
             "update_protocols": {
               "kind": "method",
               "signature": "(self, name: 'str', protocols: 'list[str]', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
+            },
+            "update_style": {
+              "kind": "method",
+              "signature": "(self, style_id: 'str', style: 'Mapping[str, Any]', *, strict: 'bool' = False, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
             "validate_encryption": {
               "kind": "method",
@@ -2874,6 +2916,174 @@
           "qualname": "MigrationSpatialReferenceInfo",
           "signature": "(role: 'str', source_value: 'str | None' = None, srid: 'int | None' = None, crs_uri: 'str | None' = None, datum: 'str | None' = None, unit: 'str | None' = None, axis_order: 'str | None' = None, is_geographic: 'bool | None' = None) -> None"
         },
+        "OgcStyleLink": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "href"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "rel"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "type"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'OgcStyleLink'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OgcStyleLink",
+          "signature": "(href: 'str', rel: 'str | None' = None, type: 'str | None' = None, title: 'str | None' = None) -> None"
+        },
+        "OgcStyleMetadata": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "style_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "description"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "keywords"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "license"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "version"
+            },
+            {
+              "annotation": "list[OgcStyleLink]",
+              "defaultFactory": "list",
+              "name": "links"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'OgcStyleMetadata'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OgcStyleMetadata",
+          "signature": "(style_id: 'str', title: 'str | None' = None, description: 'str | None' = None, keywords: 'list[str]' = <factory>, license: 'str | None' = None, version: 'str | None' = None, links: 'list[OgcStyleLink]' = <factory>) -> None"
+        },
+        "OgcStyleSummary": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "style_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "list[OgcStyleLink]",
+              "defaultFactory": "list",
+              "name": "links"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'OgcStyleSummary'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OgcStyleSummary",
+          "signature": "(style_id: 'str', title: 'str | None' = None, links: 'list[OgcStyleLink]' = <factory>) -> None"
+        },
+        "OgcStylesList": {
+          "fields": [
+            {
+              "annotation": "list[OgcStyleSummary]",
+              "defaultFactory": "list",
+              "name": "styles"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "default"
+            },
+            {
+              "annotation": "list[OgcStyleLink]",
+              "defaultFactory": "list",
+              "name": "links"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'OgcStylesList'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OgcStylesList",
+          "signature": "(styles: 'list[OgcStyleSummary]' = <factory>, default: 'str | None' = None, links: 'list[OgcStyleLink]' = <factory>) -> None"
+        },
+        "OgcStylesheet": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "style_id"
+            },
+            {
+              "annotation": "'StyleEncoding'",
+              "name": "encoding"
+            },
+            {
+              "annotation": "str",
+              "name": "media_type"
+            },
+            {
+              "annotation": "str",
+              "name": "content"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "as_json": {
+              "kind": "method",
+              "signature": "(self) -> 'dict[str, Any]'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OgcStylesheet",
+          "signature": "(style_id: 'str', encoding: \"'StyleEncoding'\", media_type: 'str', content: 'str') -> None"
+        },
         "PublishLayerRequest": {
           "fields": [
             {
@@ -3278,6 +3488,11 @@
           "module": "honua_admin._models",
           "qualname": "AdminServiceSummary",
           "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]') -> None"
+        },
+        "StyleEncoding": {
+          "kind": "constant",
+          "type": "_LiteralGenericAlias",
+          "value": "typing.Literal['mapbox-style', 'sld-1.0', 'sld-1.1']"
         },
         "TableDiscoveryResponse": {
           "fields": [

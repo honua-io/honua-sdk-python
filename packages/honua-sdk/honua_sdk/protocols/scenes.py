@@ -22,13 +22,16 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
+import posixpath
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -36,6 +39,7 @@ from honua_sdk._http import _encode_path_segment
 from honua_sdk.errors import HonuaError
 
 from ._base import (
+    BinaryResponse,
     JsonObject,
     Params,
     _AsyncProtocol,
@@ -1503,10 +1507,353 @@ def validate_scene_package_manifest(
 
 
 # ---------------------------------------------------------------------------
+# 3D Tiles tileset traversal + tile content models
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HonuaTilesetContent:
+    """A single 3D Tiles content reference discovered while walking a tileset.
+
+    The ``uri`` is exactly as authored in the tileset document (relative to the
+    document that declared it). ``resolved_path`` is that URI resolved against
+    the tileset's own package-relative path, which is the key used for offline
+    download and packaging. ``is_tileset`` marks references to nested
+    ``tileset.json`` documents (external tilesets) so callers can recurse.
+    """
+
+    uri: str
+    resolved_path: str
+    is_tileset: bool = False
+
+
+def _is_external_tileset_uri(uri: str) -> bool:
+    """Return ``True`` when a content URI points at a nested tileset document."""
+    path = urlsplit(uri).path
+    return path.lower().endswith(".json")
+
+
+def _resolve_tileset_relative_path(base_path: str, uri: str) -> str:
+    """Resolve a content ``uri`` against the package-relative ``base_path``.
+
+    ``base_path`` is the path of the tileset document that declared ``uri``
+    (e.g. ``"tileset.json"`` or ``"sub/tileset.json"``). Absolute URLs and
+    rooted paths are returned unchanged; relative URIs (and their query string)
+    are normalized against the declaring document's directory using POSIX
+    semantics so the result stays a stable package-local key.
+    """
+    split = urlsplit(uri)
+    if split.scheme or split.netloc or uri.startswith("/"):
+        return uri
+    directory = posixpath.dirname(base_path)
+    combined = posixpath.normpath(posixpath.join(directory, split.path)) if split.path else base_path
+    return f"{combined}?{split.query}" if split.query else combined
+
+
+def _walk_tileset_node(
+    node: Any,
+    base_path: str,
+    results: list[HonuaTilesetContent],
+    seen: set[str],
+) -> None:
+    if not isinstance(node, Mapping):
+        return
+    for content in _node_contents(node):
+        uri = _get_str(content, "uri", "url")
+        if uri is None:
+            continue
+        resolved = _resolve_tileset_relative_path(base_path, uri)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        results.append(
+            HonuaTilesetContent(
+                uri=uri,
+                resolved_path=resolved,
+                is_tileset=_is_external_tileset_uri(uri),
+            )
+        )
+    children = _get_value(node, "children")
+    if isinstance(children, Sequence) and not isinstance(children, (str, bytes)):
+        for child in children:
+            _walk_tileset_node(child, base_path, results, seen)
+
+
+def _node_contents(node: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    contents: list[Mapping[str, Any]] = []
+    single = _get_value(node, "content")
+    if isinstance(single, Mapping):
+        contents.append(single)
+    multiple = _get_value(node, "contents")
+    if isinstance(multiple, Sequence) and not isinstance(multiple, (str, bytes)):
+        contents.extend(item for item in multiple if isinstance(item, Mapping))
+    return contents
+
+
+def enumerate_tileset_contents(
+    tileset: Mapping[str, Any],
+    *,
+    base_path: str = "tileset.json",
+) -> tuple[HonuaTilesetContent, ...]:
+    """Walk a parsed ``tileset.json`` document and return its content references.
+
+    Traverses the ``root`` node and all ``children`` recursively, collecting the
+    ``content``/``contents`` ``uri`` entries. Each reference's ``resolved_path``
+    is resolved against ``base_path`` (the package-relative path of this tileset
+    document) so the returned keys are stable across the package. Duplicate
+    resolved paths are returned once. Nested external tilesets are flagged via
+    :attr:`HonuaTilesetContent.is_tileset`; this function does **not** fetch or
+    recurse into them -- callers that need the full tile graph download each
+    nested tileset and re-enumerate it against its own ``resolved_path``.
+    """
+    root = _get_value(tileset, "root")
+    results: list[HonuaTilesetContent] = []
+    _walk_tileset_node(root, base_path, results, set())
+    return tuple(results)
+
+
+# ---------------------------------------------------------------------------
+# Offline scene-package build models
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HonuaScenePackageBuildAsset:
+    """A downloaded asset (tileset, tile content, or metadata) plus its bytes.
+
+    Pairs the manifest :class:`HonuaScenePackageAsset` entry (key, type, path,
+    size, SHA-256) with the raw ``content`` so callers can write the bundle to
+    disk, a zip, or any offline store.
+    """
+
+    asset: HonuaScenePackageAsset
+    content: bytes
+
+
+@dataclass(frozen=True)
+class HonuaScenePackageBuildResult:
+    """Result of bundling a scene's tileset + tiles into an offline package.
+
+    Combines a generated :class:`HonuaScenePackageManifest` with the downloaded
+    asset bytes. The manifest validates (via
+    :meth:`HonuaScenePackageManifest.validate`) against the
+    ``honua.scene-package.v1`` schema so the produced bundle round-trips through
+    the same reader used by offline runtimes.
+    """
+
+    manifest: HonuaScenePackageManifest
+    assets: tuple[HonuaScenePackageBuildAsset, ...]
+
+    @property
+    def total_bytes(self) -> int:
+        return sum(len(item.content) for item in self.assets)
+
+    def asset_for(self, key: str) -> HonuaScenePackageBuildAsset | None:
+        lowered = key.strip().lower()
+        for item in self.assets:
+            if item.asset.key and item.asset.key.lower() == lowered:
+                return item
+        return None
+
+
+_SCENE_METADATA_KEY = "scene-metadata"
+_TILESET_KEY = "tileset"
+
+
+def _sha256_hex(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _scene_metadata_bytes(scene: HonuaSceneMetadata) -> bytes:
+    document = scene.raw_response or {"id": scene.id, "name": scene.name}
+    return json.dumps(document, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def _initial_tileset_queue(tileset_bytes: bytes) -> list[HonuaTilesetContent]:
+    try:
+        document = json.loads(tileset_bytes.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise HonuaSceneError("Scene tileset.json was malformed.") from exc
+    if not isinstance(document, Mapping):
+        raise HonuaSceneError("Scene tileset.json did not contain an object.")
+    return list(enumerate_tileset_contents(document, base_path="tileset.json"))
+
+
+def _tile_asset_type(content: HonuaTilesetContent) -> str:
+    if content.is_tileset:
+        return HonuaScenePackageAssetTypes.THREE_D_TILESET
+    return HonuaScenePackageAssetTypes.THREE_D_TILE_CONTENT
+
+
+def _tile_asset_key(resolved_path: str) -> str:
+    return urlsplit(resolved_path).path or resolved_path
+
+
+def _tile_build_asset(content: HonuaTilesetContent, payload: bytes) -> HonuaScenePackageBuildAsset:
+    path = urlsplit(content.resolved_path).path or content.resolved_path
+    return HonuaScenePackageBuildAsset(
+        asset=_build_manifest_asset(
+            key=_tile_asset_key(content.resolved_path),
+            asset_type=_tile_asset_type(content),
+            path=path,
+            content=payload,
+        ),
+        content=payload,
+    )
+
+
+def _content_type_for_path(path: str) -> str:
+    lowered = urlsplit(path).path.lower()
+    if lowered.endswith(".json"):
+        return "application/json"
+    return "application/octet-stream"
+
+
+def _build_manifest_asset(
+    *,
+    key: str,
+    asset_type: str,
+    path: str,
+    content: bytes,
+    role: str | None = None,
+    required: bool = False,
+) -> HonuaScenePackageAsset:
+    return HonuaScenePackageAsset(
+        key=key,
+        type=asset_type,
+        role=role,
+        path=path,
+        content_type=_content_type_for_path(path),
+        bytes=len(content),
+        sha256=_sha256_hex(content),
+        required=required,
+    )
+
+
+def _assemble_scene_package(
+    *,
+    scene: HonuaSceneMetadata,
+    scene_metadata_bytes: bytes,
+    tileset_bytes: bytes,
+    tile_assets: Sequence[HonuaScenePackageBuildAsset],
+    package_id: str,
+    edition_gate: str,
+    server_revision: str,
+    created_at_utc: datetime,
+    stale_after_utc: datetime,
+    offline_use_expires_at_utc: datetime,
+    auth_expires_at_utc: datetime | None,
+    max_package_bytes: int | None,
+) -> HonuaScenePackageBuildResult:
+    metadata_asset = HonuaScenePackageBuildAsset(
+        asset=_build_manifest_asset(
+            key=_SCENE_METADATA_KEY,
+            asset_type=HonuaScenePackageAssetTypes.SCENE_METADATA,
+            path="scene.json",
+            content=scene_metadata_bytes,
+            role="scene-metadata",
+            required=True,
+        ),
+        content=scene_metadata_bytes,
+    )
+    tileset_asset = HonuaScenePackageBuildAsset(
+        asset=_build_manifest_asset(
+            key=_TILESET_KEY,
+            asset_type=HonuaScenePackageAssetTypes.THREE_D_TILESET,
+            path="tileset.json",
+            content=tileset_bytes,
+            role="primary-tileset",
+            required=True,
+        ),
+        content=tileset_bytes,
+    )
+    assets: list[HonuaScenePackageBuildAsset] = [metadata_asset, tileset_asset, *tile_assets]
+
+    declared_bytes = sum(len(item.content) for item in assets)
+    budget = HonuaScenePackageByteBudget(
+        max_package_bytes=max_package_bytes if max_package_bytes is not None else declared_bytes,
+        declared_bytes=declared_bytes,
+    )
+    manifest = HonuaScenePackageManifest(
+        schema_version=CURRENT_PACKAGE_SCHEMA_VERSION,
+        package_id=package_id,
+        scene_id=scene.id,
+        display_name=scene.name,
+        edition_gate=edition_gate,
+        server_revision=server_revision,
+        created_at_utc=created_at_utc,
+        stale_after_utc=stale_after_utc,
+        offline_use_expires_at_utc=offline_use_expires_at_utc,
+        auth_expires_at_utc=auth_expires_at_utc,
+        extent=scene.bounds,
+        lod=HonuaScenePackageLod(min_zoom=0, max_zoom=0),
+        byte_budget=budget,
+        attribution=scene.attribution,
+        assets=tuple(item.asset for item in assets),
+    )
+    return HonuaScenePackageBuildResult(manifest=manifest, assets=tuple(assets))
+
+
+_DEFAULT_PACKAGE_TTL_DAYS = 30
+_DEFAULT_STALE_FRACTION = 0.5
+
+
+@dataclass(frozen=True)
+class _PackageBuildContext:
+    """Resolved, transport-independent inputs for building an offline package."""
+
+    package_id: str
+    edition_gate: str
+    server_revision: str
+    created_at_utc: datetime
+    stale_after_utc: datetime
+    offline_use_expires_at_utc: datetime
+    auth_expires_at_utc: datetime | None
+    max_package_bytes: int | None
+    max_tilesets: int
+
+
+def _resolve_package_context(
+    scene_id: str,
+    *,
+    package_id: str | None,
+    edition_gate: str,
+    server_revision: str | None,
+    created_at_utc: datetime | None,
+    stale_after_utc: datetime | None,
+    offline_use_expires_at_utc: datetime | None,
+    auth_expires_at_utc: datetime | None,
+    max_package_bytes: int | None,
+    max_tilesets: int,
+) -> _PackageBuildContext:
+    if not HonuaScenePackageEditionGates.is_supported(edition_gate):
+        raise ValueError(f"Unsupported scene package edition gate '{edition_gate}'.")
+    if max_tilesets <= 0:
+        raise ValueError("max_tilesets must be positive.")
+    created = created_at_utc or datetime.now(tz=UTC)
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
+    expires = offline_use_expires_at_utc or (created + timedelta(days=_DEFAULT_PACKAGE_TTL_DAYS))
+    stale = stale_after_utc or (created + (expires - created) * _DEFAULT_STALE_FRACTION)
+    return _PackageBuildContext(
+        package_id=package_id or f"pkg_{_require_scene_id(scene_id)}_{int(created.timestamp())}",
+        edition_gate=edition_gate,
+        server_revision=server_revision or created.strftime("%Y%m%d%H%M%S"),
+        created_at_utc=created,
+        stale_after_utc=stale,
+        offline_use_expires_at_utc=expires,
+        auth_expires_at_utc=auth_expires_at_utc,
+        max_package_bytes=max_package_bytes,
+        max_tilesets=max_tilesets,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Clients
 # ---------------------------------------------------------------------------
 
 _DEFAULT_SCENE_ROOT = "/api/scenes"
+_DEFAULT_TILESET_ROOT = "/scenes"
 _DEFAULT_ELEVATION_ROOT = "/elevation"
 
 
@@ -1520,6 +1867,23 @@ def _require_dataset_id(dataset_id: str) -> str:
     if not dataset_id or not dataset_id.strip():
         raise ValueError("Dataset id is required.")
     return dataset_id.strip()
+
+
+def _tileset_path(scene_id: str) -> str:
+    return f"{_DEFAULT_TILESET_ROOT}/{_encode_path_segment(scene_id)}/tileset.json"
+
+
+def _scene_asset_path(scene_id: str, asset_path: str) -> str:
+    cleaned = asset_path.strip()
+    if not cleaned:
+        raise ValueError("Scene asset path is required.")
+    query = ""
+    split = urlsplit(cleaned)
+    if split.query:
+        query = f"?{split.query}"
+        cleaned = split.path
+    segments = "/".join(_encode_path_segment(segment) for segment in cleaned.split("/") if segment)
+    return f"{_DEFAULT_TILESET_ROOT}/{_encode_path_segment(scene_id)}/{segments}{query}"
 
 
 class SceneClient(_SyncProtocol):
@@ -1578,6 +1942,128 @@ class SceneClient(_SyncProtocol):
         resolution = parse_scene_resolution(response, resolved)
         _ensure_capabilities(resolution.scene_id, resolution.capabilities, required_capabilities)
         return resolution
+
+    def get_tileset(
+        self,
+        scene_id: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> JsonObject:
+        """Fetch a scene's root ``tileset.json`` (3D Tiles) document.
+
+        Returns the parsed JSON document. Use :func:`enumerate_tileset_contents`
+        to walk its content references.
+        """
+        resolved = _require_scene_id(scene_id)
+        return self._json(
+            "GET", _tileset_path(resolved), timeout=timeout, extra_headers=extra_headers
+        )
+
+    def fetch_tile(
+        self,
+        scene_id: str,
+        asset_path: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> BinaryResponse:
+        """Fetch a single scene asset (tile content or nested tileset) by path.
+
+        ``asset_path`` is the package-relative path of the asset (e.g.
+        ``"tiles/0.b3dm"`` or ``"sub/tileset.json"``), typically a
+        :attr:`HonuaTilesetContent.resolved_path` from
+        :func:`enumerate_tileset_contents`. Returns the raw bytes plus the
+        selected HTTP cache/ETag metadata.
+        """
+        resolved = _require_scene_id(scene_id)
+        return self._binary_response(
+            _scene_asset_path(resolved, asset_path), timeout=timeout, extra_headers=extra_headers
+        )
+
+    def build_offline_package(
+        self,
+        scene_id: str,
+        *,
+        edition_gate: str = HonuaScenePackageEditionGates.COMMUNITY,
+        package_id: str | None = None,
+        server_revision: str | None = None,
+        created_at_utc: datetime | None = None,
+        stale_after_utc: datetime | None = None,
+        offline_use_expires_at_utc: datetime | None = None,
+        auth_expires_at_utc: datetime | None = None,
+        max_package_bytes: int | None = None,
+        max_tilesets: int = 64,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> HonuaScenePackageBuildResult:
+        """Bundle a scene's metadata, tileset, and tiles into an offline package.
+
+        Fetches the scene metadata and root ``tileset.json``, walks the tileset
+        (recursing into nested external tilesets up to ``max_tilesets``),
+        downloads every referenced tile/content asset, and produces a
+        ``honua.scene-package.v1`` :class:`HonuaScenePackageManifest` (with
+        per-asset SHA-256 + byte sizes) alongside the downloaded bytes. The
+        result validates against :meth:`HonuaScenePackageManifest.validate`.
+        """
+        resolved = _require_scene_id(scene_id)
+        context = _resolve_package_context(
+            resolved,
+            package_id=package_id,
+            edition_gate=edition_gate,
+            server_revision=server_revision,
+            created_at_utc=created_at_utc,
+            stale_after_utc=stale_after_utc,
+            offline_use_expires_at_utc=offline_use_expires_at_utc,
+            auth_expires_at_utc=auth_expires_at_utc,
+            max_package_bytes=max_package_bytes,
+            max_tilesets=max_tilesets,
+        )
+
+        scene = self.get_scene(resolved, timeout=timeout, extra_headers=extra_headers)
+        scene_metadata_bytes = _scene_metadata_bytes(scene)
+
+        tileset_response = self.fetch_tile(
+            resolved, "tileset.json", timeout=timeout, extra_headers=extra_headers
+        )
+        tileset_bytes = tileset_response.content
+
+        tile_assets: list[HonuaScenePackageBuildAsset] = []
+        seen_paths: set[str] = set()
+        pending = _initial_tileset_queue(tileset_bytes)
+        processed_tilesets = 1
+        while pending:
+            content = pending.pop(0)
+            if content.resolved_path in seen_paths:
+                continue
+            seen_paths.add(content.resolved_path)
+            response = self.fetch_tile(
+                resolved, content.resolved_path, timeout=timeout, extra_headers=extra_headers
+            )
+            tile_assets.append(_tile_build_asset(content, response.content))
+            if content.is_tileset and processed_tilesets < context.max_tilesets:
+                processed_tilesets += 1
+                pending.extend(
+                    enumerate_tileset_contents(
+                        json.loads(response.content.decode("utf-8")),
+                        base_path=content.resolved_path,
+                    )
+                )
+
+        return _assemble_scene_package(
+            scene=scene,
+            scene_metadata_bytes=scene_metadata_bytes,
+            tileset_bytes=tileset_bytes,
+            tile_assets=tile_assets,
+            package_id=context.package_id,
+            edition_gate=context.edition_gate,
+            server_revision=context.server_revision,
+            created_at_utc=context.created_at_utc,
+            stale_after_utc=context.stale_after_utc,
+            offline_use_expires_at_utc=context.offline_use_expires_at_utc,
+            auth_expires_at_utc=context.auth_expires_at_utc,
+            max_package_bytes=context.max_package_bytes,
+        )
 
 
 class ElevationClient(_SyncProtocol):
@@ -1678,6 +2164,112 @@ class AsyncSceneClient(_AsyncProtocol):
         resolution = parse_scene_resolution(response, resolved)
         _ensure_capabilities(resolution.scene_id, resolution.capabilities, required_capabilities)
         return resolution
+
+    async def get_tileset(
+        self,
+        scene_id: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> JsonObject:
+        """Fetch a scene's root ``tileset.json`` (3D Tiles) document."""
+        resolved = _require_scene_id(scene_id)
+        return await self._json(
+            "GET", _tileset_path(resolved), timeout=timeout, extra_headers=extra_headers
+        )
+
+    async def fetch_tile(
+        self,
+        scene_id: str,
+        asset_path: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> BinaryResponse:
+        """Fetch a single scene asset (tile content or nested tileset) by path."""
+        resolved = _require_scene_id(scene_id)
+        return await self._binary_response(
+            _scene_asset_path(resolved, asset_path), timeout=timeout, extra_headers=extra_headers
+        )
+
+    async def build_offline_package(
+        self,
+        scene_id: str,
+        *,
+        edition_gate: str = HonuaScenePackageEditionGates.COMMUNITY,
+        package_id: str | None = None,
+        server_revision: str | None = None,
+        created_at_utc: datetime | None = None,
+        stale_after_utc: datetime | None = None,
+        offline_use_expires_at_utc: datetime | None = None,
+        auth_expires_at_utc: datetime | None = None,
+        max_package_bytes: int | None = None,
+        max_tilesets: int = 64,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> HonuaScenePackageBuildResult:
+        """Bundle a scene's metadata, tileset, and tiles into an offline package.
+
+        Async counterpart of :meth:`SceneClient.build_offline_package`.
+        """
+        resolved = _require_scene_id(scene_id)
+        context = _resolve_package_context(
+            resolved,
+            package_id=package_id,
+            edition_gate=edition_gate,
+            server_revision=server_revision,
+            created_at_utc=created_at_utc,
+            stale_after_utc=stale_after_utc,
+            offline_use_expires_at_utc=offline_use_expires_at_utc,
+            auth_expires_at_utc=auth_expires_at_utc,
+            max_package_bytes=max_package_bytes,
+            max_tilesets=max_tilesets,
+        )
+
+        scene = await self.get_scene(resolved, timeout=timeout, extra_headers=extra_headers)
+        scene_metadata_bytes = _scene_metadata_bytes(scene)
+
+        tileset_response = await self.fetch_tile(
+            resolved, "tileset.json", timeout=timeout, extra_headers=extra_headers
+        )
+        tileset_bytes = tileset_response.content
+
+        tile_assets: list[HonuaScenePackageBuildAsset] = []
+        seen_paths: set[str] = set()
+        pending = _initial_tileset_queue(tileset_bytes)
+        processed_tilesets = 1
+        while pending:
+            content = pending.pop(0)
+            if content.resolved_path in seen_paths:
+                continue
+            seen_paths.add(content.resolved_path)
+            response = await self.fetch_tile(
+                resolved, content.resolved_path, timeout=timeout, extra_headers=extra_headers
+            )
+            tile_assets.append(_tile_build_asset(content, response.content))
+            if content.is_tileset and processed_tilesets < context.max_tilesets:
+                processed_tilesets += 1
+                pending.extend(
+                    enumerate_tileset_contents(
+                        json.loads(response.content.decode("utf-8")),
+                        base_path=content.resolved_path,
+                    )
+                )
+
+        return _assemble_scene_package(
+            scene=scene,
+            scene_metadata_bytes=scene_metadata_bytes,
+            tileset_bytes=tileset_bytes,
+            tile_assets=tile_assets,
+            package_id=context.package_id,
+            edition_gate=context.edition_gate,
+            server_revision=context.server_revision,
+            created_at_utc=context.created_at_utc,
+            stale_after_utc=context.stale_after_utc,
+            offline_use_expires_at_utc=context.offline_use_expires_at_utc,
+            auth_expires_at_utc=context.auth_expires_at_utc,
+            max_package_bytes=context.max_package_bytes,
+        )
 
 
 class AsyncElevationClient(_AsyncProtocol):

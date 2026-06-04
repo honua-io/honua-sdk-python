@@ -7,6 +7,7 @@ contract stays aligned across SDKs.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,9 +20,11 @@ from honua_sdk.protocols import (
     HonuaSceneAccessModes,
     HonuaSceneCapabilities,
     HonuaSceneError,
+    HonuaScenePackageAssetTypes,
     HonuaScenePackageError,
     HonuaScenePackageState,
     HonuaScenePackageValidationCodes,
+    enumerate_tileset_contents,
     parse_scene_package_manifest,
 )
 
@@ -618,6 +621,263 @@ async def test_async_resolve_scene_round_trips() -> None:
 
     assert resolution.scene_id == "downtown-honolulu"
     assert resolution.tileset_url is not None
+
+
+# ---------------------------------------------------------------------------
+# 3D Tiles tileset traversal + tile fetch + offline package build
+# ---------------------------------------------------------------------------
+
+# A small 3D Tiles 1.1 tileset: root content + two children, one of which is a
+# nested external tileset that itself references another tile.
+ROOT_TILESET = {
+    "asset": {"version": "1.1"},
+    "geometricError": 500.0,
+    "root": {
+        "geometricError": 100.0,
+        "content": {"uri": "tiles/0.b3dm"},
+        "children": [
+            {"geometricError": 50.0, "content": {"uri": "tiles/1.b3dm"}},
+            {"geometricError": 50.0, "content": {"uri": "sub/tileset.json"}},
+        ],
+    },
+}
+
+SUB_TILESET = {
+    "asset": {"version": "1.1"},
+    "root": {"geometricError": 10.0, "content": {"uri": "2.b3dm"}},
+}
+
+# Per-path binary/JSON payloads served by the package-build mock transport.
+SCENE_ASSET_BODIES: dict[str, bytes] = {
+    "/scenes/downtown-honolulu/tileset.json": json.dumps(ROOT_TILESET).encode("utf-8"),
+    "/scenes/downtown-honolulu/tiles/0.b3dm": b"b3dm-root-tile-bytes",
+    "/scenes/downtown-honolulu/tiles/1.b3dm": b"b3dm-child-tile-bytes",
+    "/scenes/downtown-honolulu/sub/tileset.json": json.dumps(SUB_TILESET).encode("utf-8"),
+    "/scenes/downtown-honolulu/sub/2.b3dm": b"b3dm-nested-tile-bytes",
+}
+
+
+def _scene_asset_handler(seen: list[str]) -> Any:
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.raw_path.decode("ascii").split("?")[0]
+        seen.append(path)
+        if path == "/api/scenes/downtown-honolulu":
+            return httpx.Response(200, json=SCENE_METADATA)
+        body = SCENE_ASSET_BODIES.get(path)
+        if body is None:
+            return httpx.Response(404, json={"error": "not found"})
+        media = "application/json" if path.endswith(".json") else "application/octet-stream"
+        return httpx.Response(200, content=body, headers={"content-type": media, "etag": f'"{len(body)}"'})
+
+    return handler
+
+
+def test_enumerate_tileset_contents_walks_root_and_children() -> None:
+    contents = enumerate_tileset_contents(ROOT_TILESET)
+    paths = [c.resolved_path for c in contents]
+    assert paths == ["tiles/0.b3dm", "tiles/1.b3dm", "sub/tileset.json"]
+    nested = next(c for c in contents if c.resolved_path == "sub/tileset.json")
+    assert nested.is_tileset is True
+    assert contents[0].is_tileset is False
+
+
+def test_enumerate_tileset_contents_resolves_relative_to_base_path() -> None:
+    contents = enumerate_tileset_contents(SUB_TILESET, base_path="sub/tileset.json")
+    assert [c.resolved_path for c in contents] == ["sub/2.b3dm"]
+
+
+def test_enumerate_tileset_contents_supports_multiple_contents_array() -> None:
+    tileset = {
+        "root": {
+            "contents": [
+                {"uri": "a.b3dm"},
+                {"uri": "b.glb"},
+            ]
+        }
+    }
+    assert [c.resolved_path for c in enumerate_tileset_contents(tileset)] == ["a.b3dm", "b.glb"]
+
+
+def test_enumerate_tileset_contents_empty_without_root() -> None:
+    assert enumerate_tileset_contents({"asset": {"version": "1.1"}}) == ()
+
+
+def test_get_tileset_fetches_document() -> None:
+    seen: list[str] = []
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(_scene_asset_handler(seen))) as client:
+        tileset = client.scenes().get_tileset("downtown-honolulu")
+    assert seen == ["/scenes/downtown-honolulu/tileset.json"]
+    assert tileset["asset"]["version"] == "1.1"
+    assert tileset["root"]["content"]["uri"] == "tiles/0.b3dm"
+
+
+def test_fetch_tile_returns_binary_with_metadata() -> None:
+    seen: list[str] = []
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(_scene_asset_handler(seen))) as client:
+        response = client.scenes().fetch_tile("downtown-honolulu", "tiles/0.b3dm")
+    assert seen == ["/scenes/downtown-honolulu/tiles/0.b3dm"]
+    assert response.content == b"b3dm-root-tile-bytes"
+    assert response.content_type == "application/octet-stream"
+    assert response.etag == '"20"'
+
+
+def test_build_offline_package_bundles_tileset_and_tiles() -> None:
+    seen: list[str] = []
+    now = datetime(2026, 6, 1, tzinfo=UTC)
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(_scene_asset_handler(seen))) as client:
+        result = client.scenes().build_offline_package(
+            "downtown-honolulu",
+            edition_gate="pro",
+            created_at_utc=now,
+        )
+
+    manifest = result.manifest
+    assert manifest.schema_version == CURRENT_PACKAGE_SCHEMA_VERSION
+    assert manifest.scene_id == "downtown-honolulu"
+    assert manifest.edition_gate == "pro"
+    # extent carried over from the scene metadata bounds
+    assert manifest.extent is not None
+    assert manifest.extent.min_longitude == pytest.approx(-157.875)
+
+    keys = {asset.key for asset in manifest.assets}
+    # scene-metadata + root tileset + 2 root-level b3dm + nested tileset + nested b3dm
+    assert "scene-metadata" in keys
+    assert "tileset" in keys
+    assert "tiles/0.b3dm" in keys
+    assert "tiles/1.b3dm" in keys
+    assert "sub/tileset.json" in keys
+    assert "sub/2.b3dm" in keys
+
+    # nested tileset was fetched and recursed into
+    assert "/scenes/downtown-honolulu/sub/2.b3dm" in seen
+
+    # every asset carries a real SHA-256 + byte count
+    nested_tile = result.asset_for("sub/2.b3dm")
+    assert nested_tile is not None
+    assert nested_tile.content == b"b3dm-nested-tile-bytes"
+    assert nested_tile.asset.bytes == len(b"b3dm-nested-tile-bytes")
+    assert nested_tile.asset.type == HonuaScenePackageAssetTypes.THREE_D_TILE_CONTENT
+    assert len(nested_tile.asset.sha256 or "") == 64
+
+    tileset_asset = result.asset_for("tileset")
+    assert tileset_asset is not None
+    assert tileset_asset.asset.type == HonuaScenePackageAssetTypes.THREE_D_TILESET
+
+    assert result.total_bytes == sum(a.bytes or 0 for a in manifest.assets)
+
+    # the produced manifest is self-consistent and validates as READY when all
+    # asset keys are present locally.
+    validation = manifest.validate(now, available_asset_keys=[a.key or "" for a in manifest.assets])
+    assert validation.is_valid is True
+    assert validation.state == HonuaScenePackageState.READY
+
+
+def test_build_offline_package_deduplicates_shared_tile_content() -> None:
+    # Two children referencing the same content URI must be downloaded once.
+    shared_tileset = {
+        "asset": {"version": "1.1"},
+        "root": {
+            "content": {"uri": "tiles/0.b3dm"},
+            "children": [
+                {"content": {"uri": "tiles/shared.b3dm"}},
+                {"content": {"uri": "tiles/shared.b3dm"}},
+            ],
+        },
+    }
+    bodies = {
+        "/api/scenes/downtown-honolulu": None,
+        "/scenes/downtown-honolulu/tileset.json": json.dumps(shared_tileset).encode("utf-8"),
+        "/scenes/downtown-honolulu/tiles/0.b3dm": b"root",
+        "/scenes/downtown-honolulu/tiles/shared.b3dm": b"shared",
+    }
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.raw_path.decode("ascii").split("?")[0]
+        seen.append(path)
+        if path == "/api/scenes/downtown-honolulu":
+            return httpx.Response(200, json=SCENE_METADATA)
+        body = bodies[path]
+        assert body is not None
+        media = "application/json" if path.endswith(".json") else "application/octet-stream"
+        return httpx.Response(200, content=body, headers={"content-type": media})
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        result = client.scenes().build_offline_package(
+            "downtown-honolulu", edition_gate="community", created_at_utc=datetime(2026, 6, 1, tzinfo=UTC)
+        )
+
+    assert seen.count("/scenes/downtown-honolulu/tiles/shared.b3dm") == 1
+    keys = [a.key for a in result.manifest.assets]
+    assert keys.count("tiles/shared.b3dm") == 1
+
+
+def test_build_offline_package_raises_on_malformed_tileset() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.raw_path.decode("ascii").split("?")[0]
+        if path == "/api/scenes/downtown-honolulu":
+            return httpx.Response(200, json=SCENE_METADATA)
+        return httpx.Response(200, content=b"{ not json", headers={"content-type": "application/json"})
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaSceneError, match="tileset.json"):
+            client.scenes().build_offline_package(
+                "downtown-honolulu", edition_gate="community", created_at_utc=datetime(2026, 6, 1, tzinfo=UTC)
+            )
+
+
+def test_build_offline_package_rejects_unsupported_edition_gate() -> None:
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(_scene_asset_handler([]))) as client:
+        with pytest.raises(ValueError, match="edition gate"):
+            client.scenes().build_offline_package("downtown-honolulu", edition_gate="ultimate")
+
+
+def test_build_offline_package_respects_max_tilesets() -> None:
+    seen: list[str] = []
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(_scene_asset_handler(seen))) as client:
+        result = client.scenes().build_offline_package(
+            "downtown-honolulu",
+            edition_gate="community",
+            created_at_utc=datetime(2026, 6, 1, tzinfo=UTC),
+            max_tilesets=1,
+        )
+    keys = {asset.key for asset in result.manifest.assets}
+    # The nested tileset reference is still downloaded as an asset, but with
+    # max_tilesets=1 we do not recurse into it, so its child tile is absent.
+    assert "sub/tileset.json" in keys
+    assert "sub/2.b3dm" not in keys
+    assert "/scenes/downtown-honolulu/sub/2.b3dm" not in seen
+
+
+@pytest.mark.anyio
+async def test_async_build_offline_package_bundles_tileset_and_tiles() -> None:
+    from honua_sdk import AsyncHonuaClient
+
+    seen: list[str] = []
+    async with AsyncHonuaClient(
+        "http://example.test", transport=httpx.MockTransport(_scene_asset_handler(seen))
+    ) as client:
+        result = await client.scenes().build_offline_package(
+            "downtown-honolulu",
+            edition_gate="pro",
+            created_at_utc=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+    keys = {asset.key for asset in result.manifest.assets}
+    assert {"scene-metadata", "tileset", "tiles/0.b3dm", "sub/2.b3dm"} <= keys
+
+
+@pytest.mark.anyio
+async def test_async_get_tileset_and_fetch_tile() -> None:
+    from honua_sdk import AsyncHonuaClient
+
+    seen: list[str] = []
+    async with AsyncHonuaClient(
+        "http://example.test", transport=httpx.MockTransport(_scene_asset_handler(seen))
+    ) as client:
+        tileset = await client.scenes().get_tileset("downtown-honolulu")
+        response = await client.scenes().fetch_tile("downtown-honolulu", "tiles/1.b3dm")
+    assert tileset["asset"]["version"] == "1.1"
+    assert response.content == b"b3dm-child-tile-bytes"
 
 
 @pytest.fixture

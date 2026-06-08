@@ -14,6 +14,15 @@ on:
   pull_request:
     branches: [trunk]
   workflow_dispatch:
+    inputs:
+      server_image:
+        description: "honua-server image to certify against (repo:tag or repo@sha256:digest). Blank = pinned nightly. Used by the release-bundle train to certify the RC image."
+        required: false
+        default: ""
+      server_seed_ref:
+        description: "honua-server git ref to source the conformance seed from (should match the server_image commit). Blank = default branch."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -31,7 +40,7 @@ env:
   # Immutable, date-pinned nightly tag (records the exact server the contract is
   # certified against; the job moves only when this pin moves, so drift is
   # attributable). Resolved digest + revision are recorded in the step summary.
-  HONUA_SERVER_IMAGE: "ghcr.io/honua-io/honua-server:nightly-20260530-amd64"
+  HONUA_SERVER_IMAGE: ${{ github.event.inputs.server_image || 'ghcr.io/honua-io/honua-server:nightly-20260530-amd64' }}
 
 jobs:
   conformance:
@@ -85,6 +94,9 @@ jobs:
         with:
           repository: honua-io/honua-server
           path: honua-server
+          # Source the seed from the RC commit when certifying a release candidate;
+          # blank ref keeps the existing default-branch behavior for scheduled/PR runs.
+          ref: ${{ github.event.inputs.server_seed_ref || '' }}
 
       - name: Start seeded pinned Honua target
         env:

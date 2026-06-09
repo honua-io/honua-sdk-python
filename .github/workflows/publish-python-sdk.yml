@@ -25,6 +25,11 @@ on:
 env:
   PYTHON_VERSION: "3.11"
 
+# Least-privilege default for GITHUB_TOKEN; the publish jobs escalate to
+# id-token: write at job level for PyPI Trusted Publishing.
+permissions:
+  contents: read
+
 jobs:
   pre-publish-typecheck:
     # Run mypy on the same Python matrix as ci.yml *before* uploading any

@@ -30,6 +30,11 @@ on:
   pull_request:
     branches: [trunk]
 
+# Least-privilege default for GITHUB_TOKEN; the deploy job escalates to
+# contents/pages write at job level when publishing to gh-pages.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

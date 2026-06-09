@@ -1,5 +1,7 @@
 # Honua Python SDK
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/honua-io/honua-sdk-python/badge)](https://scorecard.dev/viewer/?uri=github.com/honua-io/honua-sdk-python)
+
 [![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue)](https://honua-io.github.io/honua-sdk-python/)
 
 Monorepo for the Honua Python client libraries. Two independently installable

@@ -15,6 +15,11 @@ env:
   HONUA_SMOKE_RESULTS_PATH: "staging-smoke-results.json"
   HONUA_SMOKE_UID_PREFIX: "sdk-python-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
 
+# Least-privilege default for GITHUB_TOKEN; the staging-smoke job declares the
+# read scopes it needs (contents/packages) at job level.
+permissions:
+  contents: read
+
 jobs:
   staging-smoke:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.3...python-admin-v0.1.4) (2026-06-10)
+
+
+### Features
+
+* add styleId-keyed OGC styles client ([#90](https://github.com/honua-io/honua-sdk-python/issues/90)) ([#91](https://github.com/honua-io/honua-sdk-python/issues/91)) ([0b4069c](https://github.com/honua-io/honua-sdk-python/commit/0b4069c61dd1086b97926b2f06e0a569d34cd7e0))
+
 ## [0.1.3](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.2...python-admin-v0.1.3) (2026-05-31)
 
 

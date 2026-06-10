@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.3...python-sdk-v0.1.4) (2026-06-10)
+
+
+### Features
+
+* **sdk-python:** add 3D Tiles tileset fetch + offline scene packaging ([#93](https://github.com/honua-io/honua-sdk-python/issues/93)) ([44b64a6](https://github.com/honua-io/honua-sdk-python/commit/44b64a6e20ac608bcac13fb01828f28261a0020a)), closes [#1198](https://github.com/honua-io/honua-sdk-python/issues/1198)
+
 ## [0.1.3](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.2...python-sdk-v0.1.3) (2026-05-31)
 
 

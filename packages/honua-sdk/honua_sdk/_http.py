@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -151,6 +152,11 @@ def parse_retry_after(value: str | None) -> float | None:
     values the returned delay is ``max(0, target - now)`` so a date in
     the past becomes ``0.0``. Returns ``None`` for ``None`` input or any
     value that cannot be parsed as either form.
+
+    Non-finite delta-seconds values (``"inf"``, ``"infinity"``, ``"nan"``,
+    ``"1e400"``) are rejected as unparseable rather than producing an
+    effectively infinite (or instant-retry) sleep. The caller is then free
+    to fall back to bounded exponential backoff.
     """
     if value is None:
         return None
@@ -160,6 +166,13 @@ def parse_retry_after(value: str | None) -> float | None:
     try:
         seconds = float(text)
     except (TypeError, ValueError):
+        seconds = None
+    # Reject inf/-inf/nan: a non-finite ``Retry-After`` would otherwise flow
+    # un-capped into ``time.sleep`` and hang the client forever (or, for
+    # ``nan``, silently coerce to retry-immediately). Treat it as "not a
+    # delta-seconds value" so the HTTP-date branch (also a no-match here)
+    # ultimately yields ``None``.
+    if seconds is not None and not math.isfinite(seconds):
         seconds = None
     if seconds is not None:
         return max(0.0, seconds)

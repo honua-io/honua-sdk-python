@@ -150,9 +150,10 @@ def test_backoff_capped_at_max() -> None:
 
 
 def test_honours_retry_after_header() -> None:
+    # A Retry-After under the backoff_max ceiling is honoured verbatim.
     transport = _make_transport(
         [
-            httpx.Response(429, text="throttled", headers={"Retry-After": "7"}),
+            httpx.Response(429, text="throttled", headers={"Retry-After": "3"}),
             httpx.Response(200, json={"ok": True}),
         ],
     )
@@ -162,7 +163,44 @@ def test_honours_retry_after_header() -> None:
         response = transport.handle_request(request)
 
     assert response.status_code == 200
-    mock_sleep.assert_called_once_with(7.0)
+    mock_sleep.assert_called_once_with(3.0)
+
+
+def test_retry_after_header_clamped_to_backoff_max() -> None:
+    # A Retry-After above backoff_max (default 5s) is clamped, not honoured
+    # verbatim — a hostile/oversized header can't block past the ceiling.
+    transport = _make_transport(
+        [
+            httpx.Response(503, text="retry", headers={"Retry-After": "86400"}),
+            httpx.Response(200, json={"ok": True}),
+        ],
+    )
+    request = httpx.Request("GET", "http://example.test/")
+
+    with patch("honua_sdk._retry.time.sleep") as mock_sleep:
+        response = transport.handle_request(request)
+
+    assert response.status_code == 200
+    mock_sleep.assert_called_once_with(5.0)
+
+
+def test_retry_after_infinite_falls_back_to_backoff() -> None:
+    # ``Retry-After: inf`` must NOT produce an infinite sleep — it is rejected
+    # as unparseable and the bounded exponential backoff is used instead.
+    transport = _make_transport(
+        [
+            httpx.Response(429, text="throttled", headers={"Retry-After": "inf"}),
+            httpx.Response(200, json={"ok": True}),
+        ],
+    )
+    request = httpx.Request("GET", "http://example.test/")
+
+    with patch("honua_sdk._retry.time.sleep") as mock_sleep:
+        response = transport.handle_request(request)
+
+    assert response.status_code == 200
+    # First-attempt backoff base is 0.5 (no jitter in _make_transport).
+    mock_sleep.assert_called_once_with(0.5)
 
 
 def test_retry_after_invalid_falls_back_to_backoff() -> None:
@@ -469,3 +507,27 @@ def test_client_integration_with_retry() -> None:
 
     assert result == {"status": "ready"}
     assert call_count["n"] == 2
+
+
+# ---------------------------------------------------------------------------
+# parse_retry_after robustness (issue #103): non-finite values rejected
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["inf", "Infinity", "-inf", "nan", "1e400"])
+def test_parse_retry_after_rejects_non_finite(bad: str) -> None:
+    from honua_sdk._http import parse_retry_after
+
+    # Non-finite delta-seconds must be treated as unparseable (None) so the
+    # caller falls back to bounded backoff instead of sleeping forever.
+    assert parse_retry_after(bad) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("0", 0.0), ("12", 12.0), ("  3 ", 3.0), ("-5", 0.0)],
+)
+def test_parse_retry_after_finite_values(value: str, expected: float) -> None:
+    from honua_sdk._http import parse_retry_after
+
+    assert parse_retry_after(value) == expected

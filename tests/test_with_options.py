@@ -328,3 +328,73 @@ def test_retry_transport_exposes_public_retry_methods_property() -> None:
     assert async_transport.retry_methods == async_transport._retry_methods
     assert "GET" in sync_transport.retry_methods
     assert "POST" not in sync_transport.retry_methods
+
+
+# ---------------------------------------------------------------------------
+# issue #105: with_options(max_retries=N) on a client built with max_retries=0
+# must actually take effect (RetryTransport is always installed).
+# ---------------------------------------------------------------------------
+
+
+def test_with_options_enables_retries_on_zero_built_sync_client() -> None:
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    original = HonuaClient("http://example.test", transport=transport, max_retries=0)
+    try:
+        retrying = original.with_options(max_retries=5)
+        with patch("honua_sdk._retry.time.sleep"):
+            result = retrying.readiness()
+        assert result == {"status": "ready"}
+        # Two retries consumed before the 200 — the override took effect.
+        assert call_count["n"] == 3
+    finally:
+        original.close()
+
+
+def test_zero_built_sync_client_still_does_not_retry_by_default() -> None:
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        return httpx.Response(503, text="retry")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport, max_retries=0) as client:
+        with patch("honua_sdk._retry.time.sleep"):
+            with pytest.raises(HonuaHttpError):
+                client.readiness()
+    # No override => single attempt, behaviour unchanged for the default path.
+    assert call_count["n"] == 1
+
+
+def test_with_options_enables_retries_on_zero_built_async_client() -> None:
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, json={"status": "ready"})
+
+    async def run() -> dict[str, Any]:
+        transport = httpx.MockTransport(handler)
+        original = AsyncHonuaClient(
+            "http://example.test", transport=transport, max_retries=0
+        )
+        try:
+            retrying = original.with_options(max_retries=5)
+            with patch("honua_sdk._async_retry.asyncio.sleep"):
+                return await retrying.readiness()
+        finally:
+            await original.close()
+
+    result = asyncio.run(run())
+    assert result == {"status": "ready"}
+    assert call_count["n"] == 3

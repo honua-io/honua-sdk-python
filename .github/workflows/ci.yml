@@ -239,7 +239,8 @@ jobs:
             "honua_sdk/py.typed" \
             "honua_sdk/_retry_core.py" \
             "honua_sdk/grpc/" \
-            "honua_sdk/migration/"; do
+            "honua_sdk/migration/" \
+            "honua_sdk/grpc/_generated/honua/v1/feature_service_pb2.pyi"; do
             if echo "$contents" | grep -q "$expected"; then
               echo "  ok: $expected"
             else
@@ -260,6 +261,37 @@ jobs:
       - name: Check honua-admin distribution
         run: twine check dist/*
         working-directory: packages/honua-admin
+
+      - name: Assert honua-admin wheel contents
+        # Mirror the honua-sdk contents assertion so an admin packaging
+        # regression (dropped ``py.typed`` marker, a missed client facade, or
+        # the shared ``_endpoints``/``_arcpy_scanner`` modules) fails the build
+        # instead of shipping a wheel that loses type hints or whole modules.
+        shell: bash
+        working-directory: packages/honua-admin
+        run: |
+          wheel=$(ls dist/honua_admin-*.whl)
+          echo "Inspecting $wheel"
+          contents=$(python -m zipfile -l "$wheel")
+          missing=0
+          for expected in \
+            "honua_admin/py.typed" \
+            "honua_admin/_client.py" \
+            "honua_admin/_async_client.py" \
+            "honua_admin/_endpoints.py" \
+            "honua_admin/_arcpy_scanner.py"; do
+            if echo "$contents" | grep -q "$expected"; then
+              echo "  ok: $expected"
+            else
+              echo "  MISSING: $expected"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::honua-admin wheel is missing expected contents"
+            echo "$contents"
+            exit 1
+          fi
 
       - name: Smoke-install built wheels in a fresh venv
         run: |

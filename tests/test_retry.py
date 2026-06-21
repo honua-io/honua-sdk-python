@@ -155,6 +155,7 @@ def test_honours_retry_after_header() -> None:
             httpx.Response(429, text="throttled", headers={"Retry-After": "7"}),
             httpx.Response(200, json={"ok": True}),
         ],
+        backoff_max=10.0,
     )
     request = httpx.Request("GET", "http://example.test/")
 
@@ -163,6 +164,40 @@ def test_honours_retry_after_header() -> None:
 
     assert response.status_code == 200
     mock_sleep.assert_called_once_with(7.0)
+
+
+def test_retry_after_header_is_capped_by_backoff_max() -> None:
+    transport = _make_transport(
+        [
+            httpx.Response(429, text="throttled", headers={"Retry-After": "86400"}),
+            httpx.Response(200, json={"ok": True}),
+        ],
+        backoff_max=5.0,
+    )
+    request = httpx.Request("GET", "http://example.test/")
+
+    with patch("honua_sdk._retry.time.sleep") as mock_sleep:
+        response = transport.handle_request(request)
+
+    assert response.status_code == 200
+    mock_sleep.assert_called_once_with(5.0)
+
+
+@pytest.mark.parametrize("header_value", ["inf", "infinity", "1e400", "nan"])
+def test_retry_after_non_finite_values_fall_back_to_backoff(header_value: str) -> None:
+    transport = _make_transport(
+        [
+            httpx.Response(503, text="retry", headers={"Retry-After": header_value}),
+            httpx.Response(200, json={"ok": True}),
+        ],
+    )
+    request = httpx.Request("GET", "http://example.test/")
+
+    with patch("honua_sdk._retry.time.sleep") as mock_sleep:
+        response = transport.handle_request(request)
+
+    assert response.status_code == 200
+    mock_sleep.assert_called_once_with(0.5)
 
 
 def test_retry_after_invalid_falls_back_to_backoff() -> None:

@@ -84,13 +84,13 @@ def compute_delay(
     """Return the delay before the next retry, honouring ``Retry-After``.
 
     When ``Retry-After`` is present and parseable (delta-seconds or RFC
-    7231 HTTP-date), the parsed value is returned verbatim and is not
-    jittered. Otherwise the exponential backoff (see
-    :func:`compute_backoff`) is used.
+    7231 HTTP-date), the parsed value is honored but capped at
+    ``backoff_max`` and is not jittered. Otherwise the exponential
+    backoff (see :func:`compute_backoff`) is used.
     """
     retry_after = parse_retry_after(response.headers.get("retry-after"))
     if retry_after is not None:
-        return retry_after
+        return min(retry_after, backoff_max)
     return compute_backoff(
         attempt,
         backoff_initial=backoff_initial,

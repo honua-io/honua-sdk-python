@@ -6,6 +6,7 @@ import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+import math
 from typing import Any
 from urllib.parse import quote
 
@@ -162,6 +163,8 @@ def parse_retry_after(value: str | None) -> float | None:
     except (TypeError, ValueError):
         seconds = None
     if seconds is not None:
+        if not math.isfinite(seconds):
+            return None
         return max(0.0, seconds)
     try:
         target = parsedate_to_datetime(text)

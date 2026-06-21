@@ -47,6 +47,14 @@ class GeocodeSuggestion:
     is_collection: bool
 
 
+def _location_xy(location: Any) -> tuple[float, float] | None:
+    if not isinstance(location, Mapping):
+        return None
+    if "x" not in location or "y" not in location:
+        return None
+    return float(location["x"]), float(location["y"])
+
+
 class HonuaGeocodingClient:
     """Task-oriented client for Honua GeocodeServer workflows."""
 
@@ -170,12 +178,15 @@ class HonuaGeocodingClient:
 
         results: list[GeocodeResult] = []
         for candidate in data.get("candidates", []):
-            location = candidate.get("location", {})
+            coords = _location_xy(candidate.get("location"))
+            if coords is None:
+                continue
+            longitude, latitude = coords
             results.append(
                 GeocodeResult(
                     address=candidate.get("address", ""),
-                    longitude=float(location.get("x", 0)),
-                    latitude=float(location.get("y", 0)),
+                    longitude=longitude,
+                    latitude=latitude,
                     score=float(candidate.get("score", 0)),
                     attributes=candidate.get("attributes", {}),
                 )
@@ -227,18 +238,19 @@ class HonuaGeocodingClient:
             extra_headers=extra_headers,
         )
 
-        if not data.get("address") and not data.get("location"):
+        coords = _location_xy(data.get("location"))
+        if coords is None:
             return None
 
         addr_info = data.get("address", {})
-        location = data.get("location", {})
         match_addr = addr_info.get("Match_addr", "") if isinstance(addr_info, Mapping) else ""
         attributes = dict(addr_info) if isinstance(addr_info, Mapping) else {}
+        longitude, latitude = coords
 
         return ReverseGeocodeResult(
             address=match_addr,
-            longitude=float(location.get("x", 0)),
-            latitude=float(location.get("y", 0)),
+            longitude=longitude,
+            latitude=latitude,
             attributes=attributes,
         )
 

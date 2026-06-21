@@ -74,6 +74,29 @@ def test_forward_geocode_empty_results() -> None:
     assert results == []
 
 
+def test_forward_geocode_skips_candidates_without_coordinates() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {"address": "No location", "score": 99.0},
+                    {"address": "Missing y", "location": {"x": -117.1}, "score": 98.0},
+                    {"address": "Valid", "location": {"x": -117.2, "y": 32.8}, "score": 97.0},
+                ]
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaGeocodingClient("http://example.test", client=httpx.Client(base_url="http://example.test/", transport=transport)) as client:
+        results = client.forward_geocode("123 Main St")
+
+    assert len(results) == 1
+    assert results[0].address == "Valid"
+    assert results[0].longitude == -117.2
+    assert results[0].latitude == 32.8
+
+
 def test_forward_geocode_error_payload() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -161,6 +184,24 @@ def test_reverse_geocode_success() -> None:
 def test_reverse_geocode_returns_none_on_empty() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaGeocodingClient("http://example.test", client=httpx.Client(base_url="http://example.test/", transport=transport)) as client:
+        result = client.reverse_geocode(0.0, 0.0)
+
+    assert result is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"address": {"Match_addr": "123 Main St"}},
+        {"address": {"Match_addr": "123 Main St"}, "location": {"x": -117.1}},
+    ],
+)
+def test_reverse_geocode_returns_none_without_coordinates(payload: dict[str, Any]) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
 
     transport = httpx.MockTransport(handler)
     with HonuaGeocodingClient("http://example.test", client=httpx.Client(base_url="http://example.test/", transport=transport)) as client:

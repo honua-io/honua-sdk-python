@@ -109,6 +109,30 @@ def test_sync_with_options_max_retries_zero_disables_retries_on_clone() -> None:
         original.close()
 
 
+def test_sync_with_options_can_enable_retries_from_zero_retry_parent() -> None:
+    """``with_options(max_retries=N)`` must work even if parent default is zero."""
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    original = HonuaClient(
+        "http://example.test", transport=transport, max_retries=0
+    )
+    try:
+        clone = original.with_options(max_retries=1)
+        assert clone._client is original._client
+        with patch("honua_sdk._retry.time.sleep"):
+            assert clone.readiness() == {"status": "ready"}
+        assert call_count["n"] == 2
+    finally:
+        original.close()
+
+
 def test_sync_with_options_chained_overrides_accumulate() -> None:
     """Chaining ``with_options`` preserves earlier overrides for fields not set."""
     transport = httpx.MockTransport(lambda _r: httpx.Response(200, json={}))
@@ -177,6 +201,30 @@ def test_async_with_options_reuses_parent_transport_and_pool() -> None:
 
     asyncio.run(_run())
     assert len(seen_requests) == 2
+
+
+def test_async_with_options_can_enable_retries_from_zero_retry_parent() -> None:
+    call_count = {"n": 0}
+
+    async def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+
+    async def _run() -> None:
+        async with AsyncHonuaClient(
+            "http://example.test", transport=transport, max_retries=0
+        ) as original:
+            clone = original.with_options(max_retries=1)
+            assert clone._client is original._client
+            with patch("honua_sdk._async_retry.asyncio.sleep"):
+                assert await clone.readiness() == {"status": "ready"}
+
+    asyncio.run(_run())
+    assert call_count["n"] == 2
 
 
 # ---------------------------------------------------------------------------

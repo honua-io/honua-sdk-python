@@ -191,12 +191,10 @@ class AsyncHonuaClient:
                 auth_provider=auth_provider,
             )
 
-        effective_transport = transport
-        if max_retries > 0:
-            inner = effective_transport or httpx.AsyncHTTPTransport()
-            retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
-            effective_transport = retry_transport
-            self._retry_methods = retry_transport.retry_methods
+        inner = transport or httpx.AsyncHTTPTransport()
+        retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
+        effective_transport = retry_transport
+        self._retry_methods = retry_transport.retry_methods
 
         self._client = httpx.AsyncClient(
             base_url=self._base_url,

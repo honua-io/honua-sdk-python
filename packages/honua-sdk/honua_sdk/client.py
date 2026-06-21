@@ -190,12 +190,10 @@ class HonuaClient:
                 auth_provider=auth_provider,
             )
 
-        effective_transport = transport
-        if max_retries > 0:
-            inner = effective_transport or httpx.HTTPTransport()
-            retry_transport = RetryTransport(inner, max_retries=max_retries)
-            effective_transport = retry_transport
-            self._retry_methods = retry_transport.retry_methods
+        inner = transport or httpx.HTTPTransport()
+        retry_transport = RetryTransport(inner, max_retries=max_retries)
+        effective_transport = retry_transport
+        self._retry_methods = retry_transport.retry_methods
 
         self._client = httpx.Client(
             base_url=self._base_url,

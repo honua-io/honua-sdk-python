@@ -9,6 +9,7 @@ from threading import RLock
 from typing import Any, Protocol, runtime_checkable
 
 SENSITIVE_AUTH_HEADER_NAMES = frozenset({"authorization", "x-api-key"})
+_MISSING = object()
 
 
 @runtime_checkable
@@ -198,15 +199,15 @@ def _coerce_token(value: BearerToken | Mapping[str, Any] | str) -> BearerToken:
     if not isinstance(value, Mapping):
         raise TypeError("Token refresh callbacks must return BearerToken, mapping, or string.")
 
-    access_token = value.get("access_token") or value.get("accessToken") or value.get("token")
+    access_token = _first_present(value, "access_token", "accessToken", "token")
     if not isinstance(access_token, str):
         raise ValueError("Token mapping must include an access_token string.")
 
-    token_type = value.get("token_type") or value.get("tokenType") or "Bearer"
+    token_type = _first_present(value, "token_type", "tokenType", default="Bearer")
     if not isinstance(token_type, str):
         raise ValueError("Token mapping token_type must be a string.")
 
-    expires_at = value.get("expires_at") or value.get("expiresAt")
+    expires_at = _first_present(value, "expires_at", "expiresAt")
     if expires_at is None and value.get("expires_in") is not None:
         expires_in = value["expires_in"]
         if not isinstance(expires_in, int | float):
@@ -220,6 +221,14 @@ def _coerce_token(value: BearerToken | Mapping[str, Any] | str) -> BearerToken:
     )
 
 
+def _first_present(mapping: Mapping[str, Any], *keys: str, default: Any = None) -> Any:
+    for key in keys:
+        value = mapping.get(key, _MISSING)
+        if value is not _MISSING:
+            return value
+    return default
+
+
 def _parse_expires_at(value: Any) -> datetime | None:
     if value is None:
         return None
@@ -229,7 +238,10 @@ def _parse_expires_at(value: Any) -> datetime | None:
         return datetime.fromtimestamp(float(value), tz=UTC)
     if isinstance(value, str):
         normalized = value.replace("Z", "+00:00")
-        return _normalize_datetime(datetime.fromisoformat(normalized))
+        try:
+            return _normalize_datetime(datetime.fromisoformat(normalized))
+        except ValueError:
+            return None
     raise ValueError("expires_at must be a datetime, timestamp, ISO datetime string, or None.")
 
 

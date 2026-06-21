@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from numbers import Real
 from typing import Any
 
 from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol, normalize_protocol
@@ -221,12 +222,8 @@ def ogc_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None, 
     """
     if page is None:
         return None, False
-    total_count: int | None = None
     raw_total = page.get("numberMatched") if isinstance(page, Mapping) else None
-    if isinstance(raw_total, int):
-        total_count = raw_total
-    elif isinstance(raw_total, str) and raw_total.isdigit():
-        total_count = int(raw_total)
+    total_count = _coerce_total_count(raw_total)
     exceeded = _has_next_link(page)
     return total_count, exceeded
 
@@ -239,14 +236,30 @@ def odata_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None
     """
     if page is None:
         return None, False
-    total_count: int | None = None
     raw_total = page.get("@odata.count") if isinstance(page, Mapping) else None
-    if isinstance(raw_total, int):
-        total_count = raw_total
-    elif isinstance(raw_total, str) and raw_total.isdigit():
-        total_count = int(raw_total)
+    total_count = _coerce_total_count(raw_total)
     exceeded = bool(page.get("@odata.nextLink")) if isinstance(page, Mapping) else False
     return total_count, exceeded
+
+
+def _coerce_total_count(raw_total: Any) -> int | None:
+    if isinstance(raw_total, bool):
+        return None
+    if isinstance(raw_total, int):
+        return raw_total
+    if isinstance(raw_total, Real) and float(raw_total).is_integer():
+        return int(raw_total)
+    if isinstance(raw_total, str):
+        text = raw_total.strip()
+        if text.isdigit():
+            return int(text)
+        try:
+            numeric = float(text)
+        except ValueError:
+            return None
+        if numeric.is_integer():
+            return int(numeric)
+    return None
 
 
 def odata_features_from_page(page: Mapping[str, Any]) -> list[Mapping[str, Any]]:

@@ -1238,6 +1238,7 @@ class AsyncHonuaClient:
         features: list[Feature] = []
         offset = _endpoints.initial_offset(extra_params)
         base_extra_params = dict(extra_params or {})
+        previous_page_signature: tuple[tuple[int | None, str], ...] | None = None
         for _ in range(max_pages):
             remaining = None if limit is None else limit - len(features)
             if remaining is not None and remaining <= 0:
@@ -1258,6 +1259,10 @@ class AsyncHonuaClient:
                 extra_headers=extra_headers,
             )
             page_features = list(page.features)
+            page_signature = tuple((feature.object_id, repr(feature.attributes)) for feature in page_features)
+            if previous_page_signature is not None and page_signature == previous_page_signature:
+                break
+            previous_page_signature = page_signature
             if remaining is not None:
                 page_features = page_features[:remaining]
             features.extend(page_features)

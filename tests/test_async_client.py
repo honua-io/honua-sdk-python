@@ -166,6 +166,31 @@ async def test_query_features_all_returns_typed_paginated_features() -> None:
     assert seen == [("0", "2"), ("2", "1")]
 
 
+async def test_query_features_all_stops_on_repeated_page() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append(query["resultOffset"])
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {"attributes": {"objectid": 1, "name": "A"}},
+                    {"attributes": {"objectid": 2, "name": "B"}},
+                ],
+                "exceededTransferLimit": True,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = await client.query_features_all("parcels", 0, page_size=2, max_pages=5)
+
+    assert [feature.object_id for feature in features] == [1, 2]
+    assert seen == ["0", "2"]
+
+
 async def test_shared_query_feature_server_normalizes_common_args() -> None:
     seen: dict[str, str] = {}
 

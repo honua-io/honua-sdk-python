@@ -213,6 +213,31 @@ def test_query_features_all_pages_until_transfer_limit_clears() -> None:
     assert seen == [("0", "2"), ("2", "1")]
 
 
+def test_query_features_all_stops_on_repeated_page() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = dict(request.url.params.multi_items())
+        seen.append(query["resultOffset"])
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {"attributes": {"objectid": 1, "name": "A"}},
+                    {"attributes": {"objectid": 2, "name": "B"}},
+                ],
+                "exceededTransferLimit": True,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.query_features_all("parcels", 0, page_size=2, max_pages=5)
+
+    assert [feature.object_id for feature in features] == [1, 2]
+    assert seen == ["0", "2"]
+
+
 def test_shared_query_feature_server_normalizes_common_args() -> None:
     seen: dict[str, str] = {}
 

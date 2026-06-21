@@ -83,3 +83,24 @@ def test_bearer_token_accepts_epoch_and_iso_expiration_metadata() -> None:
     assert iso_token.access_token == "iso"
     assert iso_token.expires_at is not None
     assert iso_token.expires_at.tzinfo is not None
+
+
+def test_bearer_token_preserves_falsy_expiration_metadata() -> None:
+    token = RefreshableBearerTokenProvider(lambda: {"access_token": "epoch", "expiresAt": 0}).get_token()
+
+    assert token.expires_at == datetime.fromtimestamp(0, tz=timezone.utc)
+
+
+def test_bearer_token_degrades_unexpected_iso_expiration_to_none() -> None:
+    token = RefreshableBearerTokenProvider(
+        lambda: {"access_token": "odd-iso", "expiresAt": "2033-05-18T03:33:20+00:00[UTC]"}
+    ).get_token()
+
+    assert token.expires_at is None
+
+
+def test_bearer_token_does_not_replace_explicit_empty_token_type() -> None:
+    provider = RefreshableBearerTokenProvider(lambda: {"access_token": "token", "token_type": ""})
+
+    with pytest.raises(ValueError, match="token_type must be non-empty"):
+        provider.get_token()

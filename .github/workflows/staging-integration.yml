@@ -43,7 +43,7 @@ jobs:
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
       HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:latest-aot' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -79,7 +79,7 @@ jobs:
 
       - name: Checkout Honua Server seed fixtures
         if: ${{ steps.smoke-config.outputs.local_stack == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: honua-io/honua-server
           path: honua-server

@@ -47,8 +47,15 @@ nav:
       - Retries and timeouts: retries-and-timeouts.md
       - Pagination: pagination.md
   - API Reference:
-      - honua-sdk: reference/honua_sdk.md
-      - honua-admin: reference/honua_admin.md
+      - honua-sdk:
+          - Clients: reference/honua-sdk/clients.md
+          - Source facade: reference/honua-sdk/source-facade.md
+          - Models: reference/honua-sdk/models.md
+          - Errors: reference/honua-sdk/errors.md
+      - honua-admin:
+          - Clients: reference/honua-admin/clients.md
+          - Models: reference/honua-admin/models.md
+          - Errors: reference/honua-admin/errors.md
   - Project:
       - Operating cadence: operating-cadence.md
 

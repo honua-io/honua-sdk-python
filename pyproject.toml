@@ -99,6 +99,11 @@ python_version = "3.11"
 #     prior ogc/protocols/source/grpc/_retry_core opt-outs have been
 #     retired now that the httpx-JSON return shapes are cast to typed
 #     return signatures at each call site.
+#   * warn_no_return / disallow_subclassing_any / strict_equality — the
+#     final queued strict-mode ratchets, now enabled (clean across all
+#     source files). The only remaining gap to literal `strict = true` is
+#     `no_implicit_reexport`, deliberately left off so the curated
+#     `__init__` re-export surface stays implicit-friendly.
 strict = false
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -107,11 +112,12 @@ no_implicit_optional = true
 check_untyped_defs = true
 disallow_untyped_defs = true
 # Individual strict-mode ratchets added on top of disallow_untyped_defs.
-# Full `strict = true` would also enable warn_no_return / disallow_subclassing_any;
-# those remain queued for a follow-up pass now that warn_return_any is clean.
 disallow_any_generics = true
 disallow_untyped_calls = true
 warn_return_any = true
+warn_no_return = true
+disallow_subclassing_any = true
+strict_equality = true
 ignore_missing_imports = true
 packages = ["honua_sdk", "honua_admin"]
 
@@ -124,3 +130,4 @@ module = "honua_sdk.grpc._generated.*"
 disallow_untyped_defs = false
 disallow_untyped_calls = false
 disallow_any_generics = false
+disallow_subclassing_any = false

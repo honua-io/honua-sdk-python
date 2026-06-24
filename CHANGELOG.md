@@ -32,8 +32,52 @@ Breaking changes in this line are gated by the public-API compatibility snapshot
   typed `Result[QueryFeature]` across every protocol. The `Query.where` field
   no longer routes silently to CQL `filter` on OGC/STAC endpoints — pass
   `cql_filter=` or set `where_as_cql=True` to opt in.
+
+  *Querying — before/after:*
+
+  ```python
+  # Before (0.0.x): per-protocol method, raw-dict response
+  fc = client.query_features("parcels", where="state = 'HI'", out_fields="*")
+  for feature in fc["features"]:
+      name = feature["attributes"]["NAME"]
+
+  # After (0.1.x): unified Source facade, typed Result[QueryFeature]
+  result = client.source(SourceDescriptor("parcels")).query(
+      Query(where="state = 'HI'", out_fields=["*"])
+  )
+  for feature in result.features:
+      name = feature.properties["NAME"]
+  ```
+
+  *Feature attributes — `.attributes` → `.properties`:*
+
+  ```python
+  # Before (0.0.x): GeoJSON-style raw dict, ArcGIS `attributes` key
+  value = feature["attributes"]["POP2020"]
+
+  # After (0.1.x): normalized QueryFeature, `.properties` everywhere
+  value = feature.properties["POP2020"]
+  ```
+
 - **0.1.x → 0.2.x (planned)** — Sync/async client modules continue to converge
-  around the shared `_endpoints.py` / `_retry_core.py` machinery. No public-API
-  removals are scheduled; new helpers will be additive.
+  around the shared `_endpoints.py` / `_retry_core.py` machinery. The
+  `bearer_token=` constructor argument (deprecated in 0.1.x, which emits a
+  `DeprecationWarning`) is scheduled for removal; migrate to
+  `auth_provider=`:
+
+  ```python
+  # Before (0.1.x, deprecated): bearer_token= kwarg
+  client = HonuaClient(base_url, bearer_token=token)
+
+  # After (0.2.x): explicit auth provider (works today, 0.1.x onward)
+  from honua_sdk.auth import StaticAuthProvider
+
+  client = HonuaClient(
+      base_url,
+      auth_provider=StaticAuthProvider({"Authorization": f"Bearer {token}"}),
+  )
+  ```
+
+  No other public-API removals are scheduled; new helpers will be additive.
 
 Per-release notes live in [packages/honua-sdk/CHANGELOG.md](packages/honua-sdk/CHANGELOG.md) and [packages/honua-admin/CHANGELOG.md](packages/honua-admin/CHANGELOG.md), maintained by release-please.

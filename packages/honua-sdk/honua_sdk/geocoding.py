@@ -47,6 +47,26 @@ class GeocodeSuggestion:
     is_collection: bool
 
 
+def _extract_location_xy(location: Any) -> tuple[float, float] | None:
+    """Return ``(longitude, latitude)`` from a GeocodeServer ``location``.
+
+    Returns ``None`` when the location is missing, not a mapping, or lacks a
+    usable ``x``/``y`` pair. Defaulting absent coordinates to ``0`` would
+    silently emit a valid-looking ``(0, 0)`` "null island" result that masks
+    a geocode miss — so a missing location is treated as "no result" instead.
+    """
+    if not isinstance(location, Mapping):
+        return None
+    raw_x = location.get("x")
+    raw_y = location.get("y")
+    if raw_x is None or raw_y is None:
+        return None
+    try:
+        return float(raw_x), float(raw_y)
+    except (TypeError, ValueError):
+        return None
+
+
 class HonuaGeocodingClient:
     """Task-oriented client for Honua GeocodeServer workflows."""
 
@@ -170,12 +190,16 @@ class HonuaGeocodingClient:
 
         results: list[GeocodeResult] = []
         for candidate in data.get("candidates", []):
-            location = candidate.get("location", {})
+            coords = _extract_location_xy(candidate.get("location"))
+            if coords is None:
+                # No usable location: skip rather than emit a (0, 0) result.
+                continue
+            longitude, latitude = coords
             results.append(
                 GeocodeResult(
                     address=candidate.get("address", ""),
-                    longitude=float(location.get("x", 0)),
-                    latitude=float(location.get("y", 0)),
+                    longitude=longitude,
+                    latitude=latitude,
                     score=float(candidate.get("score", 0)),
                     attributes=candidate.get("attributes", {}),
                 )
@@ -227,18 +251,21 @@ class HonuaGeocodingClient:
             extra_headers=extra_headers,
         )
 
-        if not data.get("address") and not data.get("location"):
-            return None
-
         addr_info = data.get("address", {})
-        location = data.get("location", {})
         match_addr = addr_info.get("Match_addr", "") if isinstance(addr_info, Mapping) else ""
         attributes = dict(addr_info) if isinstance(addr_info, Mapping) else {}
+        coords = _extract_location_xy(data.get("location"))
 
+        # No usable location and no address text means the server returned no
+        # match — surface that as ``None`` rather than a (0, 0) "null island".
+        if coords is None and not match_addr:
+            return None
+
+        longitude, latitude = coords if coords is not None else (0.0, 0.0)
         return ReverseGeocodeResult(
             address=match_addr,
-            longitude=float(location.get("x", 0)),
-            latitude=float(location.get("y", 0)),
+            longitude=longitude,
+            latitude=latitude,
             attributes=attributes,
         )
 

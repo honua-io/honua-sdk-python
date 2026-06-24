@@ -102,6 +102,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         total = 0
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
+        seen_object_ids: set[int] = set()
         for _ in range(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
@@ -123,6 +124,13 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
                     extra_headers=extra_headers,
                 )
             )
+            # Non-advancing-cursor guard: stop before re-yielding a page a
+            # server that ignores ``resultOffset`` keeps returning (it would
+            # otherwise loop to ``max_pages`` with duplicate features).
+            new_object_ids = {oid for f in page.features if (oid := f.object_id) is not None}
+            if new_object_ids and new_object_ids.issubset(seen_object_ids):
+                break
+            seen_object_ids |= new_object_ids
             yield page
             page_count = len(page.features)
             total += page_count
@@ -508,6 +516,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         total = 0
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
+        seen_object_ids: set[int] = set()
         for _ in range(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
@@ -529,6 +538,13 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
                     extra_headers=extra_headers,
                 )
             )
+            # Non-advancing-cursor guard: stop before re-yielding a page a
+            # server that ignores ``resultOffset`` keeps returning (it would
+            # otherwise loop to ``max_pages`` with duplicate features).
+            new_object_ids = {oid for f in page.features if (oid := f.object_id) is not None}
+            if new_object_ids and new_object_ids.issubset(seen_object_ids):
+                break
+            seen_object_ids |= new_object_ids
             yield page
             page_count = len(page.features)
             total += page_count

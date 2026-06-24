@@ -92,35 +92,26 @@ ignore = []
 
 [tool.mypy]
 python_version = "3.11"
-# Ratcheted incrementally beyond check_untyped_defs:
-#   * warn_unused_ignores  — keep `# type: ignore` debt visible.
-#   * disallow_untyped_defs — every def in honua_sdk / honua_admin has annotations.
-#   * warn_return_any — enabled globally and enforced everywhere. The
-#     prior ogc/protocols/source/grpc/_retry_core opt-outs have been
-#     retired now that the httpx-JSON return shapes are cast to typed
-#     return signatures at each call site.
-strict = false
+# Full mypy strict mode. The package reached parity with every individual
+# strict ratchet (disallow_untyped_defs/calls, disallow_any_generics,
+# warn_return_any, warn_unused_ignores, …) over the grading sweep; the final
+# queued flags (warn_no_return, disallow_subclassing_any, strict_equality,
+# no_implicit_reexport, disallow_incomplete_defs, extra_checks) were verified
+# clean across all 53 source files, so `strict` is now the single source of
+# truth instead of an open-coded flag list that can silently drift behind it.
+strict = true
 warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-no_implicit_optional = true
-check_untyped_defs = true
-disallow_untyped_defs = true
-# Individual strict-mode ratchets added on top of disallow_untyped_defs.
-# Full `strict = true` would also enable warn_no_return / disallow_subclassing_any;
-# those remain queued for a follow-up pass now that warn_return_any is clean.
-disallow_any_generics = true
-disallow_untyped_calls = true
-warn_return_any = true
 ignore_missing_imports = true
 packages = ["honua_sdk", "honua_admin"]
 
-# Generated protobuf shims are untyped upstream; exempt them from the
-# disallow_untyped_defs / disallow_untyped_calls ratchets so we do not
-# regenerate code just to add annotations that the next codegen run would
-# erase.
+# Generated protobuf shims are untyped upstream; exempt them from the strict
+# ratchets so we do not regenerate code just to add annotations (or suppress
+# protobuf's ``Message``/``EnumTypeWrapper`` ``Any`` bases) that the next
+# codegen run would erase. ``disallow_subclassing_any`` is the flag strict mode
+# newly enforces against these generated ``*_pb2.pyi`` stubs.
 [[tool.mypy.overrides]]
 module = "honua_sdk.grpc._generated.*"
 disallow_untyped_defs = false
 disallow_untyped_calls = false
 disallow_any_generics = false
+disallow_subclassing_any = false

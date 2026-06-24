@@ -213,6 +213,37 @@ def test_query_features_all_pages_until_transfer_limit_clears() -> None:
     assert seen == [("0", "2"), ("2", "1")]
 
 
+def test_query_features_all_stops_on_non_advancing_cursor() -> None:
+    # issue #107.4: a server that ignores ``resultOffset`` returns the same
+    # full page with exceededTransferLimit=true forever. The non-advancing
+    # cursor guard must stop after the first page rather than looping to
+    # max_pages and duplicating features.
+    call_count = {"n": 0}
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        # Always the same two objectids, regardless of the requested offset.
+        return httpx.Response(
+            200,
+            json={
+                "features": [
+                    {"attributes": {"objectid": 1}},
+                    {"attributes": {"objectid": 2}},
+                ],
+                "exceededTransferLimit": True,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.query_features_all("parcels", 0, page_size=2, max_pages=100)
+
+    # Only the first page is kept; no duplicates, and we stop after detecting
+    # the stall (one extra probe page) rather than walking all 100 pages.
+    assert [feature.object_id for feature in features] == [1, 2]
+    assert call_count["n"] <= 2
+
+
 def test_shared_query_feature_server_normalizes_common_args() -> None:
     seen: dict[str, str] = {}
 

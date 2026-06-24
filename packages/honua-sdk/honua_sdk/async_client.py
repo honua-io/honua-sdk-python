@@ -191,12 +191,17 @@ class AsyncHonuaClient:
                 auth_provider=auth_provider,
             )
 
-        effective_transport = transport
-        if max_retries > 0:
-            inner = effective_transport or httpx.AsyncHTTPTransport()
-            retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
-            effective_transport = retry_transport
-            self._retry_methods = retry_transport.retry_methods
+        # Always wrap with ``AsyncRetryTransport`` — even when
+        # ``max_retries == 0``. The transport only retries when its budget is
+        # positive, but it is also the component that consults the per-request
+        # ``honua_max_retries`` override stashed by
+        # ``with_options(max_retries=…)``. Installing it unconditionally is what
+        # lets a client built with ``max_retries=0`` later opt into retries via
+        # ``with_options(max_retries=N)`` instead of silently no-op'ing.
+        inner = transport or httpx.AsyncHTTPTransport()
+        retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
+        effective_transport: httpx.AsyncBaseTransport = retry_transport
+        self._retry_methods = retry_transport.retry_methods
 
         self._client = httpx.AsyncClient(
             base_url=self._base_url,

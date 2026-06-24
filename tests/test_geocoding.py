@@ -361,3 +361,65 @@ def test_custom_locator_name_in_path() -> None:
         client.forward_geocode("test")
 
     assert "/rest/services/MyLocator/GeocodeServer/findAddressCandidates" in seen["path"]
+
+
+# ---------------------------------------------------------------------------
+# Null-island guard (issue #106): missing location must not become (0, 0)
+# ---------------------------------------------------------------------------
+
+
+def _geocode_client(handler: Any) -> HonuaGeocodingClient:
+    transport = httpx.MockTransport(handler)
+    return HonuaGeocodingClient(
+        "http://example.test",
+        client=httpx.Client(base_url="http://example.test/", transport=transport),
+    )
+
+
+def test_forward_geocode_skips_candidates_without_location() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {"address": "no loc", "score": 90.0},
+                    {"address": "empty loc", "location": {}, "score": 80.0},
+                    {
+                        "address": "real",
+                        "location": {"x": -117.1, "y": 32.7},
+                        "score": 95.0,
+                    },
+                ]
+            },
+        )
+
+    with _geocode_client(handler) as client:
+        results = client.forward_geocode("test")
+
+    # Only the candidate with a usable location survives; no (0, 0) entries.
+    assert len(results) == 1
+    assert results[0].address == "real"
+    assert (results[0].longitude, results[0].latitude) == (-117.1, 32.7)
+    assert all((r.longitude, r.latitude) != (0.0, 0.0) for r in results)
+
+
+def test_reverse_geocode_missing_location_returns_none() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        # Location present but empty, and no address -> no match.
+        return httpx.Response(200, json={"location": {}})
+
+    with _geocode_client(handler) as client:
+        result = client.reverse_geocode(32.7, -117.1)
+
+    assert result is None
+
+
+def test_reverse_geocode_address_without_location_keeps_address() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"address": {"Match_addr": "123 Main St"}})
+
+    with _geocode_client(handler) as client:
+        result = client.reverse_geocode(32.7, -117.1)
+
+    assert result is not None
+    assert result.address == "123 Main St"

@@ -46,7 +46,7 @@ jobs:
   conformance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -90,7 +90,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Checkout Honua Server seed fixtures
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: honua-io/honua-server
           path: honua-server

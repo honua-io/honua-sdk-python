@@ -210,6 +210,27 @@ def _first_present(payload: Mapping[str, Any], *keys: str) -> Any:
     return None
 
 
+def _coerce_total_count(raw_total: Any) -> int | None:
+    """Coerce a server-reported total (``numberMatched``/``@odata.count``).
+
+    Accepts a JSON integer, a whole-valued JSON float (e.g. ``1000.0`` — some
+    servers emit totals as floats), or a digit string. ``bool`` is rejected
+    (``True``/``False`` are not meaningful counts even though ``bool`` is an
+    ``int`` subclass). Anything else yields ``None``.
+    """
+    if isinstance(raw_total, bool):
+        return None
+    if isinstance(raw_total, int):
+        return raw_total
+    if isinstance(raw_total, float):
+        if raw_total.is_integer():
+            return int(raw_total)
+        return None
+    if isinstance(raw_total, str) and raw_total.isdigit():
+        return int(raw_total)
+    return None
+
+
 def ogc_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None, bool]:
     """Extract ``(total_count, exceeded_transfer_limit)`` from an OGC/STAC page.
 
@@ -221,12 +242,8 @@ def ogc_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None, 
     """
     if page is None:
         return None, False
-    total_count: int | None = None
     raw_total = page.get("numberMatched") if isinstance(page, Mapping) else None
-    if isinstance(raw_total, int):
-        total_count = raw_total
-    elif isinstance(raw_total, str) and raw_total.isdigit():
-        total_count = int(raw_total)
+    total_count = _coerce_total_count(raw_total)
     exceeded = _has_next_link(page)
     return total_count, exceeded
 
@@ -239,12 +256,8 @@ def odata_pagination_signals(page: Mapping[str, Any] | None) -> tuple[int | None
     """
     if page is None:
         return None, False
-    total_count: int | None = None
     raw_total = page.get("@odata.count") if isinstance(page, Mapping) else None
-    if isinstance(raw_total, int):
-        total_count = raw_total
-    elif isinstance(raw_total, str) and raw_total.isdigit():
-        total_count = int(raw_total)
+    total_count = _coerce_total_count(raw_total)
     exceeded = bool(page.get("@odata.nextLink")) if isinstance(page, Mapping) else False
     return total_count, exceeded
 

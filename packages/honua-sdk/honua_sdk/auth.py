@@ -190,6 +190,20 @@ def normalize_auth_headers(headers: Mapping[str, str]) -> dict[str, str]:
     return normalized
 
 
+def _first_present(value: Mapping[str, Any], *keys: str) -> Any:
+    """Return the value for the first key that is present and not ``None``.
+
+    Unlike chained ``or`` lookups, this preserves legitimate falsy values
+    (``0``, ``""``, ``False``): only an absent key or an explicit ``None`` is
+    skipped in favour of the next candidate.
+    """
+    for key in keys:
+        candidate = value.get(key)
+        if candidate is not None:
+            return candidate
+    return None
+
+
 def _coerce_token(value: BearerToken | Mapping[str, Any] | str) -> BearerToken:
     if isinstance(value, BearerToken):
         return value
@@ -198,15 +212,20 @@ def _coerce_token(value: BearerToken | Mapping[str, Any] | str) -> BearerToken:
     if not isinstance(value, Mapping):
         raise TypeError("Token refresh callbacks must return BearerToken, mapping, or string.")
 
-    access_token = value.get("access_token") or value.get("accessToken") or value.get("token")
+    access_token = _first_present(value, "access_token", "accessToken", "token")
     if not isinstance(access_token, str):
         raise ValueError("Token mapping must include an access_token string.")
 
+    # ``token_type`` falls back to ``"Bearer"`` when absent or empty:
+    # ``BearerToken`` forbids an empty ``token_type``, so an empty value is a
+    # missing one for our purposes.
     token_type = value.get("token_type") or value.get("tokenType") or "Bearer"
     if not isinstance(token_type, str):
         raise ValueError("Token mapping token_type must be a string.")
 
-    expires_at = value.get("expires_at") or value.get("expiresAt")
+    # Use sentinel-aware lookups so a legitimate ``0`` epoch (treated as a
+    # concrete expiry) is not discarded by ``or``-style falsy coercion.
+    expires_at = _first_present(value, "expires_at", "expiresAt")
     if expires_at is None and value.get("expires_in") is not None:
         expires_in = value["expires_in"]
         if not isinstance(expires_in, int | float):
@@ -229,7 +248,14 @@ def _parse_expires_at(value: Any) -> datetime | None:
         return datetime.fromtimestamp(float(value), tz=UTC)
     if isinstance(value, str):
         normalized = value.replace("Z", "+00:00")
-        return _normalize_datetime(datetime.fromisoformat(normalized))
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            # Some valid RFC-3339 forms (e.g. >6-digit fractional seconds on
+            # Python 3.11) are rejected by ``fromisoformat``. Degrade to "no
+            # known expiry" instead of crashing token coercion.
+            return None
+        return _normalize_datetime(parsed)
     raise ValueError("expires_at must be a datetime, timestamp, ISO datetime string, or None.")
 
 

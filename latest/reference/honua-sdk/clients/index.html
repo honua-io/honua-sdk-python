@@ -3375,8 +3375,9 @@ and <a href="../../../retries-and-timeouts/">Retries and timeouts</a> for the re
 
 
         <p>Task-oriented synchronous client for common Honua data-plane workflows.</p>
-<p>Wraps the Honua REST/HTTP surface (catalog, FeatureServer, OGC API
-Features, STAC, OData, WFS, WMS, WMTS, geocoding) and the canonical
+<p>Wraps the Honua
+REST/HTTP surface (catalog, FeatureServer, OGC API Features, STAC,
+OData, WFS, WMS, WMTS, geocoding) and the canonical
 <code>Source</code> / <code>Query</code> / <code>Result</code> facade behind a single typed
 entrypoint.</p>
 <p>Authentication is configured at construction with at most one of
@@ -3384,8 +3385,8 @@ entrypoint.</p>
 exclusive). <code>bearer_token=</code> is <strong>deprecated</strong> (removal in 0.2.x);
 prefer <code>auth_provider=StaticAuthProvider({"Authorization": f"Bearer
 {token}"})</code>. When <code>client</code> is supplied as a pre-built
-:class:<code>httpx.Client</code>, no auth kwargs may be passed — configure them
-on the client instead.</p>
+:class:<code>httpx.Client</code>, no auth kwargs may be passed — configure
+them on the client instead.</p>
 <p>Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
 transient statuses (429/502/503/504) are retried by default. Opt
 POST in by configuring <code>retry_methods</code> on the underlying retry
@@ -3437,8 +3438,8 @@ at <code>docs/core-client.md</code>.</p>
 
         <p>Release underlying HTTP resources if this instance owns the client.</p>
 <p>When the client was constructed with an externally supplied
-:class:<code>httpx.Client</code>, ownership stays with the caller and this
-method is a no-op.</p>
+:class:<code>httpx.Client</code>, ownership stays with the caller and
+this method is a no-op.</p>
 
 
     </div>
@@ -3460,23 +3461,20 @@ method is a no-op.</p>
 <p>When only <code>timeout</code> and/or <code>max_retries</code> are supplied, the
 returned client <strong>reuses the original's</strong> :class:<code>httpx.Client</code>
 and its connection pool — only the per-request <code>timeout</code> and
-(optionally) the per-request retry budget are overridden. This
-makes one-off requests with adjusted options effectively free.
-In this transport-sharing mode the clone does <strong>not</strong> own the
-underlying client; calling :meth:<code>close</code> on the clone is a no-op.
-Only the original is responsible for closing the transport.</p>
+(optionally) the per-request retry budget are overridden. In this
+transport-sharing mode the clone does <strong>not</strong> own the underlying
+client; calling :meth:<code>close</code> on the clone is a no-op. Only the
+original is responsible for closing the transport.</p>
 <p><strong>Passing <code>base_url</code> creates an independent client; the
 transport is NOT shared.</strong> Because the underlying
-:class:<code>httpx.Client</code> binds its <code>base_url</code> (and authority-bound
-timeouts, event hooks, and connection-pool keys) at construction
-time, swapping the base URL on a shared client would silently
-target the wrong host for any code path that relies on those
-bindings. To avoid that footgun, supplying <code>base_url</code> builds a
-fresh :class:<code>httpx.Client</code> for the clone and the clone owns it
-— you must :meth:<code>close</code> the clone (or use it as a context
-manager) independently of the original.</p>
-<p>The auth provider, if any, is reused (not duplicated) so token
-state is shared across the original and the clone.</p>
+:class:<code>httpx.Client</code> binds its <code>base_url</code> (and
+authority-bound timeouts, event hooks, and connection-pool keys)
+at construction time, swapping the base URL on a shared client
+would silently target the wrong host for any code path that
+relies on those bindings. To avoid that footgun, supplying
+<code>base_url</code> builds a fresh :class:<code>httpx.Client</code> for the
+clone and the clone owns it — you must <code>clone.close()</code> (or use <code>with</code>) independently of the
+original.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3520,8 +3518,8 @@ values reuse the parent's transport with a per-request
             <td>
               <div class="doc-md-description">
                 <p>When set, overrides the retry budget. <code>0</code>
-disables retries on the clone by forwarding a per-request
-override to the retry transport.</p>
+disables retries on the clone via a per-request extension
+read by the retry transport.</p>
               </div>
             </td>
             <td>
@@ -3538,9 +3536,9 @@ override to the retry transport.</p>
             <td>
               <div class="doc-md-description">
                 <p>When set, the returned clone is fully independent
-(owns its own :class:<code>httpx.Client</code> and connection pool)
-and must be closed separately. The transport is NOT
-shared with the original.</p>
+(owns its own :class:<code>httpx.Client</code> and connection
+pool) and must be closed separately. The transport is
+NOT shared with the original.</p>
               </div>
             </td>
             <td>
@@ -3561,12 +3559,12 @@ shared with the original.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;HonuaClient&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>HonuaClient</code> instance — transport-sharing when the</p>
+                <p>class:<code>HonuaClient</code> — transport-sharing when the</p>
               </div>
             </td>
           </tr>
@@ -3632,9 +3630,8 @@ shared with the original.</p>
         <p>Alias for :meth:<code>with_options</code>.</p>
 <p>Provided for parity with the stripe-python convention, where both
 <code>client.copy(...)</code> and <code>client.with_options(...)</code> return a
-reconfigured clone. The semantics (transport sharing vs. an
-independent clone) are identical to :meth:<code>with_options</code>; see that
-method for the full contract.</p>
+reconfigured clone. The semantics are identical to
+:meth:<code>with_options</code>; see that method for the full contract.</p>
 
 
     </div>
@@ -3939,7 +3936,7 @@ to :meth:<code>capabilities</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Return a source-bound facade for canonical Source/Query/Result workflows.</p>
+        <p>Return a source-bound facade for Source/Query/Result workflows.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3985,7 +3982,7 @@ should target.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;Source&#39;</code>
             </td>
             <td>
@@ -4252,12 +4249,12 @@ to :meth:<code>list_services</code>.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;HonuaOgcFeatures&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>HonuaOgcFeatures</code> facade that reuses this client's</p>
+                <p>class:<code>HonuaOgcFeatures</code> facade that reuses this</p>
               </div>
             </td>
           </tr>
@@ -4267,7 +4264,7 @@ to :meth:<code>list_services</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>HTTP session.</p>
+                <p>client's HTTP session.</p>
               </div>
             </td>
           </tr>
@@ -4290,7 +4287,7 @@ to :meth:<code>list_services</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Return a GeocodeServer wrapper that reuses this client's HTTP session.</p>
+        <p>Return a GeocodeServer wrapper that reuses this client's session.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4334,7 +4331,7 @@ to :meth:<code>list_services</code>.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;HonuaGeocodingClient&#39;</code>
             </td>
             <td>
@@ -4406,7 +4403,7 @@ to :meth:<code>list_services</code>.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;GeoServicesFeatureServerClient&#39;</code>
             </td>
             <td>
@@ -4513,12 +4510,12 @@ does not perform I/O).</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;GeoServicesMapServerClient&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>GeoServicesMapServerClient</code> bound to this client's</p>
+                <p>class:<code>GeoServicesMapServerClient</code> bound to this</p>
               </div>
             </td>
           </tr>
@@ -4528,7 +4525,7 @@ does not perform I/O).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>transport.</p>
+                <p>client's transport.</p>
               </div>
             </td>
           </tr>
@@ -4596,12 +4593,22 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;GeoServicesImageServerClient&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>GeoServicesImageServerClient</code> bound to this client.</p>
+                <p>class:<code>GeoServicesImageServerClient</code> bound to this</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td></td>            <td>
+                  <code>&#39;GeoServicesImageServerClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>client.</p>
               </div>
             </td>
           </tr>
@@ -4637,12 +4644,12 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;GeoServicesGeometryServerClient&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>GeoServicesGeometryServerClient</code> bound to this</p>
+                <p>class:<code>GeoServicesGeometryServerClient</code> bound to</p>
               </div>
             </td>
           </tr>
@@ -4652,7 +4659,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>client's transport.</p>
+                <p>this client's transport.</p>
               </div>
             </td>
           </tr>
@@ -4693,7 +4700,17 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>OgcMapsClient</code> bound to this client's transport.</p>
+                <p>class:<code>OgcMapsClient</code> bound to this client's</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td></td>            <td>
+                  <code>&#39;OgcMapsClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>transport.</p>
               </div>
             </td>
           </tr>
@@ -4734,7 +4751,17 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>OgcTilesClient</code> bound to this client's transport.</p>
+                <p>class:<code>OgcTilesClient</code> bound to this client's</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td></td>            <td>
+                  <code>&#39;OgcTilesClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>transport.</p>
               </div>
             </td>
           </tr>
@@ -4775,7 +4802,17 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>OgcCoveragesClient</code> bound to this client's transport.</p>
+                <p>class:<code>OgcCoveragesClient</code> bound to this client's</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td></td>            <td>
+                  <code>&#39;OgcCoveragesClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>transport.</p>
               </div>
             </td>
           </tr>
@@ -4816,7 +4853,17 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>OgcProcessesClient</code> bound to this client's transport.</p>
+                <p>class:<code>OgcProcessesClient</code> bound to this client's</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td></td>            <td>
+                  <code>&#39;OgcProcessesClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>transport.</p>
               </div>
             </td>
           </tr>
@@ -4870,12 +4917,12 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;HonuaGeoprocessing&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~honua_sdk.geoprocessing.HonuaGeoprocessing</code> bound to</p>
+                <p>class:<code>~honua_sdk.geoprocessing.HonuaGeoprocessing</code> bound</p>
               </div>
             </td>
           </tr>
@@ -4885,7 +4932,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>this client's transport for listing/describing processes and</p>
+                <p>to this client's transport for listing/describing processes and</p>
               </div>
             </td>
           </tr>
@@ -4931,12 +4978,12 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;HonuaWorkflow&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~honua_sdk.workflow.HonuaWorkflow</code> bound to this client's</p>
+                <p>class:<code>~honua_sdk.workflow.HonuaWorkflow</code> bound to this</p>
               </div>
             </td>
           </tr>
@@ -4946,7 +4993,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>transport for authoring workflow package drafts, snapshotting</p>
+                <p>client's transport for authoring workflow package drafts,</p>
               </div>
             </td>
           </tr>
@@ -4956,7 +5003,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>immutable versions, validating / dry-running / publishing them, and</p>
+                <p>snapshotting immutable versions, validating / dry-running /</p>
               </div>
             </td>
           </tr>
@@ -4966,7 +5013,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>running publications over the server's <code>/api/v1/console</code> workflow</p>
+                <p>publishing them, and running publications over the server's</p>
               </div>
             </td>
           </tr>
@@ -4976,7 +5023,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>package surface (the durable replacement for the dropped GeoETL</p>
+                <p><code>/api/v1/console</code> workflow package surface (the durable</p>
               </div>
             </td>
           </tr>
@@ -4986,7 +5033,17 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>pipeline endpoints; admin authorization required server-side).</p>
+                <p>replacement for the dropped GeoETL pipeline endpoints; admin</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td></td>            <td>
+                  <code>&#39;HonuaWorkflow&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>authorization required server-side).</p>
               </div>
             </td>
           </tr>
@@ -5022,7 +5079,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;StacClient&#39;</code>
             </td>
             <td>
@@ -5063,22 +5120,12 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;SceneClient&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>SceneClient</code> bound to this client's transport for</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code>&#39;SceneClient&#39;</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>scene discovery and render-endpoint resolution.</p>
+                <p>class:<code>SceneClient</code> bound to this client's transport.</p>
               </div>
             </td>
           </tr>
@@ -5119,17 +5166,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ElevationClient</code> bound to this client's transport</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code>&#39;ElevationClient&#39;</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>for point-value and along-line profile elevation queries.</p>
+                <p>class:<code>ElevationClient</code> bound to this client's transport.</p>
               </div>
             </td>
           </tr>
@@ -5165,7 +5202,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;WfsClient&#39;</code>
             </td>
             <td>
@@ -5237,7 +5274,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;WmsClient&#39;</code>
             </td>
             <td>
@@ -5309,7 +5346,7 @@ wrapper targets the deployment-level ImageServer surface.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code>&#39;WmtsClient&#39;</code>
             </td>
             <td>
@@ -5616,23 +5653,6 @@ STAC, OData). Accepts a <code>float</code> seconds value or an
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>extra_headers</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Additional HTTP headers merged into every
-page request across all protocols.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
                 <code>idempotency_key</code>
             </td>
             <td>
@@ -5642,8 +5662,24 @@ page request across all protocols.</p>
               <div class="doc-md-description">
                 <p>Stripe-style <code>Idempotency-Key</code> header
 value attached to every page request. Merged into
-<code>extra_headers</code> before forwarding to the pagination
-wrappers.</p>
+<code>extra_headers</code> before forwarding.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extra_headers</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Additional HTTP headers merged into every
+page request across all protocols.</p>
               </div>
             </td>
             <td>

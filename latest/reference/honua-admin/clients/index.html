@@ -3302,16 +3302,16 @@ semantics.</p>
 
 
         <p>Synchronous client for the Honua Admin (control-plane) API.</p>
-<p>Methods on this client map 1:1 to admin REST endpoints (services,
-metadata resources, manifests, connections, layers, styles, config)
-and return typed model objects.</p>
+<p>Methods map 1:1 to
+admin REST endpoints (services, metadata resources, manifests,
+connections, layers, styles, config) and return typed model objects.</p>
 <p>Authentication is configured at construction with at most one of
 <code>api_key</code>, <code>bearer_token</code>, or <code>auth_provider</code> (mutually
 exclusive). <code>bearer_token=</code> is <strong>deprecated</strong> (removal in 0.2.x);
 prefer <code>auth_provider=StaticAuthProvider({"Authorization": f"Bearer
 {token}"})</code>. When <code>client</code> is supplied as a pre-built
-:class:<code>httpx.Client</code>, no auth kwargs may be passed — configure them
-on the client instead.</p>
+:class:<code>httpx.Client</code>, no auth kwargs may be passed — configure
+them on the client instead.</p>
 <p>Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
 transient statuses (429/502/503/504) are retried by default. Opt
 POST in by configuring <code>retry_methods</code> on the underlying retry
@@ -3331,7 +3331,8 @@ status-specific subclasses such as :class:<code>HonuaAuthError</code> /
 :class:<code>HonuaRateLimitError</code>); transport-level failures surface as
 :class:<code>HonuaTransportError</code> (and its subclass
 :class:<code>HonuaTimeoutError</code>).</p>
-<p>See also: :class:<code>honua_sdk.HonuaClient</code> and <code>docs/core-client.md</code>.</p>
+<p>See also: :class:<code>honua_sdk.HonuaClient</code> and
+<code>docs/core-client.md</code>.</p>
 
 
 
@@ -3474,9 +3475,10 @@ and with a pre-built <code>client</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whether the underlying <code>httpx.Client</code>
-follows 3xx redirects. Sensitive auth headers are still
-stripped when redirected to a different authority.</p>
+                <p>Whether the underlying
+:class:<code>httpx.Client</code> follows 3xx redirects.
+Sensitive auth headers are still stripped when redirected
+to a different authority.</p>
               </div>
             </td>
             <td>
@@ -3492,10 +3494,10 @@ stripped when redirected to a different authority.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A caller-supplied :class:<code>httpx.Client</code>. When set,
-the SDK will not own or close the client and the auth
-kwargs above must not be passed (configure them on the
-client instead).</p>
+                <p>A caller-supplied :class:<code>httpx.Client</code>. When
+set, the SDK will not own or close the client and the
+auth kwargs above must not be passed (configure them on
+the client instead).</p>
               </div>
             </td>
             <td>
@@ -3511,9 +3513,10 @@ client instead).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A caller-supplied :class:<code>httpx.BaseTransport</code>.
-Mutually exclusive with <code>client</code>. Use this to inject
-a :class:<code>httpx.MockTransport</code> in tests.</p>
+                <p>A caller-supplied
+:class:<code>httpx.BaseTransport</code>. Mutually exclusive with
+<code>client</code>. Use this to inject a
+:class:<code>httpx.MockTransport</code> in tests.</p>
               </div>
             </td>
             <td>
@@ -3584,8 +3587,9 @@ or auth kwargs are supplied alongside a pre-built <code>client</code>.</p>
     <div class="doc doc-contents ">
 
         <p>Release underlying HTTP resources if this instance owns the client.</p>
-<p>When constructed with an externally supplied :class:<code>httpx.Client</code>,
-ownership stays with the caller and this method is a no-op.</p>
+<p>When constructed with an externally supplied
+:class:<code>httpx.Client</code>, ownership stays with the caller and
+this method is a no-op.</p>
 
 
     </div>
@@ -3607,21 +3611,20 @@ ownership stays with the caller and this method is a no-op.</p>
 <p>When only <code>timeout</code> and/or <code>max_retries</code> are supplied, the
 returned client <strong>reuses the original's</strong> :class:<code>httpx.Client</code>
 and its connection pool — only the per-request <code>timeout</code> and
-(optionally) the per-request retry budget are overridden. This
-makes one-off requests with adjusted options effectively free.
-In this transport-sharing mode the clone does <strong>not</strong> own the
-underlying client; calling :meth:<code>close</code> on the clone is a no-op.
-Only the original is responsible for closing the transport.</p>
+(optionally) the per-request retry budget are overridden. In this
+transport-sharing mode the clone does <strong>not</strong> own the underlying
+client; calling :meth:<code>close</code> on the clone is a no-op. Only the
+original is responsible for closing the transport.</p>
 <p><strong>Passing <code>base_url</code> creates an independent client; the
 transport is NOT shared.</strong> Because the underlying
-:class:<code>httpx.Client</code> binds its <code>base_url</code> (and authority-bound
-timeouts, event hooks, and connection-pool keys) at construction
-time, swapping the base URL on a shared client would silently
-target the wrong host for any code path that relies on those
-bindings. To avoid that footgun, supplying <code>base_url</code> builds a
-fresh :class:<code>httpx.Client</code> for the clone and the clone owns it
-— you must :meth:<code>close</code> the clone (or use it as a context
-manager) independently of the original.</p>
+:class:<code>httpx.Client</code> binds its <code>base_url</code> (and
+authority-bound timeouts, event hooks, and connection-pool keys)
+at construction time, swapping the base URL on a shared client
+would silently target the wrong host for any code path that
+relies on those bindings. To avoid that footgun, supplying
+<code>base_url</code> builds a fresh :class:<code>httpx.Client</code> for the
+clone and the clone owns it — you must <code>clone.close()</code> (or use <code>with</code>) independently of the
+original.</p>
 <p>The auth provider, if any, is reused (not duplicated) so token
 state is shared across the original and the clone.</p>
 
@@ -3667,8 +3670,8 @@ values reuse the parent's transport with a per-request
             <td>
               <div class="doc-md-description">
                 <p>When set, overrides the retry budget. <code>0</code>
-disables retries on the clone by forwarding a per-request
-override to the retry transport.</p>
+disables retries on the clone via a per-request extension
+read by the retry transport.</p>
               </div>
             </td>
             <td>
@@ -3685,9 +3688,9 @@ override to the retry transport.</p>
             <td>
               <div class="doc-md-description">
                 <p>When set, the returned clone is fully independent
-(owns its own :class:<code>httpx.Client</code> and connection pool)
-and must be closed separately. The transport is NOT
-shared with the original.</p>
+(owns its own :class:<code>httpx.Client</code> and connection
+pool) and must be closed separately. The transport is
+NOT shared with the original.</p>
               </div>
             </td>
             <td>
@@ -3708,12 +3711,12 @@ shared with the original.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-<td><code>A</code></td>            <td>
+<td><code>An</code></td>            <td>
                   <code><a class="autorefs autorefs-internal" title="honua_admin.HonuaAdminClient (honua_admin._client.HonuaAdminClient)" href="#honua_admin.HonuaAdminClient">HonuaAdminClient</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>HonuaAdminClient</code> instance — transport-sharing</p>
+                <p>class:<code>HonuaAdminClient</code> — transport-sharing when</p>
               </div>
             </td>
           </tr>
@@ -3723,7 +3726,7 @@ shared with the original.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>when the override timeout is greater than or equal to the</p>
+                <p>the override timeout is greater than or equal to the</p>
               </div>
             </td>
           </tr>
@@ -3871,7 +3874,7 @@ to :meth:<code>_request</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>The request failed before any HTTP
-response was received (DNS/connect/read failures).</p>
+response was received.</p>
               </div>
             </td>
           </tr>
@@ -3917,8 +3920,7 @@ response was received (DNS/connect/read failures).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service name as advertised by the catalog. The value
-is URL-encoded before being placed in the path.</p>
+                <p>Service name as advertised by the catalog. URL-encoded.</p>
               </div>
             </td>
             <td>
@@ -4035,7 +4037,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service name; URL-encoded before being placed in the path.</p>
+                <p>Service name; URL-encoded.</p>
               </div>
             </td>
             <td>
@@ -4051,9 +4053,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Ordered list of protocol identifiers to enable
-(e.g. <code>["MapServer", "FeatureServer"]</code>). The server
-treats this as the complete desired state.</p>
+                <p>Desired ordered list of protocol identifiers.</p>
               </div>
             </td>
             <td>
@@ -4079,17 +4079,7 @@ treats this as the complete desired state.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The refreshed :class:<code>ServiceSettingsResponse</code> reflecting the</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>new protocol configuration.</p>
+                <p>The refreshed :class:<code>ServiceSettingsResponse</code>.</p>
               </div>
             </td>
           </tr>
@@ -4170,7 +4160,7 @@ treats this as the complete desired state.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service name; URL-encoded before being placed in the path.</p>
+                <p>Service name; URL-encoded.</p>
               </div>
             </td>
             <td>
@@ -4401,7 +4391,7 @@ values are forwarded.</p>
 
     <div class="doc doc-contents ">
 
-        <p>List metadata resources, optionally filtered.</p>
+        <p>List metadata resources, optionally filtered by kind/namespace.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4424,8 +4414,7 @@ values are forwarded.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When provided, restrict results to a single resource
-kind (e.g. <code>"Layer"</code>, <code>"Service"</code>).</p>
+                <p>Optional resource-kind filter.</p>
               </div>
             </td>
             <td>
@@ -4441,8 +4430,7 @@ kind (e.g. <code>"Layer"</code>, <code>"Service"</code>).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When provided, restrict results to a single
-logical namespace.</p>
+                <p>Optional namespace filter.</p>
               </div>
             </td>
             <td>
@@ -4457,13 +4445,13 @@ logical namespace.</p>
     <table>
       <thead>
         <tr>
-          <th>Type</th>
+<th>Name</th>          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td>
+<td><code>Matching</code></td>            <td>
                   <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.MetadataResource
 
 
@@ -4473,12 +4461,12 @@ logical namespace.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>All matching :class:<code>MetadataResource</code> instances; empty list</p>
+                <p>class:<code>MetadataResource</code> objects; empty when the</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td>
+<td></td>            <td>
                   <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.MetadataResource
 
 
@@ -4488,7 +4476,7 @@ logical namespace.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>when the server returns a non-list payload.</p>
+                <p>server returns a non-list payload.</p>
               </div>
             </td>
           </tr>
@@ -4569,7 +4557,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Resource kind (e.g. <code>"Layer"</code>); URL-encoded.</p>
+                <p>Resource kind; URL-encoded.</p>
               </div>
             </td>
             <td>
@@ -4585,7 +4573,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Namespace the resource lives in; URL-encoded.</p>
+                <p>Namespace; URL-encoded.</p>
               </div>
             </td>
             <td>
@@ -4632,7 +4620,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A tuple <code>(resource, etag)</code>. <code>etag</code> is <code>None</code> when the</p>
+                <p>A tuple <code>(resource, etag)</code>; <code>etag</code> is <code>None</code> when the</p>
               </div>
             </td>
           </tr>
@@ -4642,52 +4630,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>server did not return an <code>ETag</code> response header — pass the</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="honua_admin.MetadataResource
-
-
-  
-      dataclass
-   (honua_admin._models.MetadataResource)" href="../models/#honua_admin.MetadataResource">MetadataResource</a>, <span title="str">str</span> | None]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>value back to :meth:<code>update_metadata_resource</code> /</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="honua_admin.MetadataResource
-
-
-  
-      dataclass
-   (honua_admin._models.MetadataResource)" href="../models/#honua_admin.MetadataResource">MetadataResource</a>, <span title="str">str</span> | None]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>meth:<code>delete_metadata_resource</code> as <code>if_match</code> to enforce</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="honua_admin.MetadataResource
-
-
-  
-      dataclass
-   (honua_admin._models.MetadataResource)" href="../models/#honua_admin.MetadataResource">MetadataResource</a>, <span title="str">str</span> | None]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>optimistic concurrency.</p>
+                <p>server did not return an <code>ETag</code> response header.</p>
               </div>
             </td>
           </tr>
@@ -4712,8 +4655,8 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The server responded with a non-success status,
-including when the response body cannot be decoded as JSON.</p>
+                <p>The server responded with a non-success
+status or the response body was not valid JSON.</p>
               </div>
             </td>
           </tr>
@@ -4774,9 +4717,7 @@ including when the response body cannot be decoded as JSON.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The resource to create. The server assigns
-generation metadata; pass the returned value back to
-callers who need the canonical form.</p>
+                <p>Desired initial state of the resource.</p>
               </div>
             </td>
             <td>
@@ -4832,8 +4773,7 @@ callers who need the canonical form.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The server rejected the create (e.g. duplicate
-name, validation failure).</p>
+                <p>The server rejected the create.</p>
               </div>
             </td>
           </tr>
@@ -4958,10 +4898,7 @@ name, validation failure).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional ETag value. When provided, the server
-rejects the write if the current resource ETag does not
-match (HTTP 412 Precondition Failed surfaces as
-:class:<code>HonuaHttpError</code>).</p>
+                <p>Optional ETag for optimistic concurrency.</p>
               </div>
             </td>
             <td>
@@ -5017,8 +4954,8 @@ match (HTTP 412 Precondition Failed surfaces as
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The server rejected the update, including
-precondition failures when <code>if_match</code> is supplied.</p>
+                <p>The server rejected the update (including
+precondition failures when <code>if_match</code> is supplied).</p>
               </div>
             </td>
           </tr>
@@ -5150,8 +5087,7 @@ precondition failures when <code>if_match</code> is supplied.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The server rejected the delete (e.g. 404 if
-the resource no longer exists, or 412 on ETag mismatch).</p>
+                <p>The server rejected the delete.</p>
               </div>
             </td>
           </tr>
@@ -5207,22 +5143,7 @@ the resource no longer exists, or 412 on ETag mismatch).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>AdminVersionResponse</code> carrying SDK / server</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.AdminVersionResponse
-
-
-  
-      dataclass
-   (honua_admin._models.AdminVersionResponse)" href="../models/#honua_admin.AdminVersionResponse">AdminVersionResponse</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>version strings and the server build metadata.</p>
+                <p>class:<code>AdminVersionResponse</code>.</p>
               </div>
             </td>
           </tr>
@@ -5303,37 +5224,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>AdminCapabilitiesResponse</code> exposing protocol</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.AdminCapabilitiesResponse
-
-
-  
-      dataclass
-   (honua_admin._models.AdminCapabilitiesResponse)" href="../models/#honua_admin.AdminCapabilitiesResponse">AdminCapabilitiesResponse</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>availability and the compatibility contract used by</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.AdminCapabilitiesResponse
-
-
-  
-      dataclass
-   (honua_admin._models.AdminCapabilitiesResponse)" href="../models/#honua_admin.AdminCapabilitiesResponse">AdminCapabilitiesResponse</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>meth:<code>check_compatibility</code>.</p>
+                <p>class:<code>AdminCapabilitiesResponse</code>.</p>
               </div>
             </td>
           </tr>
@@ -5622,8 +5513,7 @@ to :meth:<code>get_capabilities</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When provided, restrict the manifest to a single
-logical namespace.</p>
+                <p>Optional namespace filter.</p>
               </div>
             </td>
             <td>
@@ -5654,22 +5544,7 @@ logical namespace.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>MetadataManifest</code> suitable for round-tripping back</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td><code>through</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.MetadataManifest
-
-
-  
-      dataclass
-   (honua_admin._models.MetadataManifest)" href="../models/#honua_admin.MetadataManifest">MetadataManifest</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>meth:<code>apply_manifest</code>.</p>
+                <p>class:<code>MetadataManifest</code>.</p>
               </div>
             </td>
           </tr>
@@ -5750,8 +5625,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The manifest payload, dry-run flag, prune flag, and
-any per-application options.</p>
+                <p>Manifest payload plus any dry-run / prune flags.</p>
               </div>
             </td>
             <td>
@@ -5802,22 +5676,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ManifestApplyResult</code> summarising created, updated,</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.ManifestApplyResult
-
-
-  
-      dataclass
-   (honua_admin._models.ManifestApplyResult)" href="../models/#honua_admin.ManifestApplyResult">ManifestApplyResult</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>unchanged, and deleted resources.</p>
+                <p>class:<code>ManifestApplyResult</code> summarising the effect.</p>
               </div>
             </td>
           </tr>
@@ -5916,7 +5775,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>SecureConnectionSummary</code> objects (credentials</p>
+                <p>class:<code>SecureConnectionSummary</code> objects; empty when</p>
               </div>
             </td>
           </tr>
@@ -5931,7 +5790,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>elided). Empty list when the server returns a non-list payload.</p>
+                <p>the server returns a non-list payload.</p>
               </div>
             </td>
           </tr>
@@ -6012,8 +5871,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Connection identifier; URL-encoded before being placed in
-the path.</p>
+                <p>Connection identifier; URL-encoded.</p>
               </div>
             </td>
             <td>
@@ -6044,22 +5902,7 @@ the path.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>SecureConnectionDetail</code> with non-secret connection</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.SecureConnectionDetail
-
-
-  
-      dataclass
-   (honua_admin._models.SecureConnectionDetail)" href="../models/#honua_admin.SecureConnectionDetail">SecureConnectionDetail</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>metadata (DSN fields, encryption metadata, etc.).</p>
+                <p>class:<code>SecureConnectionDetail</code>.</p>
               </div>
             </td>
           </tr>
@@ -6140,8 +5983,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Connection definition including DSN, credentials,
-and any options the server should persist.</p>
+                <p>Connection definition (DSN, credentials, options).</p>
               </div>
             </td>
             <td>
@@ -6192,22 +6034,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>SecureConnectionSummary</code> describing the new</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.SecureConnectionSummary
-
-
-  
-      dataclass
-   (honua_admin._models.SecureConnectionSummary)" href="../models/#honua_admin.SecureConnectionSummary">SecureConnectionSummary</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>connection (with secrets elided).</p>
+                <p>class:<code>SecureConnectionSummary</code> (secrets elided).</p>
               </div>
             </td>
           </tr>
@@ -6320,7 +6147,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ConnectionTestResult</code> reporting whether the server</p>
+                <p>class:<code>ConnectionTestResult</code>. A failed probe is reported</p>
               </div>
             </td>
           </tr>
@@ -6335,7 +6162,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>could establish the connection.</p>
+                <p>in the result payload, not as an exception.</p>
               </div>
             </td>
           </tr>
@@ -6360,9 +6187,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The server returned a non-success status; a
-failed connection probe is still surfaced as a normal
-:class:<code>ConnectionTestResult</code> payload, not an exception.</p>
+                <p>The server returned a non-success status.</p>
               </div>
             </td>
           </tr>
@@ -6577,22 +6402,7 @@ failed connection probe is still surfaced as a normal
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ConnectionTestResult</code>. A failed probe is reported</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.ConnectionTestResult
-
-
-  
-      dataclass
-   (honua_admin._models.ConnectionTestResult)" href="../models/#honua_admin.ConnectionTestResult">ConnectionTestResult</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>in the result payload, not as an exception.</p>
+                <p>class:<code>ConnectionTestResult</code>.</p>
               </div>
             </td>
           </tr>
@@ -6617,8 +6427,7 @@ failed connection probe is still surfaced as a normal
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The server itself rejected the request (e.g.
-404 if the connection has been deleted).</p>
+                <p>The server itself rejected the request.</p>
               </div>
             </td>
           </tr>
@@ -6758,37 +6567,7 @@ failed connection probe is still surfaced as a normal
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>EncryptionValidationResult</code> summarising which</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.EncryptionValidationResult
-
-
-  
-      dataclass
-   (honua_admin._models.EncryptionValidationResult)" href="../models/#honua_admin.EncryptionValidationResult">EncryptionValidationResult</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>connections (if any) could not be decrypted with the</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.EncryptionValidationResult
-
-
-  
-      dataclass
-   (honua_admin._models.EncryptionValidationResult)" href="../models/#honua_admin.EncryptionValidationResult">EncryptionValidationResult</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>current key.</p>
+                <p>class:<code>EncryptionValidationResult</code>.</p>
               </div>
             </td>
           </tr>
@@ -6869,22 +6648,7 @@ failed connection probe is still surfaced as a normal
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>KeyRotationResult</code> reporting how many connections</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_admin.KeyRotationResult
-
-
-  
-      dataclass
-   (honua_admin._models.KeyRotationResult)" href="../models/#honua_admin.KeyRotationResult">KeyRotationResult</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>were re-encrypted under the new key.</p>
+                <p>class:<code>KeyRotationResult</code>.</p>
               </div>
             </td>
           </tr>
@@ -6981,8 +6745,7 @@ failed connection probe is still surfaced as a normal
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When provided, restrict results to layers that
-belong to a specific service.</p>
+                <p>When provided, restrict to one service's layers.</p>
               </div>
             </td>
             <td>
@@ -6997,13 +6760,13 @@ belong to a specific service.</p>
     <table>
       <thead>
         <tr>
-          <th>Type</th>
+<th>Name</th>          <th>Type</th>
           <th>Description</th>
         </tr>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td>
+<td><code>Matching</code></td>            <td>
                   <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.PublishedLayerSummary
 
 
@@ -7013,12 +6776,12 @@ belong to a specific service.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>All matching :class:<code>PublishedLayerSummary</code> instances; empty</p>
+                <p>class:<code>PublishedLayerSummary</code> objects; empty when</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td>
+<td></td>            <td>
                   <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.PublishedLayerSummary
 
 
@@ -7028,7 +6791,7 @@ belong to a specific service.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>list when the server returns a non-list payload.</p>
+                <p>the server returns a non-list payload.</p>
               </div>
             </td>
           </tr>
@@ -7125,8 +6888,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Layer-publication payload (target table, service,
-naming, default symbology, etc.).</p>
+                <p>Layer-publication payload.</p>
               </div>
             </td>
             <td>
@@ -7274,7 +7036,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Numeric layer identifier as advertised by the service.</p>
+                <p>Numeric layer identifier.</p>
               </div>
             </td>
             <td>
@@ -7306,8 +7068,7 @@ that retries are de-duplicated server-side.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When provided, scopes the toggle to a single
-service so layers shared across services are unaffected.</p>
+                <p>Optional service-scoped toggle.</p>
               </div>
             </td>
             <td>
@@ -7451,8 +7212,7 @@ service so layers shared across services are unaffected.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When provided, restrict the bulk toggle to a
-single service's layers.</p>
+                <p>Optional per-service restriction.</p>
               </div>
             </td>
             <td>
@@ -7498,7 +7258,7 @@ single service's layers.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>affected layer; empty list when the server returns a non-list</p>
+                <p>affected layer; empty when the server returns a non-list</p>
               </div>
             </td>
           </tr>
@@ -7620,17 +7380,7 @@ single service's layers.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>TableDiscoveryResponse</code> listing schemas, tables,</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="honua_admin._models.TableDiscoveryResponse">TableDiscoveryResponse</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>and per-table geometry/key hints.</p>
+                <p>class:<code>TableDiscoveryResponse</code>.</p>
               </div>
             </td>
           </tr>
@@ -7706,7 +7456,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>OgcStylesList</code> of <code>styleId</code>-keyed</p>
+                <p>class:<code>OgcStylesList</code> of <code>styleId</code>-keyed entries plus the</p>
               </div>
             </td>
           </tr>
@@ -7716,17 +7466,7 @@ to :meth:<code>_request</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>OgcStyleSummary</code> entries plus the optional default</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="honua_admin._models.OgcStylesList">OgcStylesList</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>style and landing links.</p>
+                <p>optional default style and landing links.</p>
               </div>
             </td>
           </tr>
@@ -8207,7 +7947,7 @@ style, 404 unknown style, 415 unsupported media type).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>LayerStyleResponse</code> carrying the current renderer.</p>
+                <p>class:<code>LayerStyleResponse</code>.</p>
               </div>
             </td>
           </tr>

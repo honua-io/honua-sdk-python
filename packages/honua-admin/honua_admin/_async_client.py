@@ -25,7 +25,6 @@ from honua_sdk.http import (
 )
 
 from . import _endpoints
-from ._client import _json_object
 from ._models import (
     DEFAULT_STYLE_ENCODING as _DEFAULT_STYLE_ENCODING,
 )
@@ -1854,3 +1853,17 @@ def _merge_request_headers(
     if idempotency_key is not None:
         merged["Idempotency-Key"] = idempotency_key
     return merged
+
+
+def _json_object(response: httpx.Response) -> dict[str, Any]:
+    """Parse an unenveloped OGC JSON response body as an object.
+
+    The ``/ogc/styles`` surface returns raw OGC JSON (no ``ApiResponse``
+    envelope). Non-object bodies degrade to an empty ``dict``.
+    """
+    if not response.content:
+        return {}
+    payload = response.json()
+    if isinstance(payload, dict):
+        return payload
+    return {}

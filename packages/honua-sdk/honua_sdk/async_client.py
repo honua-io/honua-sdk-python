@@ -1243,6 +1243,7 @@ class AsyncHonuaClient:
         features: list[Feature] = []
         offset = _endpoints.initial_offset(extra_params)
         base_extra_params = dict(extra_params or {})
+        seen_object_ids: set[int] = set()
         for _ in range(max_pages):
             remaining = None if limit is None else limit - len(features)
             if remaining is not None and remaining <= 0:
@@ -1263,6 +1264,18 @@ class AsyncHonuaClient:
                 extra_headers=extra_headers,
             )
             page_features = list(page.features)
+            # Non-advancing-cursor guard: a server that ignores ``resultOffset``
+            # keeps returning the same page with ``exceededTransferLimit=true``,
+            # which would otherwise loop to ``max_pages`` and duplicate every
+            # feature. When object ids are present, stop once a page adds no new
+            # ones (and drop the duplicates we already collected this page).
+            new_object_ids = {
+                oid for f in page_features if (oid := f.object_id) is not None
+            }
+            stalled = bool(new_object_ids) and new_object_ids.issubset(seen_object_ids)
+            if stalled:
+                break
+            seen_object_ids |= new_object_ids
             if remaining is not None:
                 page_features = page_features[:remaining]
             features.extend(page_features)

@@ -313,8 +313,15 @@
   
     
     
+      
+  
+  
+  
+  
+    
+    
       <li class="md-tabs__item">
-        <a href="../reference/honua_sdk/" class="md-tabs__link">
+        <a href="../reference/honua-sdk/clients/" class="md-tabs__link">
           
   
   
@@ -322,6 +329,9 @@
 
         </a>
       </li>
+    
+  
+
     
   
 
@@ -1073,15 +1083,67 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../reference/honua_sdk/" class="md-nav__link">
+    
+    
+    
+    
+      
+      
         
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_1" id="__nav_6_1_label" tabindex="0">
+            
   
   
   <span class="md-ellipsis">
     
   
     honua-sdk
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    honua-sdk
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua-sdk/clients/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clients
   
 
     
@@ -1102,8 +1164,116 @@
   
   
     <li class="md-nav__item">
-      <a href="../reference/honua_admin/" class="md-nav__link">
+      <a href="../reference/honua-sdk/source-facade/" class="md-nav__link">
         
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source facade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua-sdk/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua-sdk/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
   
   
   <span class="md-ellipsis">
@@ -1117,7 +1287,107 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    honua-admin
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua-admin/clients/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clients
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua-admin/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/honua-admin/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1485,7 +1755,7 @@ default the set is the idempotent five (<code>GET</code>, <code>HEAD</code>, <co
 <span class="n">client</span> <span class="o">=</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://example.com&quot;</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="n">transport</span><span class="p">)</span>
 </code></pre></div>
 <p>When <code>POST</code> is in <code>retry_methods</code>, mutating helpers such as
-<a class="autorefs autorefs-internal" title="apply_edits(service_id, layer_id, *, adds=None, updates=None, deletes=None, rollback_on_failure=True, idempotency_key=None, timeout=None, extra_headers=None)" href="../reference/honua_sdk/#honua_sdk.HonuaClient.apply_edits"><code>HonuaClient.apply_edits</code></a> auto-generate an
+<a class="autorefs autorefs-internal" title="apply_edits(service_id, layer_id, *, adds=None, updates=None, deletes=None, rollback_on_failure=True, idempotency_key=None, timeout=None, extra_headers=None)" href="../reference/honua-sdk/clients/#honua_sdk.HonuaClient.apply_edits"><code>HonuaClient.apply_edits</code></a> auto-generate an
 <code>Idempotency-Key</code> (a fresh <code>uuid4().hex</code>) if the caller did not supply
 one — see <code>build_idempotency_headers</code> in <code>honua_sdk._endpoints</code>.</p>
 <h2 id="transport-exception-retries">Transport-exception retries<a class="headerlink" href="#transport-exception-retries" title="Permanent link">&para;</a></h2>
@@ -1503,8 +1773,8 @@ following <code>httpx</code> exception classes (defined in
   <code>WriteTimeout</code>, <code>PoolTimeout</code>)</li>
 </ul>
 <p>These are surfaced to callers as
-<a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaTransportError" href="../reference/honua_sdk/#honua_sdk.errors.HonuaTransportError"><code>HonuaTransportError</code></a> (or
-<a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaTimeoutError" href="../reference/honua_sdk/#honua_sdk.errors.HonuaTimeoutError"><code>HonuaTimeoutError</code></a> for the timeout
+<a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaTransportError" href="../reference/honua-sdk/errors/#honua_sdk.errors.HonuaTransportError"><code>HonuaTransportError</code></a> (or
+<a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaTimeoutError" href="../reference/honua-sdk/errors/#honua_sdk.errors.HonuaTimeoutError"><code>HonuaTimeoutError</code></a> for the timeout
 subclasses) once the retry budget is exhausted.</p>
 <h2 id="backoff-math-and-jitter">Backoff math and jitter<a class="headerlink" href="#backoff-math-and-jitter" title="Permanent link">&para;</a></h2>
 <p>For retry attempt <code>n</code> (0-indexed), the cap is:</p>
@@ -1553,7 +1823,7 @@ supported (see <code>parse_retry_after</code> re-exported via <code>honua_sdk.ht
 <div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;X-Trace&quot;</span><span class="p">:</span> <span class="s2">&quot;abc&quot;</span><span class="p">})</span>
 </code></pre></div>
 <h2 id="with_options-sticky-overrides"><code>with_options()</code> — sticky overrides<a class="headerlink" href="#with_options-sticky-overrides" title="Permanent link">&para;</a></h2>
-<p>Use <a class="autorefs autorefs-internal" title="with_options(*, timeout=None, max_retries=None, base_url=None)" href="../reference/honua_sdk/#honua_sdk.HonuaClient.with_options"><code>HonuaClient.with_options</code></a> when
+<p>Use <a class="autorefs autorefs-internal" title="with_options(*, timeout=None, max_retries=None, base_url=None)" href="../reference/honua-sdk/clients/#honua_sdk.HonuaClient.with_options"><code>HonuaClient.with_options</code></a> when
 you want a clone that applies the same overrides across many requests:</p>
 <div class="highlight"><pre><span></span><code><span class="n">fast_client</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
 <span class="n">slow_client</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">60.0</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
@@ -1606,7 +1876,7 @@ use a <code>with</code> block) when you're done.</p>
 <h3 id="retry-on-connecterror-but-not-on-4xx">Retry on <code>ConnectError</code> but not on 4xx<a class="headerlink" href="#retry-on-connecterror-but-not-on-4xx" title="Permanent link">&para;</a></h3>
 <p>The default policy already does this: only <code>429, 502, 503, 504</code> retry;
 all other 4xx responses surface immediately as
-<a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError" href="../reference/honua_sdk/#honua_sdk.errors.HonuaHttpError"><code>HonuaHttpError</code></a> subclasses, and
+<a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError" href="../reference/honua-sdk/errors/#honua_sdk.errors.HonuaHttpError"><code>HonuaHttpError</code></a> subclasses, and
 <code>ConnectError</code> is in <code>_RETRIABLE_TRANSPORT_EXCEPTIONS</code>. To narrow
 further (e.g. retry transport errors only, no status retries):</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.http</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryTransport</span>
@@ -1622,7 +1892,7 @@ further (e.g. retry transport errors only, no status retries):</p>
 <ul>
 <li><a href="../pagination/">Pagination</a> — Source pagination signals and iterator vs
   collected patterns.</li>
-<li><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaError" href="../reference/honua_sdk/#honua_sdk.errors.HonuaError">Errors</a> — exception hierarchy raised by
+<li><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaError" href="../reference/honua-sdk/errors/#honua_sdk.errors.HonuaError">Errors</a> — exception hierarchy raised by
   the SDK transport layer.</li>
 <li><a href="../core-client/">Core client model</a> — broader configuration tour.</li>
 </ul>

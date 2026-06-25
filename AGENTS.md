@@ -62,6 +62,14 @@ python -m pytest tests/ -q --tb=short \
 # Compatibility / public-API snapshot gate
 python scripts/compatibility_gate.py
 
+# Regenerate the synchronous clients from their async source-of-truth.
+# honua_sdk/client.py and honua_admin/_client.py are GENERATED from
+# async_client.py / _async_client.py by this script and committed; never
+# hand-edit them. Edit the async module, then regenerate. `--check` (run in
+# CI's lint job) fails if a committed sync file is stale. Requires ruff on PATH.
+python scripts/gen_sync.py            # rewrite the committed sync files
+python scripts/gen_sync.py --check    # verify they are up to date
+
 # Build a package wheel + sdist (run inside the package dir)
 hatch build                         # in packages/honua-sdk or packages/honua-admin
 twine check dist/*
@@ -95,7 +103,12 @@ honua-arcpy has a separate lane (`.github/workflows/honua-arcpy-eval.yml`):
 ## Architecture
 
 - **`honua_sdk`** — data plane. Public entry points: `HonuaClient` /
-  `AsyncHonuaClient` (`client.py`, `async_client.py`). The canonical query path
+  `AsyncHonuaClient` (`client.py`, `async_client.py`). **`async_client.py` is the
+  hand-written source of truth; `client.py` is GENERATED from it** by
+  `scripts/gen_sync.py` (same for `honua_admin._async_client` → `_client`). Edit
+  the async module and run `python scripts/gen_sync.py`; never hand-edit the
+  generated sync file (its header says so, and CI's `--check` step fails on
+  drift). The canonical query path
   is `client.source(SourceDescriptor(...))` → a `Source` facade
   (`source.py`) exposing `query`/`query_all`/`stream`/`apply_edits`/`protocol`,
   returning normalized `Result` / `QueryFeature` (`models.py`). Compact helpers
@@ -113,8 +126,9 @@ honua-arcpy has a separate lane (`.github/workflows/honua-arcpy-eval.yml`):
 - **`honua_admin`** — control plane: `HonuaAdminClient` /
   `_async_client.py`, `_models.py`, `_endpoints.py`, `_arcpy_scanner.py`
   (AST-walking inventory scanner).
-- **`scripts/`** — `compatibility_gate.py`, `release_smoke.py`,
-  `backlog_review.py`, `validate_publish_tag.py`, `generate_proto.sh`.
+- **`scripts/`** — `compatibility_gate.py`, `gen_sync.py` (async→sync client
+  codegen), `release_smoke.py`, `backlog_review.py`, `validate_publish_tag.py`,
+  `generate_proto.sh`.
 
 ## Directory Layout
 

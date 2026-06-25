@@ -38,6 +38,16 @@ jobs:
       - name: Run Ruff
         run: ruff check .
 
+      - name: Verify generated sync clients are not stale
+        # The synchronous clients (honua_sdk/client.py, honua_admin/_client.py)
+        # are generated from their async source-of-truth by scripts/gen_sync.py
+        # and committed. If someone edits an async client without regenerating,
+        # the committed sync mirror drifts. Regenerate and fail on any diff so
+        # the two never diverge silently. (Uses ruff — installed above — for the
+        # import-sort pass; no package install needed.)
+        run: |
+          python scripts/gen_sync.py --check
+
   typecheck:
     runs-on: ubuntu-latest
     strategy:

@@ -1,4 +1,6 @@
 """Admin API client for Honua Server."""
+# AUTO-GENERATED from packages/honua-admin/honua_admin/_async_client.py by scripts/gen_sync.py — do not edit by hand.
+# Edit the async source-of-truth and run `python scripts/gen_sync.py`.
 
 from __future__ import annotations
 
@@ -66,17 +68,17 @@ from ._models import (
 class HonuaAdminClient:
     """Synchronous client for the Honua Admin (control-plane) API.
 
-    Methods on this client map 1:1 to admin REST endpoints (services,
-    metadata resources, manifests, connections, layers, styles, config)
-    and return typed model objects.
+    Methods map 1:1 to
+    admin REST endpoints (services, metadata resources, manifests,
+    connections, layers, styles, config) and return typed model objects.
 
     Authentication is configured at construction with at most one of
     ``api_key``, ``bearer_token``, or ``auth_provider`` (mutually
     exclusive). ``bearer_token=`` is **deprecated** (removal in 0.2.x);
     prefer ``auth_provider=StaticAuthProvider({"Authorization": f"Bearer
     {token}"})``. When ``client`` is supplied as a pre-built
-    :class:`httpx.Client`, no auth kwargs may be passed — configure them
-    on the client instead.
+    :class:`httpx.Client`, no auth kwargs may be passed — configure
+    them on the client instead.
 
     Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
     transient statuses (429/502/503/504) are retried by default. Opt
@@ -101,7 +103,8 @@ class HonuaAdminClient:
     :class:`HonuaTransportError` (and its subclass
     :class:`HonuaTimeoutError`).
 
-    See also: :class:`honua_sdk.HonuaClient` and ``docs/core-client.md``.
+    See also: :class:`honua_sdk.HonuaClient` and
+    ``docs/core-client.md``.
     """
 
     MINIMUM_SUPPORTED_SERVER_BASELINE = AdminCompatibilityBaseline()
@@ -133,16 +136,18 @@ class HonuaAdminClient:
             auth_provider: Pluggable provider that yields request-time
                 auth headers. Mutually exclusive with ``bearer_token``
                 and with a pre-built ``client``.
-            follow_redirects: Whether the underlying ``httpx.Client``
-                follows 3xx redirects. Sensitive auth headers are still
-                stripped when redirected to a different authority.
-            client: A caller-supplied :class:`httpx.Client`. When set,
-                the SDK will not own or close the client and the auth
-                kwargs above must not be passed (configure them on the
-                client instead).
-            transport: A caller-supplied :class:`httpx.BaseTransport`.
-                Mutually exclusive with ``client``. Use this to inject
-                a :class:`httpx.MockTransport` in tests.
+            follow_redirects: Whether the underlying
+                :class:`httpx.Client` follows 3xx redirects.
+                Sensitive auth headers are still stripped when redirected
+                to a different authority.
+            client: A caller-supplied :class:`httpx.Client`. When
+                set, the SDK will not own or close the client and the
+                auth kwargs above must not be passed (configure them on
+                the client instead).
+            transport: A caller-supplied
+                :class:`httpx.BaseTransport`. Mutually exclusive with
+                ``client``. Use this to inject a
+                :class:`httpx.MockTransport` in tests.
             max_retries: Maximum number of retry attempts on transient
                 HTTP statuses (429/502/503/504). ``0`` disables retries.
                 Only safe methods (GET/HEAD/PUT/DELETE/OPTIONS) and
@@ -186,8 +191,8 @@ class HonuaAdminClient:
         if client is not None:
             self._client = client
             # Capture the public ``base_url`` from the supplied client so we
-            # never have to reach into the private ``_base_url`` attribute
-            # of :class:`httpx.Client` from request-time code paths.
+            # never reach into the private ``_base_url`` attribute of
+            # :class:`httpx.Client` from request-time code paths.
             self._base_url: httpx.URL = httpx.URL(client.base_url)
             return
 
@@ -230,8 +235,9 @@ class HonuaAdminClient:
     def close(self) -> None:
         """Release underlying HTTP resources if this instance owns the client.
 
-        When constructed with an externally supplied :class:`httpx.Client`,
-        ownership stays with the caller and this method is a no-op.
+        When constructed with an externally supplied
+        :class:`httpx.Client`, ownership stays with the caller and
+        this method is a no-op.
         """
         if self._owns_client:
             self._client.close()
@@ -248,22 +254,21 @@ class HonuaAdminClient:
         When only ``timeout`` and/or ``max_retries`` are supplied, the
         returned client **reuses the original's** :class:`httpx.Client`
         and its connection pool — only the per-request ``timeout`` and
-        (optionally) the per-request retry budget are overridden. This
-        makes one-off requests with adjusted options effectively free.
-        In this transport-sharing mode the clone does **not** own the
-        underlying client; calling :meth:`close` on the clone is a no-op.
-        Only the original is responsible for closing the transport.
+        (optionally) the per-request retry budget are overridden. In this
+        transport-sharing mode the clone does **not** own the underlying
+        client; calling :meth:`close` on the clone is a no-op. Only the
+        original is responsible for closing the transport.
 
         **Passing ``base_url`` creates an independent client; the
         transport is NOT shared.** Because the underlying
-        :class:`httpx.Client` binds its ``base_url`` (and authority-bound
-        timeouts, event hooks, and connection-pool keys) at construction
-        time, swapping the base URL on a shared client would silently
-        target the wrong host for any code path that relies on those
-        bindings. To avoid that footgun, supplying ``base_url`` builds a
-        fresh :class:`httpx.Client` for the clone and the clone owns it
-        — you must :meth:`close` the clone (or use it as a context
-        manager) independently of the original.
+        :class:`httpx.Client` binds its ``base_url`` (and
+        authority-bound timeouts, event hooks, and connection-pool keys)
+        at construction time, swapping the base URL on a shared client
+        would silently target the wrong host for any code path that
+        relies on those bindings. To avoid that footgun, supplying
+        ``base_url`` builds a fresh :class:`httpx.Client` for the
+        clone and the clone owns it — you must ``clone.close()`` (or use ``with``) independently of the
+        original.
 
         The auth provider, if any, is reused (not duplicated) so token
         state is shared across the original and the clone.
@@ -275,16 +280,16 @@ class HonuaAdminClient:
                 values reuse the parent's transport with a per-request
                 ``httpx.Timeout(...)`` override.
             max_retries: When set, overrides the retry budget. ``0``
-                disables retries on the clone by forwarding a per-request
-                override to the retry transport.
+                disables retries on the clone via a per-request extension
+                read by the retry transport.
             base_url: When set, the returned clone is fully independent
-                (owns its own :class:`httpx.Client` and connection pool)
-                and must be closed separately. The transport is NOT
-                shared with the original.
+                (owns its own :class:`httpx.Client` and connection
+                pool) and must be closed separately. The transport is
+                NOT shared with the original.
 
         Returns:
-            A :class:`HonuaAdminClient` instance — transport-sharing
-            when the override timeout is greater than or equal to the
+            An :class:`HonuaAdminClient` — transport-sharing when
+            the override timeout is greater than or equal to the
             parent's configured timeout, independently-owned when
             ``base_url`` is supplied or when ``timeout`` is smaller than
             the parent's configured timeout.
@@ -484,7 +489,7 @@ class HonuaAdminClient:
         Raises:
             HonuaHttpError: The server responded with a non-success status.
             HonuaTransportError: The request failed before any HTTP
-                response was received (DNS/connect/read failures).
+                response was received.
         """
         data = self._request_json(
             "GET",
@@ -506,8 +511,7 @@ class HonuaAdminClient:
         """Fetch the resolved settings for a single service.
 
         Args:
-            name: Service name as advertised by the catalog. The value
-                is URL-encoded before being placed in the path.
+            name: Service name as advertised by the catalog. URL-encoded.
 
         Returns:
             A :class:`ServiceSettingsResponse` describing protocol
@@ -541,14 +545,11 @@ class HonuaAdminClient:
         """Replace the enabled-protocol list for a service.
 
         Args:
-            name: Service name; URL-encoded before being placed in the path.
-            protocols: Ordered list of protocol identifiers to enable
-                (e.g. ``["MapServer", "FeatureServer"]``). The server
-                treats this as the complete desired state.
+            name: Service name; URL-encoded.
+            protocols: Desired ordered list of protocol identifiers.
 
         Returns:
-            The refreshed :class:`ServiceSettingsResponse` reflecting the
-            new protocol configuration.
+            The refreshed :class:`ServiceSettingsResponse`.
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
@@ -588,7 +589,7 @@ class HonuaAdminClient:
         """Patch the MapServer-specific settings for a service.
 
         Args:
-            name: Service name; URL-encoded before being placed in the path.
+            name: Service name; URL-encoded.
             max_image_width: Maximum allowed image width in pixels.
             max_image_height: Maximum allowed image height in pixels.
             default_image_width: Default image width applied when callers omit one.
@@ -652,17 +653,15 @@ class HonuaAdminClient:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> list[MetadataResource]:
-        """List metadata resources, optionally filtered.
+        """List metadata resources, optionally filtered by kind/namespace.
 
         Args:
-            kind: When provided, restrict results to a single resource
-                kind (e.g. ``"Layer"``, ``"Service"``).
-            namespace: When provided, restrict results to a single
-                logical namespace.
+            kind: Optional resource-kind filter.
+            namespace: Optional namespace filter.
 
         Returns:
-            All matching :class:`MetadataResource` instances; empty list
-            when the server returns a non-list payload.
+            Matching :class:`MetadataResource` objects; empty when the
+            server returns a non-list payload.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -699,23 +698,20 @@ class HonuaAdminClient:
         """Fetch a single metadata resource together with its ETag.
 
         Args:
-            kind: Resource kind (e.g. ``"Layer"``); URL-encoded.
-            ns: Namespace the resource lives in; URL-encoded.
+            kind: Resource kind; URL-encoded.
+            ns: Namespace; URL-encoded.
             name: Resource name; URL-encoded.
 
         Returns:
-            A tuple ``(resource, etag)``. ``etag`` is ``None`` when the
-            server did not return an ``ETag`` response header — pass the
-            value back to :meth:`update_metadata_resource` /
-            :meth:`delete_metadata_resource` as ``if_match`` to enforce
-            optimistic concurrency.
+            A tuple ``(resource, etag)``; ``etag`` is ``None`` when the
+            server did not return an ``ETag`` response header.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
 
         Raises:
-            HonuaHttpError: The server responded with a non-success status,
-                including when the response body cannot be decoded as JSON.
+            HonuaHttpError: The server responded with a non-success
+                status or the response body was not valid JSON.
             HonuaTransportError: The request failed at the transport layer.
         """
         kind_segment = encode_path_segment(kind)
@@ -751,9 +747,7 @@ class HonuaAdminClient:
         """Create a new metadata resource on the server.
 
         Args:
-            resource: The resource to create. The server assigns
-                generation metadata; pass the returned value back to
-                callers who need the canonical form.
+            resource: Desired initial state of the resource.
 
         Returns:
             The server-canonical :class:`MetadataResource` after creation.
@@ -762,8 +756,7 @@ class HonuaAdminClient:
         ``idempotency_key``) are forwarded to :meth:`_request`.
 
         Raises:
-            HonuaHttpError: The server rejected the create (e.g. duplicate
-                name, validation failure).
+            HonuaHttpError: The server rejected the create.
             HonuaTransportError: The request failed at the transport layer.
         """
         data = self._request_json(
@@ -795,10 +788,7 @@ class HonuaAdminClient:
             ns: Namespace; URL-encoded.
             name: Resource name; URL-encoded.
             resource: Desired full state of the resource.
-            if_match: Optional ETag value. When provided, the server
-                rejects the write if the current resource ETag does not
-                match (HTTP 412 Precondition Failed surfaces as
-                :class:`HonuaHttpError`).
+            if_match: Optional ETag for optimistic concurrency.
 
         Returns:
             The server-canonical :class:`MetadataResource` after update.
@@ -807,8 +797,8 @@ class HonuaAdminClient:
         ``idempotency_key``) are forwarded to :meth:`_request`.
 
         Raises:
-            HonuaHttpError: The server rejected the update, including
-                precondition failures when ``if_match`` is supplied.
+            HonuaHttpError: The server rejected the update (including
+                precondition failures when ``if_match`` is supplied).
             HonuaTransportError: The request failed at the transport layer.
         """
         kind_segment = encode_path_segment(kind)
@@ -851,8 +841,7 @@ class HonuaAdminClient:
         ``idempotency_key``) are forwarded to :meth:`_request`.
 
         Raises:
-            HonuaHttpError: The server rejected the delete (e.g. 404 if
-                the resource no longer exists, or 412 on ETag mismatch).
+            HonuaHttpError: The server rejected the delete.
             HonuaTransportError: The request failed at the transport layer.
         """
         kind_segment = encode_path_segment(kind)
@@ -883,8 +872,7 @@ class HonuaAdminClient:
         """Return the server's reported admin API version.
 
         Returns:
-            An :class:`AdminVersionResponse` carrying SDK / server
-            version strings and the server build metadata.
+            An :class:`AdminVersionResponse`.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -910,9 +898,7 @@ class HonuaAdminClient:
         """Return the server's advertised admin capabilities and compat block.
 
         Returns:
-            An :class:`AdminCapabilitiesResponse` exposing protocol
-            availability and the compatibility contract used by
-            :meth:`check_compatibility`.
+            An :class:`AdminCapabilitiesResponse`.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -953,8 +939,8 @@ class HonuaAdminClient:
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`get_capabilities`.
         """
-        compatibility = self.get_capabilities(
-            timeout=timeout, extra_headers=extra_headers
+        compatibility = (
+            self.get_capabilities(timeout=timeout, extra_headers=extra_headers)
         ).compatibility
         if compatibility is None:
             return AdminCompatibilityFeatureFlags(
@@ -1005,12 +991,10 @@ class HonuaAdminClient:
         """Export the server's metadata as a single declarative manifest.
 
         Args:
-            namespace: When provided, restrict the manifest to a single
-                logical namespace.
+            namespace: Optional namespace filter.
 
         Returns:
-            A :class:`MetadataManifest` suitable for round-tripping back
-            through :meth:`apply_manifest`.
+            A :class:`MetadataManifest`.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1042,8 +1026,7 @@ class HonuaAdminClient:
         """Apply a declarative metadata manifest to the server.
 
         Args:
-            request: The manifest payload, dry-run flag, prune flag, and
-                any per-application options.
+            request: Manifest payload plus any dry-run / prune flags.
             idempotency_key: Stripe-style ``Idempotency-Key`` header value.
                 When ``None`` and the underlying retry transport is
                 configured to retry ``POST`` (i.e. the caller opted in via
@@ -1051,8 +1034,7 @@ class HonuaAdminClient:
                 that retries are de-duplicated server-side.
 
         Returns:
-            A :class:`ManifestApplyResult` summarising created, updated,
-            unchanged, and deleted resources.
+            A :class:`ManifestApplyResult` summarising the effect.
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
@@ -1104,8 +1086,8 @@ class HonuaAdminClient:
         """List every secure datasource connection registered on the server.
 
         Returns:
-            Typed :class:`SecureConnectionSummary` objects (credentials
-            elided). Empty list when the server returns a non-list payload.
+            Typed :class:`SecureConnectionSummary` objects; empty when
+            the server returns a non-list payload.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1134,12 +1116,10 @@ class HonuaAdminClient:
         """Fetch detailed information for a single secure connection.
 
         Args:
-            id: Connection identifier; URL-encoded before being placed in
-                the path.
+            id: Connection identifier; URL-encoded.
 
         Returns:
-            A :class:`SecureConnectionDetail` with non-secret connection
-            metadata (DSN fields, encryption metadata, etc.).
+            A :class:`SecureConnectionDetail`.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1168,8 +1148,7 @@ class HonuaAdminClient:
         """Create a new secure datasource connection.
 
         Args:
-            request: Connection definition including DSN, credentials,
-                and any options the server should persist.
+            request: Connection definition (DSN, credentials, options).
             idempotency_key: Stripe-style ``Idempotency-Key`` header value.
                 When ``None`` and the underlying retry transport is
                 configured to retry ``POST`` (i.e. the caller opted in via
@@ -1177,8 +1156,7 @@ class HonuaAdminClient:
                 that retries are de-duplicated server-side.
 
         Returns:
-            A :class:`SecureConnectionSummary` describing the new
-            connection (with secrets elided).
+            A :class:`SecureConnectionSummary` (secrets elided).
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
@@ -1212,16 +1190,14 @@ class HonuaAdminClient:
                 :meth:`create_connection`.
 
         Returns:
-            A :class:`ConnectionTestResult` reporting whether the server
-            could establish the connection.
+            A :class:`ConnectionTestResult`. A failed probe is reported
+            in the result payload, not as an exception.
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
 
         Raises:
-            HonuaHttpError: The server returned a non-success status; a
-                failed connection probe is still surfaced as a normal
-                :class:`ConnectionTestResult` payload, not an exception.
+            HonuaHttpError: The server returned a non-success status.
             HonuaTransportError: The request failed at the transport layer.
         """
         data = self._request_json(
@@ -1284,15 +1260,13 @@ class HonuaAdminClient:
             id: Connection identifier; URL-encoded.
 
         Returns:
-            A :class:`ConnectionTestResult`. A failed probe is reported
-            in the result payload, not as an exception.
+            A :class:`ConnectionTestResult`.
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
 
         Raises:
-            HonuaHttpError: The server itself rejected the request (e.g.
-                404 if the connection has been deleted).
+            HonuaHttpError: The server itself rejected the request.
             HonuaTransportError: The request failed at the transport layer.
         """
         connection_id = encode_path_segment(id)
@@ -1344,9 +1318,7 @@ class HonuaAdminClient:
         """Verify that the server can decrypt every stored credential.
 
         Returns:
-            An :class:`EncryptionValidationResult` summarising which
-            connections (if any) could not be decrypted with the
-            current key.
+            An :class:`EncryptionValidationResult`.
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
@@ -1374,8 +1346,7 @@ class HonuaAdminClient:
         """Rotate the server's connection-encryption key.
 
         Returns:
-            A :class:`KeyRotationResult` reporting how many connections
-            were re-encrypted under the new key.
+            A :class:`KeyRotationResult`.
 
         Per-request options (``timeout`` / ``extra_headers`` /
         ``idempotency_key``) are forwarded to :meth:`_request`.
@@ -1409,12 +1380,11 @@ class HonuaAdminClient:
 
         Args:
             conn_id: Connection identifier; URL-encoded.
-            service_name: When provided, restrict results to layers that
-                belong to a specific service.
+            service_name: When provided, restrict to one service's layers.
 
         Returns:
-            All matching :class:`PublishedLayerSummary` instances; empty
-            list when the server returns a non-list payload.
+            Matching :class:`PublishedLayerSummary` objects; empty when
+            the server returns a non-list payload.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1451,8 +1421,7 @@ class HonuaAdminClient:
 
         Args:
             conn_id: Connection identifier; URL-encoded.
-            request: Layer-publication payload (target table, service,
-                naming, default symbology, etc.).
+            request: Layer-publication payload.
             idempotency_key: Stripe-style ``Idempotency-Key`` header value.
                 When ``None`` and the underlying retry transport is
                 configured to retry ``POST`` (i.e. the caller opted in via
@@ -1495,10 +1464,9 @@ class HonuaAdminClient:
 
         Args:
             conn_id: Connection identifier; URL-encoded.
-            layer_id: Numeric layer identifier as advertised by the service.
+            layer_id: Numeric layer identifier.
             enabled: Desired ``enabled`` state.
-            service_name: When provided, scopes the toggle to a single
-                service so layers shared across services are unaffected.
+            service_name: Optional service-scoped toggle.
 
         Returns:
             The refreshed :class:`PublishedLayerSummary`.
@@ -1540,12 +1508,11 @@ class HonuaAdminClient:
         Args:
             conn_id: Connection identifier; URL-encoded.
             enabled: Desired ``enabled`` state for every layer in scope.
-            service_name: When provided, restrict the bulk toggle to a
-                single service's layers.
+            service_name: Optional per-service restriction.
 
         Returns:
             Refreshed :class:`PublishedLayerSummary` objects for every
-            affected layer; empty list when the server returns a non-list
+            affected layer; empty when the server returns a non-list
             payload.
 
         Per-request options (``timeout`` / ``extra_headers`` /
@@ -1589,8 +1556,7 @@ class HonuaAdminClient:
             conn_id: Connection identifier; URL-encoded.
 
         Returns:
-            A :class:`TableDiscoveryResponse` listing schemas, tables,
-            and per-table geometry/key hints.
+            A :class:`TableDiscoveryResponse`.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1621,9 +1587,8 @@ class HonuaAdminClient:
         """List the styles published over OGC API - Styles (``GET /ogc/styles``).
 
         Returns:
-            An :class:`OgcStylesList` of ``styleId``-keyed
-            :class:`OgcStyleSummary` entries plus the optional default
-            style and landing links.
+            An :class:`OgcStylesList` of ``styleId``-keyed entries plus the
+            optional default style and landing links.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1778,7 +1743,7 @@ class HonuaAdminClient:
             layer_id: Numeric layer identifier.
 
         Returns:
-            A :class:`LayerStyleResponse` carrying the current renderer.
+            A :class:`LayerStyleResponse`.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.

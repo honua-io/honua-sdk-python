@@ -1,4 +1,6 @@
 """Synchronous HTTP client for Honua Server APIs."""
+# AUTO-GENERATED from packages/honua-sdk/honua_sdk/async_client.py by scripts/gen_sync.py — do not edit by hand.
+# Edit the async source-of-truth and run `python scripts/gen_sync.py`.
 
 from __future__ import annotations
 
@@ -91,8 +93,9 @@ if TYPE_CHECKING:
 class HonuaClient:
     """Task-oriented synchronous client for common Honua data-plane workflows.
 
-    Wraps the Honua REST/HTTP surface (catalog, FeatureServer, OGC API
-    Features, STAC, OData, WFS, WMS, WMTS, geocoding) and the canonical
+    Wraps the Honua
+    REST/HTTP surface (catalog, FeatureServer, OGC API Features, STAC,
+    OData, WFS, WMS, WMTS, geocoding) and the canonical
     ``Source`` / ``Query`` / ``Result`` facade behind a single typed
     entrypoint.
 
@@ -101,8 +104,8 @@ class HonuaClient:
     exclusive). ``bearer_token=`` is **deprecated** (removal in 0.2.x);
     prefer ``auth_provider=StaticAuthProvider({"Authorization": f"Bearer
     {token}"})``. When ``client`` is supplied as a pre-built
-    :class:`httpx.Client`, no auth kwargs may be passed — configure them
-    on the client instead.
+    :class:`httpx.Client`, no auth kwargs may be passed — configure
+    them on the client instead.
 
     Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
     transient statuses (429/502/503/504) are retried by default. Opt
@@ -190,13 +193,13 @@ class HonuaClient:
                 auth_provider=auth_provider,
             )
 
-        # Always wrap with ``RetryTransport`` — even when ``max_retries == 0``.
-        # The transport only retries when its budget is positive, but it is
-        # also the component that consults the per-request ``honua_max_retries``
-        # override stashed by ``with_options(max_retries=…)``. Installing it
-        # unconditionally is what lets a client built with ``max_retries=0``
-        # later opt into retries via ``with_options(max_retries=N)`` instead of
-        # silently no-op'ing.
+        # Always wrap with ``RetryTransport`` — even when
+        # ``max_retries == 0``. The transport only retries when its budget is
+        # positive, but it is also the component that consults the per-request
+        # ``honua_max_retries`` override stashed by
+        # ``with_options(max_retries=…)``. Installing it unconditionally is what
+        # lets a client built with ``max_retries=0`` later opt into retries via
+        # ``with_options(max_retries=N)`` instead of silently no-op'ing.
         inner = transport or httpx.HTTPTransport()
         retry_transport = RetryTransport(inner, max_retries=max_retries)
         effective_transport: httpx.BaseTransport = retry_transport
@@ -220,8 +223,8 @@ class HonuaClient:
         """Release underlying HTTP resources if this instance owns the client.
 
         When the client was constructed with an externally supplied
-        :class:`httpx.Client`, ownership stays with the caller and this
-        method is a no-op.
+        :class:`httpx.Client`, ownership stays with the caller and
+        this method is a no-op.
         """
         if self._owns_client:
             self._client.close()
@@ -238,25 +241,21 @@ class HonuaClient:
         When only ``timeout`` and/or ``max_retries`` are supplied, the
         returned client **reuses the original's** :class:`httpx.Client`
         and its connection pool — only the per-request ``timeout`` and
-        (optionally) the per-request retry budget are overridden. This
-        makes one-off requests with adjusted options effectively free.
-        In this transport-sharing mode the clone does **not** own the
-        underlying client; calling :meth:`close` on the clone is a no-op.
-        Only the original is responsible for closing the transport.
+        (optionally) the per-request retry budget are overridden. In this
+        transport-sharing mode the clone does **not** own the underlying
+        client; calling :meth:`close` on the clone is a no-op. Only the
+        original is responsible for closing the transport.
 
         **Passing ``base_url`` creates an independent client; the
         transport is NOT shared.** Because the underlying
-        :class:`httpx.Client` binds its ``base_url`` (and authority-bound
-        timeouts, event hooks, and connection-pool keys) at construction
-        time, swapping the base URL on a shared client would silently
-        target the wrong host for any code path that relies on those
-        bindings. To avoid that footgun, supplying ``base_url`` builds a
-        fresh :class:`httpx.Client` for the clone and the clone owns it
-        — you must :meth:`close` the clone (or use it as a context
-        manager) independently of the original.
-
-        The auth provider, if any, is reused (not duplicated) so token
-        state is shared across the original and the clone.
+        :class:`httpx.Client` binds its ``base_url`` (and
+        authority-bound timeouts, event hooks, and connection-pool keys)
+        at construction time, swapping the base URL on a shared client
+        would silently target the wrong host for any code path that
+        relies on those bindings. To avoid that footgun, supplying
+        ``base_url`` builds a fresh :class:`httpx.Client` for the
+        clone and the clone owns it — you must ``clone.close()`` (or use ``with``) independently of the
+        original.
 
         Args:
             timeout: When set, overrides the per-request timeout. Smaller
@@ -265,15 +264,15 @@ class HonuaClient:
                 values reuse the parent's transport with a per-request
                 ``httpx.Timeout(...)`` override.
             max_retries: When set, overrides the retry budget. ``0``
-                disables retries on the clone by forwarding a per-request
-                override to the retry transport.
+                disables retries on the clone via a per-request extension
+                read by the retry transport.
             base_url: When set, the returned clone is fully independent
-                (owns its own :class:`httpx.Client` and connection pool)
-                and must be closed separately. The transport is NOT
-                shared with the original.
+                (owns its own :class:`httpx.Client` and connection
+                pool) and must be closed separately. The transport is
+                NOT shared with the original.
 
         Returns:
-            A :class:`HonuaClient` instance — transport-sharing when the
+            An :class:`HonuaClient` — transport-sharing when the
             override timeout is greater than or equal to the parent's
             configured timeout, independently-owned when ``base_url`` is
             supplied or when ``timeout`` is smaller than the parent's
@@ -300,10 +299,8 @@ class HonuaClient:
                 if (timeout is not None and timeout < self._init_timeout)
                 else self._init_timeout
             )
-            # The clone re-forwards ``bearer_token`` so the deprecation
-            # warning would re-fire here even though the caller already
-            # acknowledged it at original construction. Suppress it on the
-            # internal clone path; the user only deals with it once.
+            # Suppress the re-fired bearer_token deprecation on the internal
+            # clone path; the caller acknowledged it at original construction.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 clone = self.__class__(
@@ -324,16 +321,11 @@ class HonuaClient:
             )
             return clone
 
-        # Shallow-copy ``self`` so any future ``_init_*`` slot added to the
-        # constructor automatically rides along to the clone without
-        # manual maintenance here. The clone shares the parent's
-        # :class:`httpx.Client`, ``_base_url``, retry-method set, and
-        # constructor inputs; only the override fields below are
-        # rewritten on the copy.
+        # Shallow-copy ``self`` so future ``_init_*`` slots ride along
+        # automatically; see the sync ``HonuaClient.with_options`` for
+        # the full rationale.
         clone = copy.copy(self)
         clone._owns_client = False  # clone never closes the shared transport
-        # Fold parent overrides in so chained ``with_options`` calls
-        # accumulate rather than reset.
         clone._options_timeout = (
             timeout if timeout is not None else self._options_timeout
         )
@@ -353,9 +345,8 @@ class HonuaClient:
 
         Provided for parity with the stripe-python convention, where both
         ``client.copy(...)`` and ``client.with_options(...)`` return a
-        reconfigured clone. The semantics (transport sharing vs. an
-        independent clone) are identical to :meth:`with_options`; see that
-        method for the full contract.
+        reconfigured clone. The semantics are identical to
+        :meth:`with_options`; see that method for the full contract.
         """
         return self.with_options(
             timeout=timeout, max_retries=max_retries, base_url=base_url
@@ -455,12 +446,12 @@ class HonuaClient:
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`capabilities`.
         """
-        return self.capabilities(timeout=timeout, extra_headers=extra_headers).supports(
-            capability
-        )
+        return (
+            self.capabilities(timeout=timeout, extra_headers=extra_headers)
+        ).supports(capability)
 
     def source(self, descriptor: "SourceDescriptor | Mapping[str, Any]") -> "Source":
-        """Return a source-bound facade for canonical Source/Query/Result workflows.
+        """Return a source-bound facade for Source/Query/Result workflows.
 
         Args:
             descriptor: A :class:`SourceDescriptor` (or mapping convertible
@@ -468,7 +459,7 @@ class HonuaClient:
                 should target.
 
         Returns:
-            A :class:`Source` bound to this client's transport.
+            An :class:`Source` bound to this client's transport.
         """
         from .source import Source
 
@@ -542,21 +533,21 @@ class HonuaClient:
         """Return an OGC API Features wrapper bound to this client.
 
         Returns:
-            A :class:`HonuaOgcFeatures` facade that reuses this client's
-            HTTP session.
+            An :class:`HonuaOgcFeatures` facade that reuses this
+            client's HTTP session.
         """
         from .ogc import HonuaOgcFeatures
 
         return HonuaOgcFeatures(self)
 
     def geocoder(self, locator: str = "World") -> "HonuaGeocodingClient":
-        """Return a GeocodeServer wrapper that reuses this client's HTTP session.
+        """Return a GeocodeServer wrapper that reuses this client's session.
 
         Args:
             locator: GeocodeServer locator name (defaults to ``"World"``).
 
         Returns:
-            A :class:`HonuaGeocodingClient` bound to ``locator``.
+            An :class:`HonuaGeocodingClient` bound to ``locator``.
         """
         from .geocoding import HonuaGeocodingClient
 
@@ -569,7 +560,7 @@ class HonuaClient:
             service_id: Service identifier as advertised by the catalog.
 
         Returns:
-            A :class:`GeoServicesFeatureServerClient` bound to this
+            An :class:`GeoServicesFeatureServerClient` bound to this
             client's transport.
 
         Raises:
@@ -588,8 +579,8 @@ class HonuaClient:
             service_id: Service identifier as advertised by the catalog.
 
         Returns:
-            A :class:`GeoServicesMapServerClient` bound to this client's
-            transport.
+            An :class:`GeoServicesMapServerClient` bound to this
+            client's transport.
         """
         from .protocols import GeoServicesMapServerClient
 
@@ -603,7 +594,8 @@ class HonuaClient:
                 wrapper targets the deployment-level ImageServer surface.
 
         Returns:
-            A :class:`GeoServicesImageServerClient` bound to this client.
+            An :class:`GeoServicesImageServerClient` bound to this
+            client.
         """
         from .protocols import GeoServicesImageServerClient
 
@@ -613,8 +605,8 @@ class HonuaClient:
         """Return the GeoServices GeometryServer wrapper.
 
         Returns:
-            A :class:`GeoServicesGeometryServerClient` bound to this
-            client's transport.
+            An :class:`GeoServicesGeometryServerClient` bound to
+            this client's transport.
         """
         from .protocols import GeoServicesGeometryServerClient
 
@@ -624,7 +616,8 @@ class HonuaClient:
         """Return an OGC API Maps wrapper.
 
         Returns:
-            An :class:`OgcMapsClient` bound to this client's transport.
+            An :class:`OgcMapsClient` bound to this client's
+            transport.
         """
         from .protocols import OgcMapsClient
 
@@ -634,7 +627,8 @@ class HonuaClient:
         """Return an OGC API Tiles wrapper.
 
         Returns:
-            An :class:`OgcTilesClient` bound to this client's transport.
+            An :class:`OgcTilesClient` bound to this client's
+            transport.
         """
         from .protocols import OgcTilesClient
 
@@ -644,7 +638,8 @@ class HonuaClient:
         """Return an OGC API Coverages wrapper.
 
         Returns:
-            An :class:`OgcCoveragesClient` bound to this client's transport.
+            An :class:`OgcCoveragesClient` bound to this client's
+            transport.
         """
         from .protocols import OgcCoveragesClient
 
@@ -654,7 +649,8 @@ class HonuaClient:
         """Return an OGC API Processes wrapper.
 
         Returns:
-            An :class:`OgcProcessesClient` bound to this client's transport.
+            An :class:`OgcProcessesClient` bound to this client's
+            transport.
         """
         from .protocols import OgcProcessesClient
 
@@ -670,8 +666,8 @@ class HonuaClient:
         """Return a geoprocessing (OGC API Processes) client.
 
         Returns:
-            A :class:`~honua_sdk.geoprocessing.HonuaGeoprocessing` bound to
-            this client's transport for listing/describing processes and
+            An :class:`~honua_sdk.geoprocessing.HonuaGeoprocessing` bound
+            to this client's transport for listing/describing processes and
             submitting + polling + fetching the results of process executions.
         """
         from .geoprocessing import HonuaGeoprocessing
@@ -682,12 +678,13 @@ class HonuaClient:
         """Return a workflow package authoring + publication client.
 
         Returns:
-            A :class:`~honua_sdk.workflow.HonuaWorkflow` bound to this client's
-            transport for authoring workflow package drafts, snapshotting
-            immutable versions, validating / dry-running / publishing them, and
-            running publications over the server's ``/api/v1/console`` workflow
-            package surface (the durable replacement for the dropped GeoETL
-            pipeline endpoints; admin authorization required server-side).
+            An :class:`~honua_sdk.workflow.HonuaWorkflow` bound to this
+            client's transport for authoring workflow package drafts,
+            snapshotting immutable versions, validating / dry-running /
+            publishing them, and running publications over the server's
+            ``/api/v1/console`` workflow package surface (the durable
+            replacement for the dropped GeoETL pipeline endpoints; admin
+            authorization required server-side).
         """
         from .workflow import HonuaWorkflow
 
@@ -697,7 +694,7 @@ class HonuaClient:
         """Return a STAC API wrapper.
 
         Returns:
-            A :class:`StacClient` bound to this client's transport.
+            An :class:`StacClient` bound to this client's transport.
         """
         from .protocols import StacClient
 
@@ -707,8 +704,7 @@ class HonuaClient:
         """Return a 3D scene metadata + resolution wrapper.
 
         Returns:
-            A :class:`SceneClient` bound to this client's transport for
-            scene discovery and render-endpoint resolution.
+            An :class:`SceneClient` bound to this client's transport.
         """
         from .protocols import SceneClient
 
@@ -718,8 +714,7 @@ class HonuaClient:
         """Return an elevation HTTP API wrapper.
 
         Returns:
-            An :class:`ElevationClient` bound to this client's transport
-            for point-value and along-line profile elevation queries.
+            An :class:`ElevationClient` bound to this client's transport.
         """
         from .protocols.scenes import ElevationClient
 
@@ -729,7 +724,7 @@ class HonuaClient:
         """Return a WFS 2.0 wrapper.
 
         Returns:
-            A :class:`WfsClient` bound to this client's transport.
+            An :class:`WfsClient` bound to this client's transport.
         """
         from .protocols import WfsClient
 
@@ -742,7 +737,7 @@ class HonuaClient:
             service_id: Service identifier as advertised by the catalog.
 
         Returns:
-            A :class:`WmsClient` bound to this client's transport.
+            An :class:`WmsClient` bound to this client's transport.
         """
         from .protocols import WmsClient
 
@@ -755,7 +750,7 @@ class HonuaClient:
             service_id: Service identifier as advertised by the catalog.
 
         Returns:
-            A :class:`WmtsClient` bound to this client's transport.
+            An :class:`WmtsClient` bound to this client's transport.
         """
         from .protocols import WmtsClient
 
@@ -815,12 +810,11 @@ class HonuaClient:
                 request across all protocols (FeatureServer, OGC Features,
                 STAC, OData). Accepts a ``float`` seconds value or an
                 :class:`httpx.Timeout`.
-            extra_headers: Additional HTTP headers merged into every
-                page request across all protocols.
             idempotency_key: Stripe-style ``Idempotency-Key`` header
                 value attached to every page request. Merged into
-                ``extra_headers`` before forwarding to the pagination
-                wrappers.
+                ``extra_headers`` before forwarding.
+            extra_headers: Additional HTTP headers merged into every
+                page request across all protocols.
 
         Returns:
             A :class:`FeatureQueryResult` containing the normalized
@@ -871,14 +865,14 @@ class HonuaClient:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> tuple[tuple[QueryFeature, ...], bool, int | None, int]:
-        """Walk protocol pages, collect features, and capture pagination signals.
+        """Walk protocol pages and capture pagination signals.
 
         Returns ``(features, exceeded_transfer_limit, total_count, pages_seen)``.
 
         Per-call ``timeout`` / ``extra_headers`` are forwarded to every
         protocol's pagination wrapper (FeatureServer, OGC Features, STAC,
         OData). The kwarg construction for each protocol lives in
-        :mod:`._query_dispatch` so the sync and async dispatchers share
+        :mod:`._query_dispatch` so the sync and dispatchers share
         every non-IO step.
         """
         collected: list[QueryFeature] = []
@@ -888,7 +882,6 @@ class HonuaClient:
         limit = query.limit
 
         def _extend(items: list[QueryFeature]) -> bool:
-            """Append ``items`` up to ``limit``; return ``True`` when the cap is hit."""
             if limit is not None:
                 remaining = limit - len(collected)
                 if remaining <= 0:
@@ -1506,12 +1499,9 @@ class HonuaClient:
 
         Per-request options (Stripe / OpenAI-SDK shaped):
 
-        * ``timeout``: overrides the client- and ``with_options``-level
-          timeout for this call only. Accepts ``float`` seconds or an
-          :class:`httpx.Timeout`.
-        * ``extra_headers``: merged into the outbound request headers
-          (existing ``headers`` win on key conflict, then ``extra_headers``,
-          then any auto-generated ``Idempotency-Key``).
+        * ``timeout``: overrides client- and ``with_options``-level timeouts
+          for this call only.
+        * ``extra_headers``: merged into the outbound request headers.
         * ``idempotency_key``: when set, attaches an ``Idempotency-Key``
           header to the outbound request, overriding any header of the
           same name in ``headers`` / ``extra_headers``.
@@ -1527,7 +1517,6 @@ class HonuaClient:
             "json": json_body,
             "headers": merged_headers,
         }
-        # Per-request timeout wins; otherwise apply per-client override from with_options.
         if timeout is not None:
             request_kwargs["timeout"] = (
                 timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)

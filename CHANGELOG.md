@@ -33,7 +33,95 @@ Breaking changes in this line are gated by the public-API compatibility snapshot
   no longer routes silently to CQL `filter` on OGC/STAC endpoints — pass
   `cql_filter=` or set `where_as_cql=True` to opt in.
 - **0.1.x → 0.2.x (planned)** — Sync/async client modules continue to converge
-  around the shared `_endpoints.py` / `_retry_core.py` machinery. No public-API
-  removals are scheduled; new helpers will be additive.
+  around the shared `_endpoints.py` / `_retry_core.py` machinery. The
+  `bearer_token=` constructor kwarg (deprecated in 0.1.x, see below) is
+  scheduled for removal. No other public-API removals are scheduled; new
+  helpers will be additive.
+
+### Before / after — breaking-change migrations
+
+Each migration below pairs the old call shape with the supported replacement.
+The legacy forms still work where noted, but new code should prefer the
+right-hand column.
+
+**1. Raw GeoServices `.attributes` → canonical GeoJSON `.properties`**
+
+The protocol-specific `query_features` path returns raw GeoServices features
+whose field bag lives under `.attributes`. The canonical `Source` facade
+returns `Result[QueryFeature]`, where each feature exposes GeoJSON-shaped
+`.properties` (and `.geometry`) uniformly across every protocol.
+
+```python
+# Before -- raw GeoServices feature, fields under ``attributes``
+raw = client.query_features("svc", 0, where="status = 'active'")
+for feature in raw["features"]:
+    name = feature["attributes"]["name"]
+    geom = feature.get("geometry")
+
+# After -- canonical QueryFeature, fields under ``properties``
+from honua_sdk import Query, SourceDescriptor, SourceLocator
+
+descriptor = SourceDescriptor(
+    id="svc",
+    protocol="geoservices-feature-service",
+    locator=SourceLocator(service_id="svc", layer_id=0),
+)
+result = client.source(descriptor).query(Query(where="status = 'active'"))
+for feature in result.features:
+    name = feature.properties["name"]
+    geom = feature.geometry  # GeoJSON-shaped, may be ``None``
+```
+
+**2. `client.query_features(...)` → `client.source(...).query(...)`**
+
+`query_features` is a FeatureServer-only call returning a raw `dict`. The
+`Source` facade is protocol-agnostic and returns a typed `Result[QueryFeature]`
+the same way for FeatureServer, OGC Features, STAC, and OData. The
+protocol-specific call still works as a legacy escape hatch.
+
+```python
+# Before -- protocol-specific, FeatureServer-only, raw dict
+raw = client.query_features(
+    "svc", 0, where="1=1", out_fields=["id", "name"], return_geometry=True
+)
+
+# After -- canonical facade, typed Result across every protocol
+from honua_sdk import Query, SourceDescriptor, SourceLocator
+
+descriptor = SourceDescriptor(
+    id="svc",
+    protocol="geoservices-feature-service",
+    locator=SourceLocator(service_id="svc", layer_id=0),
+)
+result = client.source(descriptor).query(
+    Query(where="1=1", out_fields=["id", "name"], return_geometry=True)
+)
+# Or iterate lazily across pages instead of materializing one response:
+for feature in client.source(descriptor).iter_query(Query(where="1=1")):
+    ...
+```
+
+**3. `bearer_token=` → `auth_provider=StaticAuthProvider(...)`**
+
+The `bearer_token=` constructor kwarg is deprecated in 0.1.x (emits a
+`DeprecationWarning`) and removed in 0.2.x, collapsing auth onto the single
+`auth_provider=` parameter (mirroring stripe-python / openai-python). Wrap the
+token in `StaticAuthProvider`, which is exported from `honua_sdk.auth`.
+
+```python
+# Before -- deprecated, emits DeprecationWarning (removed in 0.2.x)
+from honua_sdk import HonuaClient
+
+client = HonuaClient("https://your-honua-server.com", bearer_token=token)
+
+# After -- single auth parameter, no warning
+from honua_sdk import HonuaClient
+from honua_sdk.auth import StaticAuthProvider
+
+client = HonuaClient(
+    "https://your-honua-server.com",
+    auth_provider=StaticAuthProvider({"Authorization": f"Bearer {token}"}),
+)
+```
 
 Per-release notes live in [packages/honua-sdk/CHANGELOG.md](packages/honua-sdk/CHANGELOG.md) and [packages/honua-admin/CHANGELOG.md](packages/honua-admin/CHANGELOG.md), maintained by release-please.

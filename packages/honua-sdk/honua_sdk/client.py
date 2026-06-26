@@ -1466,6 +1466,8 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1476,6 +1478,8 @@ class HonuaClient:
             path,
             params=params,
             json_body=json_body,
+            files=files,
+            data=data,
             headers=headers,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -1490,6 +1494,8 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1505,6 +1511,11 @@ class HonuaClient:
         * ``idempotency_key``: when set, attaches an ``Idempotency-Key``
           header to the outbound request, overriding any header of the
           same name in ``headers`` / ``extra_headers``.
+
+        ``files`` / ``data`` carry a ``multipart/form-data`` upload body
+        (e.g. an attachment file plus its form fields) and are mutually
+        exclusive with ``json_body``; when either is set the JSON body is
+        omitted so httpx encodes the multipart payload.
         """
         # Build a full URL so httpx does not re-decode percent-encoded
         # path segments during base-URL resolution.
@@ -1514,9 +1525,17 @@ class HonuaClient:
             "method": method,
             "url": url,
             "params": params,
-            "json": json_body,
             "headers": merged_headers,
         }
+        if files is not None or data is not None:
+            # Multipart upload: httpx owns the Content-Type boundary, so do
+            # not also send a JSON body.
+            if files is not None:
+                request_kwargs["files"] = files
+            if data is not None:
+                request_kwargs["data"] = data
+        else:
+            request_kwargs["json"] = json_body
         if timeout is not None:
             request_kwargs["timeout"] = (
                 timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)

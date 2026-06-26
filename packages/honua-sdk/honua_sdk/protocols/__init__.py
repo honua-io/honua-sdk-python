@@ -51,14 +51,21 @@ from ._base import (
     _values_from_page,
 )
 from .geoservices import (
+    AddAttachmentResult,
+    AttachmentContent,
+    AttachmentFile,
+    AttachmentInfo,
+    AttachmentQueryResult,
     AsyncGeoServicesFeatureServerClient,
     AsyncGeoServicesGeometryServerClient,
     AsyncGeoServicesImageServerClient,
     AsyncGeoServicesMapServerClient,
+    DeleteAttachmentResult,
     GeoServicesFeatureServerClient,
     GeoServicesGeometryServerClient,
     GeoServicesImageServerClient,
     GeoServicesMapServerClient,
+    UpdateAttachmentResult,
 )
 from .odata import AsyncODataClient, ODataClient
 from .ogc_extras import (
@@ -124,6 +131,11 @@ from .wmts import AsyncWmtsClient, WmtsClient
 
 __all__ = [
     "CURRENT_PACKAGE_SCHEMA_VERSION",
+    "AddAttachmentResult",
+    "AttachmentContent",
+    "AttachmentFile",
+    "AttachmentInfo",
+    "AttachmentQueryResult",
     "AsyncElevationClient",
     "AsyncGeoServicesFeatureServerClient",
     "AsyncGeoServicesGeometryServerClient",
@@ -144,6 +156,7 @@ __all__ = [
     "BboxValue",
     "BinaryResponse",
     "CsvValue",
+    "DeleteAttachmentResult",
     "ElevationClient",
     "ElevationProfile",
     "ElevationProfileSample",
@@ -197,6 +210,7 @@ __all__ = [
     "Params",
     "SceneClient",
     "StacClient",
+    "UpdateAttachmentResult",
     "WfsClient",
     "WfsVersion",
     "WmsClient",

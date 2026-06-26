@@ -30,6 +30,49 @@ from ._base import (
 )
 
 
+def _coverage_window_params(
+    *,
+    response_format: str,
+    bbox: BboxValue | None,
+    bbox_crs: str | None,
+    crs: str | None,
+    scale_size: str | None,
+    scale_factor: float | None,
+    resolution: str | None,
+    properties: CsvValue | None,
+    datetime: str | None,
+    extra_params: Params,
+) -> dict[str, Any]:
+    """Build the query params for a windowed/subset OGC Coverages read.
+
+    Maps the SDK's snake_case keyword arguments onto the kebab-case query
+    parameters the Honua coverage handler reads (``bbox``, ``bbox-crs``,
+    ``crs``, ``scale-size``, ``scale-factor``, ``resolution``,
+    ``properties``, ``datetime``). Only set parameters are emitted, so an
+    unwindowed call still requests the whole coverage. Note: the server
+    rejects the OGC ``subset`` parameter and ``scale-axes`` — use ``bbox``
+    for spatial subsetting and ``scale-size``/``scale-factor`` for scaling.
+    """
+    params: dict[str, Any] = {"f": response_format}
+    if bbox is not None:
+        params["bbox"] = _bbox(bbox)
+    if bbox_crs is not None:
+        params["bbox-crs"] = bbox_crs
+    if crs is not None:
+        params["crs"] = crs
+    if scale_size is not None:
+        params["scale-size"] = scale_size
+    if scale_factor is not None:
+        params["scale-factor"] = scale_factor
+    if resolution is not None:
+        params["resolution"] = resolution
+    if properties is not None:
+        params["properties"] = _csv(properties)
+    if datetime is not None:
+        params["datetime"] = datetime
+    return _params(params, extra_params)
+
+
 class OgcMapsClient(_SyncProtocol):
     """OGC API Maps wrapper."""
 
@@ -120,8 +163,45 @@ class OgcCoveragesClient(_SyncProtocol):
     def collection(self, collection_id: FeatureId, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", _ogc_collection_path(self.root, collection_id), params=_params({"f": response_format}, extra_params))
 
-    def coverage(self, collection_id: FeatureId, *, response_format: str = "json", extra_params: Params = None) -> bytes:
-        return self._bytes(f"{_ogc_collection_path(self.root, collection_id)}/coverage", params=_params({"f": response_format}, extra_params))
+    def coverage(
+        self,
+        collection_id: FeatureId,
+        *,
+        bbox: BboxValue | None = None,
+        bbox_crs: str | None = None,
+        crs: str | None = None,
+        scale_size: str | None = None,
+        scale_factor: float | None = None,
+        resolution: str | None = None,
+        properties: CsvValue | None = None,
+        datetime: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> bytes:
+        """Read a coverage, optionally windowed to a subset of the source raster.
+
+        With no subset arguments this returns the whole coverage (as before).
+        Pass ``bbox`` (in ``bbox_crs``) to clip a spatial window, and one of
+        ``scale_size`` (e.g. ``"x(512),y(512)"``), ``scale_factor``, or
+        ``resolution`` to read at a reduced/target resolution rather than
+        downloading the full-resolution blob — the raster-GP equivalent of
+        reading a clipped, possibly resampled extent. ``properties`` selects a
+        band subset; ``datetime`` selects a temporal slice; ``crs`` sets the
+        output CRS.
+        """
+        params = _coverage_window_params(
+            response_format=response_format,
+            bbox=bbox,
+            bbox_crs=bbox_crs,
+            crs=crs,
+            scale_size=scale_size,
+            scale_factor=scale_factor,
+            resolution=resolution,
+            properties=properties,
+            datetime=datetime,
+            extra_params=extra_params,
+        )
+        return self._bytes(f"{_ogc_collection_path(self.root, collection_id)}/coverage", params=params)
 
 
 class OgcProcessesClient(_SyncProtocol):
@@ -247,8 +327,45 @@ class AsyncOgcCoveragesClient(_AsyncProtocol):
     async def collection(self, collection_id: FeatureId, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", _ogc_collection_path(self.root, collection_id), params=_params({"f": response_format}, extra_params))
 
-    async def coverage(self, collection_id: FeatureId, *, response_format: str = "json", extra_params: Params = None) -> bytes:
-        return await self._bytes(f"{_ogc_collection_path(self.root, collection_id)}/coverage", params=_params({"f": response_format}, extra_params))
+    async def coverage(
+        self,
+        collection_id: FeatureId,
+        *,
+        bbox: BboxValue | None = None,
+        bbox_crs: str | None = None,
+        crs: str | None = None,
+        scale_size: str | None = None,
+        scale_factor: float | None = None,
+        resolution: str | None = None,
+        properties: CsvValue | None = None,
+        datetime: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> bytes:
+        """Read a coverage, optionally windowed to a subset of the source raster.
+
+        With no subset arguments this returns the whole coverage (as before).
+        Pass ``bbox`` (in ``bbox_crs``) to clip a spatial window, and one of
+        ``scale_size`` (e.g. ``"x(512),y(512)"``), ``scale_factor``, or
+        ``resolution`` to read at a reduced/target resolution rather than
+        downloading the full-resolution blob — the raster-GP equivalent of
+        reading a clipped, possibly resampled extent. ``properties`` selects a
+        band subset; ``datetime`` selects a temporal slice; ``crs`` sets the
+        output CRS.
+        """
+        params = _coverage_window_params(
+            response_format=response_format,
+            bbox=bbox,
+            bbox_crs=bbox_crs,
+            crs=crs,
+            scale_size=scale_size,
+            scale_factor=scale_factor,
+            resolution=resolution,
+            properties=properties,
+            datetime=datetime,
+            extra_params=extra_params,
+        )
+        return await self._bytes(f"{_ogc_collection_path(self.root, collection_id)}/coverage", params=params)
 
 
 class AsyncOgcProcessesClient(_AsyncProtocol):

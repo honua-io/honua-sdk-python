@@ -10,7 +10,7 @@ from typing import Any, cast
 import httpx
 
 from honua_sdk._http import _encode_path_segment
-from honua_sdk.models import Feature, FeatureSet
+from honua_sdk.models import Feature, FeatureSet, LayerSchema
 
 from ._base import (
     BboxValue,
@@ -52,6 +52,15 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
 
     def layer_metadata(self, layer_id: int, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", f"{self.path}/{layer_id}", params=_params({"f": response_format}, extra_params))
+
+    def schema(self, layer_id: int, *, extra_params: Params = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for a layer (arcpy.Describe analogue).
+
+        Fetches ``layer_metadata`` and parses the raw JSON into typed fields,
+        a normalized geometry type, the resolved spatial-reference WKID, and a
+        typed extent — so a GP tool maps outputs without hand-parsing JSON.
+        """
+        return LayerSchema.from_metadata(self.layer_metadata(layer_id, extra_params=extra_params))
 
     def query(
         self,
@@ -466,6 +475,15 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
 
     async def layer_metadata(self, layer_id: int, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", f"{self.path}/{layer_id}", params=_params({"f": response_format}, extra_params))
+
+    async def schema(self, layer_id: int, *, extra_params: Params = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for a layer (arcpy.Describe analogue).
+
+        Fetches ``layer_metadata`` and parses the raw JSON into typed fields,
+        a normalized geometry type, the resolved spatial-reference WKID, and a
+        typed extent — so a GP tool maps outputs without hand-parsing JSON.
+        """
+        return LayerSchema.from_metadata(await self.layer_metadata(layer_id, extra_params=extra_params))
 
     async def query(
         self,

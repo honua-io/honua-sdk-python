@@ -64,10 +64,20 @@ ignore = []
 # _cli.py imports HonuaClient lazily inside the `run` subcommand so the
 # offline scan/translate/pyt commands work without httpx wired up.
 "packages/honua-sdk/honua_sdk/migration/_cli.py" = ["PLC0415"]
-"packages/honua-sdk/honua_sdk/source.py" = ["E501"]
+"packages/honua-sdk/honua_sdk/source.py" = ["E501", "PLC0415"]
 "packages/honua-sdk/honua_sdk/models.py" = ["E501"]
+# cursors.py: the UpdateCursor constructors forward the same many optional
+# query knobs (fields/where/geometry_filter/batch_size/...) as the Source query
+# surface (PLR0913), matching the public-API rationale above.
+"packages/honua-sdk/honua_sdk/cursors.py" = ["PLR0913"]
+# _geometry.py imports shapely lazily so it stays an optional dependency
+# (PLC0415): the pure-dict ``__geo_interface__`` path needs no third-party dep.
+"packages/honua-sdk/honua_sdk/models/_geometry.py" = ["PLC0415"]
 "packages/honua-sdk/honua_sdk/_http.py" = ["PLR2004"]
 "packages/honua-sdk/honua_sdk/_query.py" = ["PLR0913", "PLR2004"]
+# models/_query.py: Result.to_geodataframe lazily imports the geopandas bridge
+# so geopandas stays an optional dependency (PLC0415).
+"packages/honua-sdk/honua_sdk/models/_query.py" = ["PLC0415"]
 "packages/honua-sdk/honua_sdk/_retry.py" = ["PLR0913"]
 "packages/honua-sdk/honua_sdk/_async_retry.py" = ["PLR0913"]
 "packages/honua-sdk/honua_sdk/geocoding.py" = ["PLR0913", "PLR2004"]

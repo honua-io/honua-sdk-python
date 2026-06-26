@@ -6,12 +6,20 @@ import warnings
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import fields as dataclass_fields
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, runtime_checkable
+from typing import TYPE_CHECKING, Any, cast, runtime_checkable
 from typing import Protocol as TypingProtocol
 
 if TYPE_CHECKING:
     import httpx
 
+    from .cursors import (
+        AsyncInsertCursor,
+        AsyncSearchCursor,
+        AsyncUpdateCursor,
+        InsertCursor,
+        SearchCursor,
+        UpdateCursor,
+    )
     from .ogc import AsyncHonuaOgcFeatures, HonuaOgcFeatures
     from .protocols import (
         AsyncGeoServicesFeatureServerClient,
@@ -44,6 +52,7 @@ from .models import (
     Capability,
     FeatureQuery,
     FeatureQueryResult,
+    LayerSchema,
     Protocol,
     Query,
     QueryFeature,
@@ -419,6 +428,102 @@ class Source:
         """Return the native protocol client for source-specific operations."""
         return _protocol_client(self._client, self.descriptor, kind)
 
+    def schema(self, layer_id: int | None = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for this source's layer.
+
+        The ``arcpy.Describe`` / ``ListFields`` analogue: fetches the
+        FeatureServer layer metadata and parses it into typed fields, geometry
+        type, spatial-reference WKID, and extent. ``layer_id`` defaults to the
+        source descriptor's layer.
+        """
+        resolved = _layer_id(self.descriptor) if layer_id is None else layer_id
+        return cast(LayerSchema, self.protocol("geoservices-feature-service").schema(resolved))
+
+    def search_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "SearchCursor":
+        """Open a lazy :class:`~honua_sdk.cursors.SearchCursor` over this source.
+
+        The ``arcpy.da.SearchCursor`` analogue — iterate ``(geometry, attrs)``
+        rows lazily without materializing the whole result.
+        """
+        from .cursors import SearchCursor
+
+        return SearchCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        )
+
+    def iter_rows(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "Iterator[Any]":
+        """Lazily iterate cursor rows (alias for ``search_cursor(...)`` iteration)."""
+        yield from self.search_cursor(
+            fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        )
+
+    def update_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+        **query_kwargs: Any,
+    ) -> "UpdateCursor":
+        """Open an :class:`~honua_sdk.cursors.UpdateCursor` (iterate + batched write-back)."""
+        from .cursors import UpdateCursor
+
+        return UpdateCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            batch_size=batch_size,
+            rollback_on_failure=rollback_on_failure,
+            **query_kwargs,
+        )
+
+    def insert_cursor(
+        self,
+        *,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+    ) -> "InsertCursor":
+        """Open an :class:`~honua_sdk.cursors.InsertCursor` (batched feature inserts)."""
+        from .cursors import InsertCursor
+
+        return InsertCursor(self, batch_size=batch_size, rollback_on_failure=rollback_on_failure)
+
+    def to_geodataframe(
+        self,
+        query: Query | Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> Any:
+        """Run a query and return its features as a GeoPandas ``GeoDataFrame``.
+
+        First-class SEDF-equivalent: one call from source to geopandas. Requires
+        the optional ``geopandas`` extra.
+        """
+        return self.query(query, **query_kwargs).to_geodataframe()
+
     def _require(self, capability: Capability | str) -> None:
         normalized = normalize_capability(capability)
         if not self.supports(normalized):
@@ -638,6 +743,99 @@ class AsyncSource:
     def protocol(self, kind: Protocol | str | None = None) -> Any:
         """Return the native protocol client for source-specific operations."""
         return _protocol_client(self._client, self.descriptor, kind)
+
+    async def schema(self, layer_id: int | None = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for this source's layer.
+
+        Asynchronous counterpart to :meth:`Source.schema`. The
+        ``arcpy.Describe`` / ``ListFields`` analogue: fetches the FeatureServer
+        layer metadata and parses it into typed fields, geometry type,
+        spatial-reference WKID, and extent.
+        """
+        resolved = _layer_id(self.descriptor) if layer_id is None else layer_id
+        return cast(LayerSchema, await self.protocol("geoservices-feature-service").schema(resolved))
+
+    def search_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "AsyncSearchCursor":
+        """Open a lazy :class:`~honua_sdk.cursors.AsyncSearchCursor` over this source."""
+        from .cursors import AsyncSearchCursor
+
+        return AsyncSearchCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        )
+
+    def iter_rows(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "AsyncIterator[Any]":
+        """Lazily iterate cursor rows (alias for ``search_cursor(...)`` iteration)."""
+        return self.search_cursor(
+            fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        ).__aiter__()
+
+    def update_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+        **query_kwargs: Any,
+    ) -> "AsyncUpdateCursor":
+        """Open an :class:`~honua_sdk.cursors.AsyncUpdateCursor` (iterate + batched write-back)."""
+        from .cursors import AsyncUpdateCursor
+
+        return AsyncUpdateCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            batch_size=batch_size,
+            rollback_on_failure=rollback_on_failure,
+            **query_kwargs,
+        )
+
+    def insert_cursor(
+        self,
+        *,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+    ) -> "AsyncInsertCursor":
+        """Open an :class:`~honua_sdk.cursors.AsyncInsertCursor` (batched feature inserts)."""
+        from .cursors import AsyncInsertCursor
+
+        return AsyncInsertCursor(self, batch_size=batch_size, rollback_on_failure=rollback_on_failure)
+
+    async def to_geodataframe(
+        self,
+        query: Query | Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> Any:
+        """Run a query and return its features as a GeoPandas ``GeoDataFrame``.
+
+        First-class SEDF-equivalent: one ``await`` from source to geopandas.
+        Requires the optional ``geopandas`` extra.
+        """
+        result = await self.query(query, **query_kwargs)
+        return result.to_geodataframe()
 
     def _require(self, capability: Capability | str) -> None:
         normalized = normalize_capability(capability)

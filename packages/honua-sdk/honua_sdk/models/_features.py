@@ -76,7 +76,32 @@ class FeatureSet:
 
 @dataclass(frozen=True)
 class FeatureQuery:
-    """Protocol-neutral feature query request."""
+    """Protocol-neutral feature query request.
+
+    Attributes:
+        source: Source identifier (service id / collection id / entity set).
+        protocol: Canonical query protocol literal.
+        layer_id: FeatureServer / OData layer index when required.
+        where: SQL-style ``WHERE`` clause (FeatureServer / OData).
+        filter: CQL2-text filter (OGC Features / STAC).
+        bbox: ``(minx, miny, maxx, maxy)`` envelope spatial filter.
+        spatial_filter: Free-form spatial-filter mapping (arbitrary geometry +
+            relationship + SR + optional distance) translated to GeoServices
+            ``geometry``/``geometryType``/``spatialRel``/``inSR`` params on the
+            FeatureServer path. See :mod:`honua_sdk._geoservices_query`.
+        fields: Attribute selection.
+        return_geometry: Whether to include geometry in the response.
+        out_statistics: Server-side statistic definitions (FeatureServer
+            ``outStatistics``).
+        group_by: Group-by fields for statistics (FeatureServer
+            ``groupByFieldsForStatistics``).
+        return_distinct_values: Request distinct rows (``returnDistinctValues``).
+        return_count_only: Request only the matching count (``returnCountOnly``).
+        page_size: Per-request page size for paginated protocols.
+        limit: Maximum features collected across all pages.
+        max_pages: Cap on the number of pages walked. ``None`` is unbounded.
+        extra_params: Free-form per-protocol query parameter overrides.
+    """
 
     source: str
     protocol: QueryProtocol | str = "feature-server"
@@ -84,8 +109,13 @@ class FeatureQuery:
     where: str | None = None
     filter: str | None = None
     bbox: str | Sequence[int | float] | None = None
+    spatial_filter: Mapping[str, Any] | None = None
     fields: str | Sequence[str] | None = None
     return_geometry: bool = True
+    out_statistics: Sequence[Mapping[str, Any]] | None = None
+    group_by: str | Sequence[str] | None = None
+    return_distinct_values: bool = False
+    return_count_only: bool = False
     page_size: int | None = None
     limit: int | None = None
     max_pages: int | None = None

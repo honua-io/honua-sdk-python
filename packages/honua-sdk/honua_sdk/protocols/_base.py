@@ -4,8 +4,9 @@
 
 from __future__ import annotations
 
+import itertools
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias, cast
 from urllib.parse import parse_qsl, urlsplit
@@ -239,6 +240,21 @@ def _normalize_max_pages(max_pages: int | None) -> int:
     if isinstance(max_pages, int) and max_pages > 0:
         return max_pages
     return 100
+
+
+def _iter_page_indices(max_pages: int | None) -> Iterator[int]:
+    """Yield page indices for a pagination loop, honouring an unbounded cap.
+
+    ``max_pages=None`` means *unbounded* — the loop walks every page the server
+    advertises (the wrapper's own ``exceededTransferLimit`` / next-link guard
+    is what stops it). A positive ``int`` caps the walk at that many pages.
+    ``max_pages <= 0`` yields nothing.
+    """
+    if max_pages is None:
+        return itertools.count()
+    if max_pages <= 0:
+        return iter(())
+    return iter(range(max_pages))
 
 
 def _per_call_kwargs(

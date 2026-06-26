@@ -187,6 +187,7 @@ _QUERY_OVERRIDE_KWARGS: tuple[str, ...] = (
     "out_fields",
     "return_geometry",
     "bbox",
+    "spatial_filter",
     "limit",
     "page_size",
     "max_pages",
@@ -255,6 +256,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -310,6 +312,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -330,6 +333,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -366,6 +370,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -474,6 +479,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -528,6 +534,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -549,6 +556,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -585,6 +593,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -684,6 +693,7 @@ def _coerce_query(  # noqa: PLR0913 -- explicit kwargs mirror Query fields for I
     out_fields: str | Sequence[str] | None = None,
     return_geometry: bool | None = None,
     bbox: str | Sequence[int | float] | None = None,
+    spatial_filter: Mapping[str, Any] | None = None,
     limit: int | None = None,
     page_size: int | None = None,
     max_pages: int | None = None,
@@ -728,6 +738,7 @@ def _coerce_query(  # noqa: PLR0913 -- explicit kwargs mirror Query fields for I
         ("out_fields", out_fields),
         ("return_geometry", return_geometry),
         ("bbox", bbox),
+        ("spatial_filter", spatial_filter),
         ("limit", limit),
         ("page_size", page_size),
         ("max_pages", max_pages),
@@ -821,6 +832,10 @@ def _feature_query_for_source(descriptor: SourceDescriptor, query: Query) -> Fea
         where_value = query.where if protocol in _SQL_WHERE_PROTOCOLS else None
         filter_value = None
 
+    spatial_filter, out_statistics, group_by, return_distinct, return_count_only = _analytic_fields_for_query(
+        protocol, query
+    )
+
     return FeatureQuery(
         source=_query_source(descriptor),
         protocol=protocol,
@@ -828,13 +843,68 @@ def _feature_query_for_source(descriptor: SourceDescriptor, query: Query) -> Fea
         where=where_value,
         filter=filter_value,
         bbox=query.bbox,
+        spatial_filter=spatial_filter,
         fields=query.out_fields,
         return_geometry=query.return_geometry,
+        out_statistics=out_statistics,
+        group_by=group_by,
+        return_distinct_values=return_distinct,
+        return_count_only=return_count_only,
         page_size=query.page_size,
         limit=query.limit,
-        max_pages=query.max_pages,
+        # Default the page cap to 100 when the Query left it unset; ``None`` is
+        # reserved for an explicit unbounded walk so a million-feature iterate
+        # doesn't silently stop at a hidden cap.
+        max_pages=100 if query.max_pages is None else query.max_pages,
         extra_params=_extra_params_for_query(protocol, query),
     )
+
+
+#: The canonical query protocol whose REST surface supports arbitrary-geometry
+#: spatial filters and server-side statistics/aggregation (GeoServices).
+_ANALYTIC_PROTOCOL = "geoservices-feature-service"
+
+
+def _analytic_fields_for_query(
+    protocol: str, query: Query
+) -> tuple[Mapping[str, Any] | None, Sequence[Mapping[str, Any]] | None, str | Sequence[str] | None, bool, bool]:
+    """Resolve the FeatureServer spatial-filter + statistics slots from a ``Query``.
+
+    Reads :attr:`Query.spatial_filter` and the protocol-neutral
+    :attr:`Query.aggregation` mapping (``out_statistics`` / ``group_by`` /
+    ``return_distinct_values`` / ``return_count_only``) and returns them as the
+    typed :class:`FeatureQuery` slots. Both are GeoServices-only request shapes,
+    so a non-FeatureServer source that supplies either raises
+    :class:`ValueError` rather than silently dropping the predicate.
+    """
+    aggregation = query.aggregation or {}
+    out_statistics = _first_present_value(aggregation, "out_statistics", "outStatistics", "statistics")
+    group_by = _first_present_value(aggregation, "group_by", "groupBy", "groupByFieldsForStatistics")
+    return_distinct = bool(
+        _first_present_value(aggregation, "return_distinct_values", "returnDistinctValues", "distinct") or False
+    )
+    return_count_only = bool(
+        _first_present_value(aggregation, "return_count_only", "returnCountOnly", "count_only") or False
+    )
+
+    has_analytics = bool(
+        query.spatial_filter or out_statistics or group_by or return_distinct or return_count_only
+    )
+    if has_analytics and protocol != _ANALYTIC_PROTOCOL:
+        raise ValueError(
+            "spatial_filter and aggregation/statistics are only supported on the "
+            "GeoServices FeatureServer protocol; express spatial/analytic "
+            f"predicates natively for protocol {protocol!r}."
+        )
+
+    return query.spatial_filter, out_statistics, group_by, return_distinct, return_count_only
+
+
+def _first_present_value(mapping: Mapping[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping and mapping[key] is not None:
+            return mapping[key]
+    return None
 
 
 def _result_from_legacy(

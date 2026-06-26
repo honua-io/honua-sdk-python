@@ -114,7 +114,17 @@ def test_feature_server_pages_kwargs_defaults() -> None:
     assert kwargs["where"] == "1=1"
     assert kwargs["out_fields"] == "*"
     assert kwargs["page_size"] == 1000
-    assert kwargs["max_pages"] == 100
+    # ``FeatureQuery.max_pages`` is forwarded verbatim: ``None`` means unbounded
+    # (the 100-page default now lives on the canonical ``client.query`` /
+    # ``Source`` method signatures, not silently in this dispatch helper).
+    assert kwargs["max_pages"] is None
+
+
+def test_feature_server_pages_kwargs_forwards_explicit_max_pages() -> None:
+    kwargs = feature_server_pages_kwargs(
+        _query(max_pages=7), timeout=None, extra_headers=None
+    )
+    assert kwargs["max_pages"] == 7
 
 
 def test_feature_server_pages_kwargs_prefers_where_over_filter() -> None:

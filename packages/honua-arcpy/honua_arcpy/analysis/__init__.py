@@ -1,17 +1,23 @@
-"""``arcpy.analysis`` shim -- 15 functions, all currently stubbed.
+"""``arcpy.analysis`` shim -- 15 functions.
 
-The 6 process-backed entries (Buffer, Clip, Intersect, Union, Erase,
-SpatialJoin) were previously dispatched via
-``honua_sdk.protocols.OgcProcessesClient`` against honua-server's
-``geometry.*`` / ``analytics.*`` processes. Audit against
-``BuiltInProcessCatalog`` showed the shim emitted an arcpy-style
-``input_features`` / ``result`` payload while honua-server expects raw
-WKB-with-srid (for ``geometry.*``) or ``layerId``-shaped references
-(for ``analytics.*``). Those calls would have been rejected by live
-process validation, so every analysis shim now raises
-:class:`~honua_arcpy._errors.HonuaArcpyUnsupportedError` with the
-relevant honua-server tracking ticket until the projection adapter
-lands.
+Two analysis tools are now process-backed via the layer-aware projection
+adapter (:mod:`honua_arcpy._process_tools`):
+
+* ``Buffer`` -> honua-server ``analytics.buffer-aggregate`` (layerId +
+  distance/unit + dissolve).
+* ``SpatialJoin`` -> honua-server ``analytics.spatial-join`` (layerId +
+  joinLayerId + predicate).
+
+The four overlay tools that arcpy expresses over feature classes -- ``Clip``,
+``Intersect``, ``Union``, ``Erase`` -- have **no** layer-aware catalog
+counterpart. honua-server only exposes the single-geometry ``geometry.*``
+family (``geometry.clip`` / ``geometry.intersect`` / ``geometry.union`` /
+``geometry.difference``), which buffers/clips/etc. one base64-WKB geometry at a
+time rather than every feature in a layer. Wiring those would require a
+client-side per-feature WKB serialization + reassembly loop that does not exist
+yet, so they stay honest ``HonuaArcpyUnsupportedError`` stubs with a tracking
+ticket. The remaining analytics stubs (Near, NearestNeighbor, ...) likewise
+have no catalog op.
 """
 
 from __future__ import annotations
@@ -19,10 +25,11 @@ from __future__ import annotations
 from typing import Any
 
 from .._dispatch import raise_unsupported
+from .._process_tools import Result, run_layer_process
 
 
-def Buffer(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.Buffer", args=args, kwargs=kwargs)
+def Buffer(*args: Any, **kwargs: Any) -> Result:
+    return run_layer_process("analysis.Buffer", *args, **kwargs)
 
 
 def Clip(*args: Any, **kwargs: Any) -> Any:
@@ -41,8 +48,8 @@ def Erase(*args: Any, **kwargs: Any) -> Any:
     raise_unsupported("analysis.Erase", args=args, kwargs=kwargs)
 
 
-def SpatialJoin(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("analysis.SpatialJoin", args=args, kwargs=kwargs)
+def SpatialJoin(*args: Any, **kwargs: Any) -> Result:
+    return run_layer_process("analysis.SpatialJoin", *args, **kwargs)
 
 
 def NearestNeighbor(*args: Any, **kwargs: Any) -> Any:
@@ -84,17 +91,18 @@ def Identity(*args: Any, **kwargs: Any) -> Any:
 __all__ = [
     "Buffer",
     "Clip",
-    "Intersect",
-    "Union",
     "Erase",
-    "SpatialJoin",
-    "NearestNeighbor",
-    "Near",
-    "TabulateIntersection",
+    "Identity",
+    "Intersect",
     "MultipleRingBuffer",
+    "Near",
+    "NearestNeighbor",
     "PointDistance",
+    "Result",
+    "SpatialJoin",
     "SummarizeWithin",
     "SymmetricalDifference",
+    "TabulateIntersection",
+    "Union",
     "Update",
-    "Identity",
 ]

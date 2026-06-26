@@ -27,8 +27,8 @@ honua-arcpy/
 │   ├── _session.py                    # arcpy.env-style module-global session
 │   ├── _cli.py                        # honua-arcpy assess <inventory.json> + matrix
 │   ├── env.py                         # arcpy.env shim
-│   ├── analysis/                      # 15 functions (0 mapped, 15 stubbed)
-│   ├── management/                    # 20 functions (4 mapped, 16 stubbed)
+│   ├── analysis/                      # 15 functions (2 process-backed, 13 stubbed)
+│   ├── management/                    # 20 functions (4 mapped + 4 process-backed, 12 stubbed)
 │   └── da/                            # 10 functions (3 mapped, 7 stubbed)
 ├── docs/
 │   └── compatibility-matrix.md        # generated -- do not hand edit
@@ -41,6 +41,13 @@ honua-arcpy/
 ├── scripts/
 │   └── render_compat_matrix.py
 └── tests/
+```
+
+```
+honua-arcpy/
+├── ...
+│   ├── _process_jobs.py                 # OGC API Processes submit-and-poll loop
+│   ├── _process_tools.py                # arcpy GP tool -> honua-server process projection
 ```
 
 The shim does not expose a `_client.py` shim module today -- session
@@ -68,15 +75,28 @@ with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
             cursor.deleteRow()
 ```
 
-Process-backed shims (``analysis.Buffer`` / ``Clip`` / ``Intersect`` /
-``Union`` / ``Erase`` / ``SpatialJoin`` and ``management.CalculateField``
-/ ``Dissolve`` / ``Copy`` / ``Delete`` / ``Project``) currently raise
-``HonuaArcpyUnsupportedError`` -- audit pass 8 downgraded them because
-their payloads did not match honua-server's ``BuiltInProcessCatalog``
-inputs (see [`CHANGELOG.md`](CHANGELOG.md) and the Status section
-below). The migration tool surfaces each one as a ``stub`` with a
-``honua-server#...`` tracking ticket so customers know what work
-remains. The end-to-end runnable example lives at
+Six high-frequency GP tools now run end-to-end against honua-server's
+layer-aware geoprocessing processes via the projection adapter in
+``honua_arcpy._process_tools``: ``analysis.Buffer`` ->
+``analytics.buffer-aggregate``, ``analysis.SpatialJoin`` ->
+``analytics.spatial-join``, ``management.Dissolve`` ->
+``generalization.dissolve``, ``management.CalculateField`` ->
+``data-management.calculate-field``, ``management.Copy`` /
+``CopyFeatures`` -> ``data-management.copy-features``, and
+``management.Project`` -> ``conversion.feature-project``. Each accepts the
+arcpy-style parameters, projects the input feature class / layer alias to a
+numeric ``layerId``, submits an **async OGC API Processes job**, polls it to
+completion, and returns an arcpy-style ``Result``.
+
+The four overlay tools arcpy expresses over feature classes -- ``Clip`` /
+``Intersect`` / ``Union`` / ``Erase`` -- remain ``HonuaArcpyUnsupportedError``
+stubs: honua-server only exposes the single-geometry ``geometry.*`` family
+(one base64-WKB geometry at a time), with no layer-aware counterpart, so a
+client-side per-feature WKB serialization loop would be required.
+``management.Delete`` also stays a stub because arcpy deletes a whole dataset
+while ``data-management.delete-features`` only deletes filtered features inside
+a layer. The migration tool surfaces every remaining stub with a
+``honua-server#...`` tracking ticket. The end-to-end runnable example lives at
 [`examples/buffer_clip_roundtrip.py`](examples/buffer_clip_roundtrip.py).
 
 The shim writes one JSONL line per call to
@@ -89,15 +109,20 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 45 functions (15 analysis + 20 management + 10 da); see
   [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
-- **Coverage today:** 4 supported entries and 3 partial entries
-  (session-backed ``MakeFeatureLayer`` / ``MakeTableView``, source-backed
-  ``SelectLayerByAttribute`` / ``GetCount``, and the three ``da`` cursors)
-  + 38 stubs. The 11 previously process-backed entries (``Buffer``,
-  ``Clip``, ``Intersect``, ``Union``, ``Erase``, ``SpatialJoin``,
-  ``CalculateField``, ``Dissolve``, ``Copy``, ``Delete``, ``Project``)
-  were downgraded in audit pass 8 because their payloads did not match
-  honua-server's ``BuiltInProcessCatalog`` contract. Each carries a
-  ``honua-server#...`` tracking ticket pointing at the projection
-  adapter that needs to land before they can be re-promoted.
+- **Coverage today:** **7 supported + 6 partial + 32 stubs** of 45
+  functions. Supported: session-backed ``MakeFeatureLayer`` /
+  ``MakeTableView``; the ``da.UpdateCursor`` / ``da.InsertCursor`` cursors;
+  and the process-backed ``analysis.Buffer`` / ``management.Copy`` /
+  ``management.Project``. Partial (run with documented deviations):
+  source-backed ``SelectLayerByAttribute`` / ``GetCount`` / ``da.SearchCursor``;
+  and the process-backed ``analysis.SpatialJoin`` /
+  ``management.CalculateField`` / ``management.Dissolve``. Six entries are
+  process-backed via the layer-aware projection adapter (audit pass 8's
+  ``BuiltInProcessCatalog`` mismatch is resolved by projecting each arcpy
+  signature onto the matching ``layerId``-shaped honua-server process and
+  running it as an async job). The remaining 32 stubs -- including the
+  overlay tools (``Clip`` / ``Intersect`` / ``Union`` / ``Erase``, which only
+  have single-WKB ``geometry.*`` ops) and ``Delete`` (different semantics from
+  ``delete-features``) -- each carry a ``honua-server#...`` tracking ticket.
 - **Audit:** every invocation produces a redacted JSONL record (paths and
   secrets are stripped per the `honua_admin._arcpy_scanner` heuristics).

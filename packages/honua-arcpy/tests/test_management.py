@@ -312,22 +312,23 @@ def test_field_describe_dataclass_is_importable(stub_clients) -> None:
     assert honua_arcpy.DescribeResult(name="segments").name == "segments"
 
 
-def test_calculate_field_is_stub_pending_server_adapter(stub_clients) -> None:
-    """``management.CalculateField`` was previously dispatched as a process
-    against ``data-management.calculate-field``, but the shim's
-    ``input_features`` / ``result`` payload did not match the server's
-    ``layerId`` / ``fieldName`` / ``expression`` / ``where|objectIds``
-    contract. The entry is a stub until the arcpy-to-server projection
-    adapter lands (see
-    ``test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``)."""
+def test_calculate_field_projects_onto_data_management_process(stub_clients) -> None:
+    """``management.CalculateField`` now projects its arcpy signature onto
+    honua-server's ``data-management.calculate-field`` process: in_table ->
+    layerId, field -> fieldName, expression -> expression, where_clause ->
+    where. The detailed payload assertions live in
+    ``tests/test_process_tools.py``; here we confirm the stub-mode client
+    submits the right process id."""
 
-    with pytest.raises(honua_arcpy.HonuaArcpyUnsupportedError) as info:
-        honua_arcpy.management.CalculateField(
-            "segments", "scaled_speed", "!speed! * 1.1", expression_type="PYTHON3"
-        )
-    err = info.value
-    assert err.function == "management.CalculateField"
-    assert err.tracking and "calculate-field" in err.tracking
+    client, _ = stub_clients
+    result = honua_arcpy.management.CalculateField(
+        "honua://services/segments/2", "scaled_speed", "speed * 1.1", where_clause="speed > 0"
+    )
+    assert str(result) == "honua://services/segments/2" or result.job_id
+    process_id, payload = client.ogc_processes().calls[-1]
+    assert process_id == "data-management.calculate-field"
+    assert payload["inputs"]["layerId"] == 2
+    assert payload["inputs"]["fieldName"] == "scaled_speed"
 
 
 def test_stubs_raise_with_replacement_hints(stub_clients) -> None:

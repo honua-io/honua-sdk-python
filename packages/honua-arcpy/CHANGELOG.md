@@ -2,6 +2,76 @@
 
 All notable changes to `honua-arcpy` will be documented in this file.
 
+## Unreleased
+
+### Layer-aware projection adapter -- 6 GP tools promoted from stub to working
+
+Audit pass 8 downgraded every process-backed analysis/management entry to a
+stub because the shim emitted an arcpy-style ``input_features`` / ``result``
+payload that honua-server's ``BuiltInProcessCatalog`` rejects. This change
+lands the projection adapter that resolves the mismatch for the **layer-aware**
+process families and re-promotes the six high-frequency GP tools that map
+cleanly onto them.
+
+- **New ``honua_arcpy._process_tools`` projection adapter + ``_process_jobs``
+  submit-and-poll loop.** honua-server runs every built-in geoprocessing
+  operation as an asynchronous OGC API Processes job (``POST .../execution``
+  returns a ``201`` ``OgcStatusInfo`` with a ``jobID`` + ``accepted`` status).
+  ``_process_jobs.submit_and_wait`` POSTs ``{"inputs": {...}}``, polls
+  ``/jobs/{id}`` until a terminal state (``successful`` / ``failed`` /
+  ``dismissed``), fetches ``/jobs/{id}/results`` on success, and raises
+  ``ExecuteError`` on failure / dismissal / timeout. ``_process_tools`` owns the
+  per-tool arcpy-signature -> typed-process-input projection and returns an
+  arcpy-style ``Result`` (``result[0]`` / ``str(result)`` is the output, and a
+  later GP call resolves the registered output alias).
+- **Six tools promoted.** Each input feature class / layer alias is projected to
+  a numeric ``layerId`` via the new ``honua_arcpy._resolve.resolve_layer_id``
+  (reusing the existing alias map / ``honua://`` URI / ``HONUA_ARCPY_PATH_MAP``
+  resolution):
+  - ``analysis.Buffer`` -> ``analytics.buffer-aggregate`` (``in_features`` ->
+    ``layerId``; linear distance split into ``distance`` + ``unit``;
+    ``dissolve_option`` NONE/ALL -> ``dissolve`` false/true). **supported.**
+  - ``analysis.SpatialJoin`` -> ``analytics.spatial-join`` (``target_features``
+    -> ``layerId``, ``join_features`` -> ``joinLayerId``, ``match_option`` ->
+    ``predicate``: INTERSECT/CONTAINS/WITHIN/WITHIN_A_DISTANCE+``search_radius``
+    -> intersects/contains/within/dwithin). **partial** (join_operation /
+    join_type / field_mapping not modelled).
+  - ``management.Dissolve`` -> ``generalization.dissolve`` (``in_features`` ->
+    ``layerId``, ``dissolve_field`` -> ``groupByFields``). **partial**
+    (statistics_fields not modelled).
+  - ``management.CalculateField`` -> ``data-management.calculate-field``
+    (``in_table`` -> ``layerId``, ``field`` -> ``fieldName``, ``expression`` ->
+    ``expression``). **partial** (expression must pass the FeatureServer.Edits
+    allow-list; arcpy PYTHON3 ``!field!`` syntax is rejected server-side).
+  - ``management.Copy`` / ``CopyFeatures`` -> ``data-management.copy-features``
+    (``in_features`` -> ``sourceLayerId``, ``out_feature_class`` ->
+    ``targetLayerName``). **supported.**
+  - ``management.Project`` -> ``conversion.feature-project`` (``in_dataset`` ->
+    ``layerId``, ``out_coor_system`` EPSG/WKID -> ``targetSrid``). **supported.**
+- **Honest stubs retained where no catalog op maps.** ``analysis.Clip`` /
+  ``Intersect`` / ``Union`` / ``Erase`` stay stubs: honua-server only exposes
+  the single-WKB ``geometry.*`` family (``geometry.clip`` / ``geometry.intersect``
+  / ``geometry.union`` / ``geometry.difference``), which operates on one
+  base64-WKB geometry at a time, not on feature classes. ``management.Delete``
+  stays a stub because arcpy.Delete removes a whole dataset while
+  ``data-management.delete-features`` only deletes filtered features inside a
+  layer. The schema-shaped admin entries (AddField/DeleteField/Rename/
+  ListFields/Describe) and the no-op-mapping entries (Append/Merge/Create*/Sort/
+  SelectLayerByLocation/Near/...) remain stubs with tracking tickets.
+- **Contract test now enforces (not just vacuously asserts) the catalog
+  subset.** ``test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``
+  walks the six re-promoted ``backend="process"`` entries and asserts each
+  ``param_map`` value is a subset of the matching honua-server process inputs;
+  the snapshot gained ``analytics.buffer-aggregate`` / ``generalization.dissolve``.
+- **Coverage shifted from 4 supported + 3 partial + 38 stubs to
+  7 supported + 6 partial + 32 stubs.** Both compatibility-matrix copies were
+  regenerated (byte-equal). The eval suite stays at 50 scripts: the promoted
+  tools moved from the ``expected_failure_*`` block into supported scripts that
+  submit a stub-backed async job and assert the Result; local stub pass rate
+  **50/50 (100%)**, supported-surface **24/24 (100%)**. New tests:
+  ``tests/test_process_tools.py`` (per-tool projection + job lifecycle) and
+  ``tests/test_process_jobs.py`` (submit/poll/timeout/failure).
+
 ## 0.1.0 (2026-05-22)
 
 Initial drop. Adds the proprietary `honua_arcpy` shim package covering 45

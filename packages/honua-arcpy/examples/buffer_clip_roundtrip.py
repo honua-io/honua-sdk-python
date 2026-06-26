@@ -1,18 +1,15 @@
 """End-to-end ``arcpy -> honua_arcpy`` parity demo.
 
-Originally this example exercised ``analysis.Buffer`` and
-``analysis.Clip``. Audit pass 8 caught those process-backed shims
-emitting an arcpy-style ``input_features`` / ``result`` payload that
-honua-server's ``geometry.*`` processes (which take raw WKB + srid)
-reject, so the Buffer / Clip entries were downgraded to stubs until
-the projection adapter lands (see
-``honua_arcpy._compat`` and ``tests/test_compat_manifest.py``).
+``analysis.Buffer`` is now end-to-end supported: the layer-aware projection
+adapter (``honua_arcpy._process_tools``) maps its arcpy signature onto
+honua-server's ``analytics.buffer-aggregate`` process, submits an async OGC
+API Processes job, polls it to completion, and returns an arcpy-style
+``Result``. ``analysis.Clip`` stays a stub -- honua-server only exposes the
+single-WKB ``geometry.clip`` op, with no layer-aware counterpart -- so the
+migration tool still surfaces it via ``honua-arcpy assess``.
 
-The demo therefore now focuses on the source-backed surface that
-*is* end-to-end supported today: layer aliases, attribute selection,
-row counts, and update cursors. The migration tool can still scan
-unmodified customer scripts and surface the Buffer / Clip stubs via
-``honua-arcpy assess`` so users know what work remains.
+The demo exercises the supported surface end-to-end: layer aliases, attribute
+selection, row counts, update cursors, and a layer-aware Buffer job.
 
 Run the script against a configured Honua deployment::
 

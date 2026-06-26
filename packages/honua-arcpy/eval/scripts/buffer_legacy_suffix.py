@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.CalculateField."""
+"""Buffer via the Buffer_analysis legacy suffix alias."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.CalculateField('parcels', 'group', '!zoning_code!', expression_type='PYTHON3')
-except arcpy.HonuaArcpyUnsupportedError as exc:
-    print(f"expected_failure_calculate_field_group caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_calculate_field_group did not raise")
+result = arcpy.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
+print(f"buffer_legacy_suffix ok output={result[0]}")

@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.Copy."""
+"""Buffer roads via the layer-aware analytics.buffer-aggregate projection."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.Copy('pavement', 'pavement_backup')
-except arcpy.HonuaArcpyUnsupportedError as exc:
-    print(f"expected_failure_copy_pavement_to_backup caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_copy_pavement_to_backup did not raise")
+result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "25 Meters", dissolve_option="ALL")
+print(f"buffer_roads ok output={result[0]}")

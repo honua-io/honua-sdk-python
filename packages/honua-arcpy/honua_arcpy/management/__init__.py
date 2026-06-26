@@ -1,25 +1,27 @@
-"""``arcpy.management`` shim -- 20 functions (4 mapped, 16 stubbed).
+"""``arcpy.management`` shim -- 20 functions.
 
-Mapped functions split into two backends:
+Mapped functions split across backends:
 
-* ``session``: MakeFeatureLayer, MakeTableView (2 -- in-process aliases).
-* ``source``: SelectLayerByAttribute, GetCount (2 -- via Source facade;
-  GetCount is ``partial`` until the Source facade exposes a count-only
-  helper).
+* ``session``: MakeFeatureLayer, MakeTableView (in-process aliases).
+* ``source``: SelectLayerByAttribute, GetCount (via the Source facade;
+  GetCount is ``partial`` until the Source facade exposes a count-only helper).
+* ``process``: CalculateField, Dissolve, Copy / CopyFeatures, Project --
+  projected onto honua-server's layer-aware processes
+  (``data-management.calculate-field`` / ``generalization.dissolve`` /
+  ``data-management.copy-features`` / ``conversion.feature-project``) by
+  :mod:`honua_arcpy._process_tools` and run as async OGC API Processes jobs.
 
-The previously process-backed entries (CalculateField, Dissolve, Copy,
-Delete, Project) emitted arcpy-style ``input_features`` / ``result``
-payloads while honua-server's ``data-management.*`` / ``geometry.*`` /
-``conversion.feature-project`` processes expect ``layerId``- or
-WKB-shaped inputs. Until the arcpy-to-server projection adapters land,
-those entries are stubs and raise ``HonuaArcpyUnsupportedError`` with
-the corresponding honua-server tracking ticket.
+The remaining stubs:
 
-The remaining stubs include the five admin-targeted entries (AddField,
-DeleteField, Rename, ListFields, Describe) that previously routed
-through a partial admin shim -- the real ``HonuaAdminClient`` does not
-yet expose per-layer schema mutation or reading, so we surface the gap
-explicitly until the contract lands.
+* ``Delete`` -- arcpy deletes a whole dataset; honua-server's
+  ``data-management.delete-features`` only deletes features matching a filter
+  inside a layer, so the semantics differ and faking it would do the wrong
+  thing.
+* The schema-shaped entries (AddField, DeleteField, Rename, ListFields,
+  Describe) -- the real ``HonuaAdminClient`` does not yet expose per-layer
+  schema mutation or reading, so we surface the gap explicitly.
+* Append, Merge, CreateFeatureclass, CreateTable, Sort, SelectLayerByLocation
+  -- no catalog op maps cleanly today.
 """
 
 from __future__ import annotations
@@ -38,9 +40,9 @@ from .._errors import (
     HonuaArcpyConfigurationError,
     HonuaArcpyResolveError,
 )
+from .._process_tools import Result, run_layer_process
 from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
-
 
 # ---------------------------------------------------------------------------
 # Session-backed (alias) functions
@@ -142,7 +144,7 @@ def SelectLayerByAttribute(
     where_clause: str | None = None,
     invert_where_clause: bool | None = None,
 ) -> Selection:
-    from .._audit import record_call, _shape_of
+    from .._audit import _shape_of, record_call
 
     qualified = "management.SelectLayerByAttribute"
     entry = entry_for(qualified)
@@ -268,7 +270,7 @@ def _layer_count(session, alias: LayerAlias, where: str | None) -> int:
 
 
 def GetCount(in_rows: Any) -> int:
-    from .._audit import record_call, _shape_of
+    from .._audit import _shape_of, record_call
 
     qualified = "management.GetCount"
     session = get_session()
@@ -312,30 +314,34 @@ def GetCount(in_rows: Any) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Process-backed stubs (pending honua-server projection adapter)
+# Process-backed tools (layer-aware projection adapter)
 # ---------------------------------------------------------------------------
-# These five entries previously dispatched directly through
-# ``honua_sdk.protocols.OgcProcessesClient`` against honua-server's
-# ``data-management.*`` / ``geometry.*`` / ``conversion.feature-project``
-# processes. The shim emitted an arcpy-style payload
-# (``input_features`` / ``result``) while honua-server expects
-# ``layerId``- or WKB-shaped inputs, so the calls would have been
-# rejected by live process validation. They are now stubs that raise
-# ``HonuaArcpyUnsupportedError`` with the tracking ticket for the
-# projection adapter that needs to land before the entries can be
-# re-promoted to ``supported``.
+# CalculateField / Dissolve / Copy / Project now project their arcpy
+# signatures onto honua-server's layer-aware processes
+# (data-management.calculate-field, generalization.dissolve,
+# data-management.copy-features, conversion.feature-project) via
+# ``honua_arcpy._process_tools.run_layer_process``: the input feature
+# class / layer alias resolves to a numeric ``layerId``, the remaining
+# arcpy params map onto the process's typed inputs, and the call submits
+# + polls an async OGC API Processes job before returning an arcpy-style
+# ``Result``.
+#
+# ``Delete`` stays a stub: arcpy.Delete removes an entire dataset, while
+# honua-server's data-management.delete-features only deletes features
+# matching a filter *inside* a layer. The semantics differ, so faking it
+# would silently do the wrong thing.
 
 
-def CalculateField(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.CalculateField", args=args, kwargs=kwargs)
+def CalculateField(*args: Any, **kwargs: Any) -> Result:
+    return run_layer_process("management.CalculateField", *args, **kwargs)
 
 
-def Dissolve(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Dissolve", args=args, kwargs=kwargs)
+def Dissolve(*args: Any, **kwargs: Any) -> Result:
+    return run_layer_process("management.Dissolve", *args, **kwargs)
 
 
-def Copy(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Copy", args=args, kwargs=kwargs)
+def Copy(*args: Any, **kwargs: Any) -> Result:
+    return run_layer_process("management.Copy", *args, **kwargs)
 
 
 # Alias for `arcpy.management.CopyFeatures`, which the scanner also calls "Copy".
@@ -346,8 +352,8 @@ def Delete(*args: Any, **kwargs: Any) -> Any:
     raise_unsupported("management.Delete", args=args, kwargs=kwargs)
 
 
-def Project(*args: Any, **kwargs: Any) -> Any:
-    raise_unsupported("management.Project", args=args, kwargs=kwargs)
+def Project(*args: Any, **kwargs: Any) -> Result:
+    return run_layer_process("management.Project", *args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -455,8 +461,9 @@ __all__ = [
     "Merge",
     "Project",
     "Rename",
-    "Selection",
+    "Result",
     "SelectLayerByAttribute",
     "SelectLayerByLocation",
+    "Selection",
     "Sort",
 ]

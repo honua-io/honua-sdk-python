@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.CalculateField."""
+"""CopyFeatures alias routes through the same copy-features process."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.CalculateField('segments', 'avg_speed', '!miles! / !hours!', expression_type='PYTHON3')
-except arcpy.HonuaArcpyUnsupportedError as exc:
-    print(f"expected_failure_calculate_field_speed caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_calculate_field_speed did not raise")
+result = arcpy.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")
+print(f"copy_features_alias ok output={result[0]}")

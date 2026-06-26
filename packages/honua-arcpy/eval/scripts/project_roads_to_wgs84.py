@@ -1,4 +1,4 @@
-"""Expected-failure script exercising analysis.Buffer."""
+"""Reproject a layer to WGS84 via conversion.feature-project."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters')
-except arcpy.HonuaArcpyUnsupportedError as exc:
-    print(f"expected_failure_buffer_then_clip caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_buffer_then_clip did not raise")
+result = arcpy.management.Project("honua://services/roads/0", "roads_wgs84", 4326)
+print(f"project_roads_to_wgs84 ok output={result[0]}")

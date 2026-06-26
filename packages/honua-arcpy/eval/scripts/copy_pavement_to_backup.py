@@ -1,4 +1,4 @@
-"""Expected-failure script exercising analysis.SpatialJoin."""
+"""Copy features into a backup layer via data-management.copy-features."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.analysis.SpatialJoin('addresses', 'parcels', 'addresses_with_parcel', join_operation='JOIN_ONE_TO_ONE', join_type='KEEP_ALL', match_option='INTERSECT')
-except arcpy.HonuaArcpyUnsupportedError as exc:
-    print(f"expected_failure_spatial_join_addresses_parcels caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_spatial_join_addresses_parcels did not raise")
+result = arcpy.management.Copy("honua://services/pavement/0", "pavement_backup")
+print(f"copy_pavement_to_backup ok output={result[0]}")

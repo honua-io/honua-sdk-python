@@ -1,4 +1,4 @@
-"""Expected-failure script exercising analysis.Buffer."""
+"""Copy features then calculate a constant field on the source layer."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,9 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters', dissolve_option='ALL')
-except arcpy.HonuaArcpyUnsupportedError as exc:
-    print(f"expected_failure_buffer_roads caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_buffer_roads did not raise")
+arcpy.management.Copy("honua://services/stage/0", "published")
+result = arcpy.management.CalculateField("honua://services/stage/0", "reviewed", "1")
+print(f"copy_then_calculate_field ok output={result[0]}")

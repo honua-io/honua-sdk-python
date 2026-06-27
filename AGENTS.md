@@ -10,7 +10,8 @@ geospatial server. Three independently installable packages live under
 |---------|-----------|---------|-------------|
 | `packages/honua-sdk` | `honua-sdk` | Apache-2.0 | Data-plane client: feature queries, geocoding, multi-protocol clients (GeoServices/OGC/STAC/OData/WFS/WMS/WMTS/scenes), gRPC streaming, GeoPandas integration. |
 | `packages/honua-admin` | `honua-admin` | Apache-2.0 | Control-plane client: services, connections, layers, styles, metadata, manifests, compatibility checks. Depends on `honua-sdk`. |
-| `packages/honua-arcpy` | `honua-arcpy` | Proprietary (do-not-upload) | Closed-source arcpy compatibility shim. Linted/tested under its own lenient gate, not the workspace-root strict rules. |
+| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer (drop-in-style API for teams migrating from ArcGIS `arcpy`). Linted/tested under its own lenient gate, not the workspace-root strict rules. |
+| `packages/honua-arcpy` | `honua-arcpy` | Proprietary (do-not-upload) | Deprecated backward-compat shim that re-exports `honua-gp` and warns. Retained only so legacy `import honua_arcpy` keeps working; do not add code here. |
 
 Status: alpha (`0.x`); APIs may change before 1.0.
 
@@ -45,7 +46,7 @@ All commands run from the repo root unless noted. These are copied from CI
 (`.github/workflows/ci.yml`) and README; do not invent variants.
 
 ```bash
-# Lint (workspace-root strict ruleset; honua-arcpy is excluded)
+# Lint (workspace-root strict ruleset; honua-gp is excluded)
 ruff check .
 
 # Type-check
@@ -96,9 +97,9 @@ HONUA_CONFORMANCE_FIXTURES_DIR="./conformance-fixtures-$(cat conformance/FIXTURE
 python3 scripts/release_smoke.py
 ```
 
-honua-arcpy has a separate lane (`.github/workflows/honua-arcpy-eval.yml`):
-`python -m pytest packages/honua-arcpy/tests -q` and a CLI
-(`python -m honua_arcpy._cli ...`).
+honua-gp has a separate lane (`.github/workflows/honua-gp-eval.yml`):
+`python -m pytest packages/honua-gp/tests -q` and a CLI
+(`python -m honua_gp._cli ...`).
 
 ## Architecture
 
@@ -135,7 +136,7 @@ honua-arcpy has a separate lane (`.github/workflows/honua-arcpy-eval.yml`):
 ```
 packages/honua-sdk/honua_sdk/    # data-plane package source
 packages/honua-admin/honua_admin/# control-plane package source
-packages/honua-arcpy/            # proprietary arcpy shim (own gate)
+packages/honua-gp/            # proprietary arcpy shim (own gate)
 tests/                           # shared test suite (admin/, grpc_sdk/,
                                  #   integration/, fixtures/, conftest.py)
 scripts/                         # gates, smoke, release helpers
@@ -153,7 +154,7 @@ pyproject.toml                   # shared tool config ONLY (not installable)
 - **Coverage gates are real**: combined `--cov-fail-under=94`, plus per-package
   floors of 93 (`honua_sdk` across `tests/`, `honua_admin` across `tests/admin`).
 - **ruff**: line-length 120, target py311, selects `E,F,I,UP,B,SIM,RUF,TID,PL,S`.
-  Generated grpc code and `packages/honua-arcpy` are excluded. Many narrow
+  Generated grpc code and `packages/honua-gp` are excluded. Many narrow
   per-file ignores exist — match the existing pattern, don't widen globally.
 - **mypy**: `disallow_untyped_defs`, `disallow_any_generics`,
   `disallow_untyped_calls`, `warn_return_any` all on (not full `strict`).

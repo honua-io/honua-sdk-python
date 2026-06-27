@@ -17,10 +17,10 @@ conformance-fixtures-*/
 conformance-junit.xml
 conformance-summary.md
 conformance-server.log
-.honua-arcpy/
-packages/honua-arcpy/eval-results.json
-packages/honua-arcpy/eval-results.xml
-packages/honua-arcpy/eval/.audit/
+.honua-gp/
+packages/honua-gp/eval-results.json
+packages/honua-gp/eval-results.xml
+packages/honua-gp/eval/.audit/
 
 # Generated MkDocs static site output
 /site/

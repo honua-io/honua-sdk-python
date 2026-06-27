@@ -15,6 +15,7 @@ from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from honua_sdk.geopandas import (
     features_to_geodataframe,
     geodataframe_to_features,
+    geodataframe_to_geojson,
     ogc_features_to_geodataframe,
     stac_items_to_geodataframe,
 )
@@ -461,3 +462,151 @@ class TestRoundTrip:
         assert type(attrs["count"]) is int
         assert attrs["missing"] is None
         assert attrs["observed_at"] == "2026-04-27T12:00:00+00:00"
+
+
+# ---------------------------------------------------------------------------
+# CRS reprojection on export (issue #137)
+# ---------------------------------------------------------------------------
+
+
+class TestExportReprojection:
+    def test_geojson_export_reprojects_non_wgs84_to_4326(self) -> None:
+        # A web-mercator frame must be reprojected to lon/lat for GeoJSON, not
+        # emitted verbatim and mislabelled as EPSG:4326.
+        src = gpd.GeoDataFrame(
+            {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"
+        )
+        projected = src.to_crs("EPSG:3857")
+
+        fc = geodataframe_to_geojson(projected)
+
+        lon, lat = fc["features"][0]["geometry"]["coordinates"]
+        assert lon == pytest.approx(-157.8583, abs=1e-4)
+        assert lat == pytest.approx(21.3069, abs=1e-4)
+
+    def test_geojson_export_without_crs_passes_through(self) -> None:
+        gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[Point(100.0, 200.0)])
+
+        fc = geodataframe_to_geojson(gdf)
+
+        lon, lat = fc["features"][0]["geometry"]["coordinates"]
+        assert (lon, lat) == (100.0, 200.0)
+
+    def test_geojson_export_wgs84_unchanged(self) -> None:
+        gdf = gpd.GeoDataFrame(
+            {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"
+        )
+
+        fc = geodataframe_to_geojson(gdf)
+
+        lon, lat = fc["features"][0]["geometry"]["coordinates"]
+        assert lon == pytest.approx(-157.8583)
+        assert lat == pytest.approx(21.3069)
+
+    def test_esri_features_export_stamps_spatial_reference(self) -> None:
+        # Esri JSON carries its own spatialReference, so the non-WGS84 frame is
+        # preserved verbatim with an explicit CRS rather than reprojected.
+        src = gpd.GeoDataFrame(
+            {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"
+        )
+        projected = src.to_crs("EPSG:3857")
+        projected_x, projected_y = (
+            projected.geometry.iloc[0].x,
+            projected.geometry.iloc[0].y,
+        )
+
+        features = geodataframe_to_features(projected)
+
+        geom = features[0]["geometry"]
+        assert geom["x"] == pytest.approx(projected_x)
+        assert geom["y"] == pytest.approx(projected_y)
+        assert geom["spatialReference"] == {"wkid": 102100, "latestWkid": 3857}
+
+    def test_esri_features_export_stamps_wgs84_spatial_reference(self) -> None:
+        gdf = gpd.GeoDataFrame(
+            {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"
+        )
+
+        features = geodataframe_to_features(gdf)
+
+        assert features[0]["geometry"]["spatialReference"] == {"wkid": 4326}
+
+    def test_esri_features_export_without_crs_omits_spatial_reference(self) -> None:
+        gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[Point(1.0, 2.0)])
+
+        features = geodataframe_to_features(gdf)
+
+        assert "spatialReference" not in features[0]["geometry"]
+
+
+# ---------------------------------------------------------------------------
+# Esri ring winding on export (issue #137)
+# ---------------------------------------------------------------------------
+
+
+class TestEsriRingWinding:
+    def test_features_export_orients_rings_esri_convention(self) -> None:
+        from shapely.geometry import LinearRing
+
+        # Shapely default: CCW exterior, CW hole. Esri requires the opposite:
+        # CW exterior, CCW holes.
+        exterior = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]
+        hole = [(2.0, 2.0), (2.0, 4.0), (4.0, 4.0), (4.0, 2.0), (2.0, 2.0)]
+        poly = Polygon(exterior, [hole])
+        assert LinearRing(poly.exterior.coords).is_ccw  # sanity: CCW exterior
+
+        gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[poly], crs="EPSG:4326")
+        features = geodataframe_to_features(gdf)
+
+        rings = features[0]["geometry"]["rings"]
+        assert not LinearRing(rings[0]).is_ccw  # exterior is clockwise
+        assert LinearRing(rings[1]).is_ccw  # hole is counter-clockwise
+
+    def test_geojson_export_does_not_force_esri_winding(self) -> None:
+        # GeoJSON export must not borrow Esri orientation; shapely mapping keeps
+        # the polygon's own ring order.
+        from shapely.geometry import mapping
+
+        poly = Polygon([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)])
+        gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[poly], crs="EPSG:4326")
+
+        fc = geodataframe_to_geojson(gdf)
+
+        assert fc["features"][0]["geometry"] == mapping(poly)
+
+
+# ---------------------------------------------------------------------------
+# NaN Esri point coordinates (issue #137)
+# ---------------------------------------------------------------------------
+
+
+class TestNaNPointCoords:
+    def test_nan_point_coords_become_none_geometry(self) -> None:
+        response: dict = {
+            "features": [
+                {
+                    "attributes": {"objectid": 1},
+                    "geometry": {"x": float("nan"), "y": float("nan")},
+                },
+                {
+                    "attributes": {"objectid": 2},
+                    "geometry": {"x": 1.0, "y": 2.0},
+                },
+            ],
+        }
+
+        gdf = features_to_geodataframe(response)
+
+        assert gdf.geometry.iloc[0] is None
+        assert isinstance(gdf.geometry.iloc[1], Point)
+
+    def test_single_nan_axis_becomes_none_geometry(self) -> None:
+        response: dict = {
+            "features": [
+                {"attributes": {"objectid": 1}, "geometry": {"x": 1.0, "y": float("nan")}},
+            ],
+        }
+
+        gdf = features_to_geodataframe(response)
+
+        assert gdf.geometry.iloc[0] is None

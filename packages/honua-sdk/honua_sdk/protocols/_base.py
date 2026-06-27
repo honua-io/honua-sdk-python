@@ -1,18 +1,19 @@
 """Shared helpers and request/response base mixins for protocol clients."""
 
-# ruff: noqa: PLR0913, PLR2004
+# ruff: noqa: PLR0913
 
 from __future__ import annotations
 
+import itertools
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias, cast
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
 
-from honua_sdk._http import _encode_path_segment, _to_http_error, _to_transport_error
+from honua_sdk._http import _encode_path_segment
 
 JsonObject = dict[str, Any]
 Params = Mapping[str, Any] | None
@@ -215,6 +216,25 @@ def _next_link(response: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _next_link_object(response: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Return the full ``rel="next"`` link object from a STAC response, if any.
+
+    Unlike :func:`_next_link` (which only yields the ``href`` string), this
+    preserves the ``method``/``body``/``merge`` fields so STAC POST ``/search``
+    pagination can honor the spec's method+body continuation contract instead of
+    silently re-issuing the next link as a GET.
+    """
+    links = response.get("links")
+    if not isinstance(links, Sequence) or isinstance(links, str):
+        return None
+    for link in links:
+        if not isinstance(link, Mapping):
+            continue
+        if link.get("rel") == "next" and isinstance(link.get("href"), str):
+            return link
+    return None
+
+
 def _path_and_params_from_href(href: str) -> tuple[str, dict[str, str]]:
     parsed = urlsplit(href)
     path = parsed.path or href
@@ -239,6 +259,21 @@ def _normalize_max_pages(max_pages: int | None) -> int:
     if isinstance(max_pages, int) and max_pages > 0:
         return max_pages
     return 100
+
+
+def _iter_page_indices(max_pages: int | None) -> Iterator[int]:
+    """Yield page indices for a pagination loop, honouring an unbounded cap.
+
+    ``max_pages=None`` means *unbounded* — the loop walks every page the server
+    advertises (the wrapper's own ``exceededTransferLimit`` / next-link guard
+    is what stops it). A positive ``int`` caps the walk at that many pages.
+    ``max_pages <= 0`` yields nothing.
+    """
+    if max_pages is None:
+        return itertools.count()
+    if max_pages <= 0:
+        return iter(())
+    return iter(range(max_pages))
 
 
 def _per_call_kwargs(
@@ -352,24 +387,18 @@ class _SyncProtocol:
         extra_headers: Mapping[str, str] | None = None,
     ) -> str:
         body = content.encode("utf-8") if isinstance(content, str) else content
-        kwargs: dict[str, Any] = {
-            "method": method,
-            "url": path,
-            "params": params,
-            "content": body,
-        }
-        if timeout is not None:
-            kwargs["timeout"] = (
-                timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)
-            )
-        if extra_headers is not None:
-            kwargs["headers"] = dict(extra_headers)
-        try:
-            response = self.client._client.request(**kwargs)
-        except httpx.HTTPError as exc:
-            raise _to_transport_error(exc) from exc
-        if response.status_code >= 400:
-            raise _to_http_error(response)
+        # Route through the client's request path (rather than the raw
+        # ``client._client``) so per-call options — ``with_options(timeout=…)``,
+        # ``with_options(max_retries=…)`` — base-URL path joining, and the
+        # shared error mapping all apply to text requests (OData ``$metadata``
+        # and every WFS operation), matching the JSON path.
+        response = self.client._request(
+            method,
+            path,
+            params=params,
+            content=body,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        )
         return cast(str, response.text)
 
 
@@ -464,22 +493,16 @@ class _AsyncProtocol:
         extra_headers: Mapping[str, str] | None = None,
     ) -> str:
         body = content.encode("utf-8") if isinstance(content, str) else content
-        kwargs: dict[str, Any] = {
-            "method": method,
-            "url": path,
-            "params": params,
-            "content": body,
-        }
-        if timeout is not None:
-            kwargs["timeout"] = (
-                timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)
-            )
-        if extra_headers is not None:
-            kwargs["headers"] = dict(extra_headers)
-        try:
-            response = await self.client._client.request(**kwargs)
-        except httpx.HTTPError as exc:
-            raise _to_transport_error(exc) from exc
-        if response.status_code >= 400:
-            raise _to_http_error(response)
+        # Route through the client's request path (rather than the raw
+        # ``client._client``) so per-call options — ``with_options(timeout=…)``,
+        # ``with_options(max_retries=…)`` — base-URL path joining, and the
+        # shared error mapping all apply to text requests (OData ``$metadata``
+        # and every WFS operation), matching the JSON path.
+        response = await self.client._request(
+            method,
+            path,
+            params=params,
+            content=body,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        )
         return cast(str, response.text)

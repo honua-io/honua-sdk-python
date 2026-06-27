@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.1.6](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.5...python-sdk-v0.1.6) (2026-06-27)
+
+
+### Features
+
+* **honua-sdk:** geometry/schema/cursor parity for GP authoring ([#119](https://github.com/honua-io/honua-sdk-python/issues/119)) ([4a0d490](https://github.com/honua-io/honua-sdk-python/commit/4a0d490e28e55fbed9c8c1fbf8a8db2588fcc450))
+
+
+### Bug Fixes
+
+* correct GP interop CRS/ring-winding/job-id handling ([#137](https://github.com/honua-io/honua-sdk-python/issues/137)) ([#140](https://github.com/honua-io/honua-sdk-python/issues/140)) ([3c88dc5](https://github.com/honua-io/honua-sdk-python/commit/3c88dc5715fa3e10ebb4d0669ce31155b4f0d9d1))
+* round-1 audit fixes — geocoding base path, limit=0 crash, gRPC M-only geometry, conformance probes, license text ([#138](https://github.com/honua-io/honua-sdk-python/issues/138)) ([e4644c8](https://github.com/honua-io/honua-sdk-python/commit/e4644c837cb66b54867278d284de7205f7de9bcf))
+
+## [0.1.5](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.4...python-sdk-v0.1.5) (2026-06-27)
+
+
+### Features
+
+* **migration:** expand arcpy codemod coverage + .atbx ModelBuilder + GP-service translation ([#100](https://github.com/honua-io/honua-sdk-python/issues/100)) ([ed84a72](https://github.com/honua-io/honua-sdk-python/commit/ed84a72e35e4349289392dd072d3e1a8dd43c1cb))
+
+
+### Bug Fixes
+
+* **sdk:** close auth credential leak on scheme downgrade and preserve base_url path prefix ([#134](https://github.com/honua-io/honua-sdk-python/issues/134)) ([eb0d3a6](https://github.com/honua-io/honua-sdk-python/commit/eb0d3a6236aec7b569abb74c377d29aa60b2ec6d))
+* **sdk:** emit spec-mandatory params for STAC/WMS/WMTS typed helpers ([#135](https://github.com/honua-io/honua-sdk-python/issues/135)) ([c9da466](https://github.com/honua-io/honua-sdk-python/commit/c9da4667ad0f0d563cecf5b9cb7dbe967246ac88)), closes [#127](https://github.com/honua-io/honua-sdk-python/issues/127)
+* **sdk:** retry, geocoding, and parsing robustness fixes ([#109](https://github.com/honua-io/honua-sdk-python/issues/109)) ([5285190](https://github.com/honua-io/honua-sdk-python/commit/52851904dbdb291b2d1533dc438e6d369606ffb0))
+* **sdk:** surface GeoServices error envelopes and correct query total_count ([#133](https://github.com/honua-io/honua-sdk-python/issues/133)) ([44ff5ee](https://github.com/honua-io/honua-sdk-python/commit/44ff5ee1b0969b0210ed5644f21fd2570f928ee9)), closes [#122](https://github.com/honua-io/honua-sdk-python/issues/122) [#128](https://github.com/honua-io/honua-sdk-python/issues/128)
+
 ## [0.1.4](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.3...python-sdk-v0.1.4) (2026-06-10)
 
 

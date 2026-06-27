@@ -3666,8 +3666,10 @@
     "honua_sdk": {
       "exports": [
         "ApplyEditsResult",
+        "AsyncAuthProvider",
         "AsyncHonuaClient",
         "AsyncHonuaGeocodingClient",
+        "AsyncRefreshableBearerTokenProvider",
         "AsyncSource",
         "AuthProvider",
         "BearerToken",
@@ -3678,10 +3680,12 @@
         "DataPlaneCapabilities",
         "DegradedReason",
         "EditOperationResult",
+        "Extent",
         "Feature",
         "FeatureQuery",
         "FeatureQueryResult",
         "FeatureSet",
+        "Field",
         "GeocodeResult",
         "GeocodeSuggestion",
         "HonuaAuthError",
@@ -3695,6 +3699,7 @@
         "HonuaTimeoutError",
         "HonuaTransportError",
         "InMemoryTokenStore",
+        "LayerSchema",
         "PROTOCOLS",
         "PROTOCOL_ALIASES",
         "Pagination",
@@ -3755,6 +3760,19 @@
           "qualname": "ApplyEditsResult",
           "signature": "(add_results: 'tuple[EditOperationResult, ...]' = (), update_results: 'tuple[EditOperationResult, ...]' = (), delete_results: 'tuple[EditOperationResult, ...]' = (), raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
+        "AsyncAuthProvider": {
+          "kind": "class",
+          "methods": {
+            "auth_headers_async": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'Mapping[str, str]'"
+            }
+          },
+          "module": "honua_sdk.auth",
+          "qualname": "AsyncAuthProvider",
+          "signature": "(*args, **kwargs)"
+        },
         "AsyncHonuaClient": {
           "kind": "class",
           "methods": {
@@ -3807,13 +3825,17 @@
               "kind": "method",
               "signature": "(self) -> \"'AsyncHonuaGeoprocessing'\""
             },
+            "grpc": {
+              "kind": "method",
+              "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcAsyncClient'\""
+            },
             "image_server": {
               "kind": "method",
               "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
             },
             "iter_query": {
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
             },
             "list_service_summaries": {
               "async": true,
@@ -3860,7 +3882,7 @@
             "query": {
               "async": true,
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'FeatureQueryResult'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, out_statistics: 'Sequence[Mapping[str, Any]] | None' = None, group_by: 'str | Sequence[str] | None' = None, return_distinct_values: 'bool | None' = None, return_count_only: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'FeatureQueryResult'"
             },
             "query_feature_set": {
               "async": true,
@@ -3952,6 +3974,34 @@
           "qualname": "AsyncHonuaGeocodingClient",
           "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
         },
+        "AsyncRefreshableBearerTokenProvider": {
+          "kind": "class",
+          "methods": {
+            "auth_headers_async": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'Mapping[str, str]'"
+            },
+            "get_token": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'BearerToken'"
+            },
+            "refresh": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'BearerToken'"
+            },
+            "revoke": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'None'"
+            }
+          },
+          "module": "honua_sdk.auth",
+          "qualname": "AsyncRefreshableBearerTokenProvider",
+          "signature": "(refresh: 'Callable[[], Awaitable[BearerToken | Mapping[str, Any] | str]]', *, initial_token: 'BearerToken | Mapping[str, Any] | str | None' = None, token_store: 'TokenStore | None' = None, refresh_window_seconds: 'int | float' = 60, revoke: 'Callable[[BearerToken], Awaitable[None]] | None' = None) -> 'None'"
+        },
         "AsyncSource": {
           "kind": "class",
           "methods": {
@@ -3963,9 +4013,17 @@
             "id": {
               "kind": "property"
             },
+            "insert_cursor": {
+              "kind": "method",
+              "signature": "(self, *, batch_size: 'int' = 200, rollback_on_failure: 'bool' = True) -> \"'AsyncInsertCursor'\""
+            },
             "iter_features": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
+            },
+            "iter_rows": {
+              "kind": "method",
+              "signature": "(self, fields: 'Sequence[str] | None' = None, *, where: 'str | None' = None, geometry_filter: 'Mapping[str, Any] | None' = None, **query_kwargs: 'Any') -> \"'AsyncIterator[Any]'\""
             },
             "protocol": {
               "kind": "method",
@@ -3977,20 +4035,38 @@
             "query": {
               "async": true,
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Result[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Result[QueryFeature]'"
             },
             "query_all": {
               "async": true,
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'tuple[QueryFeature, ...]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'tuple[QueryFeature, ...]'"
+            },
+            "schema": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, layer_id: 'int | None' = None) -> 'LayerSchema'"
+            },
+            "search_cursor": {
+              "kind": "method",
+              "signature": "(self, fields: 'Sequence[str] | None' = None, *, where: 'str | None' = None, geometry_filter: 'Mapping[str, Any] | None' = None, **query_kwargs: 'Any') -> \"'AsyncSearchCursor'\""
             },
             "stream": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'AsyncIterator[QueryFeature]'"
             },
             "supports": {
               "kind": "method",
               "signature": "(self, capability: 'Capability | str') -> 'bool'"
+            },
+            "to_geodataframe": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **query_kwargs: 'Any') -> 'Any'"
+            },
+            "update_cursor": {
+              "kind": "method",
+              "signature": "(self, fields: 'Sequence[str] | None' = None, *, where: 'str | None' = None, geometry_filter: 'Mapping[str, Any] | None' = None, batch_size: 'int' = 200, rollback_on_failure: 'bool' = True, **query_kwargs: 'Any') -> \"'AsyncUpdateCursor'\""
             }
           },
           "module": "honua_sdk.source",
@@ -4182,6 +4258,44 @@
           "qualname": "EditOperationResult",
           "signature": "(success: 'bool', object_id: 'int | None' = None, global_id: 'str | None' = None, error: 'Mapping[str, Any] | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
+        "Extent": {
+          "fields": [
+            {
+              "annotation": "float",
+              "name": "xmin"
+            },
+            {
+              "annotation": "float",
+              "name": "ymin"
+            },
+            {
+              "annotation": "float",
+              "name": "xmax"
+            },
+            {
+              "annotation": "float",
+              "name": "ymax"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "srid"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "bbox": {
+              "kind": "property"
+            },
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any] | None') -> \"'Extent | None'\""
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "Extent",
+          "signature": "(xmin: 'float', ymin: 'float', xmax: 'float', ymax: 'float', srid: 'int | None' = None) -> None"
+        },
         "Feature": {
           "fields": [
             {
@@ -4205,8 +4319,15 @@
               "kind": "classmethod",
               "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'Feature'\""
             },
+            "geometry_shape": {
+              "kind": "property"
+            },
             "object_id": {
               "kind": "property"
+            },
+            "to_shapely": {
+              "kind": "method",
+              "signature": "(self) -> \"'BaseGeometry | None'\""
             }
           },
           "module": "honua_sdk.models",
@@ -4245,6 +4366,11 @@
               "name": "bbox"
             },
             {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "spatial_filter"
+            },
+            {
               "annotation": "str | Sequence[str] | None",
               "default": "None",
               "name": "fields"
@@ -4253,6 +4379,26 @@
               "annotation": "bool",
               "default": "True",
               "name": "return_geometry"
+            },
+            {
+              "annotation": "Sequence[Mapping[str, Any]] | None",
+              "default": "None",
+              "name": "out_statistics"
+            },
+            {
+              "annotation": "str | Sequence[str] | None",
+              "default": "None",
+              "name": "group_by"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "return_distinct_values"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "return_count_only"
             },
             {
               "annotation": "int | None",
@@ -4278,7 +4424,7 @@
           "kind": "class",
           "module": "honua_sdk.models",
           "qualname": "FeatureQuery",
-          "signature": "(source: 'str', protocol: 'QueryProtocol | str' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(source: 'str', protocol: 'QueryProtocol | str' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, out_statistics: 'Sequence[Mapping[str, Any]] | None' = None, group_by: 'str | Sequence[str] | None' = None, return_distinct_values: 'bool' = False, return_count_only: 'bool' = False, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "FeatureQueryResult": {
           "fields": [
@@ -4362,6 +4508,58 @@
           "qualname": "FeatureSet",
           "signature": "(features: 'tuple[Feature, ...]', fields: 'tuple[Mapping[str, Any], ...]' = (), geometry_type: 'str | None' = None, spatial_reference: 'Mapping[str, Any] | None' = None, exceeded_transfer_limit: 'bool' = False, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
+        "Field": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "str",
+              "name": "type"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "alias"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "length"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "nullable"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "editable"
+            },
+            {
+              "annotation": "Any",
+              "default": "None",
+              "name": "default_value"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "domain"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'Field'\""
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "Field",
+          "signature": "(name: 'str', type: 'str', alias: 'str | None' = None, length: 'int | None' = None, nullable: 'bool' = True, editable: 'bool' = True, default_value: 'Any' = None, domain: 'Mapping[str, Any] | None' = None) -> None"
+        },
         "GeocodeResult": {
           "fields": [
             {
@@ -4386,7 +4584,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_sdk.geocoding",
+          "module": "honua_sdk._geocoding_models",
           "qualname": "GeocodeResult",
           "signature": "(address: 'str', latitude: 'float', longitude: 'float', score: 'float', attributes: 'dict[str, str | None]') -> None"
         },
@@ -4406,7 +4604,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_sdk.geocoding",
+          "module": "honua_sdk._geocoding_models",
           "qualname": "GeocodeSuggestion",
           "signature": "(text: 'str', magic_key: 'str', is_collection: 'bool') -> None"
         },
@@ -4469,13 +4667,17 @@
               "kind": "method",
               "signature": "(self) -> \"'HonuaGeoprocessing'\""
             },
+            "grpc": {
+              "kind": "method",
+              "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcClient'\""
+            },
             "image_server": {
               "kind": "method",
               "signature": "(self, service_id: 'str | None' = None) -> \"'GeoServicesImageServerClient'\""
             },
             "iter_query": {
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Iterator[QueryFeature]'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Iterator[QueryFeature]'"
             },
             "list_service_summaries": {
               "kind": "method",
@@ -4519,7 +4721,7 @@
             },
             "query": {
               "kind": "method",
-              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'FeatureQueryResult'"
+              "signature": "(self, source: 'str | FeatureQuery', *, protocol: 'QueryProtocol | None' = None, layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, out_statistics: 'Sequence[Mapping[str, Any]] | None' = None, group_by: 'str | Sequence[str] | None' = None, return_distinct_values: 'bool | None' = None, return_count_only: 'bool | None' = None, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'FeatureQueryResult'"
             },
             "query_feature_set": {
               "kind": "method",
@@ -4654,6 +4856,71 @@
           "module": "honua_sdk.auth",
           "qualname": "InMemoryTokenStore",
           "signature": "(token: 'BearerToken | Mapping[str, Any] | str | None' = None) -> 'None'"
+        },
+        "LayerSchema": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "layer_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "geometry_type"
+            },
+            {
+              "annotation": "tuple[Field, ...]",
+              "default": "()",
+              "name": "fields"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "srid"
+            },
+            {
+              "annotation": "Extent | None",
+              "default": "None",
+              "name": "extent"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "object_id_field"
+            },
+            {
+              "annotation": "Mapping[str, Any] | None",
+              "default": "None",
+              "name": "spatial_reference"
+            },
+            {
+              "annotation": "Mapping[str, Any]",
+              "defaultFactory": "dict",
+              "name": "raw"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "field": {
+              "kind": "method",
+              "signature": "(self, name: 'str') -> \"'Field | None'\""
+            },
+            "field_names": {
+              "kind": "property"
+            },
+            "from_metadata": {
+              "kind": "classmethod",
+              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'LayerSchema'\""
+            }
+          },
+          "module": "honua_sdk.models",
+          "qualname": "LayerSchema",
+          "signature": "(name: 'str', layer_id: 'int | None' = None, geometry_type: 'str | None' = None, fields: 'tuple[Field, ...]' = (), srid: 'int | None' = None, extent: 'Extent | None' = None, object_id_field: 'str | None' = None, spatial_reference: 'Mapping[str, Any] | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
         },
         "PROTOCOLS": {
           "kind": "constant",
@@ -4822,6 +5089,15 @@
             }
           ],
           "kind": "class",
+          "methods": {
+            "geometry_shape": {
+              "kind": "property"
+            },
+            "to_shapely": {
+              "kind": "method",
+              "signature": "(self) -> \"'BaseGeometry | None'\""
+            }
+          },
           "module": "honua_sdk.models",
           "qualname": "QueryFeature",
           "signature": "(id: 'str | int | None', properties: 'Mapping[str, Any]', geometry: 'Mapping[str, Any] | None' = None, protocol: 'str' = '', source: 'str' = '', raw: 'Mapping[str, Any]' = <factory>) -> None"
@@ -4919,6 +5195,12 @@
             }
           ],
           "kind": "class",
+          "methods": {
+            "to_geodataframe": {
+              "kind": "method",
+              "signature": "(self) -> 'Any'"
+            }
+          },
           "module": "honua_sdk.models",
           "qualname": "Result",
           "signature": "(features: 'tuple[T, ...]' = (), exceeded_transfer_limit: 'bool' = False, total_count: 'int | None' = None, aggregate_rows: 'tuple[Mapping[str, Any], ...]' = (), extent: 'Mapping[str, Any] | None' = None, fields: 'tuple[Mapping[str, Any], ...]' = (), degraded: 'tuple[DegradedReason, ...]' = (), protocol: 'str' = '', source_id: 'str' = '', query: 'Query | None' = None, raw: 'Mapping[str, Any]' = <factory>, raw_legacy: \"'FeatureQueryResult | None'\" = None) -> None"
@@ -4943,7 +5225,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_sdk.geocoding",
+          "module": "honua_sdk._geocoding_models",
           "qualname": "ReverseGeocodeResult",
           "signature": "(address: 'str', latitude: 'float', longitude: 'float', attributes: 'dict[str, str | None]') -> None"
         },
@@ -4990,9 +5272,17 @@
             "id": {
               "kind": "property"
             },
+            "insert_cursor": {
+              "kind": "method",
+              "signature": "(self, *, batch_size: 'int' = 200, rollback_on_failure: 'bool' = True) -> \"'InsertCursor'\""
+            },
             "iter_features": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'Iterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'Iterator[QueryFeature]'"
+            },
+            "iter_rows": {
+              "kind": "method",
+              "signature": "(self, fields: 'Sequence[str] | None' = None, *, where: 'str | None' = None, geometry_filter: 'Mapping[str, Any] | None' = None, **query_kwargs: 'Any') -> \"'Iterator[Any]'\""
             },
             "protocol": {
               "kind": "method",
@@ -5003,19 +5293,35 @@
             },
             "query": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Result[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Result[QueryFeature]'"
             },
             "query_all": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'tuple[QueryFeature, ...]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None) -> 'tuple[QueryFeature, ...]'"
+            },
+            "schema": {
+              "kind": "method",
+              "signature": "(self, layer_id: 'int | None' = None) -> 'LayerSchema'"
+            },
+            "search_cursor": {
+              "kind": "method",
+              "signature": "(self, fields: 'Sequence[str] | None' = None, *, where: 'str | None' = None, geometry_filter: 'Mapping[str, Any] | None' = None, **query_kwargs: 'Any') -> \"'SearchCursor'\""
             },
             "stream": {
               "kind": "method",
-              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Iterator[QueryFeature]'"
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, *, where: 'str | None' = None, out_fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, limit: 'int | None' = None, page_size: 'int | None' = None, max_pages: 'int | None' = None, cql_filter: 'str | None' = None, where_as_cql: 'bool | None' = None, extra_params: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, filter: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'Iterator[QueryFeature]'"
             },
             "supports": {
               "kind": "method",
               "signature": "(self, capability: 'Capability | str') -> 'bool'"
+            },
+            "to_geodataframe": {
+              "kind": "method",
+              "signature": "(self, query: 'Query | Mapping[str, Any] | None' = None, **query_kwargs: 'Any') -> 'Any'"
+            },
+            "update_cursor": {
+              "kind": "method",
+              "signature": "(self, fields: 'Sequence[str] | None' = None, *, where: 'str | None' = None, geometry_filter: 'Mapping[str, Any] | None' = None, batch_size: 'int' = 200, rollback_on_failure: 'bool' = True, **query_kwargs: 'Any') -> \"'UpdateCursor'\""
             }
           },
           "module": "honua_sdk.source",

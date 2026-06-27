@@ -8,8 +8,15 @@ from typing import Any
 import httpx
 
 from ._async_retry import AsyncRetryTransport
+from ._endpoints import parse_json_response_body
+from ._geocoding_models import (
+    GeocodeResult,
+    GeocodeSuggestion,
+    ReverseGeocodeResult,
+    _extract_location_xy,
+)
 from ._http import (
-    _apply_sensitive_auth_headers,
+    _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
     _encode_path_segment,
     _extract_trusted_authority,
@@ -18,18 +25,14 @@ from ._http import (
     _to_transport_error,
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
+    encode_request_path,
+    join_base_path,
 )
 from .auth import AuthProvider
-from .geocoding import (
-    GeocodeResult,
-    GeocodeSuggestion,
-    ReverseGeocodeResult,
-    _extract_location_xy,
-)
 
 
 class AsyncHonuaGeocodingClient:
-    """Async task-oriented client for Honua GeocodeServer workflows."""
+    """Asynchronous task-oriented client for Honua GeocodeServer workflows."""
 
     def __init__(
         self,
@@ -65,17 +68,21 @@ class AsyncHonuaGeocodingClient:
         auth_headers = _build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
 
         async def _request_hook(request: httpx.Request) -> None:
-            _apply_sensitive_auth_headers(
+            await _apply_sensitive_auth_headers_async(
                 request,
                 trusted_authority=trusted_authority,
                 auth_headers=auth_headers,
                 auth_provider=auth_provider,
             )
 
-        effective_transport = transport
-        if max_retries > 0:
-            inner = effective_transport or httpx.AsyncHTTPTransport()
-            effective_transport = AsyncRetryTransport(inner, max_retries=max_retries)
+        # Always wrap with the retry transport — even at ``max_retries == 0`` —
+        # matching the core client so retry installation is consistent across
+        # the SDK. The transport only retries when its budget is positive, so a
+        # zero budget is a single attempt (no behaviour change).
+        inner = transport or httpx.AsyncHTTPTransport()
+        effective_transport: httpx.AsyncBaseTransport = AsyncRetryTransport(
+            inner, max_retries=max_retries
+        )
 
         self._client = httpx.AsyncClient(
             base_url=normalized_base_url,
@@ -152,6 +159,10 @@ class AsyncHonuaGeocodingClient:
 
         results: list[GeocodeResult] = []
         for candidate in data.get("candidates", []):
+            if not isinstance(candidate, Mapping):
+                # Skip malformed (non-object) entries rather than raising a raw
+                # AttributeError outside the Honua error contract.
+                continue
             coords = _extract_location_xy(candidate.get("location"))
             if coords is None:
                 # No usable location: skip rather than emit a (0, 0) result.
@@ -280,6 +291,10 @@ class AsyncHonuaGeocodingClient:
 
         results: list[GeocodeSuggestion] = []
         for suggestion in data.get("suggestions", []):
+            if not isinstance(suggestion, Mapping):
+                # Skip malformed (non-object) entries rather than raising a raw
+                # AttributeError outside the Honua error contract.
+                continue
             results.append(
                 GeocodeSuggestion(
                     text=suggestion.get("text", ""),
@@ -309,17 +324,10 @@ class AsyncHonuaGeocodingClient:
             extra_headers=extra_headers,
             idempotency_key=idempotency_key,
         )
-        if not response.content:
-            return {}
-
-        try:
-            payload = response.json()
-        except ValueError:
-            return {"raw": response.text}
-
-        if isinstance(payload, Mapping):
-            return dict(payload)
-        return {"data": payload}
+        # Reuse the shared parser so GeocodeServer error envelopes returned as
+        # HTTP 200 (``{"error": {...}}``) surface as ``HonuaHttpError`` rather
+        # than flowing back as a success dict.
+        return parse_json_response_body(response)
 
     async def _request(
         self,
@@ -339,9 +347,16 @@ class AsyncHonuaGeocodingClient:
                 headers.update(extra_headers)
             if idempotency_key is not None:
                 headers["Idempotency-Key"] = idempotency_key
+        # Build a full URL the same way the core client does: prepend any
+        # base-URL path prefix (so sub-path hosting resolves) and override the
+        # raw path so httpx does not percent-decode already-encoded segments
+        # (e.g. a locator name containing a space or "/").
+        base_url = self._client.base_url
+        raw_path = join_base_path(base_url, path)
+        url = base_url.copy_with(raw_path=encode_request_path(raw_path))
         request_kwargs: dict[str, Any] = {
             "method": method,
-            "url": path,
+            "url": url,
             "params": params,
             "json": json_body,
             "headers": headers,

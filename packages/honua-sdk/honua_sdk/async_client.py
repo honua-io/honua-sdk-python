@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from . import _endpoints
-from ._async_retry import AsyncRetryTransport
+from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
 from ._http import (
-    _apply_sensitive_auth_headers,
+    _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
     _extract_trusted_authority,
     _normalize_base_url,
@@ -21,6 +21,8 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
     _warn_deprecated_bearer_token,
+    encode_request_path,
+    join_base_path,
 )
 from ._query import (
     features_from_geojson_page,
@@ -46,6 +48,7 @@ from ._query_dispatch import (
     stac_items_kwargs,
     stac_pages_kwargs,
     validate_filter_routing,
+    warn_if_truncated,
 )
 from .errors import HonuaHttpError
 from .models import (
@@ -64,6 +67,7 @@ if TYPE_CHECKING:
     from .async_geocoding import AsyncHonuaGeocodingClient
     from .auth import AuthProvider
     from .geoprocessing import AsyncHonuaGeoprocessing
+    from .grpc import HonuaGrpcAsyncClient
     from .models import SourceDescriptor
     from .ogc import AsyncHonuaOgcFeatures
     from .protocols import (
@@ -86,6 +90,22 @@ if TYPE_CHECKING:
     from .protocols.scenes import AsyncElevationClient
     from .source import AsyncSource
     from .workflow import AsyncHonuaWorkflow
+
+
+def _grpc_target_from_base_url(base_url: httpx.URL) -> str:
+    """Derive a gRPC ``host:port`` dial target from an HTTP base URL.
+
+    The Honua gRPC FeatureService is reached on the same authority as the REST
+    surface. We reuse the REST ``base_url``'s host and port, defaulting the
+    port to 443 for ``https`` and 80 otherwise when the URL omits one.
+    """
+    host = base_url.host
+    if not host:
+        raise ValueError("Cannot derive a gRPC target: the client base_url has no host.")
+    port = base_url.port
+    if port is None:
+        port = 443 if base_url.scheme == "https" else 80
+    return f"{host}:{port}"
 
 
 class AsyncHonuaClient:
@@ -184,7 +204,7 @@ class AsyncHonuaClient:
         auth_headers = _build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
 
         async def _request_hook(request: httpx.Request) -> None:
-            _apply_sensitive_auth_headers(
+            await _apply_sensitive_auth_headers_async(
                 request,
                 trusted_authority=trusted_authority,
                 auth_headers=auth_headers,
@@ -298,8 +318,19 @@ class AsyncHonuaClient:
                 if (timeout is not None and timeout < self._init_timeout)
                 else self._init_timeout
             )
-            # Suppress the re-fired bearer_token deprecation on the internal
-            # clone path; the caller acknowledged it at original construction.
+            # A caller-supplied transport is owned by the original client. The
+            # clone owns its OWN httpx.AsyncClient, so if it reused the raw
+            # caller transport, closing the clone would tear down the shared
+            # connection pool the original still depends on. Wrap it so the
+            # clone reuses the transport (preserving custom transports / a
+            # smaller transport-level timeout) without closing it. When no
+            # transport was supplied, pass ``None`` so the clone builds its own
+            # independent transport.
+            clone_transport = (
+                AsyncNonClosingTransport(self._init_transport)
+                if self._init_transport is not None
+                else None
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 clone = self.__class__(
@@ -309,7 +340,7 @@ class AsyncHonuaClient:
                     bearer_token=self._init_bearer_token,
                     auth_provider=self._init_auth_provider,
                     follow_redirects=self._init_follow_redirects,
-                    transport=self._init_transport,
+                    transport=clone_transport,
                     max_retries=self._init_max_retries,
                 )
             clone._options_timeout = (
@@ -765,6 +796,71 @@ class AsyncHonuaClient:
 
         return AsyncODataClient(self)
 
+    def grpc(
+        self,
+        *,
+        target: str | None = None,
+        insecure: bool | None = None,
+        credentials: Any = None,
+        timeout: float | None = 30.0,
+        extra_metadata: Mapping[str, str] | None = None,
+    ) -> "HonuaGrpcAsyncClient":
+        """Return a gRPC FeatureService client bound to this client's config.
+
+        Builds an :class:`AsyncHonuaGrpcClient` (the analytic gRPC surface:
+        unary + streaming ``QueryFeatures`` with server-side spatial filters,
+        statistics, and aggregation) from the same base URL and authentication
+        this client was constructed with — so the gRPC surface is reachable in
+        the same token-scoped harness without re-plumbing a channel.
+
+        The dial target defaults to the REST ``base_url``'s ``host:port`` (the
+        Honua gRPC service shares the REST authority). Authentication is carried
+        as gRPC call metadata derived from the client's ``api_key`` /
+        ``bearer_token`` / ``auth_provider`` via
+        :func:`honua_sdk.grpc.build_grpc_metadata`. Transport security defaults
+        to TLS for an ``https`` base URL and plaintext otherwise; override with
+        ``credentials=`` (a :class:`grpc.ChannelCredentials`) or
+        ``insecure=True``.
+
+        Args:
+            target: Explicit ``host:port`` gRPC dial target. Defaults to the
+                REST base URL's authority.
+            insecure: Force a plaintext channel. Defaults to ``True`` for a
+                non-``https`` base URL, ``False`` otherwise.
+            credentials: Explicit channel credentials. Defaults to
+                :func:`grpc.ssl_channel_credentials` for a secure channel.
+            timeout: Per-call gRPC timeout in seconds.
+            extra_metadata: Additional metadata entries merged onto the
+                auth-derived metadata.
+
+        Returns:
+            An :class:`AsyncHonuaGrpcClient` ready to issue feature queries.
+
+        Raises:
+            ValueError: The client base_url has no host to derive a target from.
+        """
+        from .grpc import HonuaGrpcAsyncClient, build_grpc_metadata
+
+        resolved_target = target or _grpc_target_from_base_url(self._base_url)
+        metadata = build_grpc_metadata(
+            api_key=self._init_api_key,
+            bearer_token=self._init_bearer_token,
+            auth_provider=self._init_auth_provider,
+            extra_metadata=extra_metadata,
+        )
+        use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
+        if credentials is None and not use_insecure:
+            import grpc
+
+            credentials = grpc.ssl_channel_credentials()
+        return HonuaGrpcAsyncClient(
+            resolved_target,
+            credentials=credentials,
+            insecure=use_insecure,
+            metadata=metadata,
+            timeout=timeout,
+        )
+
     async def query(
         self,
         source: str | FeatureQuery,
@@ -774,11 +870,16 @@ class AsyncHonuaClient:
         where: str | None = None,
         filter: str | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
+        out_statistics: Sequence[Mapping[str, Any]] | None = None,
+        group_by: str | Sequence[str] | None = None,
+        return_distinct_values: bool | None = None,
+        return_count_only: bool | None = None,
         page_size: int | None = None,
         limit: int | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 100,
         extra_params: Mapping[str, Any] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -798,11 +899,28 @@ class AsyncHonuaClient:
             filter: CQL2/OData filter expression (OGC Features / STAC / OData).
             bbox: Spatial filter as a list/tuple of coordinates or comma
                 string. Not supported when ``protocol`` is OData.
+            spatial_filter: Arbitrary-geometry spatial filter (FeatureServer
+                only): a mapping of ``geometry`` (Esri JSON / GeoJSON /
+                ``__geo_interface__``), ``relationship`` (``intersects``,
+                ``within``, ``contains``, ``crosses``, ``touches``,
+                ``overlaps``, ``within-distance``), optional ``in_sr`` and
+                ``distance``/``units``. Translated to the GeoServices
+                ``geometry``/``geometryType``/``spatialRel``/``inSR`` params.
             fields: Attribute selection; comma-string or sequence of names.
             return_geometry: Whether to include geometry (FeatureServer).
+            out_statistics: Server-side statistic definitions (FeatureServer):
+                a sequence of mappings with ``statistic_type`` (``count``,
+                ``sum``, ``min``, ``max``, ``avg``, ``stddev``, ``var``),
+                ``on_statistic_field``, and optional ``out_statistic_field_name``.
+            group_by: Group-by fields paired with ``out_statistics``.
+            return_distinct_values: Request distinct rows (FeatureServer).
+            return_count_only: Request only the matching count (FeatureServer).
             page_size: Page size hint for paginated protocols.
             limit: Maximum number of features to collect across all pages.
-            max_pages: Safety cap on pages walked.
+            max_pages: Safety cap on pages walked; defaults to ``100``. Pass
+                ``None`` for an unbounded walk (FeatureServer) — a
+                ``ResourceWarning`` is emitted if a bounded walk stops with
+                more features still available on the server.
             extra_params: Additional protocol-specific query parameters
                 merged into each request.
             timeout: Per-call timeout override forwarded to every page
@@ -831,8 +949,13 @@ class AsyncHonuaClient:
             where=where,
             filter=filter,
             bbox=bbox,
+            spatial_filter=spatial_filter,
             fields=fields,
             return_geometry=return_geometry,
+            out_statistics=out_statistics,
+            group_by=group_by,
+            return_distinct_values=return_distinct_values,
+            return_count_only=return_count_only,
             page_size=page_size,
             limit=limit,
             max_pages=max_pages,
@@ -846,6 +969,7 @@ class AsyncHonuaClient:
             timeout=timeout,
             extra_headers=merge_idempotency_into_headers(extra_headers, idempotency_key),
         )
+        warn_if_truncated(query, exceeded=exceeded, pages_seen=pages_seen)
         return FeatureQueryResult(
             features=features,
             protocol=normalized_protocol,
@@ -905,7 +1029,12 @@ class AsyncHonuaClient:
                 ]
                 if _extend(page_features):
                     break
-            return tuple(collected), exceeded, len(collected), pages_seen
+            # FeatureServer ``query`` responses do not carry a grand total
+            # (no ``numberMatched`` equivalent), so ``total_count`` is unknown.
+            # Reporting ``len(collected)`` here is misleading because it is the
+            # number of features *returned* — capped by ``limit``/``max_pages``
+            # — not the server's total match count. Surface ``None`` instead.
+            return tuple(collected), exceeded, None, pages_seen
 
         if normalized_protocol == "ogc-features":
             last_page: Any = None
@@ -928,6 +1057,7 @@ class AsyncHonuaClient:
             return tuple(collected), exceeded, total_count, pages_seen
 
         if normalized_protocol == "stac":
+            last_page = None
             async for page in self.stac().item_pages(  # type: ignore[assignment]
                 query.source,
                 **stac_pages_kwargs(
@@ -948,6 +1078,7 @@ class AsyncHonuaClient:
             return tuple(collected), exceeded, total_count, pages_seen
 
         reject_odata_bbox(query)
+        last_page = None
         async for page in self.odata().features_pages(  # type: ignore[assignment]
             **odata_pages_kwargs(
                 query, timeout=timeout, extra_headers=extra_headers
@@ -975,11 +1106,12 @@ class AsyncHonuaClient:
         where: str | None = None,
         filter: str | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         page_size: int | None = None,
         limit: int | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 100,
         extra_params: Mapping[str, Any] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1001,11 +1133,14 @@ class AsyncHonuaClient:
             where: GeoServices-style ``WHERE`` clause (FeatureServer only).
             filter: CQL2/OData filter expression for OGC/STAC/OData.
             bbox: Spatial filter; not supported for OData.
+            spatial_filter: Arbitrary-geometry spatial filter (FeatureServer);
+                see :meth:`query` for the mapping shape.
             fields: Attribute selection.
             return_geometry: Whether to include geometry (FeatureServer).
             page_size: Page size hint for paginated protocols.
             limit: Maximum number of features to yield across all pages.
-            max_pages: Safety cap on pages walked.
+            max_pages: Safety cap on pages walked; defaults to ``100``. Pass
+                ``None`` for an unbounded walk (FeatureServer).
             extra_params: Protocol-specific query parameters merged into
                 each request.
 
@@ -1029,6 +1164,7 @@ class AsyncHonuaClient:
             where=where,
             filter=filter,
             bbox=bbox,
+            spatial_filter=spatial_filter,
             fields=fields,
             return_geometry=return_geometry,
             page_size=page_size,
@@ -1489,6 +1625,7 @@ class AsyncHonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        content: bytes | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1504,18 +1641,30 @@ class AsyncHonuaClient:
         * ``idempotency_key``: when set, attaches an ``Idempotency-Key``
           header to the outbound request, overriding any header of the
           same name in ``headers`` / ``extra_headers``.
+
+        ``content`` sends a raw request body (used by the protocol text path
+        for OData ``$metadata`` / WFS operations); it is mutually exclusive
+        with ``json_body``.
         """
         # Build a full URL so httpx does not re-decode percent-encoded
-        # path segments during base-URL resolution.
-        url = self._base_url.copy_with(raw_path=path.encode("ascii"))
+        # path segments during base-URL resolution. Join onto the base URL's
+        # path prefix so sub-path deployments (e.g. behind a reverse proxy at
+        # ``/honua/``) are not silently rewritten to the bare endpoint path.
+        raw_path = join_base_path(self._base_url, path)
+        url = self._base_url.copy_with(raw_path=encode_request_path(raw_path))
         merged_headers = merge_request_headers(headers, extra_headers, idempotency_key)
         request_kwargs: dict[str, Any] = {
             "method": method,
             "url": url,
             "params": params,
-            "json": json_body,
             "headers": merged_headers,
         }
+        # ``json`` and ``content`` are mutually exclusive in httpx; prefer a
+        # raw body when supplied, otherwise serialize ``json_body``.
+        if content is not None:
+            request_kwargs["content"] = content
+        else:
+            request_kwargs["json"] = json_body
         if timeout is not None:
             request_kwargs["timeout"] = (
                 timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)

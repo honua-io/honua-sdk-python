@@ -10,7 +10,7 @@ from typing import Any, cast
 import httpx
 
 from honua_sdk._http import _encode_path_segment
-from honua_sdk.models import Feature, FeatureSet
+from honua_sdk.models import Feature, FeatureSet, LayerSchema
 
 from ._base import (
     BboxValue,
@@ -21,6 +21,7 @@ from ._base import (
     _bbox,
     _bool_text,
     _csv,
+    _iter_page_indices,
     _params,
     _query_value,
     _service_path,
@@ -53,6 +54,15 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
     def layer_metadata(self, layer_id: int, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", f"{self.path}/{layer_id}", params=_params({"f": response_format}, extra_params))
 
+    def schema(self, layer_id: int, *, extra_params: Params = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for a layer (arcpy.Describe analogue).
+
+        Fetches ``layer_metadata`` and parses the raw JSON into typed fields,
+        a normalized geometry type, the resolved spatial-reference WKID, and a
+        typed extent — so a GP tool maps outputs without hand-parsing JSON.
+        """
+        return LayerSchema.from_metadata(self.layer_metadata(layer_id, extra_params=extra_params))
+
     def query(
         self,
         layer_id: int,
@@ -84,7 +94,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -94,16 +104,16 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
     ) -> Iterator[FeatureSet]:
         if page_size <= 0:
             raise ValueError("page_size must be greater than zero.")
-        if max_pages <= 0:
-            raise ValueError("max_pages must be greater than zero.")
+        if max_pages is not None and max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero (or None for unbounded).")
         if limit is not None and limit <= 0:
             return
 
         total = 0
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
-        seen_object_ids: set[int] = set()
-        for _ in range(max_pages):
+        previous_object_ids: set[int] = set()
+        for _ in _iter_page_indices(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
                 break
@@ -126,11 +136,14 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
             )
             # Non-advancing-cursor guard: stop before re-yielding a page a
             # server that ignores ``resultOffset`` keeps returning (it would
-            # otherwise loop to ``max_pages`` with duplicate features).
+            # otherwise loop to ``max_pages`` with duplicate features). Compare
+            # against the previous page only — not every id seen across the
+            # whole walk — so the tracking set stays bounded to a single page on
+            # the streaming path.
             new_object_ids = {oid for f in page.features if (oid := f.object_id) is not None}
-            if new_object_ids and new_object_ids.issubset(seen_object_ids):
+            if new_object_ids and new_object_ids.issubset(previous_object_ids):
                 break
-            seen_object_ids |= new_object_ids
+            previous_object_ids = new_object_ids
             yield page
             page_count = len(page.features)
             total += page_count
@@ -144,7 +157,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -178,7 +191,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -467,6 +480,15 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
     async def layer_metadata(self, layer_id: int, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", f"{self.path}/{layer_id}", params=_params({"f": response_format}, extra_params))
 
+    async def schema(self, layer_id: int, *, extra_params: Params = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for a layer (arcpy.Describe analogue).
+
+        Fetches ``layer_metadata`` and parses the raw JSON into typed fields,
+        a normalized geometry type, the resolved spatial-reference WKID, and a
+        typed extent — so a GP tool maps outputs without hand-parsing JSON.
+        """
+        return LayerSchema.from_metadata(await self.layer_metadata(layer_id, extra_params=extra_params))
+
     async def query(
         self,
         layer_id: int,
@@ -498,7 +520,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -508,16 +530,16 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
     ) -> AsyncIterator[FeatureSet]:
         if page_size <= 0:
             raise ValueError("page_size must be greater than zero.")
-        if max_pages <= 0:
-            raise ValueError("max_pages must be greater than zero.")
+        if max_pages is not None and max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero (or None for unbounded).")
         if limit is not None and limit <= 0:
             return
 
         total = 0
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
-        seen_object_ids: set[int] = set()
-        for _ in range(max_pages):
+        previous_object_ids: set[int] = set()
+        for _ in _iter_page_indices(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
                 break
@@ -540,11 +562,14 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
             )
             # Non-advancing-cursor guard: stop before re-yielding a page a
             # server that ignores ``resultOffset`` keeps returning (it would
-            # otherwise loop to ``max_pages`` with duplicate features).
+            # otherwise loop to ``max_pages`` with duplicate features). Compare
+            # against the previous page only — not every id seen across the
+            # whole walk — so the tracking set stays bounded to a single page on
+            # the streaming path.
             new_object_ids = {oid for f in page.features if (oid := f.object_id) is not None}
-            if new_object_ids and new_object_ids.issubset(seen_object_ids):
+            if new_object_ids and new_object_ids.issubset(previous_object_ids):
                 break
-            seen_object_ids |= new_object_ids
+            previous_object_ids = new_object_ids
             yield page
             page_count = len(page.features)
             total += page_count
@@ -558,7 +583,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -592,7 +617,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,

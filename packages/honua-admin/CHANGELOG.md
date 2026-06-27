@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.4...python-admin-v0.1.5) (2026-06-27)
+
+
+### Bug Fixes
+
+* round-1 audit fixes — geocoding base path, limit=0 crash, gRPC M-only geometry, conformance probes, license text ([#138](https://github.com/honua-io/honua-sdk-python/issues/138)) ([e4644c8](https://github.com/honua-io/honua-sdk-python/commit/e4644c837cb66b54867278d284de7205f7de9bcf))
+
 ## [0.1.4](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.3...python-admin-v0.1.4) (2026-06-10)
 
 

@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from ._geometry import geometry_to_geo_interface, geometry_to_shapely
 from ._helpers import _optional_str
 from ._protocols import QueryProtocol
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from shapely.geometry.base import BaseGeometry
+
+# Sentinel distinguishing "not yet computed" from a cached ``None`` geometry.
+_UNSET: Any = object()
 
 
 @dataclass(frozen=True)
@@ -42,6 +49,37 @@ class Feature:
             if value is not None:
                 return int(value)
         return None
+
+    @property
+    def __geo_interface__(self) -> dict[str, Any] | None:
+        """GeoJSON-mapping view of this feature's geometry (``None`` if absent).
+
+        Implements the de-facto ``__geo_interface__`` protocol so the feature
+        plugs directly into Shapely (``shapely.geometry.shape(feature)``) and
+        the wider Python geospatial ecosystem. Handles both the Esri-JSON
+        (FeatureServer) and GeoJSON (OGC/STAC) geometry encodings.
+        """
+        return geometry_to_geo_interface(self.geometry)
+
+    def to_shapely(self) -> "BaseGeometry | None":
+        """Return this feature's geometry as a Shapely geometry.
+
+        The typed analogue of ``arcpy`` ``feature.SHAPE`` / the ArcGIS-API
+        geometry object: a GP tool gets Shapely geometry directly from the
+        feature without dropping to ``result.raw``. Returns ``None`` when the
+        feature has no geometry. Raises :class:`ImportError` with an install
+        hint when the optional ``shapely`` dependency is absent.
+        """
+        return geometry_to_shapely(self.geometry)
+
+    @property
+    def geometry_shape(self) -> "BaseGeometry | None":
+        """Cached Shapely geometry for this feature (see :meth:`to_shapely`)."""
+        cached = self.__dict__.get("_geometry_shape", _UNSET)
+        if cached is _UNSET:
+            cached = self.to_shapely()
+            object.__setattr__(self, "_geometry_shape", cached)
+        return cached
 
 
 @dataclass(frozen=True)
@@ -117,6 +155,35 @@ class QueryFeature:
     protocol: str = ""
     source: str = ""
     raw: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def __geo_interface__(self) -> dict[str, Any] | None:
+        """GeoJSON-mapping view of this feature's geometry (``None`` if absent).
+
+        Implements the de-facto ``__geo_interface__`` protocol so the feature
+        plugs directly into Shapely and the wider Python geospatial ecosystem.
+        Handles both Esri-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.
+        """
+        return geometry_to_geo_interface(self.geometry)
+
+    def to_shapely(self) -> "BaseGeometry | None":
+        """Return this feature's geometry as a Shapely geometry.
+
+        The typed analogue of ``arcpy`` ``feature.SHAPE`` / the ArcGIS-API
+        geometry object. Returns ``None`` when the feature carries no geometry.
+        Raises :class:`ImportError` with an install hint when the optional
+        ``shapely`` dependency is absent.
+        """
+        return geometry_to_shapely(self.geometry)
+
+    @property
+    def geometry_shape(self) -> "BaseGeometry | None":
+        """Cached Shapely geometry for this feature (see :meth:`to_shapely`)."""
+        cached = self.__dict__.get("_geometry_shape", _UNSET)
+        if cached is _UNSET:
+            cached = self.to_shapely()
+            object.__setattr__(self, "_geometry_shape", cached)
+        return cached
 
 
 @dataclass(frozen=True)

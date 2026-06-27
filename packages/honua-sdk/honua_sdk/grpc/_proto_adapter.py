@@ -176,7 +176,36 @@ def _convert_attribute(attr: Any) -> Any:  # noqa: PLR0911 -- proto oneof dispat
     return None
 
 
-def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912, PLR0915 -- proto oneof + per-shape conversion
+def _array_vertex(c: Any) -> list[Any]:
+    """Build an Esri-JSON coordinate array for a proto coordinate.
+
+    Esri JSON never uses ``null`` placeholders inside coordinate arrays. A
+    vertex is ``[x, y]``; ``[x, y, z]`` when only Z is present; ``[x, y, m]``
+    when only M is present; and ``[x, y, z, m]`` when both are present. The
+    geometry-level ``hasZ``/``hasM`` flags (set by :func:`_with_zm_flags`)
+    disambiguate a trailing third ordinate.
+    """
+    vertex: list[Any] = [c.x, c.y]
+    if c.HasField("z"):
+        vertex.append(c.z)
+        if c.HasField("m"):
+            vertex.append(c.m)
+    elif c.HasField("m"):
+        vertex.append(c.m)
+    return vertex
+
+
+def _with_zm_flags(result: dict[str, Any], *, has_z: bool, has_m: bool) -> dict[str, Any]:
+    """Annotate a geometry dict with ``hasZ``/``hasM`` so a consumer can tell
+    whether a third coordinate ordinate is Z or M."""
+    if has_z:
+        result["hasZ"] = True
+    if has_m:
+        result["hasM"] = True
+    return result
+
+
+def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912 -- proto oneof + per-shape conversion
     """Convert a proto Geometry to Esri JSON dict."""
     which = geom.WhichOneof("shape")
     if which == "point":
@@ -190,65 +219,49 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912, PLR
     elif which == "multi_point":
         mp = geom.multi_point
         points = []
+        has_z = has_m = False
         for p in mp.points:
-            coords: list[Any] = [p.x, p.y]
-            if p.HasField("z"):
-                coords.append(p.z)
-            elif p.HasField("m"):
-                coords.append(None)
-            if p.HasField("m"):
-                coords.append(p.m)
-            points.append(coords)
-        return {"points": points}
+            points.append(_array_vertex(p))
+            has_z = has_z or p.HasField("z")
+            has_m = has_m or p.HasField("m")
+        return _with_zm_flags({"points": points}, has_z=has_z, has_m=has_m)
     elif which == "polyline":
         pl = geom.polyline
         paths = []
+        has_z = has_m = False
         for path in pl.paths:
             coords_list: list[list[Any]] = []
             for c in path.coords:
-                coords = [c.x, c.y]
-                if c.HasField("z"):
-                    coords.append(c.z)
-                elif c.HasField("m"):
-                    coords.append(None)
-                if c.HasField("m"):
-                    coords.append(c.m)
-                coords_list.append(coords)
+                coords_list.append(_array_vertex(c))
+                has_z = has_z or c.HasField("z")
+                has_m = has_m or c.HasField("m")
             paths.append(coords_list)
-        return {"paths": paths}
+        return _with_zm_flags({"paths": paths}, has_z=has_z, has_m=has_m)
     elif which == "polygon":
         pg = geom.polygon
         rings = []
+        has_z = has_m = False
         for ring in pg.rings:
             coords_list = []
             for c in ring.coords:
-                coords = [c.x, c.y]
-                if c.HasField("z"):
-                    coords.append(c.z)
-                elif c.HasField("m"):
-                    coords.append(None)
-                if c.HasField("m"):
-                    coords.append(c.m)
-                coords_list.append(coords)
+                coords_list.append(_array_vertex(c))
+                has_z = has_z or c.HasField("z")
+                has_m = has_m or c.HasField("m")
             rings.append(coords_list)
-        return {"rings": rings}
+        return _with_zm_flags({"rings": rings}, has_z=has_z, has_m=has_m)
     elif which == "multi_polygon":
         mpg = geom.multi_polygon
         rings = []
+        has_z = has_m = False
         for poly in mpg.polygons:
             for ring in poly.rings:
                 coords_list = []
                 for c in ring.coords:
-                    coords = [c.x, c.y]
-                    if c.HasField("z"):
-                        coords.append(c.z)
-                    elif c.HasField("m"):
-                        coords.append(None)
-                    if c.HasField("m"):
-                        coords.append(c.m)
-                    coords_list.append(coords)
+                    coords_list.append(_array_vertex(c))
+                    has_z = has_z or c.HasField("z")
+                    has_m = has_m or c.HasField("m")
                 rings.append(coords_list)
-        return {"rings": rings}
+        return _with_zm_flags({"rings": rings}, has_z=has_z, has_m=has_m)
     return None
 
 

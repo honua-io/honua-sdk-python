@@ -23,6 +23,11 @@
         "returns": "AsyncGeoServicesGeometryServerClient",
         "signature": "(self) -> \"'AsyncGeoServicesGeometryServerClient'\""
       },
+      "grpc": {
+        "parameters": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None)",
+        "returns": "HonuaGrpcAsyncClient",
+        "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcAsyncClient'\""
+      },
       "image_server": {
         "parameters": "(self, service_id: 'str | None' = None)",
         "returns": "AsyncGeoServicesImageServerClient",
@@ -114,6 +119,11 @@
         "parameters": "(self)",
         "returns": "GeoServicesGeometryServerClient",
         "signature": "(self) -> \"'GeoServicesGeometryServerClient'\""
+      },
+      "grpc": {
+        "parameters": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None)",
+        "returns": "HonuaGrpcClient",
+        "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcClient'\""
       },
       "image_server": {
         "parameters": "(self, service_id: 'str | None' = None)",

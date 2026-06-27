@@ -508,24 +508,49 @@ def _run_temporal_query(
     """Temporal-filtered feature query contract (honua-server#1166).
 
     The seeded layer carries temporal attributes (``created_at``/``event_date``).
-    A FeatureServer ``time``-bounded query must return a feature envelope. Until
-    the tracked temporal support lands, this case is a known gap.
+    A FeatureServer ``time``-bounded query must actually *constrain* results by
+    the window — not merely accept and ignore an unknown ``time`` param. We
+    therefore compare three queries: unfiltered, an in-range window, and a
+    disjoint (pre-seed) window. A server that ignores ``time`` returns the same
+    set for the disjoint window as for the unfiltered query, which fails the
+    probe instead of producing a false green PASS. Until the tracked temporal
+    support lands, this case is a known gap.
     """
-    response = client._request_json(
-        "GET",
-        f"/rest/services/{target.service_id}/FeatureServer/{target.layer_id}/query",
-        params={
+    path = f"/rest/services/{target.service_id}/FeatureServer/{target.layer_id}/query"
+
+    def _query(time_window: str | None) -> list[Any]:
+        params: dict[str, Any] = {
             "f": "json",
             "where": "1=1",
             "outFields": "*",
             "returnGeometry": "false",
-            # Epoch-ms window spanning the seeded 2024 created_at range.
-            "time": "1704067200000,1735689600000",
-        },
+        }
+        if time_window is not None:
+            params["time"] = time_window
+        response = client._request_json("GET", path, params=params)
+        _require(isinstance(response, Mapping), "temporal query response is not an object")
+        return _as_list(response.get("features"), "temporal query response missing features[]")
+
+    unfiltered = _query(None)
+    # Epoch-ms window spanning the seeded 2024 created_at range.
+    in_window = _query("1704067200000,1735689600000")
+    # Disjoint window in 1970, strictly before any seeded 2024 data: a server
+    # that honors ``time`` must return fewer features here than the unfiltered
+    # baseline; one that ignores it returns the full set.
+    disjoint = _query("0,1")
+
+    _require(len(unfiltered) > 0, "baseline (unfiltered) query returned no features")
+    _require(
+        len(disjoint) < len(unfiltered),
+        "time filter not honored: a disjoint pre-seed window returned the same "
+        f"feature count ({len(disjoint)}) as the unfiltered query "
+        f"({len(unfiltered)})",
     )
-    _require(isinstance(response, Mapping), "temporal query response is not an object")
-    features = _as_list(response.get("features"), "temporal query response missing features[]")
-    return {"feature_count": len(features)}
+    return {
+        "feature_count": len(in_window),
+        "unfiltered_count": len(unfiltered),
+        "disjoint_count": len(disjoint),
+    }
 
 
 def _run_replica_surface(
@@ -540,7 +565,16 @@ def _run_replica_surface(
     metadata = client.feature_server(target.service_id).metadata()
     _require(isinstance(metadata, Mapping), "feature server metadata is not an object")
     caps = str(metadata.get("capabilities", ""))
-    sync_enabled = bool(metadata.get("syncEnabled")) or "Sync" in caps or "Create" in caps
+    # Gate strictly on sync/replica signals. The old ``"Create" in caps``
+    # disjunct matched the unrelated ``Create`` editing capability that *any*
+    # editable FeatureServer advertises, so this probe reported replica/sync
+    # support present when it was absent.
+    caps_tokens = {token.strip().lower() for token in caps.split(",")}
+    sync_enabled = (
+        bool(metadata.get("syncEnabled"))
+        or "sync" in caps_tokens
+        or "createreplica" in caps.lower()
+    )
     _require(
         sync_enabled,
         "FeatureServer does not advertise a replica/sync capability",

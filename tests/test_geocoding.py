@@ -423,3 +423,28 @@ def test_reverse_geocode_address_without_location_keeps_address() -> None:
 
     assert result is not None
     assert result.address == "123 Main St"
+
+
+def test_geocode_request_preserves_subpath_mount_and_encoded_locator() -> None:
+    """A sub-path base URL (reverse-proxy mount) and a percent-encoded locator
+    segment must both survive request-URL construction, matching the core
+    client's ``join_base_path``/``copy_with`` behavior rather than letting the
+    absolute path drop the mount or re-decode the segment."""
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["raw_path"] = request.url.raw_path.decode("ascii").split("?")[0]
+        return httpx.Response(200, json={"candidates": []})
+
+    transport = httpx.MockTransport(handler)
+    client = HonuaGeocodingClient(
+        "https://host/honua/",
+        locator_name="World Locator/v2",
+        client=httpx.Client(base_url="https://host/honua/", transport=transport),
+    )
+    with client:
+        client.forward_geocode("123 Main St")
+
+    assert seen["raw_path"] == (
+        "/honua/rest/services/World%20Locator%2Fv2/GeocodeServer/findAddressCandidates"
+    )

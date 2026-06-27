@@ -183,6 +183,11 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # Async-only sibling modules collapse onto their sync equivalents.
     _rule(r"\b_async_retry\b", "_retry"),
     _rule(r"\basync_geocoding\b", "geocoding"),
+    # The gRPC client class embeds ``Async`` mid-identifier
+    # (``HonuaGrpcAsyncClient``), so the generic ``\bAsync`` strip below — which
+    # requires a word boundary immediately before ``Async`` — never fires on it.
+    # Map it explicitly to its sync sibling.
+    _rule(r"\bHonuaGrpcAsyncClient\b", "HonuaGrpcClient"),
     #
     # --- residual Async-prefixed identifiers ------------------------------
     # Everything left — the ``Async*`` client/transport/protocol class names

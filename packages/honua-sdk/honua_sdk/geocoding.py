@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from ._endpoints import parse_json_response_body
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -18,6 +19,7 @@ from ._http import (
     _to_transport_error,
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
+    join_base_path,
 )
 from ._retry import RetryTransport
 from .auth import AuthProvider
@@ -190,6 +192,10 @@ class HonuaGeocodingClient:
 
         results: list[GeocodeResult] = []
         for candidate in data.get("candidates", []):
+            if not isinstance(candidate, Mapping):
+                # Skip malformed (non-object) entries rather than raising a raw
+                # AttributeError outside the Honua error contract.
+                continue
             coords = _extract_location_xy(candidate.get("location"))
             if coords is None:
                 # No usable location: skip rather than emit a (0, 0) result.
@@ -318,6 +324,10 @@ class HonuaGeocodingClient:
 
         results: list[GeocodeSuggestion] = []
         for suggestion in data.get("suggestions", []):
+            if not isinstance(suggestion, Mapping):
+                # Skip malformed (non-object) entries rather than raising a raw
+                # AttributeError outside the Honua error contract.
+                continue
             results.append(
                 GeocodeSuggestion(
                     text=suggestion.get("text", ""),
@@ -347,17 +357,10 @@ class HonuaGeocodingClient:
             extra_headers=extra_headers,
             idempotency_key=idempotency_key,
         )
-        if not response.content:
-            return {}
-
-        try:
-            payload = response.json()
-        except ValueError:
-            return {"raw": response.text}
-
-        if isinstance(payload, Mapping):
-            return dict(payload)
-        return {"data": payload}
+        # Reuse the shared parser so GeocodeServer error envelopes returned as
+        # HTTP 200 (``{"error": {...}}``) surface as ``HonuaHttpError`` rather
+        # than flowing back as a success dict.
+        return parse_json_response_body(response)
 
     def _request(
         self,
@@ -377,9 +380,16 @@ class HonuaGeocodingClient:
                 headers.update(extra_headers)
             if idempotency_key is not None:
                 headers["Idempotency-Key"] = idempotency_key
+        # Build a full URL the same way the core client does: prepend any
+        # base-URL path prefix (so sub-path hosting resolves) and override the
+        # raw path so httpx does not percent-decode already-encoded segments
+        # (e.g. a locator name containing a space or "/").
+        base_url = self._client.base_url
+        raw_path = join_base_path(base_url, path)
+        url = base_url.copy_with(raw_path=raw_path.encode("ascii"))
         request_kwargs: dict[str, Any] = {
             "method": method,
-            "url": path,
+            "url": url,
             "params": params,
             "json": json_body,
             "headers": headers,

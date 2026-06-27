@@ -49,6 +49,7 @@ from ._protocols import (
     normalize_protocol,
 )
 from ._query import DegradedReason, Pagination, Query, Result
+from ._schema import Extent, Field, LayerSchema
 from ._sources import SourceDescriptor, SourceLocator
 
 #: Backwards-compatible alias for the result element type variable that used to
@@ -75,6 +76,9 @@ for _symbol in (
     FeatureQueryResult,
     EditOperationResult,
     ApplyEditsResult,
+    LayerSchema,
+    Field,
+    Extent,
     normalize_protocol,
     normalize_capability,
     capability_set,
@@ -93,10 +97,13 @@ __all__ = [
     "DataPlaneCapabilities",
     "DegradedReason",
     "EditOperationResult",
+    "Extent",
     "Feature",
     "FeatureQuery",
     "FeatureQueryResult",
     "FeatureSet",
+    "Field",
+    "LayerSchema",
     "Pagination",
     "Protocol",
     "Query",

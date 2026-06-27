@@ -1,0 +1,25 @@
+fix(ci/docs): stop gates and docs overstating enforcement/coverage
+
+Several gates and customer-facing claims described more enforcement or
+capability than they delivered (AUD-167/168/169/209).
+
+- Per-PR arcpy eval gate: the stub-mode (blocking) invocation only keyed
+  off the overall pass rate, which is dominated by expected-failure stub
+  scripts, so the supported surface could regress while the lane stayed
+  green. Add --require-supported-pass-rate 1.0 to the stub-mode
+  run_eval.py call (the harness and live-mode lane already support it).
+  Verified locally: stub mode reports supported 11/11 (100%).
+- Conformance lane honesty: document in AGENTS.md that an xfailed
+  (strict=False) case is non-enforcing for its whole assertion body, so
+  the feature_query_envelope case's core feature-read assertions are
+  currently advisory (not blocking) while it carries the
+  honua-server#1238 known_gap_issue; note splitting the JSONB assertion
+  into its own known_gap case as tracked follow-up.
+- honua-arcpy README: reword the headline to scope the claim to the
+  supported subset (feature-layer queries, cursors, GetCount) and point
+  at the compatibility matrix, instead of advertising end-to-end
+  no-rewrite compatibility against ~15% of functions mapped.
+- OGC Tiles coverage-uplift test: assert the constructed request paths
+  (mirroring the sibling OGC maps test) instead of only the mock body.
+
+Fixes #130

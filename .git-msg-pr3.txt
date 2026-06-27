@@ -1,0 +1,18 @@
+fix(sdk): emit spec-mandatory params for STAC/WMS/WMTS typed helpers
+
+The typed protocol convenience methods produced requests that
+spec-compliant servers reject by default (AUD-163/164/165).
+
+- STAC POST /search pagination re-issued the next link as a GET, losing
+  the POST continuation token/body. Now reads the full rel="next" link
+  object and, when method==POST, re-POSTs to the href with the link's
+  body (merged with the original request body when merge is true),
+  falling back to GET only when method is GET/absent.
+- WMS GetMap now always emits the mandatory STYLES parameter (empty =
+  default style) and GetFeatureInfo now sends the mandatory CRS and
+  INFO_FORMAT (plus STYLES). Documented the 1.3.0 EPSG:4326 lat/lon
+  BBOX axis order.
+- WMTS KVP GetTile now includes the mandatory STYLE parameter
+  (default "default").
+
+Fixes #127

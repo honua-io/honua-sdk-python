@@ -18,12 +18,35 @@ from ._base import (
     _AsyncProtocol,
     _features_from_page,
     _next_link,
+    _next_link_object,
     _normalize_max_pages,
     _normalize_page_limit,
     _normalize_total_limit,
     _params,
+    _path_and_params_from_href,
     _SyncProtocol,
 )
+
+
+def _stac_post_next_request(
+    link: Mapping[str, Any],
+    original_body: Mapping[str, Any] | None,
+) -> tuple[str, dict[str, str], dict[str, Any]]:
+    """Build the (path, params, body) for a STAC POST ``next`` link.
+
+    Honors the STAC API pagination contract: when ``merge`` is true the link's
+    ``body`` is merged onto the original request body; otherwise the link body is
+    the complete next request body.
+    """
+    path, params = _path_and_params_from_href(str(link["href"]))
+    raw_link_body = link.get("body")
+    link_body = dict(raw_link_body) if isinstance(raw_link_body, Mapping) else {}
+    body = (
+        {**original_body, **link_body}
+        if link.get("merge") and original_body is not None
+        else link_body
+    )
+    return path, params, body
 
 
 class StacClient(_SyncProtocol):
@@ -212,6 +235,7 @@ class StacClient(_SyncProtocol):
             return
 
         fetched = 0
+        next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
         for _ in range(effective_max_pages):
@@ -219,7 +243,19 @@ class StacClient(_SyncProtocol):
             if remaining < 1:
                 break
             page_limit = min(effective_page_size, remaining)
-            if next_href is not None:
+            if next_link is not None and str(next_link.get("method", "GET")).upper() == "POST":
+                # STAC POST /search continuation: re-POST to the next href with
+                # the link's body so the continuation token/body is preserved.
+                post_path, post_params, post_body = _stac_post_next_request(next_link, json_body)
+                page = self._json(
+                    "POST",
+                    post_path,
+                    params=post_params or None,
+                    json_body=post_body,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
+            elif next_href is not None:
                 page = self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
             elif json_body is not None:
                 page_body = {**json_body, "limit": page_limit, "offset": offset}
@@ -235,6 +271,7 @@ class StacClient(_SyncProtocol):
             yield page
             page_items = _features_from_page(page)
             fetched += len(page_items)
+            next_link = _next_link_object(page)
             next_href = _next_link(page)
             if next_href is None:
                 if len(page_items) < page_limit:
@@ -471,6 +508,7 @@ class AsyncStacClient(_AsyncProtocol):
             return
 
         fetched = 0
+        next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
         for _ in range(effective_max_pages):
@@ -478,7 +516,19 @@ class AsyncStacClient(_AsyncProtocol):
             if remaining < 1:
                 break
             page_limit = min(effective_page_size, remaining)
-            if next_href is not None:
+            if next_link is not None and str(next_link.get("method", "GET")).upper() == "POST":
+                # STAC POST /search continuation: re-POST to the next href with
+                # the link's body so the continuation token/body is preserved.
+                post_path, post_params, post_body = _stac_post_next_request(next_link, json_body)
+                page = await self._json(
+                    "POST",
+                    post_path,
+                    params=post_params or None,
+                    json_body=post_body,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
+            elif next_href is not None:
                 page = await self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
             elif json_body is not None:
                 page_body = {**json_body, "limit": page_limit, "offset": offset}
@@ -494,6 +544,7 @@ class AsyncStacClient(_AsyncProtocol):
             yield page
             page_items = _features_from_page(page)
             fetched += len(page_items)
+            next_link = _next_link_object(page)
             next_href = _next_link(page)
             if next_href is None:
                 if len(page_items) < page_limit:

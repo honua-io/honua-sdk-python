@@ -91,3 +91,35 @@ def test_wheel_ships_expected_contents(package: str) -> None:
         f"{package} wheel is missing expected contents: {missing}\n"
         f"wheel members:\n" + "\n".join(sorted(members))
     )
+
+
+@pytest.mark.parametrize("package", sorted(EXPECTED_CONTENTS))
+def test_wheel_ships_license_text(package: str) -> None:
+    """Each wheel must carry the actual Apache-2.0 license text, not just the
+    ``License`` metadata field.
+
+    Hatchling only auto-includes license files found in the package's build
+    root, so without a ``LICENSE`` in the package directory (and a matching
+    ``license-files`` declaration) the wheel advertises a license it does not
+    ship — a distribution-compliance gap that ``twine check`` does not catch.
+    """
+    package_dir = PACKAGES_DIR / package
+    assert package_dir.is_dir(), f"missing package source dir: {package_dir}"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        wheel_path = _build_wheel(package_dir, Path(tmp))
+        with zipfile.ZipFile(wheel_path) as archive:
+            members = archive.namelist()
+
+    # PEP 639 places license files under ``*.dist-info/licenses/``; older
+    # hatchling layouts put them directly under ``*.dist-info/``. Accept either.
+    license_members = [
+        m
+        for m in members
+        if ".dist-info/" in m
+        and "LICENSE" in m.rsplit("/", 1)[-1].upper()
+    ]
+    assert license_members, (
+        f"{package} wheel ships no LICENSE file under *.dist-info/\n"
+        f"wheel members:\n" + "\n".join(sorted(members))
+    )

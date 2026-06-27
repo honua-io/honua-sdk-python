@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from ._geometry import geometry_to_geo_interface, geometry_to_shapely
 from ._helpers import _optional_str
 from ._protocols import QueryProtocol
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from shapely.geometry.base import BaseGeometry
+
+# Sentinel distinguishing "not yet computed" from a cached ``None`` geometry.
+_UNSET: Any = object()
 
 
 @dataclass(frozen=True)
@@ -43,6 +50,37 @@ class Feature:
                 return int(value)
         return None
 
+    @property
+    def __geo_interface__(self) -> dict[str, Any] | None:
+        """GeoJSON-mapping view of this feature's geometry (``None`` if absent).
+
+        Implements the de-facto ``__geo_interface__`` protocol so the feature
+        plugs directly into Shapely (``shapely.geometry.shape(feature)``) and
+        the wider Python geospatial ecosystem. Handles both the Esri-JSON
+        (FeatureServer) and GeoJSON (OGC/STAC) geometry encodings.
+        """
+        return geometry_to_geo_interface(self.geometry)
+
+    def to_shapely(self) -> "BaseGeometry | None":
+        """Return this feature's geometry as a Shapely geometry.
+
+        The typed analogue of ``arcpy`` ``feature.SHAPE`` / the ArcGIS-API
+        geometry object: a GP tool gets Shapely geometry directly from the
+        feature without dropping to ``result.raw``. Returns ``None`` when the
+        feature has no geometry. Raises :class:`ImportError` with an install
+        hint when the optional ``shapely`` dependency is absent.
+        """
+        return geometry_to_shapely(self.geometry)
+
+    @property
+    def geometry_shape(self) -> "BaseGeometry | None":
+        """Cached Shapely geometry for this feature (see :meth:`to_shapely`)."""
+        cached = self.__dict__.get("_geometry_shape", _UNSET)
+        if cached is _UNSET:
+            cached = self.to_shapely()
+            object.__setattr__(self, "_geometry_shape", cached)
+        return cached
+
 
 @dataclass(frozen=True)
 class FeatureSet:
@@ -76,7 +114,32 @@ class FeatureSet:
 
 @dataclass(frozen=True)
 class FeatureQuery:
-    """Protocol-neutral feature query request."""
+    """Protocol-neutral feature query request.
+
+    Attributes:
+        source: Source identifier (service id / collection id / entity set).
+        protocol: Canonical query protocol literal.
+        layer_id: FeatureServer / OData layer index when required.
+        where: SQL-style ``WHERE`` clause (FeatureServer / OData).
+        filter: CQL2-text filter (OGC Features / STAC).
+        bbox: ``(minx, miny, maxx, maxy)`` envelope spatial filter.
+        spatial_filter: Free-form spatial-filter mapping (arbitrary geometry +
+            relationship + SR + optional distance) translated to GeoServices
+            ``geometry``/``geometryType``/``spatialRel``/``inSR`` params on the
+            FeatureServer path. See :mod:`honua_sdk._geoservices_query`.
+        fields: Attribute selection.
+        return_geometry: Whether to include geometry in the response.
+        out_statistics: Server-side statistic definitions (FeatureServer
+            ``outStatistics``).
+        group_by: Group-by fields for statistics (FeatureServer
+            ``groupByFieldsForStatistics``).
+        return_distinct_values: Request distinct rows (``returnDistinctValues``).
+        return_count_only: Request only the matching count (``returnCountOnly``).
+        page_size: Per-request page size for paginated protocols.
+        limit: Maximum features collected across all pages.
+        max_pages: Cap on the number of pages walked. ``None`` is unbounded.
+        extra_params: Free-form per-protocol query parameter overrides.
+    """
 
     source: str
     protocol: QueryProtocol | str = "feature-server"
@@ -84,8 +147,13 @@ class FeatureQuery:
     where: str | None = None
     filter: str | None = None
     bbox: str | Sequence[int | float] | None = None
+    spatial_filter: Mapping[str, Any] | None = None
     fields: str | Sequence[str] | None = None
     return_geometry: bool = True
+    out_statistics: Sequence[Mapping[str, Any]] | None = None
+    group_by: str | Sequence[str] | None = None
+    return_distinct_values: bool = False
+    return_count_only: bool = False
     page_size: int | None = None
     limit: int | None = None
     max_pages: int | None = None
@@ -117,6 +185,35 @@ class QueryFeature:
     protocol: str = ""
     source: str = ""
     raw: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def __geo_interface__(self) -> dict[str, Any] | None:
+        """GeoJSON-mapping view of this feature's geometry (``None`` if absent).
+
+        Implements the de-facto ``__geo_interface__`` protocol so the feature
+        plugs directly into Shapely and the wider Python geospatial ecosystem.
+        Handles both Esri-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.
+        """
+        return geometry_to_geo_interface(self.geometry)
+
+    def to_shapely(self) -> "BaseGeometry | None":
+        """Return this feature's geometry as a Shapely geometry.
+
+        The typed analogue of ``arcpy`` ``feature.SHAPE`` / the ArcGIS-API
+        geometry object. Returns ``None`` when the feature carries no geometry.
+        Raises :class:`ImportError` with an install hint when the optional
+        ``shapely`` dependency is absent.
+        """
+        return geometry_to_shapely(self.geometry)
+
+    @property
+    def geometry_shape(self) -> "BaseGeometry | None":
+        """Cached Shapely geometry for this feature (see :meth:`to_shapely`)."""
+        cached = self.__dict__.get("_geometry_shape", _UNSET)
+        if cached is _UNSET:
+            cached = self.to_shapely()
+            object.__setattr__(self, "_geometry_shape", cached)
+        return cached
 
 
 @dataclass(frozen=True)

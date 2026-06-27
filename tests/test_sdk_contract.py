@@ -112,7 +112,10 @@ def test_source_query_facade_uses_canonical_descriptor_and_returns_result() -> N
 
     assert result.protocol == "geoservices-feature-service"
     assert result.source_id == "parcels-fs"
-    assert result.total_count == 2
+    # FeatureServer query responses carry no grand total (no ``numberMatched``
+    # equivalent), so ``total_count`` is unknown rather than the count of
+    # features actually returned.
+    assert result.total_count is None
     assert [feature.id for feature in result.features] == [1, 2]
     assert result.features[0].protocol == "geoservices-feature-service"
     assert result.features[0].source == "parcels-fs"

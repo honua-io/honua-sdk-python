@@ -22,7 +22,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from ._http import _encode_path_segment
+from ._http import _encode_path_segment, raise_for_geoservices_error
 from .models import (
     ApplyEditsResult,
     DataPlaneCapabilities,
@@ -288,6 +288,7 @@ def parse_json_response_body(response: "Any") -> dict[str, Any]:
     except ValueError:
         return {"raw": response.text}
     if isinstance(payload, Mapping):
+        raise_for_geoservices_error(response, payload)
         return dict(payload)
     return {"data": payload}
 

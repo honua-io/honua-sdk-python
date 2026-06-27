@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "honua-gp"
+version = "0.1.0"
+description = "Honua geoprocessing compatibility layer -- a drop-in-style API for teams migrating scripts from ArcGIS arcpy to Honua services"
+readme = "README.md"
+license = { text = "Proprietary -- see LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Honua" }]
+keywords = ["arcpy", "geospatial", "gis", "migration", "honua", "compatibility"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: Other/Proprietary License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Private :: Do Not Upload",
+]
+dependencies = [
+  "honua-sdk>=0.1.0",
+  "honua-admin>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/honua-io"
+Repository = "https://github.com/honua-io/honua-sdk-python"
+Issues = "https://github.com/honua-io/honua-sdk-python/issues"
+
+[project.scripts]
+honua-gp = "honua_gp._cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["honua_gp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "honua_gp",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

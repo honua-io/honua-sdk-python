@@ -38,13 +38,14 @@ class WmtsClient(_SyncProtocol):
     def capabilities(self) -> str:
         return self.request("GetCapabilities").decode("utf-8")
 
-    def tile(self, *, layer: str, tile_matrix_set: str, tile_matrix: str, tile_row: int, tile_col: int, image_format: str = "image/png", extra_params: Params = None) -> bytes:
+    def tile(self, *, layer: str, tile_matrix_set: str, tile_matrix: str, tile_row: int, tile_col: int, style: str = "default", image_format: str = "image/png", extra_params: Params = None) -> bytes:
         return self.tile_response(
             layer=layer,
             tile_matrix_set=tile_matrix_set,
             tile_matrix=tile_matrix,
             tile_row=tile_row,
             tile_col=tile_col,
+            style=style,
             image_format=image_format,
             extra_params=extra_params,
         ).content
@@ -57,10 +58,13 @@ class WmtsClient(_SyncProtocol):
         tile_matrix: str,
         tile_row: int,
         tile_col: int,
+        style: str = "default",
         image_format: OgcImageFormat = "image/png",
         extra_params: Params = None,
     ) -> BinaryResponse:
-        params = _params({"layer": layer, "tileMatrixSet": tile_matrix_set, "tileMatrix": tile_matrix, "tileRow": tile_row, "tileCol": tile_col, "format": image_format}, extra_params)
+        # STYLE is a mandatory GetTile KVP parameter in WMTS 1.0.0; ``"default"``
+        # selects the layer's advertised default style.
+        params = _params({"layer": layer, "style": style, "tileMatrixSet": tile_matrix_set, "tileMatrix": tile_matrix, "tileRow": tile_row, "tileCol": tile_col, "format": image_format}, extra_params)
         return self.request_response("GetTile", params=params)
 
 
@@ -84,7 +88,7 @@ class AsyncWmtsClient(_AsyncProtocol):
     async def capabilities(self) -> str:
         return (await self.request("GetCapabilities")).decode("utf-8")
 
-    async def tile(self, *, layer: str, tile_matrix_set: str, tile_matrix: str, tile_row: int, tile_col: int, image_format: str = "image/png", extra_params: Params = None) -> bytes:
+    async def tile(self, *, layer: str, tile_matrix_set: str, tile_matrix: str, tile_row: int, tile_col: int, style: str = "default", image_format: str = "image/png", extra_params: Params = None) -> bytes:
         return (
             await self.tile_response(
                 layer=layer,
@@ -92,6 +96,7 @@ class AsyncWmtsClient(_AsyncProtocol):
                 tile_matrix=tile_matrix,
                 tile_row=tile_row,
                 tile_col=tile_col,
+                style=style,
                 image_format=image_format,
                 extra_params=extra_params,
             )
@@ -105,8 +110,11 @@ class AsyncWmtsClient(_AsyncProtocol):
         tile_matrix: str,
         tile_row: int,
         tile_col: int,
+        style: str = "default",
         image_format: OgcImageFormat = "image/png",
         extra_params: Params = None,
     ) -> BinaryResponse:
-        params = _params({"layer": layer, "tileMatrixSet": tile_matrix_set, "tileMatrix": tile_matrix, "tileRow": tile_row, "tileCol": tile_col, "format": image_format}, extra_params)
+        # STYLE is a mandatory GetTile KVP parameter in WMTS 1.0.0; ``"default"``
+        # selects the layer's advertised default style.
+        params = _params({"layer": layer, "style": style, "tileMatrixSet": tile_matrix_set, "tileMatrix": tile_matrix, "tileRow": tile_row, "tileCol": tile_col, "format": image_format}, extra_params)
         return await self.request_response("GetTile", params=params)

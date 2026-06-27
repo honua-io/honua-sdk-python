@@ -8,6 +8,7 @@ version = "0.1.4"
 description = "Admin / control-plane client for Honua geospatial server"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [{ name = "Honua" }]
 keywords = ["geospatial", "admin", "gis", "honua", "control-plane"]

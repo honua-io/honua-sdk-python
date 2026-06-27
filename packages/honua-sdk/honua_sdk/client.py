@@ -935,6 +935,7 @@ class HonuaClient:
             return tuple(collected), exceeded, total_count, pages_seen
 
         if normalized_protocol == "stac":
+            last_page = None
             for page in self.stac().item_pages(  # type: ignore[assignment]
                 query.source,
                 **stac_pages_kwargs(
@@ -955,6 +956,7 @@ class HonuaClient:
             return tuple(collected), exceeded, total_count, pages_seen
 
         reject_odata_bbox(query)
+        last_page = None
         for page in self.odata().features_pages(  # type: ignore[assignment]
             **odata_pages_kwargs(
                 query, timeout=timeout, extra_headers=extra_headers

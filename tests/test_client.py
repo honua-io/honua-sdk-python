@@ -957,3 +957,26 @@ def test_dispatcher_accepts_filter_for_cql_protocols(protocol: str) -> None:
             limit=1,
         )
     assert result.protocol == protocol
+
+
+@pytest.mark.parametrize("protocol", ["stac", "odata"])
+def test_shared_query_limit_zero_returns_empty_without_crash(protocol: str) -> None:
+    """limit=0 must short-circuit to an empty result for STAC/OData just like it
+    already does for FeatureServer/OGC, rather than raising UnboundLocalError.
+
+    The STAC/OData pagination generators return zero pages for limit=0, so the
+    ``last_page`` reference in ``_collect_query_pages`` must be initialized
+    before the loop or the signal-extraction call crashes.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(
+            f"limit=0 should issue no requests; got {request.url}"
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        result = client.query("collection-1", protocol=protocol, limit=0)
+
+    assert result.protocol == protocol
+    assert len(result.features) == 0

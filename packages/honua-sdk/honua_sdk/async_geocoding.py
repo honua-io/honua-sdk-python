@@ -19,6 +19,7 @@ from ._http import (
     _to_transport_error,
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
+    join_base_path,
 )
 from .auth import AuthProvider
 from .geocoding import (
@@ -341,9 +342,16 @@ class AsyncHonuaGeocodingClient:
                 headers.update(extra_headers)
             if idempotency_key is not None:
                 headers["Idempotency-Key"] = idempotency_key
+        # Build a full URL the same way the core client does: prepend any
+        # base-URL path prefix (so sub-path hosting resolves) and override the
+        # raw path so httpx does not percent-decode already-encoded segments
+        # (e.g. a locator name containing a space or "/").
+        base_url = self._client.base_url
+        raw_path = join_base_path(base_url, path)
+        url = base_url.copy_with(raw_path=raw_path.encode("ascii"))
         request_kwargs: dict[str, Any] = {
             "method": method,
-            "url": path,
+            "url": url,
             "params": params,
             "json": json_body,
             "headers": headers,

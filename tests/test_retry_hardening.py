@@ -161,6 +161,41 @@ def test_transport_exception_exhausts_and_reraises() -> None:
     assert transport._call_count["n"] == 4  # type: ignore[attr-defined]
 
 
+def _instrument_response(response: httpx.Response, events: list[str]) -> httpx.Response:
+    """Record ``read``/``close`` calls on *response* into *events* (sync)."""
+    orig_read, orig_close = response.read, response.close
+
+    def _read() -> bytes:
+        events.append("read")
+        return orig_read()
+
+    def _close() -> None:
+        events.append("close")
+        orig_close()
+
+    response.read = _read  # type: ignore[method-assign]
+    response.close = _close  # type: ignore[method-assign]
+    return response
+
+
+def test_failed_response_released_before_backoff_sleep() -> None:
+    """A retriable response must be read+closed before the backoff sleep.
+
+    Sleeping while still holding the unread failed response keeps its pooled
+    connection checked out for the whole backoff window, starving the pool
+    during a 429/503 storm.
+    """
+    events: list[str] = []
+    failed = _instrument_response(httpx.Response(503), events)
+    transport = _build_exception_transport([failed, httpx.Response(200, json={"ok": True})])
+
+    with patch("honua_sdk._retry.time.sleep", side_effect=lambda _d: events.append("sleep")):
+        response = transport.handle_request(httpx.Request("GET", "http://example.test/"))
+
+    assert response.status_code == 200
+    assert events == ["read", "close", "sleep"]
+
+
 # ---------------------------------------------------------------------------
 # Transport-exception retry coverage (async)
 # ---------------------------------------------------------------------------
@@ -227,6 +262,41 @@ def test_async_retries_on_read_error() -> None:
 
 async def _noop_async_sleep(_delay: float) -> None:
     return None
+
+
+def test_async_failed_response_released_before_backoff_sleep() -> None:
+    """Async variant of the read/close-before-sleep ordering guarantee."""
+    events: list[str] = []
+    failed = httpx.Response(503)
+    orig_aread, orig_aclose = failed.aread, failed.aclose
+
+    async def _aread() -> bytes:
+        events.append("read")
+        return await orig_aread()
+
+    async def _aclose() -> None:
+        events.append("close")
+        await orig_aclose()
+
+    failed.aread = _aread  # type: ignore[method-assign]
+    failed.aclose = _aclose  # type: ignore[method-assign]
+
+    async def _sleep(_delay: float) -> None:
+        events.append("sleep")
+
+    transport = _build_async_exception_transport(
+        [failed, httpx.Response(200, json={"ok": True})]
+    )
+
+    async def _run() -> httpx.Response:
+        with patch("honua_sdk._async_retry.asyncio.sleep", new=_sleep):
+            return await transport.handle_async_request(
+                httpx.Request("GET", "http://example.test/")
+            )
+
+    response = asyncio.run(_run())
+    assert response.status_code == 200
+    assert events == ["read", "close", "sleep"]
 
 
 # ---------------------------------------------------------------------------

@@ -906,7 +906,12 @@ class HonuaClient:
                 ]
                 if _extend(page_features):
                     break
-            return tuple(collected), exceeded, len(collected), pages_seen
+            # FeatureServer ``query`` responses do not carry a grand total
+            # (no ``numberMatched`` equivalent), so ``total_count`` is unknown.
+            # Reporting ``len(collected)`` here is misleading because it is the
+            # number of features *returned* — capped by ``limit``/``max_pages``
+            # — not the server's total match count. Surface ``None`` instead.
+            return tuple(collected), exceeded, None, pages_seen
 
         if normalized_protocol == "ogc-features":
             last_page: Any = None

@@ -855,15 +855,10 @@ def _result_from_legacy(
         replace(feature, protocol=descriptor.protocol, source=descriptor.id)
         for feature in legacy_result.features
     )
-    total_count = (
-        legacy_result.total_count
-        if legacy_result.total_count is not None
-        else len(normalized_features)
-    )
     return Result(
         features=normalized_features,
         exceeded_transfer_limit=bool(legacy_result.exceeded_transfer_limit),
-        total_count=total_count,
+        total_count=legacy_result.total_count,
         protocol=descriptor.protocol,
         source_id=descriptor.id,
         query=query,

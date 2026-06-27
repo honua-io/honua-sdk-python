@@ -21,6 +21,7 @@ from ._base import (
     _bbox,
     _bool_text,
     _csv,
+    _iter_page_indices,
     _params,
     _query_value,
     _service_path,
@@ -93,7 +94,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -103,8 +104,8 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
     ) -> Iterator[FeatureSet]:
         if page_size <= 0:
             raise ValueError("page_size must be greater than zero.")
-        if max_pages <= 0:
-            raise ValueError("max_pages must be greater than zero.")
+        if max_pages is not None and max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero (or None for unbounded).")
         if limit is not None and limit <= 0:
             return
 
@@ -112,7 +113,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
         seen_object_ids: set[int] = set()
-        for _ in range(max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
                 break
@@ -153,7 +154,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -187,7 +188,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -516,7 +517,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -526,8 +527,8 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
     ) -> AsyncIterator[FeatureSet]:
         if page_size <= 0:
             raise ValueError("page_size must be greater than zero.")
-        if max_pages <= 0:
-            raise ValueError("max_pages must be greater than zero.")
+        if max_pages is not None and max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero (or None for unbounded).")
         if limit is not None and limit <= 0:
             return
 
@@ -535,7 +536,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
         seen_object_ids: set[int] = set()
-        for _ in range(max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
                 break
@@ -576,7 +577,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,
@@ -610,7 +611,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         *,
         page_size: int = 1000,
         limit: int | None = None,
-        max_pages: int = 100,
+        max_pages: int | None = 100,
         where: str = "1=1",
         out_fields: CsvValue = "*",
         return_geometry: bool = True,

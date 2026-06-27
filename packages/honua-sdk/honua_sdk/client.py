@@ -48,6 +48,7 @@ from ._query_dispatch import (
     stac_items_kwargs,
     stac_pages_kwargs,
     validate_filter_routing,
+    warn_if_truncated,
 )
 from ._retry import RetryTransport
 from .errors import HonuaHttpError
@@ -67,6 +68,7 @@ if TYPE_CHECKING:
     from .auth import AuthProvider
     from .geocoding import HonuaGeocodingClient
     from .geoprocessing import HonuaGeoprocessing
+    from .grpc import HonuaGrpcClient
     from .models import SourceDescriptor
     from .ogc import HonuaOgcFeatures
     from .protocols import (
@@ -89,6 +91,22 @@ if TYPE_CHECKING:
     from .protocols.scenes import ElevationClient
     from .source import Source
     from .workflow import HonuaWorkflow
+
+
+def _grpc_target_from_base_url(base_url: httpx.URL) -> str:
+    """Derive a gRPC ``host:port`` dial target from an HTTP base URL.
+
+    The Honua gRPC FeatureService is reached on the same authority as the REST
+    surface. We reuse the REST ``base_url``'s host and port, defaulting the
+    port to 443 for ``https`` and 80 otherwise when the URL omits one.
+    """
+    host = base_url.host
+    if not host:
+        raise ValueError("Cannot derive a gRPC target: the client base_url has no host.")
+    port = base_url.port
+    if port is None:
+        port = 443 if base_url.scheme == "https" else 80
+    return f"{host}:{port}"
 
 
 class HonuaClient:
@@ -767,6 +785,71 @@ class HonuaClient:
 
         return ODataClient(self)
 
+    def grpc(
+        self,
+        *,
+        target: str | None = None,
+        insecure: bool | None = None,
+        credentials: Any = None,
+        timeout: float | None = 30.0,
+        extra_metadata: Mapping[str, str] | None = None,
+    ) -> "HonuaGrpcClient":
+        """Return a gRPC FeatureService client bound to this client's config.
+
+        Builds an :class:`HonuaGrpcClient` (the analytic gRPC surface:
+        unary + streaming ``QueryFeatures`` with server-side spatial filters,
+        statistics, and aggregation) from the same base URL and authentication
+        this client was constructed with — so the gRPC surface is reachable in
+        the same token-scoped harness without re-plumbing a channel.
+
+        The dial target defaults to the REST ``base_url``'s ``host:port`` (the
+        Honua gRPC service shares the REST authority). Authentication is carried
+        as gRPC call metadata derived from the client's ``api_key`` /
+        ``bearer_token`` / ``auth_provider`` via
+        :func:`honua_sdk.grpc.build_grpc_metadata`. Transport security defaults
+        to TLS for an ``https`` base URL and plaintext otherwise; override with
+        ``credentials=`` (a :class:`grpc.ChannelCredentials`) or
+        ``insecure=True``.
+
+        Args:
+            target: Explicit ``host:port`` gRPC dial target. Defaults to the
+                REST base URL's authority.
+            insecure: Force a plaintext channel. Defaults to ``True`` for a
+                non-``https`` base URL, ``False`` otherwise.
+            credentials: Explicit channel credentials. Defaults to
+                :func:`grpc.ssl_channel_credentials` for a secure channel.
+            timeout: Per-call gRPC timeout in seconds.
+            extra_metadata: Additional metadata entries merged onto the
+                auth-derived metadata.
+
+        Returns:
+            An :class:`HonuaGrpcClient` ready to issue feature queries.
+
+        Raises:
+            ValueError: The client base_url has no host to derive a target from.
+        """
+        from .grpc import HonuaGrpcClient, build_grpc_metadata
+
+        resolved_target = target or _grpc_target_from_base_url(self._base_url)
+        metadata = build_grpc_metadata(
+            api_key=self._init_api_key,
+            bearer_token=self._init_bearer_token,
+            auth_provider=self._init_auth_provider,
+            extra_metadata=extra_metadata,
+        )
+        use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
+        if credentials is None and not use_insecure:
+            import grpc
+
+            credentials = grpc.ssl_channel_credentials()
+        return HonuaGrpcClient(
+            resolved_target,
+            credentials=credentials,
+            insecure=use_insecure,
+            metadata=metadata,
+            timeout=timeout,
+        )
+
     def query(
         self,
         source: str | FeatureQuery,
@@ -776,11 +859,16 @@ class HonuaClient:
         where: str | None = None,
         filter: str | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
+        out_statistics: Sequence[Mapping[str, Any]] | None = None,
+        group_by: str | Sequence[str] | None = None,
+        return_distinct_values: bool | None = None,
+        return_count_only: bool | None = None,
         page_size: int | None = None,
         limit: int | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 100,
         extra_params: Mapping[str, Any] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -800,11 +888,28 @@ class HonuaClient:
             filter: CQL2/OData filter expression (OGC Features / STAC / OData).
             bbox: Spatial filter as a list/tuple of coordinates or comma
                 string. Not supported when ``protocol`` is OData.
+            spatial_filter: Arbitrary-geometry spatial filter (FeatureServer
+                only): a mapping of ``geometry`` (Esri JSON / GeoJSON /
+                ``__geo_interface__``), ``relationship`` (``intersects``,
+                ``within``, ``contains``, ``crosses``, ``touches``,
+                ``overlaps``, ``within-distance``), optional ``in_sr`` and
+                ``distance``/``units``. Translated to the GeoServices
+                ``geometry``/``geometryType``/``spatialRel``/``inSR`` params.
             fields: Attribute selection; comma-string or sequence of names.
             return_geometry: Whether to include geometry (FeatureServer).
+            out_statistics: Server-side statistic definitions (FeatureServer):
+                a sequence of mappings with ``statistic_type`` (``count``,
+                ``sum``, ``min``, ``max``, ``avg``, ``stddev``, ``var``),
+                ``on_statistic_field``, and optional ``out_statistic_field_name``.
+            group_by: Group-by fields paired with ``out_statistics``.
+            return_distinct_values: Request distinct rows (FeatureServer).
+            return_count_only: Request only the matching count (FeatureServer).
             page_size: Page size hint for paginated protocols.
             limit: Maximum number of features to collect across all pages.
-            max_pages: Safety cap on pages walked.
+            max_pages: Safety cap on pages walked; defaults to ``100``. Pass
+                ``None`` for an unbounded walk (FeatureServer) — a
+                ``ResourceWarning`` is emitted if a bounded walk stops with
+                more features still available on the server.
             extra_params: Additional protocol-specific query parameters
                 merged into each request.
             timeout: Per-call timeout override forwarded to every page
@@ -833,8 +938,13 @@ class HonuaClient:
             where=where,
             filter=filter,
             bbox=bbox,
+            spatial_filter=spatial_filter,
             fields=fields,
             return_geometry=return_geometry,
+            out_statistics=out_statistics,
+            group_by=group_by,
+            return_distinct_values=return_distinct_values,
+            return_count_only=return_count_only,
             page_size=page_size,
             limit=limit,
             max_pages=max_pages,
@@ -848,6 +958,7 @@ class HonuaClient:
             timeout=timeout,
             extra_headers=merge_idempotency_into_headers(extra_headers, idempotency_key),
         )
+        warn_if_truncated(query, exceeded=exceeded, pages_seen=pages_seen)
         return FeatureQueryResult(
             features=features,
             protocol=normalized_protocol,
@@ -984,11 +1095,12 @@ class HonuaClient:
         where: str | None = None,
         filter: str | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         page_size: int | None = None,
         limit: int | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 100,
         extra_params: Mapping[str, Any] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1010,11 +1122,14 @@ class HonuaClient:
             where: GeoServices-style ``WHERE`` clause (FeatureServer only).
             filter: CQL2/OData filter expression for OGC/STAC/OData.
             bbox: Spatial filter; not supported for OData.
+            spatial_filter: Arbitrary-geometry spatial filter (FeatureServer);
+                see :meth:`query` for the mapping shape.
             fields: Attribute selection.
             return_geometry: Whether to include geometry (FeatureServer).
             page_size: Page size hint for paginated protocols.
             limit: Maximum number of features to yield across all pages.
-            max_pages: Safety cap on pages walked.
+            max_pages: Safety cap on pages walked; defaults to ``100``. Pass
+                ``None`` for an unbounded walk (FeatureServer).
             extra_params: Protocol-specific query parameters merged into
                 each request.
 
@@ -1038,6 +1153,7 @@ class HonuaClient:
             where=where,
             filter=filter,
             bbox=bbox,
+            spatial_filter=spatial_filter,
             fields=fields,
             return_geometry=return_geometry,
             page_size=page_size,

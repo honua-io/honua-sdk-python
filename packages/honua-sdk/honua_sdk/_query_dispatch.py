@@ -24,6 +24,7 @@ Public helpers (callable from both ``client.py`` and ``async_client.py``):
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -36,7 +37,6 @@ from ._query import (
     field_text,
     odata_layer_id,
     query_filter,
-    query_max_pages,
     query_page_size,
 )
 from .models import FeatureQuery
@@ -66,6 +66,32 @@ def validate_filter_routing(query: FeatureQuery, normalized_protocol: str) -> No
             "(CQL2-text) when targeting OGC Features or STAC. To accept "
             "silent forwarding, pass where_as_cql=True explicitly."
         )
+
+
+def warn_if_truncated(query: FeatureQuery, *, exceeded: bool, pages_seen: int) -> None:
+    """Warn when a bounded page walk stopped with more features still available.
+
+    A million-feature iterate that silently halts at the page cap is a footgun.
+    When ``query.max_pages`` is a finite cap, the walk reached it
+    (``pages_seen >= max_pages``), and the server still advertises more
+    (``exceeded`` is its ``exceededTransferLimit`` / next-link signal), we emit
+    a :class:`ResourceWarning` so the truncation is visible. Pass
+    ``max_pages=None`` for an unbounded walk to suppress the cap entirely; a
+    ``limit`` (the caller's own ceiling) also suppresses it.
+    """
+    if query.limit is not None:
+        return
+    max_pages = query.max_pages
+    if not exceeded or max_pages is None or pages_seen < max_pages:
+        return
+    warnings.warn(
+        f"Query stopped after the max_pages={max_pages} cap with more features "
+        "still available on the server (exceededTransferLimit). Increase "
+        "max_pages, set max_pages=None for an unbounded walk, or pass a limit "
+        "to acknowledge the truncation.",
+        ResourceWarning,
+        stacklevel=3,
+    )
 
 
 def merge_idempotency_into_headers(
@@ -144,7 +170,12 @@ def feature_server_pages_kwargs(
         "return_geometry": query.return_geometry,
         "page_size": query_page_size(query, 1000),
         "limit": query.limit,
-        "max_pages": query_max_pages(query, 100),
+        # ``query.max_pages`` is passed through verbatim: ``None`` means
+        # *unbounded* (walk every page the server advertises) rather than the
+        # old silent 100-page cap. The canonical ``query``/``iter_query`` and
+        # ``Source`` methods default the cap to 100 at their own signatures, so
+        # ``None`` here only ever arrives when a caller explicitly opted in.
+        "max_pages": query.max_pages,
         "extra_params": feature_server_extra_params(query),
         "timeout": timeout,
         "extra_headers": extra_headers,
@@ -296,4 +327,5 @@ __all__ = [
     "stac_items_kwargs",
     "stac_pages_kwargs",
     "validate_filter_routing",
+    "warn_if_truncated",
 ]

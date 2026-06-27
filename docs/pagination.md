@@ -60,8 +60,13 @@ Two `Query` knobs control the underlying pagination loop:
   Forwarded to FeatureServer's `resultRecordCount`, OGC/STAC's `limit`,
   and OData's `$top` (subject to server-side caps).
 - **`max_pages`** — upper bound on the number of pages the iterator
-  will fetch. When omitted, the iterator drains until the server stops
-  advertising more pages.
+  will fetch. The `client.query` / `client.iter_query` facades default
+  this cap to **100**; pass **`max_pages=None`** for an *unbounded* walk
+  that drains until the server stops advertising more pages. When a
+  bounded `client.query` walk stops at the cap while the server still
+  reports more features (`exceededTransferLimit`), a `ResourceWarning`
+  is emitted so a large iterate never silently truncates — raise
+  `max_pages`, set it to `None`, or pass a `limit` to acknowledge it.
 
 ```python
 from honua_sdk import Query
@@ -69,7 +74,55 @@ from honua_sdk import Query
 q = Query(where="1=1", page_size=500, max_pages=20)
 for feature in source.iter_features(q):
     process(feature)
+
+# Unbounded drain (no hidden 100-page cap):
+for feature in client.iter_query("parcels", page_size=1000, max_pages=None):
+    process(feature)
 ```
+
+## Server-side spatial filters and statistics (FeatureServer)
+
+`client.query` / `Source.query` accept an arbitrary-geometry spatial
+filter and server-side statistics on the GeoServices FeatureServer path,
+mirroring Esri's `query(geometry=..., spatial_relationship=...)` and
+arcpy summary-statistics queries.
+
+```python
+# "Select by location": features WITHIN a polygon (Esri JSON, GeoJSON, or
+# any shapely/`__geo_interface__` geometry are accepted).
+result = client.query(
+    "parcels",
+    spatial_filter={
+        "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [0, 1], [1, 1], [0, 0]]]},
+        "relationship": "within",     # intersects / within / contains / crosses / touches / overlaps / within-distance
+        "in_sr": 4326,
+    },
+)
+
+# Within-distance ("buffer" select):
+client.query(
+    "stations",
+    spatial_filter={"geometry": {"x": -73.0, "y": 40.7}, "relationship": "within-distance",
+                    "distance": 500, "units": "meters"},
+)
+
+# Server-side statistics + group-by:
+summary = client.query(
+    "parcels",
+    out_statistics=[{"statistic_type": "sum", "on_statistic_field": "area", "out_statistic_field_name": "total_area"}],
+    group_by="zone",
+)
+
+# Distinct values / count-only:
+client.query("parcels", return_distinct_values=True, out_fields="zone")
+client.query("parcels", where="area > 1000", return_count_only=True)
+```
+
+On the `Source` facade these route through `Query.spatial_filter` and the
+`Query.aggregation` mapping (`out_statistics` / `group_by` /
+`return_distinct_values` / `return_count_only`). Both are GeoServices-only
+request shapes; supplying them for a non-FeatureServer source raises
+`ValueError` rather than silently dropping the predicate.
 
 ## Worked recipes
 

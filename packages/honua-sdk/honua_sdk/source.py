@@ -6,12 +6,20 @@ import warnings
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import fields as dataclass_fields
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, runtime_checkable
+from typing import TYPE_CHECKING, Any, cast, runtime_checkable
 from typing import Protocol as TypingProtocol
 
 if TYPE_CHECKING:
     import httpx
 
+    from .cursors import (
+        AsyncInsertCursor,
+        AsyncSearchCursor,
+        AsyncUpdateCursor,
+        InsertCursor,
+        SearchCursor,
+        UpdateCursor,
+    )
     from .ogc import AsyncHonuaOgcFeatures, HonuaOgcFeatures
     from .protocols import (
         AsyncGeoServicesFeatureServerClient,
@@ -44,6 +52,7 @@ from .models import (
     Capability,
     FeatureQuery,
     FeatureQueryResult,
+    LayerSchema,
     Protocol,
     Query,
     QueryFeature,
@@ -187,6 +196,7 @@ _QUERY_OVERRIDE_KWARGS: tuple[str, ...] = (
     "out_fields",
     "return_geometry",
     "bbox",
+    "spatial_filter",
     "limit",
     "page_size",
     "max_pages",
@@ -255,6 +265,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -310,6 +321,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -330,6 +342,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -366,6 +379,7 @@ class Source:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -418,6 +432,102 @@ class Source:
     def protocol(self, kind: Protocol | str | None = None) -> Any:
         """Return the native protocol client for source-specific operations."""
         return _protocol_client(self._client, self.descriptor, kind)
+
+    def schema(self, layer_id: int | None = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for this source's layer.
+
+        The ``arcpy.Describe`` / ``ListFields`` analogue: fetches the
+        FeatureServer layer metadata and parses it into typed fields, geometry
+        type, spatial-reference WKID, and extent. ``layer_id`` defaults to the
+        source descriptor's layer.
+        """
+        resolved = _layer_id(self.descriptor) if layer_id is None else layer_id
+        return cast(LayerSchema, self.protocol("geoservices-feature-service").schema(resolved))
+
+    def search_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "SearchCursor":
+        """Open a lazy :class:`~honua_sdk.cursors.SearchCursor` over this source.
+
+        The ``arcpy.da.SearchCursor`` analogue — iterate ``(geometry, attrs)``
+        rows lazily without materializing the whole result.
+        """
+        from .cursors import SearchCursor
+
+        return SearchCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        )
+
+    def iter_rows(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "Iterator[Any]":
+        """Lazily iterate cursor rows (alias for ``search_cursor(...)`` iteration)."""
+        yield from self.search_cursor(
+            fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        )
+
+    def update_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+        **query_kwargs: Any,
+    ) -> "UpdateCursor":
+        """Open an :class:`~honua_sdk.cursors.UpdateCursor` (iterate + batched write-back)."""
+        from .cursors import UpdateCursor
+
+        return UpdateCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            batch_size=batch_size,
+            rollback_on_failure=rollback_on_failure,
+            **query_kwargs,
+        )
+
+    def insert_cursor(
+        self,
+        *,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+    ) -> "InsertCursor":
+        """Open an :class:`~honua_sdk.cursors.InsertCursor` (batched feature inserts)."""
+        from .cursors import InsertCursor
+
+        return InsertCursor(self, batch_size=batch_size, rollback_on_failure=rollback_on_failure)
+
+    def to_geodataframe(
+        self,
+        query: Query | Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> Any:
+        """Run a query and return its features as a GeoPandas ``GeoDataFrame``.
+
+        First-class SEDF-equivalent: one call from source to geopandas. Requires
+        the optional ``geopandas`` extra.
+        """
+        return self.query(query, **query_kwargs).to_geodataframe()
 
     def _require(self, capability: Capability | str) -> None:
         normalized = normalize_capability(capability)
@@ -474,6 +584,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -528,6 +639,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -549,6 +661,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -585,6 +698,7 @@ class AsyncSource:
         out_fields: str | Sequence[str] | None = None,
         return_geometry: bool | None = None,
         bbox: str | Sequence[int | float] | None = None,
+        spatial_filter: Mapping[str, Any] | None = None,
         limit: int | None = None,
         page_size: int | None = None,
         max_pages: int | None = None,
@@ -639,6 +753,99 @@ class AsyncSource:
         """Return the native protocol client for source-specific operations."""
         return _protocol_client(self._client, self.descriptor, kind)
 
+    async def schema(self, layer_id: int | None = None) -> LayerSchema:
+        """Return a typed :class:`LayerSchema` for this source's layer.
+
+        Asynchronous counterpart to :meth:`Source.schema`. The
+        ``arcpy.Describe`` / ``ListFields`` analogue: fetches the FeatureServer
+        layer metadata and parses it into typed fields, geometry type,
+        spatial-reference WKID, and extent.
+        """
+        resolved = _layer_id(self.descriptor) if layer_id is None else layer_id
+        return cast(LayerSchema, await self.protocol("geoservices-feature-service").schema(resolved))
+
+    def search_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "AsyncSearchCursor":
+        """Open a lazy :class:`~honua_sdk.cursors.AsyncSearchCursor` over this source."""
+        from .cursors import AsyncSearchCursor
+
+        return AsyncSearchCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        )
+
+    def iter_rows(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> "AsyncIterator[Any]":
+        """Lazily iterate cursor rows (alias for ``search_cursor(...)`` iteration)."""
+        return self.search_cursor(
+            fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            **query_kwargs,
+        ).__aiter__()
+
+    def update_cursor(
+        self,
+        fields: Sequence[str] | None = None,
+        *,
+        where: str | None = None,
+        geometry_filter: Mapping[str, Any] | None = None,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+        **query_kwargs: Any,
+    ) -> "AsyncUpdateCursor":
+        """Open an :class:`~honua_sdk.cursors.AsyncUpdateCursor` (iterate + batched write-back)."""
+        from .cursors import AsyncUpdateCursor
+
+        return AsyncUpdateCursor(
+            self,
+            fields=fields,
+            where=where,
+            geometry_filter=geometry_filter,
+            batch_size=batch_size,
+            rollback_on_failure=rollback_on_failure,
+            **query_kwargs,
+        )
+
+    def insert_cursor(
+        self,
+        *,
+        batch_size: int = 200,
+        rollback_on_failure: bool = True,
+    ) -> "AsyncInsertCursor":
+        """Open an :class:`~honua_sdk.cursors.AsyncInsertCursor` (batched feature inserts)."""
+        from .cursors import AsyncInsertCursor
+
+        return AsyncInsertCursor(self, batch_size=batch_size, rollback_on_failure=rollback_on_failure)
+
+    async def to_geodataframe(
+        self,
+        query: Query | Mapping[str, Any] | None = None,
+        **query_kwargs: Any,
+    ) -> Any:
+        """Run a query and return its features as a GeoPandas ``GeoDataFrame``.
+
+        First-class SEDF-equivalent: one ``await`` from source to geopandas.
+        Requires the optional ``geopandas`` extra.
+        """
+        result = await self.query(query, **query_kwargs)
+        return result.to_geodataframe()
+
     def _require(self, capability: Capability | str) -> None:
         normalized = normalize_capability(capability)
         if not self.supports(normalized):
@@ -684,6 +891,7 @@ def _coerce_query(  # noqa: PLR0913 -- explicit kwargs mirror Query fields for I
     out_fields: str | Sequence[str] | None = None,
     return_geometry: bool | None = None,
     bbox: str | Sequence[int | float] | None = None,
+    spatial_filter: Mapping[str, Any] | None = None,
     limit: int | None = None,
     page_size: int | None = None,
     max_pages: int | None = None,
@@ -728,6 +936,7 @@ def _coerce_query(  # noqa: PLR0913 -- explicit kwargs mirror Query fields for I
         ("out_fields", out_fields),
         ("return_geometry", return_geometry),
         ("bbox", bbox),
+        ("spatial_filter", spatial_filter),
         ("limit", limit),
         ("page_size", page_size),
         ("max_pages", max_pages),
@@ -821,6 +1030,10 @@ def _feature_query_for_source(descriptor: SourceDescriptor, query: Query) -> Fea
         where_value = query.where if protocol in _SQL_WHERE_PROTOCOLS else None
         filter_value = None
 
+    spatial_filter, out_statistics, group_by, return_distinct, return_count_only = _analytic_fields_for_query(
+        protocol, query
+    )
+
     return FeatureQuery(
         source=_query_source(descriptor),
         protocol=protocol,
@@ -828,13 +1041,68 @@ def _feature_query_for_source(descriptor: SourceDescriptor, query: Query) -> Fea
         where=where_value,
         filter=filter_value,
         bbox=query.bbox,
+        spatial_filter=spatial_filter,
         fields=query.out_fields,
         return_geometry=query.return_geometry,
+        out_statistics=out_statistics,
+        group_by=group_by,
+        return_distinct_values=return_distinct,
+        return_count_only=return_count_only,
         page_size=query.page_size,
         limit=query.limit,
-        max_pages=query.max_pages,
+        # Default the page cap to 100 when the Query left it unset; ``None`` is
+        # reserved for an explicit unbounded walk so a million-feature iterate
+        # doesn't silently stop at a hidden cap.
+        max_pages=100 if query.max_pages is None else query.max_pages,
         extra_params=_extra_params_for_query(protocol, query),
     )
+
+
+#: The canonical query protocol whose REST surface supports arbitrary-geometry
+#: spatial filters and server-side statistics/aggregation (GeoServices).
+_ANALYTIC_PROTOCOL = "geoservices-feature-service"
+
+
+def _analytic_fields_for_query(
+    protocol: str, query: Query
+) -> tuple[Mapping[str, Any] | None, Sequence[Mapping[str, Any]] | None, str | Sequence[str] | None, bool, bool]:
+    """Resolve the FeatureServer spatial-filter + statistics slots from a ``Query``.
+
+    Reads :attr:`Query.spatial_filter` and the protocol-neutral
+    :attr:`Query.aggregation` mapping (``out_statistics`` / ``group_by`` /
+    ``return_distinct_values`` / ``return_count_only``) and returns them as the
+    typed :class:`FeatureQuery` slots. Both are GeoServices-only request shapes,
+    so a non-FeatureServer source that supplies either raises
+    :class:`ValueError` rather than silently dropping the predicate.
+    """
+    aggregation = query.aggregation or {}
+    out_statistics = _first_present_value(aggregation, "out_statistics", "outStatistics", "statistics")
+    group_by = _first_present_value(aggregation, "group_by", "groupBy", "groupByFieldsForStatistics")
+    return_distinct = bool(
+        _first_present_value(aggregation, "return_distinct_values", "returnDistinctValues", "distinct") or False
+    )
+    return_count_only = bool(
+        _first_present_value(aggregation, "return_count_only", "returnCountOnly", "count_only") or False
+    )
+
+    has_analytics = bool(
+        query.spatial_filter or out_statistics or group_by or return_distinct or return_count_only
+    )
+    if has_analytics and protocol != _ANALYTIC_PROTOCOL:
+        raise ValueError(
+            "spatial_filter and aggregation/statistics are only supported on the "
+            "GeoServices FeatureServer protocol; express spatial/analytic "
+            f"predicates natively for protocol {protocol!r}."
+        )
+
+    return query.spatial_filter, out_statistics, group_by, return_distinct, return_count_only
+
+
+def _first_present_value(mapping: Mapping[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping and mapping[key] is not None:
+            return mapping[key]
+    return None
 
 
 def _result_from_legacy(
@@ -855,15 +1123,10 @@ def _result_from_legacy(
         replace(feature, protocol=descriptor.protocol, source=descriptor.id)
         for feature in legacy_result.features
     )
-    total_count = (
-        legacy_result.total_count
-        if legacy_result.total_count is not None
-        else len(normalized_features)
-    )
     return Result(
         features=normalized_features,
         exceeded_transfer_limit=bool(legacy_result.exceeded_transfer_limit),
-        total_count=total_count,
+        total_count=legacy_result.total_count,
         protocol=descriptor.protocol,
         source_id=descriptor.id,
         query=query,

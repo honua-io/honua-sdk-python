@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
+from ._geoservices_query import spatial_filter_params, statistics_params
 from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol, normalize_protocol
 
 
@@ -18,8 +19,13 @@ def resolve_feature_query(
     where: str | None = None,
     filter: str | None = None,
     bbox: str | Sequence[int | float] | None = None,
+    spatial_filter: Mapping[str, Any] | None = None,
     fields: str | Sequence[str] | None = None,
     return_geometry: bool | None = None,
+    out_statistics: Sequence[Mapping[str, Any]] | None = None,
+    group_by: str | Sequence[str] | None = None,
+    return_distinct_values: bool | None = None,
+    return_count_only: bool | None = None,
     page_size: int | None = None,
     limit: int | None = None,
     max_pages: int | None = None,
@@ -36,11 +42,24 @@ def resolve_feature_query(
             where=where if where is not None else source.where,
             filter=filter if filter is not None else source.filter,
             bbox=bbox if bbox is not None else source.bbox,
+            spatial_filter=spatial_filter if spatial_filter is not None else source.spatial_filter,
             fields=fields if fields is not None else source.fields,
             return_geometry=return_geometry if return_geometry is not None else source.return_geometry,
+            out_statistics=out_statistics if out_statistics is not None else source.out_statistics,
+            group_by=group_by if group_by is not None else source.group_by,
+            return_distinct_values=(
+                return_distinct_values if return_distinct_values is not None else source.return_distinct_values
+            ),
+            return_count_only=(
+                return_count_only if return_count_only is not None else source.return_count_only
+            ),
             page_size=page_size if page_size is not None else source.page_size,
             limit=limit if limit is not None else source.limit,
-            max_pages=max_pages if max_pages is not None else source.max_pages,
+            # A pre-built FeatureQuery owns its own page cap: per the
+            # ``client.query`` contract the per-call kwargs are ignored for a
+            # pre-built query, so ``source.max_pages`` (``None`` = unbounded)
+            # wins outright and the method-level default never clobbers it.
+            max_pages=source.max_pages,
             extra_params=merged_extra_params,
         )
 
@@ -56,8 +75,13 @@ def resolve_feature_query(
         where=where,
         filter=filter,
         bbox=bbox,
+        spatial_filter=spatial_filter,
         fields=fields,
         return_geometry=True if return_geometry is None else return_geometry,
+        out_statistics=out_statistics,
+        group_by=group_by,
+        return_distinct_values=bool(return_distinct_values),
+        return_count_only=bool(return_count_only),
         page_size=page_size,
         limit=limit,
         max_pages=max_pages,
@@ -113,7 +137,14 @@ def bbox_text(value: str | Sequence[int | float] | None) -> str | None:
 
 def feature_server_extra_params(query: FeatureQuery) -> dict[str, Any]:
     params = dict(query.extra_params)
-    if query.bbox is not None:
+    # An explicit spatial_filter (arbitrary geometry + relationship + SR +
+    # optional distance) takes precedence over the bbox envelope shorthand; the
+    # two are mutually exclusive request shapes for the FeatureServer ``query``
+    # endpoint, so we never emit both ``geometry`` sources.
+    if query.spatial_filter is not None:
+        for key, value in spatial_filter_params(query.spatial_filter).items():
+            params.setdefault(key, value)
+    elif query.bbox is not None:
         bbox = _bbox_values(query.bbox)
         params.setdefault(
             "geometry",
@@ -131,6 +162,14 @@ def feature_server_extra_params(query: FeatureQuery) -> dict[str, Any]:
         params.setdefault("geometryType", "esriGeometryEnvelope")
         params.setdefault("spatialRel", "esriSpatialRelIntersects")
         params.setdefault("inSR", 4326)
+
+    for key, value in statistics_params(
+        out_statistics=query.out_statistics,
+        group_by=query.group_by,
+        return_distinct_values=query.return_distinct_values,
+        return_count_only=query.return_count_only,
+    ).items():
+        params.setdefault(key, value)
     return params
 
 

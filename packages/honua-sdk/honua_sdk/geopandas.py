@@ -266,6 +266,95 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
 
 
 # ---------------------------------------------------------------------------
+# Typed-model -> GeoDataFrame (the SEDF-equivalent first-class path)
+# ---------------------------------------------------------------------------
+
+
+def _crs_for_typed(crs_hint: Any, *, default_geojson: bool) -> str | None:
+    """Resolve a CRS string from an explicit WKID/EPSG hint or GeoJSON default."""
+    if crs_hint is not None:
+        if isinstance(crs_hint, int):
+            return _WKID_TO_EPSG.get(crs_hint, f"EPSG:{crs_hint}")
+        if isinstance(crs_hint, str):
+            text = crs_hint.strip()
+            if text.isdigit():
+                return _WKID_TO_EPSG.get(int(text), f"EPSG:{text}")
+            return _normalize_geojson_crs_identifier(text)
+    return _GEOJSON_DEFAULT_CRS if default_geojson else None
+
+
+def typed_features_to_geodataframe(
+    features: Any,
+    *,
+    crs: Any = None,
+    default_geojson_crs: bool = True,
+) -> gpd.GeoDataFrame:
+    """Build a GeoDataFrame from typed ``Feature`` / ``QueryFeature`` objects.
+
+    Each feature contributes its attribute mapping (``attributes`` for
+    :class:`~honua_sdk.models.Feature`, ``properties`` for
+    :class:`~honua_sdk.models.QueryFeature`) as a row and its geometry — via the
+    feature's first-class ``__geo_interface__`` bridge — as the geometry column.
+    This is the typed-model equivalent of the Esri Spatially-Enabled DataFrame:
+    one call turns a query result into geopandas without round-tripping through
+    ``result.raw``.
+
+    Parameters
+    ----------
+    features:
+        Iterable of :class:`Feature` / :class:`QueryFeature` instances.
+    crs:
+        Optional CRS hint (WKID int, EPSG string, or CRS identifier). When
+        omitted, GeoJSON-shaped sources default to ``EPSG:4326`` unless
+        *default_geojson_crs* is ``False``.
+    """
+    _ensure_deps()
+
+    rows: list[dict[str, Any]] = []
+    geometries: list[Any] = []
+    for feature in features:
+        attrs = getattr(feature, "attributes", None)
+        if attrs is None:
+            attrs = getattr(feature, "properties", {})
+        row = dict(attrs)
+        feature_id = getattr(feature, "id", None)
+        if feature_id is not None and "id" not in row:
+            row["id"] = feature_id
+        rows.append(row)
+        geo = feature.__geo_interface__
+        geometries.append(_shape(geo) if geo else None)
+
+    frame = pd.DataFrame(rows, dtype=object)
+    gdf = gpd.GeoDataFrame(frame, geometry=geometries)
+    resolved = _crs_for_typed(crs, default_geojson=default_geojson_crs)
+    if resolved is not None:
+        gdf = gdf.set_crs(resolved)
+    return gdf
+
+
+def result_to_geodataframe(result: Any) -> gpd.GeoDataFrame:
+    """Convert a canonical :class:`~honua_sdk.models.Result` to a GeoDataFrame.
+
+    Backs :meth:`honua_sdk.models.Result.to_geodataframe`. The CRS is taken from
+    the result's ``query.out_sr`` when set, otherwise the result ``extent``'s
+    spatial reference, otherwise the GeoJSON default ``EPSG:4326``.
+    """
+    crs_hint: Any = None
+    query = getattr(result, "query", None)
+    if query is not None and getattr(query, "out_sr", None) is not None:
+        crs_hint = query.out_sr
+    extent = getattr(result, "extent", None)
+    if crs_hint is None and isinstance(extent, Mapping):
+        spatial_reference = extent.get("spatialReference")
+        if isinstance(spatial_reference, Mapping):
+            for key in ("latestWkid", "wkid"):
+                if spatial_reference.get(key) is not None:
+                    crs_hint = spatial_reference[key]
+                    break
+    return typed_features_to_geodataframe(result.features, crs=crs_hint)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 

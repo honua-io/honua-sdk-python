@@ -324,7 +324,13 @@ def update_protocol_factory_snapshot(path: Path = PROTOCOL_FACTORY_SNAPSHOT_PATH
 def _normalized_factory_return(return_name: Any) -> str:
     if not isinstance(return_name, str):
         return repr(return_name)
-    return _strip_forward_ref_quotes(return_name).removeprefix("Async")
+    # Collapse the sync/async wrapper-family seam the same way ``gen_sync.py``
+    # does: a leading ``Async`` prefix (``AsyncStacClient`` → ``StacClient``)
+    # *and* an embedded ``Async`` before a capital (``HonuaGrpcAsyncClient`` →
+    # ``HonuaGrpcClient``), so a factory whose paired wrappers only differ by
+    # that token reads as the same family.
+    stripped = _strip_forward_ref_quotes(return_name).removeprefix("Async")
+    return re.sub(r"Async(?=[A-Z])", "", stripped)
 
 
 def check_protocol_factory_parity(data: Mapping[str, Any]) -> list[str]:

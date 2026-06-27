@@ -213,3 +213,20 @@ class Result(Generic[T]):
         object.__setattr__(self, "extent", dict(self.extent) if self.extent is not None else None)
         object.__setattr__(self, "degraded", tuple(self.degraded))
         object.__setattr__(self, "raw", dict(self.raw))
+
+    def to_geodataframe(self) -> Any:
+        """Convert this result's features to a GeoPandas ``GeoDataFrame``.
+
+        The first-class, one-call equivalent of the Esri Spatially-Enabled
+        DataFrame: feature attributes become columns and each feature's geometry
+        (via its ``__geo_interface__`` bridge) becomes the geometry column. The
+        CRS is resolved from the result's ``query.out_sr`` / ``extent`` spatial
+        reference, defaulting to ``EPSG:4326`` for GeoJSON sources.
+
+        Requires the optional ``geopandas`` extra
+        (``pip install honua-sdk[geopandas]``); raises :class:`ImportError` with
+        an install hint when it is absent.
+        """
+        from honua_sdk.geopandas import result_to_geodataframe
+
+        return result_to_geodataframe(self)

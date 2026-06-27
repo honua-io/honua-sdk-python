@@ -773,6 +773,75 @@ def test_follow_redirects_does_not_forward_auth_provider_headers_to_different_ho
     ]
 
 
+def test_follow_redirects_does_not_forward_sensitive_headers_on_scheme_downgrade() -> None:
+    # An https -> http downgrade to the *same* host/port must strip credentials:
+    # without the scheme in the trusted-origin key both URLs normalize to the
+    # same (host, port) and the headers would leak over plaintext.
+    seen: list[tuple[str, str, str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.url.scheme,
+                request.url.host or "",
+                request.headers.get("x-api-key", ""),
+                request.headers.get("authorization", ""),
+            )
+        )
+        if request.url.scheme == "https":
+            return httpx.Response(
+                302,
+                headers={"Location": "http://api.example/healthz/ready"},
+            )
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient(
+        "https://api.example",
+        transport=transport,
+        api_key="test-key",
+        bearer_token="test-token",
+        follow_redirects=True,
+    ) as client:
+        response = client.readiness()
+
+    assert response == {"status": "ready"}
+    assert seen == [
+        ("https", "api.example", "test-key", "Bearer test-token"),
+        ("http", "api.example", "", ""),
+    ]
+
+
+def test_base_url_path_prefix_is_preserved_on_every_request() -> None:
+    # A base URL with a sub-path prefix (reverse-proxy mount) must be honored;
+    # the endpoint path is joined onto the prefix rather than replacing it.
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("https://host.example/honua/", transport=transport) as client:
+        client.readiness()
+
+    assert seen == ["/honua/healthz/ready"]
+
+
+def test_root_base_url_leaves_request_path_unchanged() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("https://host.example", transport=transport) as client:
+        client.readiness()
+
+    assert seen == ["/healthz/ready"]
+
+
 def test_transport_errors_are_normalized_to_honua_transport_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection failed", request=request)
@@ -888,3 +957,26 @@ def test_dispatcher_accepts_filter_for_cql_protocols(protocol: str) -> None:
             limit=1,
         )
     assert result.protocol == protocol
+
+
+@pytest.mark.parametrize("protocol", ["stac", "odata"])
+def test_shared_query_limit_zero_returns_empty_without_crash(protocol: str) -> None:
+    """limit=0 must short-circuit to an empty result for STAC/OData just like it
+    already does for FeatureServer/OGC, rather than raising UnboundLocalError.
+
+    The STAC/OData pagination generators return zero pages for limit=0, so the
+    ``last_page`` reference in ``_collect_query_pages`` must be initialized
+    before the loop or the signal-extraction call crashes.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(
+            f"limit=0 should issue no requests; got {request.url}"
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        result = client.query("collection-1", protocol=protocol, limit=0)
+
+    assert result.protocol == protocol
+    assert len(result.features) == 0

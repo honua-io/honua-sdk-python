@@ -451,7 +451,9 @@ class TestConvertGeometry:
 
         result = adapter._convert_geometry(geom)
 
-        assert result == {"points": [[1.0, 2.0, None, 9.0]]}
+        # M-only vertices are written [x, y, m] (no null Z placeholder) with a
+        # geometry-level hasM flag so a third ordinate reads as M, not Z.
+        assert result == {"points": [[1.0, 2.0, 9.0]], "hasM": True}
 
     def test_polyline(self, proto_polyline_feature: pb2.Feature) -> None:
         result = adapter._convert_geometry(proto_polyline_feature.geometry)
@@ -472,7 +474,10 @@ class TestConvertGeometry:
         result = adapter._convert_geometry(geom)
 
         assert result is not None
-        assert result["paths"][0][0] == [0.0, 0.0, None, 3.0]
+        # M-only vertex: [x, y, m] with hasM at the geometry level (no null Z).
+        assert result["paths"][0][0] == [0.0, 0.0, 3.0]
+        assert result["hasM"] is True
+        assert "hasZ" not in result
 
     def test_polygon(self, proto_polygon_feature: pb2.Feature) -> None:
         result = adapter._convert_geometry(proto_polygon_feature.geometry)

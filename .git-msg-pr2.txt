@@ -1,0 +1,24 @@
+fix(sdk): close auth credential leak on scheme downgrade and preserve base_url path prefix
+
+Two transport-layer defects from the pre-release audit (AUD-154, AUD-155/158/166).
+
+- Auth credential leak (AUD-154): the trusted-origin key used only
+  (host, port), ignoring the URL scheme. An https -> http redirect to
+  the same host normalizes to the same (host, port), so the SDK
+  re-attached Authorization / X-API-Key over plaintext after a
+  downgrade. Include the scheme in the trusted-origin key
+  (scheme, host, port) so credentials are stripped on https -> http
+  downgrades as well as host/port changes.
+
+- base_url path prefix dropped (AUD-155/158/166): every request URL was
+  built with copy_with(raw_path=...), which replaced the entire path and
+  silently discarded any path prefix on the configured base URL. A
+  deployment mounted behind a reverse proxy at a sub-path (e.g.
+  https://host/honua/) had every call rewritten to /rest/services/...,
+  hitting the wrong endpoint with no error. Join the endpoint path onto
+  the base URL's existing path via a new join_base_path helper; a root
+  base URL is unchanged.
+
+Refs #126 (credential-leak half; async non-blocking token refresh deferred)
+Refs #125 (S2 base_url-prefix items; S3 non-ASCII encoding and geocoding
+retry items deferred)

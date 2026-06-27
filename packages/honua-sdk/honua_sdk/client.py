@@ -1602,6 +1602,8 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1612,6 +1614,8 @@ class HonuaClient:
             path,
             params=params,
             json_body=json_body,
+            files=files,
+            data=data,
             headers=headers,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -1626,6 +1630,8 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
         content: bytes | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -1642,6 +1648,11 @@ class HonuaClient:
         * ``idempotency_key``: when set, attaches an ``Idempotency-Key``
           header to the outbound request, overriding any header of the
           same name in ``headers`` / ``extra_headers``.
+
+        ``files`` / ``data`` carry a ``multipart/form-data`` upload body
+        (e.g. an attachment file plus its form fields) and are mutually
+        exclusive with ``json_body``; when either is set the JSON body is
+        omitted so httpx encodes the multipart payload.
 
         ``content`` sends a raw request body (used by the protocol text path
         for OData ``$metadata`` / WFS operations); it is mutually exclusive
@@ -1660,9 +1671,16 @@ class HonuaClient:
             "params": params,
             "headers": merged_headers,
         }
-        # ``json`` and ``content`` are mutually exclusive in httpx; prefer a
-        # raw body when supplied, otherwise serialize ``json_body``.
-        if content is not None:
+        if files is not None or data is not None:
+            # Multipart upload: httpx owns the Content-Type boundary, so do
+            # not also send a JSON body.
+            if files is not None:
+                request_kwargs["files"] = files
+            if data is not None:
+                request_kwargs["data"] = data
+        elif content is not None:
+            # ``json`` and ``content`` are mutually exclusive in httpx; prefer a
+            # raw body when supplied, otherwise serialize ``json_body``.
             request_kwargs["content"] = content
         else:
             request_kwargs["json"] = json_body

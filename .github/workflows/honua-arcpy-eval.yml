@@ -71,11 +71,16 @@ jobs:
 
       - name: Run honua-arcpy eval (stub mode)
         run: |
+          # ``--require-supported-pass-rate 1.0`` makes this blocking per-PR
+          # lane fail on ANY regression in a *supported* (mapped) script,
+          # instead of staying green off the overall pass rate (which is
+          # dominated by expected-failure stub scripts).
           python packages/honua-arcpy/eval/run_eval.py \
             --output-json packages/honua-arcpy/eval-results.json \
             --output-junit packages/honua-arcpy/eval-results.xml \
             --audit-root packages/honua-arcpy/eval/.audit \
-            --pass-threshold 0.70
+            --pass-threshold 0.70 \
+            --require-supported-pass-rate 1.0
 
       - name: Upload eval artifacts
         if: always()

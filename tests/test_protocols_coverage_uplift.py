@@ -73,6 +73,19 @@ def test_ogc_tiles_landing_conformance_collection_matrix_and_dataset_paths() -> 
         assert tiles.collection_tilesets("imagery")["ok"] is True
         assert tiles.tile("WebMercatorQuad", "0", 0, 0) == b"tile-bytes"
 
+    # Assert the constructed request paths (mirroring the sibling OGC maps
+    # test) so the coverage-uplift test pins behavior, not just the mock body.
+    assert seen == [
+        "/ogc/tiles",
+        "/ogc/tiles/conformance",
+        "/ogc/tiles/collections/imagery",
+        "/ogc/tiles/tileMatrixSets",
+        "/ogc/tiles/tileMatrixSets/WebMercatorQuad",
+        "/ogc/tiles/tiles",
+        "/ogc/tiles/collections/imagery/tiles",
+        "/ogc/tiles/tiles/WebMercatorQuad/0/0/0",
+    ]
+
 
 def test_ogc_coverages_collections_collection_and_coverage_paths() -> None:
     seen: list[str] = []

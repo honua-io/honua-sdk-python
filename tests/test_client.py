@@ -773,6 +773,75 @@ def test_follow_redirects_does_not_forward_auth_provider_headers_to_different_ho
     ]
 
 
+def test_follow_redirects_does_not_forward_sensitive_headers_on_scheme_downgrade() -> None:
+    # An https -> http downgrade to the *same* host/port must strip credentials:
+    # without the scheme in the trusted-origin key both URLs normalize to the
+    # same (host, port) and the headers would leak over plaintext.
+    seen: list[tuple[str, str, str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            (
+                request.url.scheme,
+                request.url.host or "",
+                request.headers.get("x-api-key", ""),
+                request.headers.get("authorization", ""),
+            )
+        )
+        if request.url.scheme == "https":
+            return httpx.Response(
+                302,
+                headers={"Location": "http://api.example/healthz/ready"},
+            )
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient(
+        "https://api.example",
+        transport=transport,
+        api_key="test-key",
+        bearer_token="test-token",
+        follow_redirects=True,
+    ) as client:
+        response = client.readiness()
+
+    assert response == {"status": "ready"}
+    assert seen == [
+        ("https", "api.example", "test-key", "Bearer test-token"),
+        ("http", "api.example", "", ""),
+    ]
+
+
+def test_base_url_path_prefix_is_preserved_on_every_request() -> None:
+    # A base URL with a sub-path prefix (reverse-proxy mount) must be honored;
+    # the endpoint path is joined onto the prefix rather than replacing it.
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("https://host.example/honua/", transport=transport) as client:
+        client.readiness()
+
+    assert seen == ["/honua/healthz/ready"]
+
+
+def test_root_base_url_leaves_request_path_unchanged() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json={"status": "ready"})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("https://host.example", transport=transport) as client:
+        client.readiness()
+
+    assert seen == ["/healthz/ready"]
+
+
 def test_transport_errors_are_normalized_to_honua_transport_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection failed", request=request)

@@ -215,6 +215,25 @@ def _next_link(response: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _next_link_object(response: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Return the full ``rel="next"`` link object from a STAC response, if any.
+
+    Unlike :func:`_next_link` (which only yields the ``href`` string), this
+    preserves the ``method``/``body``/``merge`` fields so STAC POST ``/search``
+    pagination can honor the spec's method+body continuation contract instead of
+    silently re-issuing the next link as a GET.
+    """
+    links = response.get("links")
+    if not isinstance(links, Sequence) or isinstance(links, str):
+        return None
+    for link in links:
+        if not isinstance(link, Mapping):
+            continue
+        if link.get("rel") == "next" and isinstance(link.get("href"), str):
+            return link
+    return None
+
+
 def _path_and_params_from_href(href: str) -> tuple[str, dict[str, str]]:
     parsed = urlsplit(href)
     path = parsed.path or href

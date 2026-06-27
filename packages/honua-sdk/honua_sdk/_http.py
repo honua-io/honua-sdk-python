@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
+from anyio import to_thread
 
 from .auth import SENSITIVE_AUTH_HEADER_NAMES, AuthProvider, normalize_auth_headers
 from .errors import (
@@ -49,6 +50,29 @@ def join_base_path(base_url: httpx.URL, path: str) -> str:
     if not path.startswith("/"):
         path = "/" + path
     return prefix + path
+
+
+def encode_request_path(raw_path: str) -> bytes:
+    """Encode a joined request path to bytes for ``URL.copy_with(raw_path=…)``.
+
+    The core clients override the raw path on the base URL so httpx does not
+    percent-decode already-encoded segments — which requires an ASCII byte
+    string. A server-controlled pagination ``next``-link path may however carry
+    non-ASCII characters; ``str.encode("ascii")`` would raise an unwrapped
+    :class:`UnicodeEncodeError` and crash the pagination walk.
+
+    Encode the common all-ASCII case directly, and otherwise percent-encode
+    **only** the non-ASCII characters (as UTF-8), leaving any existing
+    percent-encoding (and reserved delimiters) untouched so already-encoded
+    segments are not double-encoded.
+    """
+    try:
+        return raw_path.encode("ascii")
+    except UnicodeEncodeError:
+        encoded = "".join(
+            char if ord(char) < 128 else quote(char, safe="") for char in raw_path
+        )
+        return encoded.encode("ascii")
 
 
 def _build_sensitive_auth_headers(
@@ -167,6 +191,57 @@ def _auth_provider_headers(auth_provider: AuthProvider | None) -> dict[str, str]
     if auth_provider is None:
         return {}
     return normalize_auth_headers(auth_provider.auth_headers())
+
+
+async def _resolve_dynamic_auth_headers_async(
+    auth_provider: AuthProvider | None,
+) -> dict[str, str]:
+    """Resolve dynamic provider headers without blocking the event loop.
+
+    Prefers an awaitable ``auth_headers_async`` (see
+    :class:`~honua_sdk.auth.AsyncAuthProvider`) so a network token refresh is
+    awaited rather than run inline. A purely synchronous provider's
+    ``auth_headers`` is executed in a worker thread so a blocking refresh does
+    not stall the event loop.
+    """
+    if auth_provider is None:
+        return {}
+    async_getter = getattr(auth_provider, "auth_headers_async", None)
+    if async_getter is not None:
+        return normalize_auth_headers(await async_getter())
+    headers = await to_thread.run_sync(auth_provider.auth_headers)
+    return normalize_auth_headers(headers)
+
+
+async def _apply_sensitive_auth_headers_async(
+    request: httpx.Request,
+    *,
+    trusted_authority: tuple[str, str, int | None] | None,
+    auth_headers: Mapping[str, str],
+    auth_provider: AuthProvider | None = None,
+) -> None:
+    """Async variant of :func:`_apply_sensitive_auth_headers`.
+
+    Resolves dynamic provider headers via
+    :func:`_resolve_dynamic_auth_headers_async` so a refreshable bearer
+    provider does not block the event loop, then applies the same
+    trusted-origin gate (attach only on an exact ``(scheme, host, port)``
+    match; strip the sensitive headers otherwise).
+    """
+    if trusted_authority is None:
+        return
+
+    request_authority = (request.url.scheme, request.url.host, request.url.port)
+    if request_authority == trusted_authority:
+        dynamic_headers = await _resolve_dynamic_auth_headers_async(auth_provider)
+        for name, value in auth_headers.items():
+            request.headers.setdefault(name, value)
+        for name, value in dynamic_headers.items():
+            request.headers.setdefault(name, value)
+        return
+
+    for name in SENSITIVE_AUTH_HEADER_NAMES:
+        request.headers.pop(name, None)
 
 
 def parse_retry_after(value: str | None) -> float | None:

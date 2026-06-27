@@ -22,6 +22,7 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
     _warn_deprecated_bearer_token,
+    encode_request_path,
     join_base_path,
 )
 from ._query import (
@@ -1614,6 +1615,7 @@ class HonuaClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Mapping[str, Any] | None = None,
+        content: bytes | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1629,21 +1631,30 @@ class HonuaClient:
         * ``idempotency_key``: when set, attaches an ``Idempotency-Key``
           header to the outbound request, overriding any header of the
           same name in ``headers`` / ``extra_headers``.
+
+        ``content`` sends a raw request body (used by the protocol text path
+        for OData ``$metadata`` / WFS operations); it is mutually exclusive
+        with ``json_body``.
         """
         # Build a full URL so httpx does not re-decode percent-encoded
         # path segments during base-URL resolution. Join onto the base URL's
         # path prefix so sub-path deployments (e.g. behind a reverse proxy at
         # ``/honua/``) are not silently rewritten to the bare endpoint path.
         raw_path = join_base_path(self._base_url, path)
-        url = self._base_url.copy_with(raw_path=raw_path.encode("ascii"))
+        url = self._base_url.copy_with(raw_path=encode_request_path(raw_path))
         merged_headers = merge_request_headers(headers, extra_headers, idempotency_key)
         request_kwargs: dict[str, Any] = {
             "method": method,
             "url": url,
             "params": params,
-            "json": json_body,
             "headers": merged_headers,
         }
+        # ``json`` and ``content`` are mutually exclusive in httpx; prefer a
+        # raw body when supplied, otherwise serialize ``json_body``.
+        if content is not None:
+            request_kwargs["content"] = content
+        else:
+            request_kwargs["json"] = json_body
         if timeout is not None:
             request_kwargs["timeout"] = (
                 timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)

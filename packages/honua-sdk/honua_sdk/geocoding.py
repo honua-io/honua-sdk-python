@@ -1,14 +1,21 @@
 """Synchronous HTTP client for Honua GeocodeServer APIs."""
+# AUTO-GENERATED from packages/honua-sdk/honua_sdk/async_geocoding.py by scripts/gen_sync.py — do not edit by hand.
+# Edit the async source-of-truth and run `python scripts/gen_sync.py`.
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 from ._endpoints import parse_json_response_body
+from ._geocoding_models import (
+    GeocodeResult,
+    GeocodeSuggestion,
+    ReverseGeocodeResult,
+    _extract_location_xy,
+)
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -19,58 +26,15 @@ from ._http import (
     _to_transport_error,
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
+    encode_request_path,
     join_base_path,
 )
 from ._retry import RetryTransport
 from .auth import AuthProvider
 
 
-@dataclass
-class GeocodeResult:
-    address: str
-    latitude: float
-    longitude: float
-    score: float
-    attributes: dict[str, str | None]
-
-
-@dataclass
-class ReverseGeocodeResult:
-    address: str
-    latitude: float
-    longitude: float
-    attributes: dict[str, str | None]
-
-
-@dataclass
-class GeocodeSuggestion:
-    text: str
-    magic_key: str
-    is_collection: bool
-
-
-def _extract_location_xy(location: Any) -> tuple[float, float] | None:
-    """Return ``(longitude, latitude)`` from a GeocodeServer ``location``.
-
-    Returns ``None`` when the location is missing, not a mapping, or lacks a
-    usable ``x``/``y`` pair. Defaulting absent coordinates to ``0`` would
-    silently emit a valid-looking ``(0, 0)`` "null island" result that masks
-    a geocode miss — so a missing location is treated as "no result" instead.
-    """
-    if not isinstance(location, Mapping):
-        return None
-    raw_x = location.get("x")
-    raw_y = location.get("y")
-    if raw_x is None or raw_y is None:
-        return None
-    try:
-        return float(raw_x), float(raw_y)
-    except (TypeError, ValueError):
-        return None
-
-
 class HonuaGeocodingClient:
-    """Task-oriented client for Honua GeocodeServer workflows."""
+    """Synchronous task-oriented client for Honua GeocodeServer workflows."""
 
     def __init__(
         self,
@@ -113,10 +77,14 @@ class HonuaGeocodingClient:
                 auth_provider=auth_provider,
             )
 
-        effective_transport = transport
-        if max_retries > 0:
-            inner = effective_transport or httpx.HTTPTransport()
-            effective_transport = RetryTransport(inner, max_retries=max_retries)
+        # Always wrap with the retry transport — even at ``max_retries == 0`` —
+        # matching the core client so retry installation is consistent across
+        # the SDK. The transport only retries when its budget is positive, so a
+        # zero budget is a single attempt (no behaviour change).
+        inner = transport or httpx.HTTPTransport()
+        effective_transport: httpx.BaseTransport = RetryTransport(
+            inner, max_retries=max_retries
+        )
 
         self._client = httpx.Client(
             base_url=normalized_base_url,
@@ -134,8 +102,9 @@ class HonuaGeocodingClient:
     def close(self) -> None:
         """Release underlying HTTP resources if this instance owns the client.
 
-        When constructed with an externally supplied :class:`httpx.Client`,
-        ownership stays with the caller and this method is a no-op.
+        When constructed with an externally supplied
+        :class:`httpx.Client`, ownership stays with the caller and
+        this method is a no-op.
         """
         if self._owns_client:
             self._client.close()
@@ -386,7 +355,7 @@ class HonuaGeocodingClient:
         # (e.g. a locator name containing a space or "/").
         base_url = self._client.base_url
         raw_path = join_base_path(base_url, path)
-        url = base_url.copy_with(raw_path=raw_path.encode("ascii"))
+        url = base_url.copy_with(raw_path=encode_request_path(raw_path))
         request_kwargs: dict[str, Any] = {
             "method": method,
             "url": url,

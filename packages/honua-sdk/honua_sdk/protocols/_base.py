@@ -1,6 +1,6 @@
 """Shared helpers and request/response base mixins for protocol clients."""
 
-# ruff: noqa: PLR0913, PLR2004
+# ruff: noqa: PLR0913
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 import httpx
 
-from honua_sdk._http import _encode_path_segment, _to_http_error, _to_transport_error
+from honua_sdk._http import _encode_path_segment
 
 JsonObject = dict[str, Any]
 Params = Mapping[str, Any] | None
@@ -387,24 +387,18 @@ class _SyncProtocol:
         extra_headers: Mapping[str, str] | None = None,
     ) -> str:
         body = content.encode("utf-8") if isinstance(content, str) else content
-        kwargs: dict[str, Any] = {
-            "method": method,
-            "url": path,
-            "params": params,
-            "content": body,
-        }
-        if timeout is not None:
-            kwargs["timeout"] = (
-                timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)
-            )
-        if extra_headers is not None:
-            kwargs["headers"] = dict(extra_headers)
-        try:
-            response = self.client._client.request(**kwargs)
-        except httpx.HTTPError as exc:
-            raise _to_transport_error(exc) from exc
-        if response.status_code >= 400:
-            raise _to_http_error(response)
+        # Route through the client's request path (rather than the raw
+        # ``client._client``) so per-call options — ``with_options(timeout=…)``,
+        # ``with_options(max_retries=…)`` — base-URL path joining, and the
+        # shared error mapping all apply to text requests (OData ``$metadata``
+        # and every WFS operation), matching the JSON path.
+        response = self.client._request(
+            method,
+            path,
+            params=params,
+            content=body,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        )
         return cast(str, response.text)
 
 
@@ -499,22 +493,16 @@ class _AsyncProtocol:
         extra_headers: Mapping[str, str] | None = None,
     ) -> str:
         body = content.encode("utf-8") if isinstance(content, str) else content
-        kwargs: dict[str, Any] = {
-            "method": method,
-            "url": path,
-            "params": params,
-            "content": body,
-        }
-        if timeout is not None:
-            kwargs["timeout"] = (
-                timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)
-            )
-        if extra_headers is not None:
-            kwargs["headers"] = dict(extra_headers)
-        try:
-            response = await self.client._client.request(**kwargs)
-        except httpx.HTTPError as exc:
-            raise _to_transport_error(exc) from exc
-        if response.status_code >= 400:
-            raise _to_http_error(response)
+        # Route through the client's request path (rather than the raw
+        # ``client._client``) so per-call options — ``with_options(timeout=…)``,
+        # ``with_options(max_retries=…)`` — base-URL path joining, and the
+        # shared error mapping all apply to text requests (OData ``$metadata``
+        # and every WFS operation), matching the JSON path.
+        response = await self.client._request(
+            method,
+            path,
+            params=params,
+            content=body,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        )
         return cast(str, response.text)

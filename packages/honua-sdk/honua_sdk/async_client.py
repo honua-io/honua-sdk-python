@@ -21,6 +21,7 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
     _warn_deprecated_bearer_token,
+    join_base_path,
 )
 from ._query import (
     features_from_geojson_page,
@@ -905,7 +906,12 @@ class AsyncHonuaClient:
                 ]
                 if _extend(page_features):
                     break
-            return tuple(collected), exceeded, len(collected), pages_seen
+            # FeatureServer ``query`` responses do not carry a grand total
+            # (no ``numberMatched`` equivalent), so ``total_count`` is unknown.
+            # Reporting ``len(collected)`` here is misleading because it is the
+            # number of features *returned* — capped by ``limit``/``max_pages``
+            # — not the server's total match count. Surface ``None`` instead.
+            return tuple(collected), exceeded, None, pages_seen
 
         if normalized_protocol == "ogc-features":
             last_page: Any = None
@@ -1506,8 +1512,11 @@ class AsyncHonuaClient:
           same name in ``headers`` / ``extra_headers``.
         """
         # Build a full URL so httpx does not re-decode percent-encoded
-        # path segments during base-URL resolution.
-        url = self._base_url.copy_with(raw_path=path.encode("ascii"))
+        # path segments during base-URL resolution. Join onto the base URL's
+        # path prefix so sub-path deployments (e.g. behind a reverse proxy at
+        # ``/honua/``) are not silently rewritten to the bare endpoint path.
+        raw_path = join_base_path(self._base_url, path)
+        url = self._base_url.copy_with(raw_path=raw_path.encode("ascii"))
         merged_headers = merge_request_headers(headers, extra_headers, idempotency_key)
         request_kwargs: dict[str, Any] = {
             "method": method,

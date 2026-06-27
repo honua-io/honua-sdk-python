@@ -30,6 +30,27 @@ def _encode_path_segment(value: str) -> str:
     return quote(value, safe="")
 
 
+def join_base_path(base_url: httpx.URL, path: str) -> str:
+    """Join an endpoint *path* onto the base URL's existing path prefix.
+
+    The core clients build each request URL by overriding the raw path on the
+    base URL (via ``copy_with(raw_path=...)``) so httpx does not percent-decode
+    already-encoded segments. That override would otherwise discard any path
+    prefix on the configured base URL — so a deployment mounted behind a reverse
+    proxy at a sub-path (e.g. ``https://host/honua/``) would have every call
+    silently rewritten to ``/rest/services/...`` and hit the wrong endpoint.
+
+    Prepend the base URL's path so sub-path hosting resolves correctly. A
+    root base URL (path ``"/"`` or empty) leaves *path* unchanged.
+    """
+    prefix = base_url.path.rstrip("/")
+    if not prefix:
+        return path
+    if not path.startswith("/"):
+        path = "/" + path
+    return prefix + path
+
+
 def _build_sensitive_auth_headers(
     *,
     api_key: str | None,
@@ -99,33 +120,37 @@ def _validate_external_client_auth_configuration(
     )
 
 
-def _extract_trusted_authority(url: httpx.URL) -> tuple[str, int | None]:
-    """Return ``(host, port)`` from *url* for use as a trusted-origin key.
+def _extract_trusted_authority(url: httpx.URL) -> tuple[str, str, int | None]:
+    """Return ``(scheme, host, port)`` from *url* for use as a trusted-origin key.
 
-    Using both host **and** port prevents credentials configured for
-    ``example.test:443`` from being sent to ``example.test:9999``
-    after a redirect.
+    Including the **scheme** alongside host and port prevents two distinct
+    leaks on redirects: credentials configured for ``example.test:443`` are not
+    sent to ``example.test:9999`` (different port), and — critically — they are
+    not re-attached after an ``https`` → ``http`` downgrade. Without the scheme,
+    ``https://api.example`` and ``http://api.example`` both normalize to host
+    ``api.example`` / port ``None`` and would compare equal, leaking the
+    ``Authorization`` / ``X-API-Key`` headers over plaintext.
     """
-    return (url.host, url.port)
+    return (url.scheme, url.host, url.port)
 
 
 def _apply_sensitive_auth_headers(
     request: httpx.Request,
     *,
-    trusted_authority: tuple[str, int | None] | None,
+    trusted_authority: tuple[str, str, int | None] | None,
     auth_headers: Mapping[str, str],
     auth_provider: AuthProvider | None = None,
 ) -> None:
     """Attach or strip sensitive headers depending on the request target.
 
-    Headers are only attached when the request's ``(host, port)`` matches
-    *trusted_authority* exactly; otherwise they are stripped to prevent
-    credential leakage on redirects.
+    Headers are only attached when the request's ``(scheme, host, port)``
+    matches *trusted_authority* exactly; otherwise they are stripped to prevent
+    credential leakage on redirects (including ``https`` → ``http`` downgrades).
     """
     if trusted_authority is None:
         return
 
-    request_authority = (request.url.host, request.url.port)
+    request_authority = (request.url.scheme, request.url.host, request.url.port)
     if request_authority == trusted_authority:
         dynamic_headers = _auth_provider_headers(auth_provider)
         for name, value in auth_headers.items():

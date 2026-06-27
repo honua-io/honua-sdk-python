@@ -150,6 +150,43 @@ def _esri_geometry_type(geometry: Mapping[str, Any]) -> str:
     )
 
 
+def _ring_signed_area(ring: Sequence[Sequence[Any]]) -> float:
+    """Shoelace signed area in the X/Y plane (positive == counter-clockwise)."""
+    area = 0.0
+    count = len(ring)
+    for idx in range(count):
+        x1, y1 = float(ring[idx][0]), float(ring[idx][1])
+        x2, y2 = float(ring[(idx + 1) % count][0]), float(ring[(idx + 1) % count][1])
+        area += x1 * y2 - x2 * y1
+    return area / 2.0
+
+
+def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[Any]]:
+    """Copy a GeoJSON ring with Esri winding (CW exterior, CCW holes).
+
+    GeoJSON (RFC 7946) winds exterior rings counter-clockwise and holes
+    clockwise; Esri JSON uses the OPPOSITE convention and infers a ring's role
+    (shell vs hole) from its winding. Emitting GeoJSON coordinates verbatim
+    therefore makes an Esri-conformant server read a CCW exterior as a hole,
+    yielding an inverted/empty spatial filter and silently wrong query results.
+
+    The ring's structural role is taken from its position (the first ring of a
+    polygon part is the exterior), and the vertices are reversed when the
+    current winding does not match the Esri convention. This mirrors the
+    orientation the geopandas/models export path applies via shapely
+    ``orient(geom, sign=-1.0)``.
+    """
+    coords = [list(c) for c in ring]
+    area = _ring_signed_area(coords)
+    if area == 0.0:
+        return coords
+    is_ccw = area > 0
+    want_ccw = not exterior  # Esri: exteriors clockwise, holes counter-clockwise
+    if is_ccw != want_ccw:
+        coords.reverse()
+    return coords
+
+
 def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
     gtype = str(geometry.get("type"))
     coords = geometry.get("coordinates")
@@ -166,12 +203,17 @@ def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
     if gtype == "MultiLineString":
         return {"paths": [[list(c) for c in line] for line in coords or []]}
     if gtype == "Polygon":
-        return {"rings": [[list(c) for c in ring] for ring in coords or []]}
+        return {
+            "rings": [
+                _esri_ring(ring, exterior=(idx == 0))
+                for idx, ring in enumerate(coords or [])
+            ]
+        }
     if gtype == "MultiPolygon":
         rings: list[list[list[float]]] = []
         for polygon in coords or []:
-            for ring in polygon:
-                rings.append([list(c) for c in ring])
+            for idx, ring in enumerate(polygon):
+                rings.append(_esri_ring(ring, exterior=(idx == 0)))
         return {"rings": rings}
     raise ValueError(f"Unsupported GeoJSON geometry type: {gtype!r}.")
 

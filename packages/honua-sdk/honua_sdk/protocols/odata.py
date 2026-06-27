@@ -15,8 +15,8 @@ from ._base import (
     ODataQuery,
     Params,
     _AsyncProtocol,
+    _iter_page_indices,
     _next_link,
-    _normalize_max_pages,
     _normalize_page_limit,
     _normalize_total_limit,
     _odata_params,
@@ -367,7 +367,6 @@ class ODataClient(_SyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -375,7 +374,7 @@ class ODataClient(_SyncProtocol):
         fetched = 0
         next_href: str | None = None
         skip = int((extra_params or {}).get("$skip", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -748,7 +747,6 @@ class AsyncODataClient(_AsyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -756,7 +754,7 @@ class AsyncODataClient(_AsyncProtocol):
         fetched = 0
         next_href: str | None = None
         skip = int((extra_params or {}).get("$skip", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break

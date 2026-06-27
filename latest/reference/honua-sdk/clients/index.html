@@ -1338,6 +1338,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_sdk.HonuaClient.grpc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        grpc
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_sdk.HonuaClient.query" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1755,6 +1766,17 @@
     <span class="md-ellipsis">
       
         odata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_sdk.AsyncHonuaClient.grpc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        grpc
       
     </span>
   </a>
@@ -2676,6 +2698,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_sdk.HonuaClient.grpc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        grpc
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_sdk.HonuaClient.query" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3093,6 +3126,17 @@
     <span class="md-ellipsis">
       
         odata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_sdk.AsyncHonuaClient.grpc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        grpc
       
     </span>
   </a>
@@ -5407,8 +5451,184 @@ wrapper targets the deployment-level ImageServer surface.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="honua_sdk.HonuaClient.grpc" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">grpc</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">extra_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_sdk.HonuaClient.grpc" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return a gRPC FeatureService client bound to this client's config.</p>
+<p>Builds an :class:<code>HonuaGrpcClient</code> (the analytic gRPC surface:
+unary + streaming <code>QueryFeatures</code> with server-side spatial filters,
+statistics, and aggregation) from the same base URL and authentication
+this client was constructed with — so the gRPC surface is reachable in
+the same token-scoped harness without re-plumbing a channel.</p>
+<p>The dial target defaults to the REST <code>base_url</code>'s <code>host:port</code> (the
+Honua gRPC service shares the REST authority). Authentication is carried
+as gRPC call metadata derived from the client's <code>api_key</code> /
+<code>bearer_token</code> / <code>auth_provider</code> via
+:func:<code>honua_sdk.grpc.build_grpc_metadata</code>. Transport security defaults
+to TLS for an <code>https</code> base URL and plaintext otherwise; override with
+<code>credentials=</code> (a :class:<code>grpc.ChannelCredentials</code>) or
+<code>insecure=True</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>target</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit <code>host:port</code> gRPC dial target. Defaults to the
+REST base URL's authority.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>insecure</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Force a plaintext channel. Defaults to <code>True</code> for a
+non-<code>https</code> base URL, <code>False</code> otherwise.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>credentials</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit channel credentials. Defaults to
+:func:<code>grpc.ssl_channel_credentials</code> for a secure channel.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timeout</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-call gRPC timeout in seconds.</p>
+              </div>
+            </td>
+            <td>
+                  <code>30.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extra_metadata</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Additional metadata entries merged onto the
+auth-derived metadata.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>An</code></td>            <td>
+                  <code>&#39;HonuaGrpcClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>class:<code>HonuaGrpcClient</code> ready to issue feature queries.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The client base_url has no host to derive a target from.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="honua_sdk.HonuaClient.query" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spatial_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out_statistics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">group_by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_distinct_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_count_only</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.query" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -5537,6 +5757,28 @@ string. Not supported when <code>protocol</code> is OData.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>spatial_filter</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Arbitrary-geometry spatial filter (FeatureServer
+only): a mapping of <code>geometry</code> (Esri JSON / GeoJSON /
+<code>__geo_interface__</code>), <code>relationship</code> (<code>intersects</code>,
+<code>within</code>, <code>contains</code>, <code>crosses</code>, <code>touches</code>,
+<code>overlaps</code>, <code>within-distance</code>), optional <code>in_sr</code> and
+<code>distance</code>/<code>units</code>. Translated to the GeoServices
+<code>geometry</code>/<code>geometryType</code>/<code>spatialRel</code>/<code>inSR</code> params.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>fields</code>
             </td>
             <td>
@@ -5561,6 +5803,73 @@ string. Not supported when <code>protocol</code> is OData.</p>
             <td>
               <div class="doc-md-description">
                 <p>Whether to include geometry (FeatureServer).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>out_statistics</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Server-side statistic definitions (FeatureServer):
+a sequence of mappings with <code>statistic_type</code> (<code>count</code>,
+<code>sum</code>, <code>min</code>, <code>max</code>, <code>avg</code>, <code>stddev</code>, <code>var</code>),
+<code>on_statistic_field</code>, and optional <code>out_statistic_field_name</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>group_by</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Group-by fields paired with <code>out_statistics</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>return_distinct_values</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Request distinct rows (FeatureServer).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>return_count_only</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Request only the matching count (FeatureServer).</p>
               </div>
             </td>
             <td>
@@ -5608,11 +5917,14 @@ string. Not supported when <code>protocol</code> is OData.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Safety cap on pages walked.</p>
+                <p>Safety cap on pages walked; defaults to <code>100</code>. Pass
+<code>None</code> for an unbounded walk (FeatureServer) — a
+<code>ResourceWarning</code> is emitted if a bounded walk stops with
+more features still available on the server.</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
+                  <code>100</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -5784,7 +6096,7 @@ page request across all protocols.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.iter_query" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">iter_query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">iter_query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spatial_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.iter_query" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -5914,6 +6226,23 @@ protocol requires one.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>spatial_filter</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Arbitrary-geometry spatial filter (FeatureServer);
+see :meth:<code>query</code> for the mapping shape.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>fields</code>
             </td>
             <td>
@@ -5985,11 +6314,12 @@ protocol requires one.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Safety cap on pages walked.</p>
+                <p>Safety cap on pages walked; defaults to <code>100</code>. Pass
+<code>None</code> for an unbounded walk (FeatureServer).</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
+                  <code>100</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -9432,8 +9762,184 @@ wrapper targets the deployment-level ImageServer surface.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="honua_sdk.AsyncHonuaClient.grpc" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">grpc</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">extra_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_sdk.AsyncHonuaClient.grpc" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return a gRPC FeatureService client bound to this client's config.</p>
+<p>Builds an :class:<code>AsyncHonuaGrpcClient</code> (the analytic gRPC surface:
+unary + streaming <code>QueryFeatures</code> with server-side spatial filters,
+statistics, and aggregation) from the same base URL and authentication
+this client was constructed with — so the gRPC surface is reachable in
+the same token-scoped harness without re-plumbing a channel.</p>
+<p>The dial target defaults to the REST <code>base_url</code>'s <code>host:port</code> (the
+Honua gRPC service shares the REST authority). Authentication is carried
+as gRPC call metadata derived from the client's <code>api_key</code> /
+<code>bearer_token</code> / <code>auth_provider</code> via
+:func:<code>honua_sdk.grpc.build_grpc_metadata</code>. Transport security defaults
+to TLS for an <code>https</code> base URL and plaintext otherwise; override with
+<code>credentials=</code> (a :class:<code>grpc.ChannelCredentials</code>) or
+<code>insecure=True</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>target</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit <code>host:port</code> gRPC dial target. Defaults to the
+REST base URL's authority.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>insecure</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Force a plaintext channel. Defaults to <code>True</code> for a
+non-<code>https</code> base URL, <code>False</code> otherwise.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>credentials</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit channel credentials. Defaults to
+:func:<code>grpc.ssl_channel_credentials</code> for a secure channel.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timeout</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-call gRPC timeout in seconds.</p>
+              </div>
+            </td>
+            <td>
+                  <code>30.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extra_metadata</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Additional metadata entries merged onto the
+auth-derived metadata.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>An</code></td>            <td>
+                  <code>&#39;HonuaGrpcAsyncClient&#39;</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>class:<code>AsyncHonuaGrpcClient</code> ready to issue feature queries.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The client base_url has no host to derive a target from.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="honua_sdk.AsyncHonuaClient.query" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spatial_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out_statistics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">group_by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_distinct_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_count_only</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -9566,6 +10072,28 @@ string. Not supported when <code>protocol</code> is OData.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>spatial_filter</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Arbitrary-geometry spatial filter (FeatureServer
+only): a mapping of <code>geometry</code> (Esri JSON / GeoJSON /
+<code>__geo_interface__</code>), <code>relationship</code> (<code>intersects</code>,
+<code>within</code>, <code>contains</code>, <code>crosses</code>, <code>touches</code>,
+<code>overlaps</code>, <code>within-distance</code>), optional <code>in_sr</code> and
+<code>distance</code>/<code>units</code>. Translated to the GeoServices
+<code>geometry</code>/<code>geometryType</code>/<code>spatialRel</code>/<code>inSR</code> params.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>fields</code>
             </td>
             <td>
@@ -9590,6 +10118,73 @@ string. Not supported when <code>protocol</code> is OData.</p>
             <td>
               <div class="doc-md-description">
                 <p>Whether to include geometry (FeatureServer).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>out_statistics</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Server-side statistic definitions (FeatureServer):
+a sequence of mappings with <code>statistic_type</code> (<code>count</code>,
+<code>sum</code>, <code>min</code>, <code>max</code>, <code>avg</code>, <code>stddev</code>, <code>var</code>),
+<code>on_statistic_field</code>, and optional <code>out_statistic_field_name</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>group_by</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Group-by fields paired with <code>out_statistics</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>return_distinct_values</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Request distinct rows (FeatureServer).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>return_count_only</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Request only the matching count (FeatureServer).</p>
               </div>
             </td>
             <td>
@@ -9637,11 +10232,14 @@ string. Not supported when <code>protocol</code> is OData.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Safety cap on pages walked.</p>
+                <p>Safety cap on pages walked; defaults to <code>100</code>. Pass
+<code>None</code> for an unbounded walk (FeatureServer) — a
+<code>ResourceWarning</code> is emitted if a bounded walk stops with
+more features still available on the server.</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
+                  <code>100</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -9813,7 +10411,7 @@ page request across all protocols.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.iter_query" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">iter_query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">iter_query</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spatial_filter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -9947,6 +10545,23 @@ protocol requires one.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>spatial_filter</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Arbitrary-geometry spatial filter (FeatureServer);
+see :meth:<code>query</code> for the mapping shape.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>fields</code>
             </td>
             <td>
@@ -10018,11 +10633,12 @@ protocol requires one.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Safety cap on pages walked.</p>
+                <p>Safety cap on pages walked; defaults to <code>100</code>. Pass
+<code>None</code> for an unbounded walk (FeatureServer).</p>
               </div>
             </td>
             <td>
-                  <code>None</code>
+                  <code>100</code>
             </td>
           </tr>
           <tr class="doc-section-item">

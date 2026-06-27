@@ -905,6 +905,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#server-side-spatial-filters-and-statistics-featureserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-side spatial filters and statistics (FeatureServer)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#worked-recipes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1514,6 +1525,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#server-side-spatial-filters-and-statistics-featureserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-side spatial filters and statistics (FeatureServer)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#worked-recipes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1699,15 +1721,63 @@ feature in source.stream(...)</code>.</p>
   Forwarded to FeatureServer's <code>resultRecordCount</code>, OGC/STAC's <code>limit</code>,
   and OData's <code>$top</code> (subject to server-side caps).</li>
 <li><strong><code>max_pages</code></strong> — upper bound on the number of pages the iterator
-  will fetch. When omitted, the iterator drains until the server stops
-  advertising more pages.</li>
+  will fetch. The <code>client.query</code> / <code>client.iter_query</code> facades default
+  this cap to <strong>100</strong>; pass <strong><code>max_pages=None</code></strong> for an <em>unbounded</em> walk
+  that drains until the server stops advertising more pages. When a
+  bounded <code>client.query</code> walk stops at the cap while the server still
+  reports more features (<code>exceededTransferLimit</code>), a <code>ResourceWarning</code>
+  is emitted so a large iterate never silently truncates — raise
+  <code>max_pages</code>, set it to <code>None</code>, or pass a <code>limit</code> to acknowledge it.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">Query</span>
 
 <span class="n">q</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;1=1&quot;</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">source</span><span class="o">.</span><span class="n">iter_features</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
     <span class="n">process</span><span class="p">(</span><span class="n">feature</span><span class="p">)</span>
+
+<span class="c1"># Unbounded drain (no hidden 100-page cap):</span>
+<span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">iter_query</span><span class="p">(</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">process</span><span class="p">(</span><span class="n">feature</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="server-side-spatial-filters-and-statistics-featureserver">Server-side spatial filters and statistics (FeatureServer)<a class="headerlink" href="#server-side-spatial-filters-and-statistics-featureserver" title="Permanent link">&para;</a></h2>
+<p><code>client.query</code> / <code>Source.query</code> accept an arbitrary-geometry spatial
+filter and server-side statistics on the GeoServices FeatureServer path,
+mirroring Esri's <code>query(geometry=..., spatial_relationship=...)</code> and
+arcpy summary-statistics queries.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># &quot;Select by location&quot;: features WITHIN a polygon (Esri JSON, GeoJSON, or</span>
+<span class="c1"># any shapely/`__geo_interface__` geometry are accepted).</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+    <span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
+    <span class="n">spatial_filter</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;geometry&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;Polygon&quot;</span><span class="p">,</span> <span class="s2">&quot;coordinates&quot;</span><span class="p">:</span> <span class="p">[[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]]},</span>
+        <span class="s2">&quot;relationship&quot;</span><span class="p">:</span> <span class="s2">&quot;within&quot;</span><span class="p">,</span>     <span class="c1"># intersects / within / contains / crosses / touches / overlaps / within-distance</span>
+        <span class="s2">&quot;in_sr&quot;</span><span class="p">:</span> <span class="mi">4326</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># Within-distance (&quot;buffer&quot; select):</span>
+<span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+    <span class="s2">&quot;stations&quot;</span><span class="p">,</span>
+    <span class="n">spatial_filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;geometry&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">73.0</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="mf">40.7</span><span class="p">},</span> <span class="s2">&quot;relationship&quot;</span><span class="p">:</span> <span class="s2">&quot;within-distance&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;distance&quot;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span> <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="s2">&quot;meters&quot;</span><span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># Server-side statistics + group-by:</span>
+<span class="n">summary</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+    <span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
+    <span class="n">out_statistics</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;statistic_type&quot;</span><span class="p">:</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;on_statistic_field&quot;</span><span class="p">:</span> <span class="s2">&quot;area&quot;</span><span class="p">,</span> <span class="s2">&quot;out_statistic_field_name&quot;</span><span class="p">:</span> <span class="s2">&quot;total_area&quot;</span><span class="p">}],</span>
+    <span class="n">group_by</span><span class="o">=</span><span class="s2">&quot;zone&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Distinct values / count-only:</span>
+<span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span> <span class="n">return_distinct_values</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s2">&quot;zone&quot;</span><span class="p">)</span>
+<span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">&quot;area &gt; 1000&quot;</span><span class="p">,</span> <span class="n">return_count_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>On the <code>Source</code> facade these route through <code>Query.spatial_filter</code> and the
+<code>Query.aggregation</code> mapping (<code>out_statistics</code> / <code>group_by</code> /
+<code>return_distinct_values</code> / <code>return_count_only</code>). Both are GeoServices-only
+request shapes; supplying them for a non-FeatureServer source raises
+<code>ValueError</code> rather than silently dropping the predicate.</p>
 <h2 id="worked-recipes">Worked recipes<a class="headerlink" href="#worked-recipes" title="Permanent link">&para;</a></h2>
 <h3 id="stream-all-features-into-geopandas">Stream all features into geopandas<a class="headerlink" href="#stream-all-features-into-geopandas" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>

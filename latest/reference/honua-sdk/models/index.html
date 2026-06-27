@@ -3558,6 +3558,212 @@ so the stored value is always a canonical :data:<code>Protocol</code> literal.</
         <p>Protocol-neutral feature query request.</p>
 
 
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.source">source</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Source identifier (service id / collection id / entity set).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.protocol">protocol</span></code></td>
+            <td>
+                  <code><span title="honua_sdk.models._protocols.QueryProtocol">QueryProtocol</span> | <span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Canonical query protocol literal.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.layer_id">layer_id</span></code></td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>FeatureServer / OData layer index when required.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.where">where</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>SQL-style <code>WHERE</code> clause (FeatureServer / OData).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.filter">filter</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>CQL2-text filter (OGC Features / STAC).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.bbox">bbox</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span> | <span title="float">float</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(minx, miny, maxx, maxy)</code> envelope spatial filter.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.spatial_filter">spatial_filter</span></code></td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Free-form spatial-filter mapping (arbitrary geometry +
+relationship + SR + optional distance) translated to GeoServices
+<code>geometry</code>/<code>geometryType</code>/<code>spatialRel</code>/<code>inSR</code> params on the
+FeatureServer path. See :mod:<code>honua_sdk._geoservices_query</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.fields">fields</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Attribute selection.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.return_geometry">return_geometry</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether to include geometry in the response.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.out_statistics">out_statistics</span></code></td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Server-side statistic definitions (FeatureServer
+<code>outStatistics</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.group_by">group_by</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Group-by fields for statistics (FeatureServer
+<code>groupByFieldsForStatistics</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.return_distinct_values">return_distinct_values</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Request distinct rows (<code>returnDistinctValues</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.return_count_only">return_count_only</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Request only the matching count (<code>returnCountOnly</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.page_size">page_size</span></code></td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-request page size for paginated protocols.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.limit">limit</span></code></td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum features collected across all pages.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.max_pages">max_pages</span></code></td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Cap on the number of pages walked. <code>None</code> is unbounded.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.extra_params">extra_params</span></code></td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Free-form per-protocol query parameter overrides.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
 
 
 

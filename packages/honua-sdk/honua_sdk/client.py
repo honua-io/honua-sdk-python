@@ -51,7 +51,7 @@ from ._query_dispatch import (
     validate_filter_routing,
     warn_if_truncated,
 )
-from ._retry import RetryTransport
+from ._retry import NonClosingTransport, RetryTransport
 from .errors import HonuaHttpError
 from .models import (
     ApplyEditsResult,
@@ -319,8 +319,19 @@ class HonuaClient:
                 if (timeout is not None and timeout < self._init_timeout)
                 else self._init_timeout
             )
-            # Suppress the re-fired bearer_token deprecation on the internal
-            # clone path; the caller acknowledged it at original construction.
+            # A caller-supplied transport is owned by the original client. The
+            # clone owns its OWN httpx.Client, so if it reused the raw
+            # caller transport, closing the clone would tear down the shared
+            # connection pool the original still depends on. Wrap it so the
+            # clone reuses the transport (preserving custom transports / a
+            # smaller transport-level timeout) without closing it. When no
+            # transport was supplied, pass ``None`` so the clone builds its own
+            # independent transport.
+            clone_transport = (
+                NonClosingTransport(self._init_transport)
+                if self._init_transport is not None
+                else None
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 clone = self.__class__(
@@ -330,7 +341,7 @@ class HonuaClient:
                     bearer_token=self._init_bearer_token,
                     auth_provider=self._init_auth_provider,
                     follow_redirects=self._init_follow_redirects,
-                    transport=self._init_transport,
+                    transport=clone_transport,
                     max_retries=self._init_max_retries,
                 )
             clone._options_timeout = (

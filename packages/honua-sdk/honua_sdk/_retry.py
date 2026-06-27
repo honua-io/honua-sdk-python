@@ -37,8 +37,30 @@ from ._retry_core import (
 # Re-export for back-compat with tests that imported the constants from
 # this module before the policy was moved into ``_retry_core``.
 __all__ = [
+    "NonClosingTransport",
     "RetryTransport",
 ]
+
+
+class NonClosingTransport(httpx.BaseTransport):
+    """Transport wrapper whose ``close`` does not close the wrapped transport.
+
+    Used by ``with_options`` / ``copy`` when an independently-owned clone must
+    reuse a caller-supplied transport: the clone owns its own
+    :class:`httpx.Client`, so closing it would otherwise tear down the shared
+    transport's connection pool and break the original client that still
+    depends on it. Ownership of the wrapped transport stays with the original.
+    """
+
+    def __init__(self, wrapped: httpx.BaseTransport) -> None:
+        self._wrapped = wrapped
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        return self._wrapped.handle_request(request)
+
+    def close(self) -> None:
+        # Intentionally a no-op: the original client owns the wrapped transport.
+        return None
 
 
 class RetryTransport(httpx.BaseTransport):

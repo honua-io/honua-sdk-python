@@ -112,7 +112,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         total = 0
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
-        seen_object_ids: set[int] = set()
+        previous_object_ids: set[int] = set()
         for _ in _iter_page_indices(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
@@ -136,11 +136,14 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
             )
             # Non-advancing-cursor guard: stop before re-yielding a page a
             # server that ignores ``resultOffset`` keeps returning (it would
-            # otherwise loop to ``max_pages`` with duplicate features).
+            # otherwise loop to ``max_pages`` with duplicate features). Compare
+            # against the previous page only — not every id seen across the
+            # whole walk — so the tracking set stays bounded to a single page on
+            # the streaming path.
             new_object_ids = {oid for f in page.features if (oid := f.object_id) is not None}
-            if new_object_ids and new_object_ids.issubset(seen_object_ids):
+            if new_object_ids and new_object_ids.issubset(previous_object_ids):
                 break
-            seen_object_ids |= new_object_ids
+            previous_object_ids = new_object_ids
             yield page
             page_count = len(page.features)
             total += page_count
@@ -535,7 +538,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         total = 0
         base_extra = dict(extra_params or {})
         offset = int(base_extra.get("resultOffset", 0))
-        seen_object_ids: set[int] = set()
+        previous_object_ids: set[int] = set()
         for _ in _iter_page_indices(max_pages):
             remaining = None if limit is None else limit - total
             if remaining is not None and remaining <= 0:
@@ -559,11 +562,14 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
             )
             # Non-advancing-cursor guard: stop before re-yielding a page a
             # server that ignores ``resultOffset`` keeps returning (it would
-            # otherwise loop to ``max_pages`` with duplicate features).
+            # otherwise loop to ``max_pages`` with duplicate features). Compare
+            # against the previous page only — not every id seen across the
+            # whole walk — so the tracking set stays bounded to a single page on
+            # the streaming path.
             new_object_ids = {oid for f in page.features if (oid := f.object_id) is not None}
-            if new_object_ids and new_object_ids.issubset(seen_object_ids):
+            if new_object_ids and new_object_ids.issubset(previous_object_ids):
                 break
-            seen_object_ids |= new_object_ids
+            previous_object_ids = new_object_ids
             yield page
             page_count = len(page.features)
             total += page_count

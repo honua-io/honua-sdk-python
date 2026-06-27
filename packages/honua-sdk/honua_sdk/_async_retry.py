@@ -35,8 +35,30 @@ from ._retry_core import (
 )
 
 __all__ = [
+    "AsyncNonClosingTransport",
     "AsyncRetryTransport",
 ]
+
+
+class AsyncNonClosingTransport(httpx.AsyncBaseTransport):
+    """Async transport wrapper whose ``aclose`` does not close the wrapped transport.
+
+    Used by ``with_options`` / ``copy`` when an independently-owned clone must
+    reuse a caller-supplied transport: the clone owns its own
+    :class:`httpx.AsyncClient`, so closing it would otherwise tear down the
+    shared transport's connection pool and break the original client that still
+    depends on it. Ownership of the wrapped transport stays with the original.
+    """
+
+    def __init__(self, wrapped: httpx.AsyncBaseTransport) -> None:
+        self._wrapped = wrapped
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        return await self._wrapped.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        # Intentionally a no-op: the original client owns the wrapped transport.
+        return None
 
 
 class AsyncRetryTransport(httpx.AsyncBaseTransport):

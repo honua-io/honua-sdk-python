@@ -52,7 +52,7 @@ the canonical names above.
 
 from __future__ import annotations
 
-from ._async_retry import AsyncRetryTransport
+from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -66,7 +66,7 @@ from ._http import (
     _validate_external_client_auth_configuration,
     _warn_deprecated_bearer_token,
 )
-from ._retry import RetryTransport
+from ._retry import NonClosingTransport, RetryTransport
 from .auth import AuthProvider
 from .errors import (
     HonuaAuthError,
@@ -91,6 +91,7 @@ validate_external_client_auth_configuration = _validate_external_client_auth_con
 warn_deprecated_bearer_token = _warn_deprecated_bearer_token
 
 __all__ = [
+    "AsyncNonClosingTransport",
     "AsyncRetryTransport",
     "AuthProvider",
     "HonuaAuthError",
@@ -98,6 +99,7 @@ __all__ = [
     "HonuaRateLimitError",
     "HonuaTimeoutError",
     "HonuaTransportError",
+    "NonClosingTransport",
     "RetryTransport",
     "_apply_sensitive_auth_headers",
     "_build_sensitive_auth_headers",

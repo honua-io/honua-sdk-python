@@ -519,12 +519,18 @@ def geodataframe_to_features(
     _ensure_deps()
 
     attr_columns = [col for col in gdf.columns if col != gdf.geometry.name]
+    # Build attribute records columnar (one dict per row) instead of boxing a
+    # pandas Series per row via ``.iloc`` — the per-row Series is a perf cliff
+    # on bulk apply_edits. ``to_dict("records")`` on an empty column selection
+    # returns ``[]``, so synthesize empty dicts for the geometry-only case.
+    attr_records = (
+        gdf[attr_columns].to_dict("records") if attr_columns else [{} for _ in range(len(gdf))]
+    )
+    geometries = gdf.geometry.to_numpy()
 
     features: list[dict[str, Any]] = []
-    for idx in range(len(gdf)):
-        row = gdf.iloc[idx]
-        attrs = {col: _json_safe_value(row[col]) for col in attr_columns}
-        geom_obj = row[gdf.geometry.name]
+    for raw_attrs, geom_obj in zip(attr_records, geometries, strict=True):
+        attrs = {col: _json_safe_value(raw_attrs[col]) for col in attr_columns}
         esri_geom = _shapely_to_esri_geometry(geom_obj)
         feat: dict[str, Any] = {"attributes": attrs}
         if esri_geom is not None:
@@ -561,12 +567,16 @@ def geodataframe_to_geojson(
     from shapely.geometry import mapping as _mapping
 
     attr_columns = [col for col in gdf.columns if col != gdf.geometry.name]
+    # Columnar record extraction + a single geometry pass, avoiding a boxed
+    # pandas Series per row (see ``geodataframe_to_features``).
+    attr_records = (
+        gdf[attr_columns].to_dict("records") if attr_columns else [{} for _ in range(len(gdf))]
+    )
+    geometries = gdf.geometry.to_numpy()
 
     features: list[dict[str, Any]] = []
-    for idx in range(len(gdf)):
-        row = gdf.iloc[idx]
-        properties = {col: _json_safe_value(row[col]) for col in attr_columns}
-        geom_obj = row[gdf.geometry.name]
+    for raw_attrs, geom_obj in zip(attr_records, geometries, strict=True):
+        properties = {col: _json_safe_value(raw_attrs[col]) for col in attr_columns}
         feature: dict[str, Any] = {
             "type": "Feature",
             "properties": properties,

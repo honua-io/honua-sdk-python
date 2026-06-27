@@ -193,27 +193,14 @@ def parse_retry_after(value: str | None) -> float | None:
 _parse_retry_after = parse_retry_after
 
 
-def _to_http_error(response: httpx.Response) -> HonuaHttpError:
-    body: Any | None = None
-    message = response.reason_phrase or "Request failed"
-
-    if response.content:
-        try:
-            body = response.json()
-        except ValueError:
-            body = response.text
-    if isinstance(body, Mapping):
-        error = body.get("error")
-        if isinstance(error, Mapping):
-            candidate = error.get("message")
-            if isinstance(candidate, str) and candidate:
-                message = candidate
-        else:
-            candidate = body.get("detail") or body.get("message")
-            if isinstance(candidate, str) and candidate:
-                message = candidate
-
-    status_code = response.status_code
+def _build_http_error(
+    *,
+    status_code: int,
+    message: str,
+    body: Any | None,
+    response: httpx.Response,
+) -> HonuaHttpError:
+    """Construct the right :class:`HonuaHttpError` subtype for *status_code*."""
     request_id = (
         response.headers.get("x-request-id")
         or response.headers.get("honua-request-id")
@@ -244,6 +231,77 @@ def _to_http_error(response: httpx.Response) -> HonuaHttpError:
         body=body,
         request_id=request_id,
         headers=headers,
+    )
+
+
+def _to_http_error(response: httpx.Response) -> HonuaHttpError:
+    body: Any | None = None
+    message = response.reason_phrase or "Request failed"
+
+    if response.content:
+        try:
+            body = response.json()
+        except ValueError:
+            body = response.text
+    if isinstance(body, Mapping):
+        error = body.get("error")
+        if isinstance(error, Mapping):
+            candidate = error.get("message")
+            if isinstance(candidate, str) and candidate:
+                message = candidate
+        else:
+            candidate = body.get("detail") or body.get("message")
+            if isinstance(candidate, str) and candidate:
+                message = candidate
+
+    return _build_http_error(
+        status_code=response.status_code,
+        message=message,
+        body=body,
+        response=response,
+    )
+
+
+def raise_for_geoservices_error(response: httpx.Response, payload: Mapping[str, Any]) -> None:
+    """Raise if a successful (2xx) GeoServices JSON body carries an error envelope.
+
+    The Esri GeoServices REST protocol (FeatureServer / MapServer / ImageServer
+    / GeometryServer / GeocodeServer) reports failures as HTTP 200 with a body
+    of the form ``{"error": {"code": <int>, "message": <str>, "details": [...]}}``
+    rather than a non-success HTTP status. Without this check those errors flow
+    back to callers as ordinary success dicts (e.g. an ``applyEdits`` that the
+    server rejected would never raise). Detect that envelope and surface it
+    through the same :class:`HonuaHttpError` hierarchy used for transport-level
+    failures, carrying the server-reported error ``code``.
+
+    The detection is deliberately narrow — it only fires when ``error`` is a
+    mapping containing an integer ``code`` — so a legitimate payload that merely
+    happens to include an ``"error"`` field is left untouched.
+    """
+    error = payload.get("error")
+    if not isinstance(error, Mapping):
+        return
+    code = error.get("code")
+    if not isinstance(code, int) or isinstance(code, bool):
+        return
+
+    message = response.reason_phrase or "GeoServices request failed"
+    candidate = error.get("message")
+    if isinstance(candidate, str) and candidate:
+        message = candidate
+
+    body: Any | None = payload
+    if response.content:
+        try:
+            body = response.json()
+        except ValueError:
+            body = payload
+
+    raise _build_http_error(
+        status_code=code,
+        message=message,
+        body=body,
+        response=response,
     )
 
 

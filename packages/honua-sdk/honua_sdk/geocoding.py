@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from ._endpoints import parse_json_response_body
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -190,6 +191,10 @@ class HonuaGeocodingClient:
 
         results: list[GeocodeResult] = []
         for candidate in data.get("candidates", []):
+            if not isinstance(candidate, Mapping):
+                # Skip malformed (non-object) entries rather than raising a raw
+                # AttributeError outside the Honua error contract.
+                continue
             coords = _extract_location_xy(candidate.get("location"))
             if coords is None:
                 # No usable location: skip rather than emit a (0, 0) result.
@@ -318,6 +323,10 @@ class HonuaGeocodingClient:
 
         results: list[GeocodeSuggestion] = []
         for suggestion in data.get("suggestions", []):
+            if not isinstance(suggestion, Mapping):
+                # Skip malformed (non-object) entries rather than raising a raw
+                # AttributeError outside the Honua error contract.
+                continue
             results.append(
                 GeocodeSuggestion(
                     text=suggestion.get("text", ""),
@@ -347,17 +356,10 @@ class HonuaGeocodingClient:
             extra_headers=extra_headers,
             idempotency_key=idempotency_key,
         )
-        if not response.content:
-            return {}
-
-        try:
-            payload = response.json()
-        except ValueError:
-            return {"raw": response.text}
-
-        if isinstance(payload, Mapping):
-            return dict(payload)
-        return {"data": payload}
+        # Reuse the shared parser so GeocodeServer error envelopes returned as
+        # HTTP 200 (``{"error": {...}}``) surface as ``HonuaHttpError`` rather
+        # than flowing back as a success dict.
+        return parse_json_response_body(response)
 
     def _request(
         self,

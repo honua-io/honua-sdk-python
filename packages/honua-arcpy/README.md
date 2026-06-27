@@ -1,9 +1,14 @@
 # honua-arcpy
 
-**Proprietary** drop-in compatibility shim that lets existing `arcpy` Python
-scripts run end-to-end against a Honua deployment without a rewrite. Distributed
-as a closed-source package; this directory carries its own `LICENSE` that
-overrides the surrounding monorepo Apache-2.0 grant.
+**Proprietary** compatibility shim that lets a **supported subset** of `arcpy`
+Python scripts -- feature-layer queries, search/insert/update cursors, and
+`GetCount`-style workflows -- run against a Honua deployment without a rewrite.
+Coverage is partial (roughly the mapped functions in the table below; see
+[`docs/compatibility-matrix.md`](docs/compatibility-matrix.md) for the
+authoritative matrix); unmapped functions raise a clear `ExecuteError` rather
+than silently succeeding. Distributed as a closed-source package; this directory
+carries its own `LICENSE` that overrides the surrounding monorepo Apache-2.0
+grant.
 
 Customers replace `import arcpy` with `import honua_arcpy as arcpy` and point
 the shim at a Honua base URL. Every shim call dispatches through one of three

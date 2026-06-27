@@ -21,7 +21,7 @@
     
     
       
-        <title>honua-arcpy scanner handoff - Honua Python SDK</title>
+        <title>honua-gp compatibility matrix - Honua Python SDK</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#honua-arcpy-scanner-handoff" class="md-skip">
+        <a href="#honua-gp-compatibility-matrix" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              honua-arcpy scanner handoff
+              honua-gp compatibility matrix
             
           </span>
         </div>
@@ -1307,10 +1307,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#inputs" class="md-nav__link">
+  <a href="#arcpyanalysis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inputs
+        arcpy.analysis.*
       
     </span>
   </a>
@@ -1318,10 +1318,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cli" class="md-nav__link">
+  <a href="#arcpymanagement" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CLI
+        arcpy.management.*
       
     </span>
   </a>
@@ -1329,10 +1329,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#programmatic-api" class="md-nav__link">
+  <a href="#arcpyda" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Programmatic API
+        arcpy.da.*
       
     </span>
   </a>
@@ -1340,21 +1340,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#migration-tool-integration" class="md-nav__link">
+  <a href="#coverage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Migration tool integration
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status-scope-notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status / scope notes
+        Coverage
       
     </span>
   </a>
@@ -1381,134 +1370,325 @@
   
 
 
-<h1 id="honua-arcpy-scanner-handoff">honua-arcpy scanner handoff<a class="headerlink" href="#honua-arcpy-scanner-handoff" title="Permanent link">&para;</a></h1>
-<p>This doc shows how an ArcPy script inventory produced by the migration scanner
-(see <code>honua_admin.scan_arcpy_script</code> / <code>honua_sdk.migration.scan_arcpy_file</code>)
-flows into the <code>honua-arcpy</code> shim, and how a customer running the shim can
-get a per-call translation TODO list against the compatibility matrix.</p>
-<h2 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h2>
-<p><code>assess</code> accepts both documented scanner shapes:</p>
+<h1 id="honua-gp-compatibility-matrix">honua-gp compatibility matrix<a class="headerlink" href="#honua-gp-compatibility-matrix" title="Permanent link">&para;</a></h1>
+<p>Generated from the in-code <code>COMPAT</code> manifest by <code>scripts/render_compat_matrix.py</code> (re-run after manifest edits).</p>
+<p>Statuses: <strong>Supported</strong> runs against Honua, <strong>Partial</strong> runs with documented deviations, <strong>Stub</strong> raises <code>HonuaGpUnsupportedError</code> with a replacement hint and tracking ticket.</p>
+<h2 id="arcpyanalysis">arcpy.analysis.*<a class="headerlink" href="#arcpyanalysis" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Status</th>
+<th>Backend</th>
+<th>Replacement / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a id="analysisbuffer"></a><code>arcpy.analysis.Buffer</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's geometry.buffer takes a single base64-WKB geometry plus srid+distance, not a feature class. The arcpy feature-class semantic requires a per-feature WKB serialization adapter that does not yet exist.<br><strong>hint:</strong> Iterate features client-side via honua_sdk.Source.iter_features(...), buffer each geometry through the geoprocessing client, and write the result back via Source.apply_edits.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+</tr>
+<tr>
+<td><a id="analysisclip"></a><code>arcpy.analysis.Clip</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's geometry.clip operates on a single targetWkb against a clipEnvelopeWkb (single envelope geometry), not on feature classes.<br><strong>hint:</strong> Iterate target features via honua_sdk.Source.iter_features, clip each geometry against the envelope WKB, and write the result back via apply_edits.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+</tr>
+<tr>
+<td><a id="analysiserase"></a><code>arcpy.analysis.Erase</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's geometry.difference operates on a single targetWkb minus a single eraserWkb, not on feature classes.<br><strong>hint:</strong> Iterate target features and subtract each geometry against the eraser WKB via honua_sdk.protocols.OgcProcessesClient('geometry.difference').<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+</tr>
+<tr>
+<td><a id="analysisidentity"></a><code>arcpy.analysis.Identity</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Computes geometric identity between two layers. Blocked on the same projection adapter as analysis.Intersect (a stub today), so composing that shim is not a workaround.<br><strong>hint:</strong> Iterate target features via honua_sdk.Source.iter_features, call honua_sdk.protocols.OgcProcessesClient.execute('geometry.intersect') to compute the intersected geometry, and retain unmatched input rows client-side.<br><strong>tracking:</strong> <code>honua-server#identity</code></td>
+</tr>
+<tr>
+<td><a id="analysisintersect"></a><code>arcpy.analysis.Intersect</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's geometry.intersect operates on two single geometries (targetWkb, intersectorWkb), not on feature classes.<br><strong>hint:</strong> Use the layer-aware analytics.spatial-join process via honua_sdk.protocols.OgcProcessesClient with the predicate=intersects branch once the projection adapter lands.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+</tr>
+<tr>
+<td><a id="analysismultipleringbuffer"></a><code>arcpy.analysis.MultipleRingBuffer</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Multi-ring buffer wraps geometry.buffer across distance bands. Blocked on the same projection adapter as analysis.Buffer (see honua-server#feature-class-geometry-ops); honua_gp.analysis.Buffer is itself a stub today, so composing it is not a workaround.<br><strong>hint:</strong> Iterate features client-side via honua_sdk.Source.iter_features, call honua_sdk.protocols.OgcProcessesClient.execute('geometry.buffer') for each distance band, and merge the per-band geometries client-side.<br><strong>tracking:</strong> <code>honua-server#multiple-ring-buffer</code></td>
+</tr>
+<tr>
+<td><a id="analysisnear"></a><code>arcpy.analysis.Near</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Computes distance to nearest feature; requires honua-server analytics process.<br><strong>hint:</strong> Use honua_sdk.Source.query(...) with bbox + spatial filter and minimize distance client-side.<br><strong>tracking:</strong> <code>honua-server#near</code></td>
+</tr>
+<tr>
+<td><a id="analysisnearestneighbor"></a><code>arcpy.analysis.NearestNeighbor</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Average nearest neighbor; requires honua-server analytics process.<br><strong>hint:</strong> Use honua_sdk.Source.query(...) with sort_by_distance and compute the ratio client-side.<br><strong>tracking:</strong> <code>honua-server#nearest-neighbor</code></td>
+</tr>
+<tr>
+<td><a id="analysispointdistance"></a><code>arcpy.analysis.PointDistance</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Point-to-point distance matrix; requires honua-server analytics process.<br><strong>hint:</strong> Use honua_sdk.Source.query(...) and compute pairwise distance client-side.<br><strong>tracking:</strong> <code>honua-server#point-distance</code></td>
+</tr>
+<tr>
+<td><a id="analysisspatialjoin"></a><code>arcpy.analysis.SpatialJoin</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's analytics.spatial-join takes a layerId/joinLayerId pair with a fixed predicate set (intersects, contains, within, dwithin) and carry-fields, not arcpy's join_operation/join_type/match_option/field_mapping vocabulary; the arcpy semantics need a translation layer.<br><strong>hint:</strong> Call honua_sdk.protocols.OgcProcessesClient.execute('analytics.spatial-join') directly with resolved layerId / joinLayerId / predicate inputs.<br><strong>tracking:</strong> <code>honua-server#arcpy-spatial-join-adapter</code></td>
+</tr>
+<tr>
+<td><a id="analysissummarizewithin"></a><code>arcpy.analysis.SummarizeWithin</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Aggregates features inside polygon bins.<br><strong>hint:</strong> Use analytics.spatial-join + groupby aggregation on the OGC API Features client.<br><strong>tracking:</strong> <code>honua-server#summarize-within</code></td>
+</tr>
+<tr>
+<td><a id="analysissymmetricaldifference"></a><code>arcpy.analysis.SymmetricalDifference</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Returns features that fall in exactly one input. Blocked on the same projection adapter as analysis.Union / analysis.Intersect (both stubs today), so composing those shims is not a workaround.<br><strong>hint:</strong> Iterate features client-side via honua_sdk.Source.iter_features and compose the difference via honua_sdk.protocols.OgcProcessesClient.execute('geometry.union') and 'geometry.intersect' directly with base64-WKB geometries.<br><strong>tracking:</strong> <code>honua-server#symmetrical-difference</code></td>
+</tr>
+<tr>
+<td><a id="analysistabulateintersection"></a><code>arcpy.analysis.TabulateIntersection</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Cross-tabulates area / length of intersection.<br><strong>hint:</strong> Use analytics.spatial-join + summarize-within client-side post-processing.<br><strong>tracking:</strong> <code>honua-server#tabulate-intersection</code></td>
+</tr>
+<tr>
+<td><a id="analysisunion"></a><code>arcpy.analysis.Union</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's geometry.union takes an array of single WKB geometries (wkbs[], srid), not a list of feature classes.<br><strong>hint:</strong> Collect features via honua_sdk.Source.iter_features, encode each as WKB, then call honua_sdk.protocols.OgcProcessesClient.execute('geometry.union').<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+</tr>
+<tr>
+<td><a id="analysisupdate"></a><code>arcpy.analysis.Update</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Replaces input geometries with updater layer features.<br><strong>hint:</strong> Use admin apply_manifest with a replace operation.<br><strong>tracking:</strong> <code>honua-server#update-analysis</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="arcpymanagement">arcpy.management.*<a class="headerlink" href="#arcpymanagement" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Status</th>
+<th>Backend</th>
+<th>Replacement / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a id="managementaddfield"></a><code>arcpy.management.AddField</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Schema-mutating field add; HonuaAdminClient has no add_field/apply_manifest path that mutates layer schemas today.<br><strong>hint:</strong> File a honua-server ticket for layer-schema mutation; meanwhile run schema changes through your manifest publishing flow.<br><strong>tracking:</strong> <code>honua-server#layer-schema-mutate</code></td>
+</tr>
+<tr>
+<td><a id="managementappend"></a><code>arcpy.management.Append</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Append rows from inputs into a target table.<br><strong>hint:</strong> Use honua_sdk.Source.apply_edits with adds payload after schema-translation.<br><strong>tracking:</strong> <code>honua-server#append</code></td>
+</tr>
+<tr>
+<td><a id="managementcalculatefield"></a><code>arcpy.management.CalculateField</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's data-management.calculate-field requires layerId / fieldName / expression / where</td>
+</tr>
+<tr>
+<td><a id="managementcopy"></a><code>arcpy.management.Copy</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's data-management.copy-features takes sourceLayerId + targetLayerName + optional where/objectIds. Mapping arcpy paths to layer ids requires a translation layer that does not yet exist.<br><strong>hint:</strong> Resolve the source path via honua_sdk.Source / honua_admin and call honua_sdk.protocols.OgcProcessesClient.execute('data-management.copy-features') directly with sourceLayerId / targetLayerName.<br><strong>tracking:</strong> <code>honua-server#arcpy-copy-features-adapter</code></td>
+</tr>
+<tr>
+<td><a id="managementcreatefeatureclass"></a><code>arcpy.management.CreateFeatureclass</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Creates a new feature class; schema translation is the hard part.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.apply_manifest with a create-resource entry.<br><strong>tracking:</strong> <code>honua-server#create-feature-class</code></td>
+</tr>
+<tr>
+<td><a id="managementcreatetable"></a><code>arcpy.management.CreateTable</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Creates a new table; schema translation is the hard part.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.apply_manifest with a create-resource entry.<br><strong>tracking:</strong> <code>honua-server#create-table</code></td>
+</tr>
+<tr>
+<td><a id="managementdelete"></a><code>arcpy.management.Delete</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's data-management.delete-features removes features that match where/objectIds inside a layer; it does NOT drop the dataset itself. arcpy's Delete deletes the whole feature class -- semantically different from the server process.<br><strong>hint:</strong> To delete the entire resource, use honua_admin.HonuaAdminClient with a delete-resource manifest entry. To delete features inside a layer, call honua_sdk.protocols.OgcProcessesClient.execute('data-management.delete-features').<br><strong>tracking:</strong> <code>honua-server#arcpy-delete-resource-adapter</code></td>
+</tr>
+<tr>
+<td><a id="managementdeletefield"></a><code>arcpy.management.DeleteField</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Schema-mutating field delete; HonuaAdminClient has no delete_field/apply_manifest path that mutates layer schemas today.<br><strong>hint:</strong> File a honua-server ticket for layer-schema mutation; meanwhile run schema changes through your manifest publishing flow.<br><strong>tracking:</strong> <code>honua-server#layer-schema-mutate</code></td>
+</tr>
+<tr>
+<td><a id="managementdescribe"></a><code>arcpy.management.Describe</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Inspects a dataset's schema; HonuaAdminClient does not expose a per-layer schema reader today.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.discover_tables for the parent connection or honua_sdk.HonuaClient.feature_server(...).layer_metadata(layer_id).<br><strong>tracking:</strong> <code>honua-server#layer-schema-read</code></td>
+</tr>
+<tr>
+<td><a id="managementdissolve"></a><code>arcpy.management.Dissolve</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's geometry.dissolve takes a single wkbs[] + srid + optional groupKeys array, not a feature class with dissolve_field / statistics_fields semantics.<br><strong>hint:</strong> Use the layer-aware generalization.dissolve process via honua_sdk.protocols.OgcProcessesClient once the arcpy layer / field mapping adapter lands.<br><strong>tracking:</strong> <code>honua-server#arcpy-dissolve-adapter</code></td>
+</tr>
+<tr>
+<td><a id="managementgetcount"></a><code>arcpy.management.GetCount</code></td>
+<td>Partial</td>
+<td><code>source</code></td>
+<td>Returns a row count via Source.query; currently materializes the full result set because Source has no count-only helper yet.</td>
+</tr>
+<tr>
+<td><a id="managementlistfields"></a><code>arcpy.management.ListFields</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Lists layer fields; HonuaAdminClient exposes discover_tables (per connection) but no per-layer schema reader today.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.discover_tables for the parent connection and project the field list locally.<br><strong>tracking:</strong> <code>honua-server#layer-schema-read</code></td>
+</tr>
+<tr>
+<td><a id="managementmakefeaturelayer"></a><code>arcpy.management.MakeFeatureLayer</code></td>
+<td>Supported</td>
+<td><code>session</code></td>
+<td>Creates an in-process layer alias; deviation: alias is bound to a Honua source descriptor.</td>
+</tr>
+<tr>
+<td><a id="managementmaketableview"></a><code>arcpy.management.MakeTableView</code></td>
+<td>Supported</td>
+<td><code>session</code></td>
+<td>Creates an in-process table-view alias; mirrors MakeFeatureLayer.</td>
+</tr>
+<tr>
+<td><a id="managementmerge"></a><code>arcpy.management.Merge</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Merges multiple feature classes into one.<br><strong>hint:</strong> Iterate honua_sdk.Source.iter_features and write via apply_edits in chunks.<br><strong>tracking:</strong> <code>honua-server#merge</code></td>
+</tr>
+<tr>
+<td><a id="managementproject"></a><code>arcpy.management.Project</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server's conversion.feature-project takes layerId + targetSrid; it returns a new artifact rather than writing into the arcpy-style out_dataset. The arcpy paths-and-named-output semantic requires an adapter that does not yet exist.<br><strong>hint:</strong> Resolve the source layer id and call honua_sdk.protocols.OgcProcessesClient.execute('conversion.feature-project') directly with layerId / targetSrid.<br><strong>tracking:</strong> <code>honua-server#arcpy-project-adapter</code></td>
+</tr>
+<tr>
+<td><a id="managementrename"></a><code>arcpy.management.Rename</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Resource rename; HonuaAdminClient exposes apply_manifest but no rename_resource translation today.<br><strong>hint:</strong> Republish the resource under the new name via honua_admin.HonuaAdminClient.apply_manifest and delete the old entry.<br><strong>tracking:</strong> <code>honua-server#rename-resource</code></td>
+</tr>
+<tr>
+<td><a id="managementselectlayerbyattribute"></a><code>arcpy.management.SelectLayerByAttribute</code></td>
+<td>Partial</td>
+<td><code>source</code></td>
+<td>Where-clause selection; updates the in-process layer state. SWITCH_SELECTION is not supported because the shim cannot invert the prior OID selection set as a SQL where clause.</td>
+</tr>
+<tr>
+<td><a id="managementselectlayerbylocation"></a><code>arcpy.management.SelectLayerByLocation</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Spatial selection by relationship to another layer. honua-server has no native spatial-select process today, and the natural compose path (analysis.Buffer + analysis.Intersect, then SelectLayerByAttribute) is blocked because Buffer and Intersect are themselves stubs pending the projection adapter.<br><strong>hint:</strong> Query the candidate features via honua_sdk.Source.query(...) with a bbox prefilter, compute the spatial relationship client-side (or via honua_sdk.protocols.OgcProcessesClient geometry.<em> calls with base64-WKB inputs), then call management.SelectLayerByAttribute with a where clause that pins the resulting OID set (OBJECTID IN (...)).<br></em><em>tracking:</em>* <code>honua-server#spatial-filter</code></td>
+</tr>
+<tr>
+<td><a id="managementsort"></a><code>arcpy.management.Sort</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Sorts feature class rows by one or more fields.<br><strong>hint:</strong> Use honua_sdk.Source.query(order_by=...) and write with apply_edits.<br><strong>tracking:</strong> <code>honua-server#sort</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="arcpyda">arcpy.da.*<a class="headerlink" href="#arcpyda" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Status</th>
+<th>Backend</th>
+<th>Replacement / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a id="daeditor"></a><code>arcpy.da.Editor</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Workspace-level edit session context manager.<br><strong>hint:</strong> Wrap honua_sdk.Source.apply_edits calls in a try/except; per-workspace transactions are not yet exposed.<br><strong>tracking:</strong> <code>honua-server#workspace-editor</code></td>
+</tr>
+<tr>
+<td><a id="daextendtable"></a><code>arcpy.da.ExtendTable</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Joins a NumPy array onto an existing table.<br><strong>hint:</strong> Use admin apply_manifest with a field-add + apply_edits update sequence.<br><strong>tracking:</strong> <code>honua-server#extend-table</code></td>
+</tr>
+<tr>
+<td><a id="dafeatureclasstonumpyarray"></a><code>arcpy.da.FeatureClassToNumPyArray</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Materializes feature class rows as a NumPy structured array.<br><strong>hint:</strong> Use honua_sdk.Source.query(...).features and convert with numpy.array client-side.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
+</tr>
+<tr>
+<td><a id="dainsertcursor"></a><code>arcpy.da.InsertCursor</code></td>
+<td>Supported</td>
+<td><code>source</code></td>
+<td>Buffered inserts; flush on <strong>exit</strong>. Deviates from arcpy's per-row commit.</td>
+</tr>
+<tr>
+<td><a id="danumpyarraytofeatureclass"></a><code>arcpy.da.NumPyArrayToFeatureClass</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Writes a NumPy structured array into a feature class.<br><strong>hint:</strong> Use honua_sdk.Source.apply_edits with feature rows derived from the structured array.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
+</tr>
+<tr>
+<td><a id="danumpyarraytotable"></a><code>arcpy.da.NumPyArrayToTable</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Writes a NumPy structured array into a table.<br><strong>hint:</strong> Use honua_sdk.Source.apply_edits with rows derived from the structured array.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
+</tr>
+<tr>
+<td><a id="dasearchcursor"></a><code>arcpy.da.SearchCursor</code></td>
+<td>Partial</td>
+<td><code>source</code></td>
+<td>Read-only iteration over Source.iter_features; forwards where/out_fields/order_by/out_sr where possible and rejects unsupported sql_clause variants or explode_to_points.</td>
+</tr>
+<tr>
+<td><a id="databletonumpyarray"></a><code>arcpy.da.TableToNumPyArray</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Materializes table rows as a NumPy structured array.<br><strong>hint:</strong> Use honua_sdk.Source.query(...).features and convert with numpy.array client-side.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
+</tr>
+<tr>
+<td><a id="daupdatecursor"></a><code>arcpy.da.UpdateCursor</code></td>
+<td>Supported</td>
+<td><code>source</code></td>
+<td>Buffered updates; flush on <strong>exit</strong> or explicit cursor.flush(). Deviates from arcpy's per-row commit.</td>
+</tr>
+<tr>
+<td><a id="dawalk"></a><code>arcpy.da.Walk</code></td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>Walks a workspace directory tree for datasets.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.list_services / list_metadata_resources.<br><strong>tracking:</strong> <code>honua-server#workspace-walk</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>honua_admin.scan_arcpy_script(...)</code> (and the <code>honua-arcpy-scan</code> console
-  command) emit an <code>ArcPyScriptInventoryArtifact</code> with the per-call list
-  under <code>toolCalls</code> (legacy <code>tool_calls</code> is also accepted). Each entry
-  should include either a fully-qualified <code>call</code> such as
-  <code>arcpy.analysis.Buffer</code>, or a <code>(toolbox, tool)</code> pair.</li>
-<li><code>honua_sdk.migration.scan_arcpy_source(...).to_dict()</code> (or
-  <code>scan_arcpy_file(...)</code>) emits an <code>ArcPyScanReport</code> with the per-call
-  list under <code>calls</code>. Each entry carries <code>qualifiedName</code>, <code>family</code>, and
-  <code>tool</code> keys, which <code>assess</code> matches against the compatibility manifest.</li>
+<li>Total functions: 45</li>
+<li>Supported / partial: 7</li>
+<li>Stubbed (raise <code>HonuaGpUnsupportedError</code>): 38</li>
 </ul>
-<p>Entries without classifiable names are skipped. Honest synonyms are
-canonicalized before the manifest lookup so the same operation reports
-under a single row regardless of which name the scanner emitted. Today the
-only entry is <code>arcpy.management.CopyFeatures</code> -&gt; <code>management.Copy</code> (the
-shim exports <code>management.CopyFeatures = Copy</code>); a scan that mixes
-<code>Copy</code> and <code>CopyFeatures</code> calls aggregates into one <code>management.Copy</code>
-row instead of one stub-bucket row and one <code>out-of-scope</code> row. The row's
-status follows the manifest entry: after audit pass 8, <code>management.Copy</code>
-is a stub (tracking <code>honua-server#arcpy-copy-features-adapter</code>), so the
-canonicalized <code>CopyFeatures</code> calls report under <strong>Stubs</strong>, not under
-<strong>Supported</strong>, until the projection adapter lands.</p>
-<p>Example inventory excerpts:</p>
-<div class="highlight"><pre><span></span><code>// honua_admin.scan_arcpy_script shape
-{
-  &quot;toolCalls&quot;: [
-    { &quot;call&quot;: &quot;arcpy.management.MakeFeatureLayer&quot;, &quot;tool&quot;: &quot;MakeFeatureLayer&quot;, &quot;toolbox&quot;: &quot;management&quot; },
-    { &quot;call&quot;: &quot;arcpy.management.GetCount&quot;, &quot;tool&quot;: &quot;GetCount&quot;, &quot;toolbox&quot;: &quot;management&quot; },
-    { &quot;call&quot;: &quot;arcpy.analysis.Buffer&quot;, &quot;tool&quot;: &quot;Buffer&quot;, &quot;toolbox&quot;: &quot;analysis&quot; },
-    { &quot;call&quot;: &quot;arcpy.sa.Slope&quot;, &quot;tool&quot;: &quot;Slope&quot;, &quot;toolbox&quot;: &quot;sa&quot; }
-  ]
-}
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>// honua_sdk.migration.scan_arcpy_source(...).to_dict() shape
-{
-  &quot;calls&quot;: [
-    { &quot;qualifiedName&quot;: &quot;arcpy.management.MakeFeatureLayer&quot;, &quot;family&quot;: &quot;management&quot;, &quot;tool&quot;: &quot;MakeFeatureLayer&quot; },
-    { &quot;qualifiedName&quot;: &quot;arcpy.analysis.Buffer&quot;, &quot;family&quot;: &quot;analysis&quot;, &quot;tool&quot;: &quot;Buffer&quot; }
-  ]
-}
-</code></pre></div>
-<h2 id="cli">CLI<a class="headerlink" href="#cli" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>honua-arcpy<span class="w"> </span>assess<span class="w"> </span>path/to/inventory.json
-</code></pre></div>
-<p>The CLI:</p>
-<ol>
-<li>Pivots <code>toolCalls</code> against the compatibility manifest (<code>honua_arcpy._compat.COMPAT</code>).</li>
-<li>Prints a per-call bucketed list to stdout:</li>
-<li><strong>Supported</strong> -- function runs unchanged on Honua.</li>
-<li><strong>Partial</strong> -- function runs on Honua with documented deviations.</li>
-<li><strong>Stub</strong> -- function will raise <code>HonuaArcpyUnsupportedError</code> with a
-     replacement hint and a honua-server tracking ticket.</li>
-<li><strong>Out-of-scope</strong> -- sa / na / ddd / mp toolboxes outside the MVP.</li>
-<li>Writes a machine-readable <code>honua-arcpy-assessment.json</code> next to the
-   inventory (override with <code>--output-dir</code>).</li>
-</ol>
-<p>Example output:</p>
-<div class="highlight"><pre><span></span><code>honua-arcpy assessment
-======================
-
-Supported: 1  Partial: 1  Stubs: 1  Out-of-scope: 1
-
-Supported (run unchanged)
--------------------------
-  [  1x] management.MakeFeatureLayer  --  Creates an in-process layer alias; deviation: alias is bound to a Honua source descriptor.
-
-Partial (runs with documented deviations)
------------------------------------------
-  [  1x] management.GetCount  --  Returns a row count via Source.query; currently materializes the full result set because Source has no count-only helper yet.
-
-Stubs (will raise -- replacement hint shown)
---------------------------------------------
-  [  1x] analysis.Buffer  --  honua-server&#39;s geometry.buffer takes a single base64-WKB geometry plus srid+distance, not a feature class. The arcpy feature-class semantic requires a per-feature WKB serialization adapter that does not yet exist.
-       hint: Iterate features client-side via honua_sdk.Source.iter_features(...), buffer each geometry through the geoprocessing client, and write the result back via Source.apply_edits.
-       tracking: honua-server#feature-class-geometry-ops
-
-Out of MVP scope
-----------------
-  [  1x] sa.Slope  --  Not in honua-arcpy MVP scope (sa/na/ddd/mp).
-       hint: Open a backlog ticket; see docs/honua-arcpy/scanner-handoff.md.
-</code></pre></div>
-<p>Audit pass 8 downgraded the 11 process-backed analysis/management
-entries (<code>Buffer</code>, <code>Clip</code>, <code>Intersect</code>, <code>Union</code>, <code>Erase</code>,
-<code>SpatialJoin</code>, <code>CalculateField</code>, <code>Dissolve</code>, <code>Copy</code>, <code>Delete</code>,
-<code>Project</code>) to stubs because their payloads did not match honua-server's
-<code>BuiltInProcessCatalog</code> inputs; each one will surface here under
-<strong>Stubs</strong> with the per-function <code>honua-server#...</code> tracking ticket
-shown above until the projection adapter lands.</p>
-<h2 id="programmatic-api">Programmatic API<a class="headerlink" href="#programmatic-api" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">honua_arcpy._cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">assess_inventory</span><span class="p">,</span> <span class="n">render_assessment</span>
-
-<span class="n">inventory</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;inventory.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="n">rows</span> <span class="o">=</span> <span class="n">assess_inventory</span><span class="p">(</span><span class="n">inventory</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">render_assessment</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
-</code></pre></div>
-<p>The <code>rows</code> list is a sequence of <code>AssessmentRow</code> dataclasses; each row knows
-its <code>status</code>, the dispatcher <code>backend</code>, and the recommended replacement.</p>
-<h2 id="migration-tool-integration">Migration tool integration<a class="headerlink" href="#migration-tool-integration" title="Permanent link">&para;</a></h2>
-<p>The migration tool (closed) feeds <code>honua-arcpy assess</code> against every scanned
-script and groups the resulting <code>assessment.json</code> outputs by repository:</p>
-<div class="highlight"><pre><span></span><code>script.py
-  -&gt; honua_admin.scan_arcpy_script -&gt; inventory.json
-  -&gt; honua-arcpy assess -&gt; honua-arcpy-assessment.json
-  -&gt; migration tool aggregates {repo, script, supported, stubs, out-of-scope}
-</code></pre></div>
-<p>The aggregated view tells customers exactly how many calls will <em>run
-unchanged</em>, how many will <em>raise with a clear hint</em>, and how many need a
-separate migration path (the sa / na / ddd / mp epics tracked elsewhere).
-The aggregator never re-implements compatibility classification; the
-<code>assessment.json</code> payload is the single source of truth.</p>
-<h2 id="status-scope-notes">Status / scope notes<a class="headerlink" href="#status-scope-notes" title="Permanent link">&para;</a></h2>
-<p>The matrix is generated from <code>honua_arcpy._compat.COMPAT</code>. Adding a new
-function therefore requires one source edit; the CI lane
-<code>.github/workflows/honua-arcpy-eval.yml</code> runs <code>honua-arcpy matrix --check</code>
-against the committed file and fails on drift.</p>
-<p>For sa / na / ddd / mp coverage, file separate epics; the migration product
-deliberately punts those to the raster / network-analyst / 3D / mapping work
-streams.</p>
+<p>Stubs intentionally raise rather than silently fail so customer scripts surface gaps before the migration tool ingests the audit JSONL.</p>
 
 
 

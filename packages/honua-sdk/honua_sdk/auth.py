@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from threading import RLock
@@ -16,6 +17,22 @@ class AuthProvider(Protocol):
     """Provider interface used by SDK clients to resolve auth headers per request."""
 
     def auth_headers(self) -> Mapping[str, str]:
+        """Return sensitive auth headers for the next request."""
+
+
+@runtime_checkable
+class AsyncAuthProvider(Protocol):
+    """Awaitable provider interface for non-blocking auth on the async client.
+
+    The async client prefers this over the synchronous :class:`AuthProvider`
+    when a provider exposes :meth:`auth_headers_async`, so a token refresh that
+    performs network I/O can be awaited rather than blocking the event loop.
+    A plain synchronous :class:`AuthProvider` passed to the async client is
+    still honoured — its :meth:`~AuthProvider.auth_headers` is invoked in a
+    worker thread so a blocking refresh does not stall the loop.
+    """
+
+    async def auth_headers_async(self) -> Mapping[str, str]:
         """Return sensitive auth headers for the next request."""
 
 
@@ -173,6 +190,65 @@ class RefreshableBearerTokenProvider:
 
     def _refresh_locked(self) -> BearerToken:
         token = _coerce_token(self._refresh())
+        self._store.set(token)
+        return token
+
+
+class AsyncRefreshableBearerTokenProvider:
+    """Async counterpart of :class:`RefreshableBearerTokenProvider`.
+
+    Awaits an async ``refresh`` callback so the async client can renew an
+    expiring bearer token without blocking the event loop. The token cache is
+    guarded by an :class:`asyncio.Lock`, so concurrent requests that arrive
+    while a refresh is in flight wait for the single refresh rather than each
+    firing their own.
+    """
+
+    def __init__(
+        self,
+        refresh: Callable[[], Awaitable[BearerToken | Mapping[str, Any] | str]],
+        *,
+        initial_token: BearerToken | Mapping[str, Any] | str | None = None,
+        token_store: TokenStore | None = None,
+        refresh_window_seconds: int | float = 60,
+        revoke: Callable[[BearerToken], Awaitable[None]] | None = None,
+    ) -> None:
+        if refresh_window_seconds < 0:
+            raise ValueError("refresh_window_seconds must be non-negative.")
+        self._refresh = refresh
+        self._store = token_store or InMemoryTokenStore(initial_token)
+        if token_store is not None and initial_token is not None:
+            token_store.set(_coerce_token(initial_token))
+        self._refresh_window = timedelta(seconds=float(refresh_window_seconds))
+        self._revoke = revoke
+        self._lock = asyncio.Lock()
+
+    async def auth_headers_async(self) -> Mapping[str, str]:
+        token = await self.get_token()
+        return {"Authorization": token.authorization_value}
+
+    async def get_token(self) -> BearerToken:
+        async with self._lock:
+            token = self._store.get()
+            if token is None or token.expires_within(self._refresh_window):
+                token = await self._refresh_locked()
+            return token
+
+    async def refresh(self) -> BearerToken:
+        """Force a token refresh and store the result."""
+        async with self._lock:
+            return await self._refresh_locked()
+
+    async def revoke(self) -> None:
+        """Call the optional revocation hook and clear the cached token."""
+        async with self._lock:
+            token = self._store.get()
+            if token is not None and self._revoke is not None:
+                await self._revoke(token)
+            self._store.clear()
+
+    async def _refresh_locked(self) -> BearerToken:
+        token = _coerce_token(await self._refresh())
         self._store.set(token)
         return token
 

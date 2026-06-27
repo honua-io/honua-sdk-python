@@ -3666,8 +3666,10 @@
     "honua_sdk": {
       "exports": [
         "ApplyEditsResult",
+        "AsyncAuthProvider",
         "AsyncHonuaClient",
         "AsyncHonuaGeocodingClient",
+        "AsyncRefreshableBearerTokenProvider",
         "AsyncSource",
         "AuthProvider",
         "BearerToken",
@@ -3757,6 +3759,19 @@
           "module": "honua_sdk.models",
           "qualname": "ApplyEditsResult",
           "signature": "(add_results: 'tuple[EditOperationResult, ...]' = (), update_results: 'tuple[EditOperationResult, ...]' = (), delete_results: 'tuple[EditOperationResult, ...]' = (), raw: 'Mapping[str, Any]' = <factory>) -> None"
+        },
+        "AsyncAuthProvider": {
+          "kind": "class",
+          "methods": {
+            "auth_headers_async": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'Mapping[str, str]'"
+            }
+          },
+          "module": "honua_sdk.auth",
+          "qualname": "AsyncAuthProvider",
+          "signature": "(*args, **kwargs)"
         },
         "AsyncHonuaClient": {
           "kind": "class",
@@ -3958,6 +3973,34 @@
           "module": "honua_sdk.async_geocoding",
           "qualname": "AsyncHonuaGeocodingClient",
           "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+        },
+        "AsyncRefreshableBearerTokenProvider": {
+          "kind": "class",
+          "methods": {
+            "auth_headers_async": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'Mapping[str, str]'"
+            },
+            "get_token": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'BearerToken'"
+            },
+            "refresh": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'BearerToken'"
+            },
+            "revoke": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self) -> 'None'"
+            }
+          },
+          "module": "honua_sdk.auth",
+          "qualname": "AsyncRefreshableBearerTokenProvider",
+          "signature": "(refresh: 'Callable[[], Awaitable[BearerToken | Mapping[str, Any] | str]]', *, initial_token: 'BearerToken | Mapping[str, Any] | str | None' = None, token_store: 'TokenStore | None' = None, refresh_window_seconds: 'int | float' = 60, revoke: 'Callable[[BearerToken], Awaitable[None]] | None' = None) -> 'None'"
         },
         "AsyncSource": {
           "kind": "class",
@@ -4541,7 +4584,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_sdk.geocoding",
+          "module": "honua_sdk._geocoding_models",
           "qualname": "GeocodeResult",
           "signature": "(address: 'str', latitude: 'float', longitude: 'float', score: 'float', attributes: 'dict[str, str | None]') -> None"
         },
@@ -4561,7 +4604,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_sdk.geocoding",
+          "module": "honua_sdk._geocoding_models",
           "qualname": "GeocodeSuggestion",
           "signature": "(text: 'str', magic_key: 'str', is_collection: 'bool') -> None"
         },
@@ -5182,7 +5225,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_sdk.geocoding",
+          "module": "honua_sdk._geocoding_models",
           "qualname": "ReverseGeocodeResult",
           "signature": "(address: 'str', latitude: 'float', longitude: 'float', attributes: 'dict[str, str | None]') -> None"
         },

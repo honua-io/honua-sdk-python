@@ -42,13 +42,14 @@ class WmsClient(_SyncProtocol):
     def capabilities(self) -> str:
         return self.request("GetCapabilities").decode("utf-8")
 
-    def map(self, *, layers: CsvValue, bbox: BboxValue, width: int, height: int, crs: str = "EPSG:4326", image_format: str = "image/png", extra_params: Params = None) -> bytes:
+    def map(self, *, layers: CsvValue, bbox: BboxValue, width: int, height: int, crs: str = "EPSG:4326", styles: str = "", image_format: str = "image/png", extra_params: Params = None) -> bytes:
         return self.map_response(
             layers=layers,
             bbox=bbox,
             width=width,
             height=height,
             crs=crs,
+            styles=styles,
             image_format=image_format,
             extra_params=extra_params,
         ).content
@@ -61,13 +62,18 @@ class WmsClient(_SyncProtocol):
         width: int,
         height: int,
         crs: str = "EPSG:4326",
+        styles: str = "",
         image_format: OgcImageFormat = "image/png",
         extra_params: Params = None,
     ) -> BinaryResponse:
-        params = _params({"layers": _csv(layers), "bbox": _bbox(bbox), "width": width, "height": height, "crs": crs, "format": image_format}, extra_params)
+        # STYLES is a mandatory GetMap parameter in WMS 1.1.1/1.3.0 (an empty
+        # value selects each layer's default style), so it is always emitted.
+        # For 1.3.0 with a geographic CRS such as EPSG:4326 the BBOX axis order
+        # is lat/lon (miny,minx,maxy,maxx); callers must order ``bbox`` to match.
+        params = _params({"layers": _csv(layers), "styles": styles, "bbox": _bbox(bbox), "width": width, "height": height, "crs": crs, "format": image_format}, extra_params)
         return self.request_response("GetMap", params=params)
 
-    def feature_info(self, *, layers: CsvValue, query_layers: CsvValue, i: int, j: int, bbox: BboxValue, width: int, height: int, extra_params: Params = None) -> bytes:
+    def feature_info(self, *, layers: CsvValue, query_layers: CsvValue, i: int, j: int, bbox: BboxValue, width: int, height: int, crs: str = "EPSG:4326", info_format: str = "application/json", styles: str = "", extra_params: Params = None) -> bytes:
         return self.feature_info_response(
             layers=layers,
             query_layers=query_layers,
@@ -76,6 +82,9 @@ class WmsClient(_SyncProtocol):
             bbox=bbox,
             width=width,
             height=height,
+            crs=crs,
+            info_format=info_format,
+            styles=styles,
             extra_params=extra_params,
         ).content
 
@@ -89,9 +98,15 @@ class WmsClient(_SyncProtocol):
         bbox: BboxValue,
         width: int,
         height: int,
+        crs: str = "EPSG:4326",
+        info_format: str = "application/json",
+        styles: str = "",
         extra_params: Params = None,
     ) -> BinaryResponse:
-        params = _params({"layers": _csv(layers), "query_layers": _csv(query_layers), "i": i, "j": j, "bbox": _bbox(bbox), "width": width, "height": height}, extra_params)
+        # GetFeatureInfo embeds a GetMap request, so the mandatory map params
+        # (CRS, STYLES) plus the mandatory INFO_FORMAT must be present or
+        # spec-compliant servers reject the request.
+        params = _params({"layers": _csv(layers), "styles": styles, "query_layers": _csv(query_layers), "crs": crs, "info_format": info_format, "i": i, "j": j, "bbox": _bbox(bbox), "width": width, "height": height}, extra_params)
         return self.request_response("GetFeatureInfo", params=params)
 
 
@@ -115,7 +130,7 @@ class AsyncWmsClient(_AsyncProtocol):
     async def capabilities(self) -> str:
         return (await self.request("GetCapabilities")).decode("utf-8")
 
-    async def map(self, *, layers: CsvValue, bbox: BboxValue, width: int, height: int, crs: str = "EPSG:4326", image_format: str = "image/png", extra_params: Params = None) -> bytes:
+    async def map(self, *, layers: CsvValue, bbox: BboxValue, width: int, height: int, crs: str = "EPSG:4326", styles: str = "", image_format: str = "image/png", extra_params: Params = None) -> bytes:
         return (
             await self.map_response(
                 layers=layers,
@@ -123,6 +138,7 @@ class AsyncWmsClient(_AsyncProtocol):
                 width=width,
                 height=height,
                 crs=crs,
+                styles=styles,
                 image_format=image_format,
                 extra_params=extra_params,
             )
@@ -136,13 +152,18 @@ class AsyncWmsClient(_AsyncProtocol):
         width: int,
         height: int,
         crs: str = "EPSG:4326",
+        styles: str = "",
         image_format: OgcImageFormat = "image/png",
         extra_params: Params = None,
     ) -> BinaryResponse:
-        params = _params({"layers": _csv(layers), "bbox": _bbox(bbox), "width": width, "height": height, "crs": crs, "format": image_format}, extra_params)
+        # STYLES is a mandatory GetMap parameter in WMS 1.1.1/1.3.0 (an empty
+        # value selects each layer's default style), so it is always emitted.
+        # For 1.3.0 with a geographic CRS such as EPSG:4326 the BBOX axis order
+        # is lat/lon (miny,minx,maxy,maxx); callers must order ``bbox`` to match.
+        params = _params({"layers": _csv(layers), "styles": styles, "bbox": _bbox(bbox), "width": width, "height": height, "crs": crs, "format": image_format}, extra_params)
         return await self.request_response("GetMap", params=params)
 
-    async def feature_info(self, *, layers: CsvValue, query_layers: CsvValue, i: int, j: int, bbox: BboxValue, width: int, height: int, extra_params: Params = None) -> bytes:
+    async def feature_info(self, *, layers: CsvValue, query_layers: CsvValue, i: int, j: int, bbox: BboxValue, width: int, height: int, crs: str = "EPSG:4326", info_format: str = "application/json", styles: str = "", extra_params: Params = None) -> bytes:
         return (
             await self.feature_info_response(
                 layers=layers,
@@ -152,6 +173,9 @@ class AsyncWmsClient(_AsyncProtocol):
                 bbox=bbox,
                 width=width,
                 height=height,
+                crs=crs,
+                info_format=info_format,
+                styles=styles,
                 extra_params=extra_params,
             )
         ).content
@@ -166,7 +190,13 @@ class AsyncWmsClient(_AsyncProtocol):
         bbox: BboxValue,
         width: int,
         height: int,
+        crs: str = "EPSG:4326",
+        info_format: str = "application/json",
+        styles: str = "",
         extra_params: Params = None,
     ) -> BinaryResponse:
-        params = _params({"layers": _csv(layers), "query_layers": _csv(query_layers), "i": i, "j": j, "bbox": _bbox(bbox), "width": width, "height": height}, extra_params)
+        # GetFeatureInfo embeds a GetMap request, so the mandatory map params
+        # (CRS, STYLES) plus the mandatory INFO_FORMAT must be present or
+        # spec-compliant servers reject the request.
+        params = _params({"layers": _csv(layers), "styles": styles, "query_layers": _csv(query_layers), "crs": crs, "info_format": info_format, "i": i, "j": j, "bbox": _bbox(bbox), "width": width, "height": height}, extra_params)
         return await self.request_response("GetFeatureInfo", params=params)

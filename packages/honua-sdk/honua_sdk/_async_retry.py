@@ -35,8 +35,30 @@ from ._retry_core import (
 )
 
 __all__ = [
+    "AsyncNonClosingTransport",
     "AsyncRetryTransport",
 ]
+
+
+class AsyncNonClosingTransport(httpx.AsyncBaseTransport):
+    """Async transport wrapper whose ``aclose`` does not close the wrapped transport.
+
+    Used by ``with_options`` / ``copy`` when an independently-owned clone must
+    reuse a caller-supplied transport: the clone owns its own
+    :class:`httpx.AsyncClient`, so closing it would otherwise tear down the
+    shared transport's connection pool and break the original client that still
+    depends on it. Ownership of the wrapped transport stays with the original.
+    """
+
+    def __init__(self, wrapped: httpx.AsyncBaseTransport) -> None:
+        self._wrapped = wrapped
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        return await self._wrapped.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        # Intentionally a no-op: the original client owns the wrapped transport.
+        return None
 
 
 class AsyncRetryTransport(httpx.AsyncBaseTransport):
@@ -120,15 +142,11 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
         override = request.extensions.get("honua_max_retries")
         retries_remaining = override if isinstance(override, int) else self._max_retries
         attempt = 0
-        response: httpx.Response | None = None
-        last_exc: Exception | None = None
 
         while True:
             try:
                 response = await self._wrapped.handle_async_request(request)
-                last_exc = None
-            except _RETRIABLE_TRANSPORT_EXCEPTIONS as exc:
-                last_exc = exc
+            except _RETRIABLE_TRANSPORT_EXCEPTIONS:
                 if retries_remaining <= 0:
                     raise
                 delay = self._compute_backoff(attempt)
@@ -152,12 +170,6 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
 
             retries_remaining -= 1
             attempt += 1
-
-        # Unreachable: the loop only exits via ``return`` or by re-raising.
-        if last_exc is not None:  # pragma: no cover
-            raise last_exc
-        assert response is not None  # noqa: S101 -- type narrowing for unreachable branch  # pragma: no cover
-        return response
 
     def _compute_delay(self, response: httpx.Response, attempt: int) -> float:
         return compute_delay(

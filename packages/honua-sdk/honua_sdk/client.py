@@ -22,6 +22,7 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
     _warn_deprecated_bearer_token,
+    encode_request_path,
     join_base_path,
 )
 from ._query import (
@@ -50,7 +51,7 @@ from ._query_dispatch import (
     validate_filter_routing,
     warn_if_truncated,
 )
-from ._retry import RetryTransport
+from ._retry import NonClosingTransport, RetryTransport
 from .errors import HonuaHttpError
 from .models import (
     ApplyEditsResult,
@@ -318,8 +319,19 @@ class HonuaClient:
                 if (timeout is not None and timeout < self._init_timeout)
                 else self._init_timeout
             )
-            # Suppress the re-fired bearer_token deprecation on the internal
-            # clone path; the caller acknowledged it at original construction.
+            # A caller-supplied transport is owned by the original client. The
+            # clone owns its OWN httpx.Client, so if it reused the raw
+            # caller transport, closing the clone would tear down the shared
+            # connection pool the original still depends on. Wrap it so the
+            # clone reuses the transport (preserving custom transports / a
+            # smaller transport-level timeout) without closing it. When no
+            # transport was supplied, pass ``None`` so the clone builds its own
+            # independent transport.
+            clone_transport = (
+                NonClosingTransport(self._init_transport)
+                if self._init_transport is not None
+                else None
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 clone = self.__class__(
@@ -329,7 +341,7 @@ class HonuaClient:
                     bearer_token=self._init_bearer_token,
                     auth_provider=self._init_auth_provider,
                     follow_redirects=self._init_follow_redirects,
-                    transport=self._init_transport,
+                    transport=clone_transport,
                     max_retries=self._init_max_retries,
                 )
             clone._options_timeout = (
@@ -1620,6 +1632,7 @@ class HonuaClient:
         json_body: Mapping[str, Any] | None = None,
         files: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
+        content: bytes | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -1640,13 +1653,17 @@ class HonuaClient:
         (e.g. an attachment file plus its form fields) and are mutually
         exclusive with ``json_body``; when either is set the JSON body is
         omitted so httpx encodes the multipart payload.
+
+        ``content`` sends a raw request body (used by the protocol text path
+        for OData ``$metadata`` / WFS operations); it is mutually exclusive
+        with ``json_body``.
         """
         # Build a full URL so httpx does not re-decode percent-encoded
         # path segments during base-URL resolution. Join onto the base URL's
         # path prefix so sub-path deployments (e.g. behind a reverse proxy at
         # ``/honua/``) are not silently rewritten to the bare endpoint path.
         raw_path = join_base_path(self._base_url, path)
-        url = self._base_url.copy_with(raw_path=raw_path.encode("ascii"))
+        url = self._base_url.copy_with(raw_path=encode_request_path(raw_path))
         merged_headers = merge_request_headers(headers, extra_headers, idempotency_key)
         request_kwargs: dict[str, Any] = {
             "method": method,
@@ -1661,6 +1678,10 @@ class HonuaClient:
                 request_kwargs["files"] = files
             if data is not None:
                 request_kwargs["data"] = data
+        elif content is not None:
+            # ``json`` and ``content`` are mutually exclusive in httpx; prefer a
+            # raw body when supplied, otherwise serialize ``json_body``.
+            request_kwargs["content"] = content
         else:
             request_kwargs["json"] = json_body
         if timeout is not None:

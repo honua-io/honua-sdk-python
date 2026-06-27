@@ -7,6 +7,7 @@ This module requires the optional ``geopandas`` extra::
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping
 from datetime import date, datetime
@@ -50,6 +51,11 @@ _WKID_TO_EPSG: dict[int, str] = {
     4326: "EPSG:4326",
 }
 _GEOJSON_DEFAULT_CRS = "EPSG:4326"
+#: EPSG code for WGS84 longitude/latitude (the GeoJSON default CRS).
+_WGS84_EPSG = 4326
+#: EPSG code for Web Mercator, and the legacy Esri ``wkid`` for the same CRS.
+_WEB_MERCATOR_EPSG = 3857
+_WEB_MERCATOR_ESRI_WKID = 102100
 
 
 def _crs_from_spatial_reference(
@@ -121,6 +127,23 @@ def _normalize_geojson_crs_identifier(identifier: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _coord_is_missing(value: Any) -> bool:
+    """Whether an Esri point coordinate is absent/NaN and yields no geometry.
+
+    Esri encodes "no geometry" points as ``None`` or ``NaN`` coordinates.
+    Building ``Point(nan, nan)`` would produce an invalid geometry that leaks
+    NaN coordinates downstream, so such coordinates are treated as missing.
+    """
+    if value is None:
+        return True
+    if isinstance(value, float) and math.isnan(value):
+        return True
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0911, PLR0912 -- geometry type dispatch
     """Convert a single Esri JSON geometry dict to a Shapely geometry.
 
@@ -134,7 +157,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
         x = geom["x"]
         y = geom["y"]
         # Esri represents null-island-style "no geometry" as NaN coords.
-        if x is None or y is None:
+        if _coord_is_missing(x) or _coord_is_missing(y):
             return None
         return Point(x, y)
 
@@ -233,6 +256,7 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
     from shapely.geometry import (
         Polygon as _Poly,
     )
+    from shapely.geometry.polygon import orient as _orient
 
     if isinstance(geom, _Pt):
         return {"x": geom.x, "y": geom.y}
@@ -247,18 +271,22 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
         return {"paths": [[list(c) for c in line.coords] for line in geom.geoms]}
 
     if isinstance(geom, _Poly):
+        # Esri convention: exterior rings are clockwise, holes counter-clockwise.
+        # ``orient(..., sign=-1.0)`` yields a CW exterior and CCW interiors.
+        oriented = _orient(geom, sign=-1.0)
         rings: list[list[list[float]]] = []
         # Exterior ring
-        rings.append([list(c) for c in geom.exterior.coords])
-        for interior in geom.interiors:
+        rings.append([list(c) for c in oriented.exterior.coords])
+        for interior in oriented.interiors:
             rings.append([list(c) for c in interior.coords])
         return {"rings": rings}
 
     if isinstance(geom, _MPoly):
         rings_all: list[list[list[float]]] = []
         for poly in geom.geoms:
-            rings_all.append([list(c) for c in poly.exterior.coords])
-            for interior in poly.interiors:
+            oriented = _orient(poly, sign=-1.0)
+            rings_all.append([list(c) for c in oriented.exterior.coords])
+            for interior in oriented.interiors:
                 rings_all.append([list(c) for c in interior.coords])
         return {"rings": rings_all}
 
@@ -495,6 +523,39 @@ def _geojson_feature_collection_to_geodataframe(
     return gdf
 
 
+def _reproject_to_wgs84(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Reproject *gdf* to ``EPSG:4326`` for GeoJSON export.
+
+    GeoJSON (RFC 7946) is defined in WGS84 longitude/latitude. A GeoDataFrame
+    in a projected CRS would otherwise be serialized verbatim and silently
+    mislabelled as ``EPSG:4326``, corrupting coordinates. When the frame
+    already uses ``EPSG:4326`` (or carries no CRS, where reprojection is
+    impossible) it is returned unchanged.
+    """
+    crs = gdf.crs
+    if crs is None or crs.to_epsg() == _WGS84_EPSG:
+        return gdf
+    return gdf.to_crs(epsg=_WGS84_EPSG)
+
+
+def _esri_spatial_reference_from_crs(crs: Any) -> dict[str, int] | None:
+    """Build an Esri ``spatialReference`` dict from a GeoDataFrame CRS.
+
+    Returns ``None`` when the CRS is absent or has no resolvable EPSG code, so
+    callers omit the key rather than guessing. Web Mercator is emitted with the
+    Esri ``wkid`` (``102100``) alongside ``latestWkid`` (``3857``) for maximum
+    interoperability with Esri clients.
+    """
+    if crs is None:
+        return None
+    epsg = crs.to_epsg()
+    if epsg is None:
+        return None
+    if epsg == _WEB_MERCATOR_EPSG:
+        return {"wkid": _WEB_MERCATOR_ESRI_WKID, "latestWkid": _WEB_MERCATOR_EPSG}
+    return {"wkid": epsg}
+
+
 def geodataframe_to_features(
     gdf: gpd.GeoDataFrame,
 ) -> list[dict[str, Any]]:
@@ -514,20 +575,31 @@ def geodataframe_to_features(
     list[dict]
         A list of ``{"attributes": {...}, "geometry": {...}}`` dicts
         ready for the ``adds`` or ``updates`` parameter of
-        ``apply_edits``.
+        ``apply_edits``. The frame's CRS is preserved by stamping an explicit
+        Esri ``spatialReference`` onto each emitted geometry, so a non-WGS84
+        frame is no longer silently mislabelled as ``EPSG:4326``.
     """
     _ensure_deps()
 
+    spatial_reference = _esri_spatial_reference_from_crs(gdf.crs)
     attr_columns = [col for col in gdf.columns if col != gdf.geometry.name]
+    # Build attribute records columnar (one dict per row) instead of boxing a
+    # pandas Series per row via ``.iloc`` — the per-row Series is a perf cliff
+    # on bulk apply_edits. ``to_dict("records")`` on an empty column selection
+    # returns ``[]``, so synthesize empty dicts for the geometry-only case.
+    attr_records = (
+        gdf[attr_columns].to_dict("records") if attr_columns else [{} for _ in range(len(gdf))]
+    )
+    geometries = gdf.geometry.to_numpy()
 
     features: list[dict[str, Any]] = []
-    for idx in range(len(gdf)):
-        row = gdf.iloc[idx]
-        attrs = {col: _json_safe_value(row[col]) for col in attr_columns}
-        geom_obj = row[gdf.geometry.name]
+    for raw_attrs, geom_obj in zip(attr_records, geometries, strict=True):
+        attrs = {col: _json_safe_value(raw_attrs[col]) for col in attr_columns}
         esri_geom = _shapely_to_esri_geometry(geom_obj)
         feat: dict[str, Any] = {"attributes": attrs}
         if esri_geom is not None:
+            if spatial_reference is not None:
+                esri_geom["spatialReference"] = spatial_reference
             feat["geometry"] = esri_geom
         features.append(feat)
 
@@ -555,18 +627,25 @@ def geodataframe_to_geojson(
     -------
     dict
         A GeoJSON ``FeatureCollection`` mapping with a ``features`` list.
+        Geometries are reprojected to ``EPSG:4326`` (the GeoJSON default CRS)
+        when the frame carries a non-WGS84 CRS.
     """
     _ensure_deps()
 
     from shapely.geometry import mapping as _mapping
 
+    gdf = _reproject_to_wgs84(gdf)
     attr_columns = [col for col in gdf.columns if col != gdf.geometry.name]
+    # Columnar record extraction + a single geometry pass, avoiding a boxed
+    # pandas Series per row (see ``geodataframe_to_features``).
+    attr_records = (
+        gdf[attr_columns].to_dict("records") if attr_columns else [{} for _ in range(len(gdf))]
+    )
+    geometries = gdf.geometry.to_numpy()
 
     features: list[dict[str, Any]] = []
-    for idx in range(len(gdf)):
-        row = gdf.iloc[idx]
-        properties = {col: _json_safe_value(row[col]) for col in attr_columns}
-        geom_obj = row[gdf.geometry.name]
+    for raw_attrs, geom_obj in zip(attr_records, geometries, strict=True):
+        properties = {col: _json_safe_value(raw_attrs[col]) for col in attr_columns}
         feature: dict[str, Any] = {
             "type": "Feature",
             "properties": properties,

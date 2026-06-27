@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.6](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.5...python-sdk-v0.1.6) (2026-06-27)
+
+
+### Features
+
+* **honua-sdk:** geometry/schema/cursor parity for GP authoring ([#119](https://github.com/honua-io/honua-sdk-python/issues/119)) ([4a0d490](https://github.com/honua-io/honua-sdk-python/commit/4a0d490e28e55fbed9c8c1fbf8a8db2588fcc450))
+
+
+### Bug Fixes
+
+* correct GP interop CRS/ring-winding/job-id handling ([#137](https://github.com/honua-io/honua-sdk-python/issues/137)) ([#140](https://github.com/honua-io/honua-sdk-python/issues/140)) ([3c88dc5](https://github.com/honua-io/honua-sdk-python/commit/3c88dc5715fa3e10ebb4d0669ce31155b4f0d9d1))
+* round-1 audit fixes — geocoding base path, limit=0 crash, gRPC M-only geometry, conformance probes, license text ([#138](https://github.com/honua-io/honua-sdk-python/issues/138)) ([e4644c8](https://github.com/honua-io/honua-sdk-python/commit/e4644c837cb66b54867278d284de7205f7de9bcf))
+
 ## [0.1.5](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.4...python-sdk-v0.1.5) (2026-06-27)
 
 

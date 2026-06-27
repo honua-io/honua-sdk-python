@@ -289,6 +289,72 @@ def test_wait_times_out() -> None:
             gp.wait("job-7", poll_interval=0.0, timeout=0.0)
 
 
+def test_wait_dismisses_job_on_timeout() -> None:
+    """A timed-out job is best-effort dismissed so it is not left orphaned."""
+    deleted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            deleted.append(request.url.path)
+            return httpx.Response(200, json=_status("job-to", "dismissed"))
+        return httpx.Response(200, json=_status("job-to", "running"))
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        with pytest.raises(TimeoutError):
+            gp.wait("job-to", poll_interval=0.0, timeout=0.0)
+
+    assert deleted == ["/ogc/processes/jobs/job-to"]
+
+
+def test_wait_timeout_swallows_dismiss_failure() -> None:
+    """Dismiss failure during timeout cleanup does not mask the TimeoutError."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            return httpx.Response(500, json={"error": "boom"})
+        return httpx.Response(200, json=_status("job-tf", "running"))
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        with pytest.raises(TimeoutError):
+            gp.wait("job-tf", poll_interval=0.0, timeout=0.0)
+
+
+def test_submit_uses_location_header_when_body_lacks_job_id() -> None:
+    """A 201-empty-body response identifies the job via the Location header."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            201,
+            headers={"Location": "http://example.test/ogc/processes/jobs/job-loc"},
+        )
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        job = client.geoprocessing().submit(
+            "geometry.buffer", LayerReference.from_geojson(FEATURE_COLLECTION)
+        )
+
+    assert job.job_id == "job-loc"
+
+
+def test_submit_raw_uses_location_header_when_body_lacks_job_id() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            201,
+            json={"status": "accepted"},
+            headers={"Location": "http://example.test/ogc/processes/jobs/job%20raw"},
+        )
+
+    body = {"inputs": {"inputGeoJson": "{}"}}
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        job = client.geoprocessing().submit_raw("geometry.buffer", body)
+
+    # The id is URL-decoded from the trailing Location segment.
+    assert job.job_id == "job raw"
+    assert job.status == "accepted"
+
+
 def test_jobs_and_dismiss() -> None:
     seen: list[tuple[str, str]] = []
 
@@ -460,6 +526,41 @@ def test_execute_dataframe_raises_when_no_feature_collection_output() -> None:
             client.geoprocessing().execute_dataframe("geometry.area", gdf, poll_interval=0.0)
 
 
+def test_execute_dataframe_reprojects_input_and_reapplies_source_crs() -> None:
+    """A non-WGS84 frame is sent as WGS84 GeoJSON and returned in its source CRS."""
+    gpd = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    captured: dict[str, Any] = {}
+    src = gpd.GeoDataFrame({"name": ["a"]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326")
+    projected = src.to_crs("EPSG:3857")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "POST":
+            captured.update(json.loads(request.content))
+            return httpx.Response(201, json=_status("job-crs", "accepted"))
+        if path == "/ogc/processes/jobs/job-crs":
+            return httpx.Response(200, json=_status("job-crs", "successful"))
+        if path == "/ogc/processes/jobs/job-crs/results":
+            return httpx.Response(200, json={"outputFeatureLayer": FEATURE_COLLECTION})
+        raise AssertionError(f"unexpected {path}")
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        out = client.geoprocessing().execute_dataframe(
+            "geometry.buffer", projected, poll_interval=0.0
+        )
+
+    # Input GeoJSON was reprojected to lon/lat before submission.
+    sent = json.loads(captured["inputs"]["inputGeoJson"])
+    lon, lat = sent["features"][0]["geometry"]["coordinates"]
+    assert lon == pytest.approx(-157.8583, abs=1e-4)
+    assert lat == pytest.approx(21.3069, abs=1e-4)
+    # The returned frame carries the caller's source CRS, not the GeoJSON 4326.
+    assert out.crs is not None
+    assert out.crs.to_epsg() == 3857
+
+
 # ---------------------------------------------------------------------------
 # Async parity
 # ---------------------------------------------------------------------------
@@ -548,3 +649,44 @@ async def test_async_error_path_and_lifecycle() -> None:
             await gp.execute(
                 "geometry.buffer", LayerReference.from_geojson(FEATURE_COLLECTION), poll_interval=0.0
             )
+
+
+@pytest.mark.anyio
+async def test_async_wait_dismisses_on_timeout() -> None:
+    deleted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            deleted.append(request.url.path)
+            return httpx.Response(200, json=_status("ajob-to", "dismissed"))
+        return httpx.Response(200, json=_status("ajob-to", "running"))
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        with pytest.raises(TimeoutError):
+            await gp.wait("ajob-to", poll_interval=0.0, timeout=0.0)
+
+    assert deleted == ["/ogc/processes/jobs/ajob-to"]
+
+
+@pytest.mark.anyio
+async def test_async_wait_dismisses_on_cancellation() -> None:
+    import asyncio
+
+    deleted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            deleted.append(request.url.path)
+            return httpx.Response(200, json=_status("ajob-c", "dismissed"))
+        return httpx.Response(200, json=_status("ajob-c", "running"))
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        task = asyncio.ensure_future(gp.wait("ajob-c", poll_interval=0.05, timeout=None))
+        await asyncio.sleep(0.01)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert deleted == ["/ogc/processes/jobs/ajob-c"]

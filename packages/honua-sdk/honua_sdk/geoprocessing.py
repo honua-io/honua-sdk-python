@@ -40,11 +40,13 @@ reuse the bound :class:`~honua_sdk.client.HonuaClient` /
 
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
+from urllib.parse import unquote, urlsplit
 
 from ._http import _encode_path_segment
 from .errors import HonuaError
@@ -277,6 +279,41 @@ def _async_prefer_header(respond_async: bool) -> dict[str, str] | None:
     return {"Prefer": "respond-async"} if respond_async else None
 
 
+def _job_id_from_location(location: str | None) -> str | None:
+    """Extract a job id from an OGC Processes ``Location`` header.
+
+    The execution response points the ``Location`` header at the created job
+    (``.../ogc/processes/jobs/{jobId}``); the job id is its last path segment.
+    Returns ``None`` when the header is absent or carries no usable segment.
+    """
+    if not location:
+        return None
+    path = urlsplit(location).path.rstrip("/")
+    if not path:
+        return None
+    segment = path.rsplit("/", 1)[-1]
+    return unquote(segment) or None
+
+
+def _job_from_response(response: Any) -> GeoprocessingJob:
+    """Build a :class:`GeoprocessingJob` from an execution HTTP response.
+
+    The OGC ``StatusInfo`` body is the primary source for the job id, but a
+    ``201 Created`` with an empty body (or a synchronous execution that returns
+    no ``jobID``) still identifies the job via the ``Location`` header. Fall
+    back to parsing that header so the job stays pollable/dismissable.
+    """
+    body = response.json() if response.content else {}
+    if not isinstance(body, Mapping):
+        body = {}
+    job = GeoprocessingJob.from_status_info(body)
+    if not job.job_id:
+        location_id = _job_id_from_location(response.headers.get("Location"))
+        if location_id:
+            job = replace(job, job_id=location_id)
+    return job
+
+
 def _processes_path(root: str) -> str:
     return f"{root}/processes"
 
@@ -339,10 +376,7 @@ class HonuaGeoprocessing:
             json_body=payload,
             headers=_async_prefer_header(respond_async),
         )
-        body = response.json() if response.content else {}
-        if not isinstance(body, Mapping):
-            body = {}
-        return GeoprocessingJob.from_status_info(body)
+        return _job_from_response(response)
 
     def submit_raw(
         self,
@@ -363,10 +397,7 @@ class HonuaGeoprocessing:
             json_body=dict(body),
             headers=_async_prefer_header(respond_async),
         )
-        result = response.json() if response.content else {}
-        if not isinstance(result, Mapping):
-            result = {}
-        return GeoprocessingJob.from_status_info(result)
+        return _job_from_response(response)
 
     # -- single-geometry primitive ----------------------------------------
 
@@ -461,6 +492,7 @@ class HonuaGeoprocessing:
         """
         from .geopandas import geodataframe_to_geojson, ogc_features_to_geodataframe
 
+        source_crs = gdf.crs
         layer = LayerReference.from_geojson(geodataframe_to_geojson(gdf))
         result = self.execute(
             process_id,
@@ -469,7 +501,12 @@ class HonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        return ogc_features_to_geodataframe(_feature_collection_from_results(result))
+        out = ogc_features_to_geodataframe(_feature_collection_from_results(result))
+        # The result rides back as GeoJSON/WGS84; reapply the caller's source CRS
+        # so a projected-in / projected-out round-trip preserves coordinates.
+        if source_crs is not None and out.crs is not None:
+            out = out.to_crs(source_crs)
+        return out
 
     # -- canonical multi-step plan ----------------------------------------
 
@@ -517,6 +554,13 @@ class HonuaGeoprocessing:
         """Dismiss (cancel/forget) a job."""
         self.client._request_json("DELETE", _job_path(self.root, job_id))
 
+    def _safe_dismiss(self, job_id: str) -> None:
+        """Best-effort :meth:`dismiss`; never raises (cleanup-only path)."""
+        if not job_id:
+            return
+        with contextlib.suppress(Exception):
+            self.dismiss(job_id)
+
     def wait(
         self,
         job: GeoprocessingJob | str,
@@ -524,12 +568,17 @@ class HonuaGeoprocessing:
         poll_interval: float = 0.5,
         timeout: float | None = 120.0,
     ) -> GeoprocessingJob:
-        """Poll a job until it reaches a terminal status (or ``timeout``)."""
+        """Poll a job until it reaches a terminal status (or ``timeout``).
+
+        On timeout the pending server job is best-effort dismissed before the
+        :class:`TimeoutError` propagates so it is not left orphaned.
+        """
         job_id = job.job_id if isinstance(job, GeoprocessingJob) else str(job)
         current = job if isinstance(job, GeoprocessingJob) else self.job(job_id)
         deadline = None if timeout is None else time.monotonic() + timeout
         while not current.is_terminal:
             if deadline is not None and time.monotonic() >= deadline:
+                self._safe_dismiss(job_id)
                 raise TimeoutError(
                     f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
                     f"(last status: {current.status!r})."
@@ -577,10 +626,7 @@ class AsyncHonuaGeoprocessing:
             json_body=payload,
             headers=_async_prefer_header(respond_async),
         )
-        body = response.json() if response.content else {}
-        if not isinstance(body, Mapping):
-            body = {}
-        return GeoprocessingJob.from_status_info(body)
+        return _job_from_response(response)
 
     async def submit_raw(
         self,
@@ -596,10 +642,7 @@ class AsyncHonuaGeoprocessing:
             json_body=dict(body),
             headers=_async_prefer_header(respond_async),
         )
-        result = response.json() if response.content else {}
-        if not isinstance(result, Mapping):
-            result = {}
-        return GeoprocessingJob.from_status_info(result)
+        return _job_from_response(response)
 
     # -- single-geometry primitive ----------------------------------------
 
@@ -672,6 +715,7 @@ class AsyncHonuaGeoprocessing:
         """Run a vector process over a GeoDataFrame and return a GeoDataFrame."""
         from .geopandas import geodataframe_to_geojson, ogc_features_to_geodataframe
 
+        source_crs = gdf.crs
         layer = LayerReference.from_geojson(geodataframe_to_geojson(gdf))
         result = await self.execute(
             process_id,
@@ -680,7 +724,12 @@ class AsyncHonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        return ogc_features_to_geodataframe(_feature_collection_from_results(result))
+        out = ogc_features_to_geodataframe(_feature_collection_from_results(result))
+        # The result rides back as GeoJSON/WGS84; reapply the caller's source CRS
+        # so a projected-in / projected-out round-trip preserves coordinates.
+        if source_crs is not None and out.crs is not None:
+            out = out.to_crs(source_crs)
+        return out
 
     # -- canonical multi-step plan ----------------------------------------
 
@@ -726,6 +775,13 @@ class AsyncHonuaGeoprocessing:
         """Dismiss (cancel/forget) a job."""
         await self.client._request_json("DELETE", _job_path(self.root, job_id))
 
+    async def _safe_dismiss(self, job_id: str) -> None:
+        """Best-effort :meth:`dismiss`; never raises (cleanup-only path)."""
+        if not job_id:
+            return
+        with contextlib.suppress(Exception):
+            await self.dismiss(job_id)
+
     async def wait(
         self,
         job: GeoprocessingJob | str,
@@ -733,18 +789,28 @@ class AsyncHonuaGeoprocessing:
         poll_interval: float = 0.5,
         timeout: float | None = 120.0,
     ) -> GeoprocessingJob:
-        """Poll a job until it reaches a terminal status (or ``timeout``)."""
+        """Poll a job until it reaches a terminal status (or ``timeout``).
+
+        On timeout — or when the awaiting task is cancelled — the pending server
+        job is best-effort dismissed before the exception propagates so it is
+        not left orphaned.
+        """
         import asyncio
 
         job_id = job.job_id if isinstance(job, GeoprocessingJob) else str(job)
         current = job if isinstance(job, GeoprocessingJob) else await self.job(job_id)
         deadline = None if timeout is None else time.monotonic() + timeout
-        while not current.is_terminal:
-            if deadline is not None and time.monotonic() >= deadline:
-                raise TimeoutError(
-                    f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
-                    f"(last status: {current.status!r})."
-                )
-            await asyncio.sleep(max(0.0, poll_interval))
-            current = await self.job(job_id)
+        try:
+            while not current.is_terminal:
+                if deadline is not None and time.monotonic() >= deadline:
+                    await self._safe_dismiss(job_id)
+                    raise TimeoutError(
+                        f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
+                        f"(last status: {current.status!r})."
+                    )
+                await asyncio.sleep(max(0.0, poll_interval))
+                current = await self.job(job_id)
+        except asyncio.CancelledError:
+            await self._safe_dismiss(job_id)
+            raise
         return current

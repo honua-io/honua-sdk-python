@@ -13,6 +13,7 @@ import httpx
 from honua_sdk.http import (
     AuthProvider,
     HonuaHttpError,
+    NonClosingTransport,
     RetryTransport,
     apply_sensitive_auth_headers,
     build_sensitive_auth_headers,
@@ -315,6 +316,16 @@ class HonuaAdminClient:
                 if (timeout is not None and timeout < self._init_timeout)
                 else self._init_timeout
             )
+            # A caller-supplied transport is owned by the original client. Wrap
+            # it so the independently-owned clone reuses the transport (custom
+            # transport / smaller transport-level timeout) without closing the
+            # shared connection pool the original still depends on. When no
+            # transport was supplied, pass ``None`` so the clone builds its own.
+            clone_transport = (
+                NonClosingTransport(self._init_transport)
+                if self._init_transport is not None
+                else None
+            )
             # Suppress the re-fired bearer_token deprecation on the internal
             # clone path; the caller acknowledged it at original construction.
             with warnings.catch_warnings():
@@ -326,7 +337,7 @@ class HonuaAdminClient:
                     bearer_token=self._init_bearer_token,
                     auth_provider=self._init_auth_provider,
                     follow_redirects=self._init_follow_redirects,
-                    transport=self._init_transport,
+                    transport=clone_transport,
                     max_retries=self._init_max_retries,
                 )
             clone._options_timeout = (

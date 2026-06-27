@@ -179,6 +179,15 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # distinct and must be mapped explicitly.
     _rule(r"\baclose\b", "close"),
     #
+    # --- function-name seams ----------------------------------------------
+    # The async client uses the awaitable auth-application helper; its sync
+    # mirror calls the synchronous one. The ``_async`` suffix is lowercase and
+    # underscore-prefixed, so the generic ``\bAsync`` strip never fires on it.
+    _rule(
+        r"\b_apply_sensitive_auth_headers_async\b",
+        "_apply_sensitive_auth_headers",
+    ),
+    #
     # --- module-name seams -------------------------------------------------
     # Async-only sibling modules collapse onto their sync equivalents.
     _rule(r"\b_async_retry\b", "_retry"),
@@ -219,6 +228,10 @@ TARGETS: tuple[Target, ...] = (
     Target(
         source=ROOT / "packages/honua-sdk/honua_sdk/async_client.py",
         dest=ROOT / "packages/honua-sdk/honua_sdk/client.py",
+    ),
+    Target(
+        source=ROOT / "packages/honua-sdk/honua_sdk/async_geocoding.py",
+        dest=ROOT / "packages/honua-sdk/honua_sdk/geocoding.py",
     ),
     Target(
         source=ROOT / "packages/honua-admin/honua_admin/_async_client.py",

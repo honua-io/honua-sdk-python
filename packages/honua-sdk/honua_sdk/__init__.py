@@ -32,9 +32,16 @@ try:
 except Exception:  # pragma: no cover -- editable / not-installed fallback
     __version__ = "0.0.0.dev0"
 
+from ._geocoding_models import (
+    GeocodeResult,
+    GeocodeSuggestion,
+    ReverseGeocodeResult,
+)
 from .async_client import AsyncHonuaClient
 from .async_geocoding import AsyncHonuaGeocodingClient
 from .auth import (
+    AsyncAuthProvider,
+    AsyncRefreshableBearerTokenProvider,
     AuthProvider,
     BearerToken,
     CallableAuthProvider,
@@ -54,12 +61,7 @@ from .errors import (
     HonuaTimeoutError,
     HonuaTransportError,
 )
-from .geocoding import (
-    GeocodeResult,
-    GeocodeSuggestion,
-    HonuaGeocodingClient,
-    ReverseGeocodeResult,
-)
+from .geocoding import HonuaGeocodingClient
 from .models import (
     CAPABILITIES,
     DEFAULT_CAPABILITIES,
@@ -145,6 +147,8 @@ __all__ = [  # noqa: RUF022 -- grouped by category for human discoverability
     "default_capabilities",
     # Auth
     "AuthProvider",
+    "AsyncAuthProvider",
+    "AsyncRefreshableBearerTokenProvider",
     "BearerToken",
     "CallableAuthProvider",
     "InMemoryTokenStore",

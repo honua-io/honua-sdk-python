@@ -161,12 +161,15 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
                 return response
 
             delay = self._compute_delay(response, attempt)
-            await asyncio.sleep(delay)
 
-            # Read and close the unsuccessful response before retrying so the
-            # underlying connection is released.
+            # Read and close the unsuccessful response BEFORE sleeping so the
+            # underlying connection is returned to the pool during the backoff
+            # window. Holding it across the sleep would tie up pooled capacity
+            # under a 429/503 storm exactly when the server is already degraded.
             await response.aread()
             await response.aclose()
+
+            await asyncio.sleep(delay)
 
             retries_remaining -= 1
             attempt += 1

@@ -474,6 +474,118 @@ class TestAsyncClient:
 
 
 # ---------------------------------------------------------------------------
+# Per-call auth metadata resolution
+# ---------------------------------------------------------------------------
+
+
+class _RotatingAuthProvider:
+    """Sync provider whose token changes on every resolve (refresh stand-in)."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def auth_headers(self) -> dict[str, str]:
+        self.calls += 1
+        return {"Authorization": f"Bearer token-{self.calls}"}
+
+
+class _AsyncOnlyAuthProvider:
+    """Provider that exposes only ``auth_headers_async`` (no sync surface)."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def auth_headers_async(self) -> dict[str, str]:
+        self.calls += 1
+        return {"Authorization": f"Bearer async-{self.calls}"}
+
+
+class TestPerCallAuthMetadata:
+    """The gRPC clients must re-consult an auth provider on every RPC.
+
+    Baking the metadata once at channel creation froze a refreshable bearer
+    token, so every call failed once it expired, and an async-only provider
+    raised ``AttributeError`` on the sync resolve.
+    """
+
+    def test_build_grpc_metadata_rejects_async_only_provider(self) -> None:
+        with pytest.raises(ValueError, match="auth_headers_async"):
+            build_grpc_metadata(auth_provider=_AsyncOnlyAuthProvider())
+
+    def test_sync_client_resolves_provider_per_call(self) -> None:
+        provider = _RotatingAuthProvider()
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            mock_stub.QueryFeatures.return_value = pb2.QueryFeaturesResponse()
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcClient(
+                "localhost:50051", channel=channel, auth_provider=provider
+            )
+
+        request = QueryFeaturesRequest(service_id="svc", layer_id=0)
+        client.query_features(request)
+        client.query_features(request)
+
+        first = mock_stub.QueryFeatures.call_args_list[0][1]["metadata"]
+        second = mock_stub.QueryFeatures.call_args_list[1][1]["metadata"]
+        assert ("authorization", "Bearer token-1") in first
+        assert ("authorization", "Bearer token-2") in second
+        assert provider.calls == 2
+        client.close()
+
+    def test_static_metadata_takes_precedence_over_provider(self) -> None:
+        provider = _RotatingAuthProvider()
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            mock_stub.QueryFeatures.return_value = pb2.QueryFeaturesResponse()
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcClient(
+                "localhost:50051",
+                channel=channel,
+                metadata=[("authorization", "Bearer static")],
+                auth_provider=provider,
+            )
+
+        client.query_features(QueryFeaturesRequest(service_id="svc", layer_id=0))
+
+        metadata = mock_stub.QueryFeatures.call_args[1]["metadata"]
+        assert metadata == [("authorization", "Bearer static")]
+        client.close()
+
+    def test_async_client_resolves_async_only_provider_per_call(self) -> None:
+        provider = _AsyncOnlyAuthProvider()
+        channel = MagicMock()
+        with patch(
+            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        ) as stub_cls:
+            mock_stub = MagicMock()
+            mock_stub.QueryFeatures = AsyncMock(return_value=pb2.QueryFeaturesResponse())
+            stub_cls.return_value = mock_stub
+            client = HonuaGrpcAsyncClient(
+                "localhost:50051", channel=channel, auth_provider=provider
+            )
+
+        async def _run() -> None:
+            request = QueryFeaturesRequest(service_id="svc", layer_id=0)
+            await client.query_features(request)
+            await client.query_features(request)
+
+        asyncio.run(_run())
+
+        first = mock_stub.QueryFeatures.call_args_list[0][1]["metadata"]
+        second = mock_stub.QueryFeatures.call_args_list[1][1]["metadata"]
+        assert ("authorization", "Bearer async-1") in first
+        assert ("authorization", "Bearer async-2") in second
+        assert provider.calls == 2
+
+
+# ---------------------------------------------------------------------------
 # HonuaGrpcError
 # ---------------------------------------------------------------------------
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.7...python-sdk-v0.1.8) (2026-06-28)
+
+
+### Bug Fixes
+
+* **grpc,retry:** refresh gRPC auth per call; release pooled conn during backoff ([#144](https://github.com/honua-io/honua-sdk-python/issues/144)) ([ed265f4](https://github.com/honua-io/honua-sdk-python/commit/ed265f470fc3cde0287cad9b4f8e82bb32225daa))
+
 ## [0.1.7](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.6...python-sdk-v0.1.7) (2026-06-28)
 
 

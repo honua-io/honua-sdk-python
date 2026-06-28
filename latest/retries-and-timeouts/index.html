@@ -1787,13 +1787,17 @@ subclasses) once the retry budget is exhausted.</p>
 the deterministic <code>cap</code> value is used verbatim. The attempt counter
 resets on each new request.</p>
 <h2 id="retry-after"><code>Retry-After</code><a class="headerlink" href="#retry-after" title="Permanent link">&para;</a></h2>
-<p>When the server responds with <code>Retry-After</code>, the parsed value is used
-verbatim and is <strong>never</strong> jittered. Both forms from RFC 7231 are
-supported (see <code>parse_retry_after</code> re-exported via <code>honua_sdk.http</code>):</p>
+<p>When the server responds with <code>Retry-After</code>, the parsed value is honoured
+(and is <strong>never</strong> jittered) but is <strong>clamped to <code>backoff_max</code></strong> (default
+<code>5.0s</code>) so a large server-sent header cannot block far longer than the
+configured ceiling. Both forms from RFC 7231 are supported (see
+<code>parse_retry_after</code> re-exported via <code>honua_sdk.http</code>):</p>
 <ul>
-<li>delta-seconds: <code>Retry-After: 120</code> → 120.0 seconds</li>
+<li>delta-seconds: <code>Retry-After: 3</code> → 3.0 seconds; <code>Retry-After: 120</code> is
+  clamped to <code>backoff_max</code> (→ 5.0 seconds with the defaults).</li>
 <li>HTTP-date: <code>Retry-After: Wed, 21 Oct 2026 07:28:00 GMT</code> →
-  <code>max(0, target - now)</code> in seconds. A date in the past becomes <code>0.0</code>.</li>
+  <code>min(max(0, target - now), backoff_max)</code> in seconds. A date in the past
+  becomes <code>0.0</code>.</li>
 </ul>
 <p>Unparseable values fall back to the exponential backoff above.</p>
 <h2 id="per-call-options">Per-call options<a class="headerlink" href="#per-call-options" title="Permanent link">&para;</a></h2>

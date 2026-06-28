@@ -1781,7 +1781,6 @@ request shapes; supplying them for a non-FeatureServer source raises
 <h2 id="worked-recipes">Worked recipes<a class="headerlink" href="#worked-recipes" title="Permanent link">&para;</a></h2>
 <h3 id="stream-all-features-into-geopandas">Stream all features into geopandas<a class="headerlink" href="#stream-all-features-into-geopandas" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geopandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">features_to_geodataframe</span>
 
 <span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://example.com&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">parcels</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
@@ -1792,7 +1791,7 @@ request shapes; supplying them for a non-FeatureServer source raises
         <span class="p">)</span>
     <span class="p">)</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">parcels</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;status=&#39;active&#39;&quot;</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">2000</span><span class="p">))</span>
-    <span class="n">gdf</span> <span class="o">=</span> <span class="n">features_to_geodataframe</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">raw_legacy</span><span class="p">)</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">))</span>
 </code></pre></div>
 <p>For very large datasets, prefer <code>stream()</code> plus a row-wise builder so

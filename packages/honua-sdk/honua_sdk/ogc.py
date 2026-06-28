@@ -628,6 +628,7 @@ class HonuaOgcFeatureCollection:
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         for page in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
@@ -665,6 +666,12 @@ class HonuaOgcFeatureCollection:
             next_href = _next_link(response)
             if next_href is None and len(page_features) < page_limit:
                 break
+            # Guard against a non-advancing cursor: a server that echoes a
+            # constant ``rel=next`` would otherwise loop forever (max_pages=None
+            # is unbounded) re-fetching the same page. Mirrors the STAC walker.
+            if next_href is not None and next_href == previous_next_href:
+                break
+            previous_next_href = next_href
 
     def iter_items(
         self,
@@ -1285,6 +1292,7 @@ class AsyncHonuaOgcFeatureCollection:
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         for page in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
@@ -1322,6 +1330,12 @@ class AsyncHonuaOgcFeatureCollection:
             next_href = _next_link(response)
             if next_href is None and len(page_features) < page_limit:
                 break
+            # Guard against a non-advancing cursor: a server that echoes a
+            # constant ``rel=next`` would otherwise loop forever (max_pages=None
+            # is unbounded) re-fetching the same page. Mirrors the STAC walker.
+            if next_href is not None and next_href == previous_next_href:
+                break
+            previous_next_href = next_href
 
     async def iter_items(
         self,

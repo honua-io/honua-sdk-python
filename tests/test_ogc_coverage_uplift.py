@@ -306,6 +306,10 @@ def test_sync_items_pages_unbounded_walks_past_legacy_cap() -> None:
     cap and silently truncated, diverging from the FeatureServer walker (which
     treats ``None`` as unbounded). Walking 150 advertised pages proves the cap
     is gone.
+
+    The cursor must *advance* between pages (a distinct ``rel=next`` href each
+    time); a real paginating server does this, and the non-advancing-cursor
+    guard intentionally stops a server that echoes a constant next link.
     """
     total = 150
     counter = {"n": 0}
@@ -314,7 +318,12 @@ def test_sync_items_pages_unbounded_walks_past_legacy_cap() -> None:
         counter["n"] += 1
         if counter["n"] < total:
             features = [{"id": counter["n"]}, {"id": counter["n"] + 1000}]
-            links = [{"rel": "next", "href": "/ogc/features/collections/parcels/items?cont"}]
+            links = [
+                {
+                    "rel": "next",
+                    "href": f"/ogc/features/collections/parcels/items?cont={counter['n']}",
+                }
+            ]
         else:
             features = [{"id": counter["n"]}]  # short final page terminates the walk
             links = []
@@ -334,6 +343,41 @@ def test_sync_items_pages_unbounded_walks_past_legacy_cap() -> None:
 
     assert len(pages) == total
     assert counter["n"] == total
+
+
+def test_sync_items_pages_breaks_on_non_advancing_next_link() -> None:
+    """A server echoing a constant ``rel=next`` plus a full page must not loop
+    forever. ``max_pages=None`` is unbounded, so the only thing that can stop
+    the walk is the non-advancing-cursor guard."""
+
+    counter = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        counter["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "type": "FeatureCollection",
+                # Full page (== page_size) so the short-page break never fires.
+                "features": [{"id": counter["n"]}, {"id": counter["n"] + 100}],
+                # Constant, non-null next link -> the cursor never advances.
+                "links": [{"rel": "next", "href": "/ogc/features/collections/parcels/items?cont"}],
+            },
+        )
+
+    with HonuaClient(
+        "http://example.test", transport=httpx.MockTransport(handler)
+    ) as client:
+        pages = list(
+            client.ogc_features()
+            .collection("parcels")
+            .items_pages(page_size=2, max_pages=None)
+        )
+
+    # First page is fetched and yielded; the second response repeats the same
+    # next href, so the walk stops instead of re-fetching indefinitely.
+    assert len(pages) == 2
+    assert counter["n"] == 2
 
 
 def test_sync_item_get_uses_crs_parameter() -> None:
@@ -426,6 +470,37 @@ async def test_async_items_pages_follows_next_link() -> None:
     assert "limit=2" in seen_paths[0]
     assert "page=2" in seen_paths[1]
     assert len(seen_paths) == 2
+
+
+async def test_async_items_pages_breaks_on_non_advancing_next_link() -> None:
+    """Async mirror of the non-advancing-cursor guard: a constant ``rel=next``
+    plus a full page must stop the unbounded walk instead of looping."""
+
+    counter = {"n": 0}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        counter["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "type": "FeatureCollection",
+                "features": [{"id": counter["n"]}, {"id": counter["n"] + 100}],
+                "links": [{"rel": "next", "href": "/ogc/features/collections/parcels/items?cont"}],
+            },
+        )
+
+    async with AsyncHonuaClient(
+        "http://example.test", transport=httpx.MockTransport(handler)
+    ) as client:
+        pages = [
+            page
+            async for page in client.ogc_features()
+            .collection("parcels")
+            .items_pages(page_size=2, max_pages=None)
+        ]
+
+    assert len(pages) == 2
+    assert counter["n"] == 2
 
 
 async def test_async_iter_items_stops_at_user_limit() -> None:

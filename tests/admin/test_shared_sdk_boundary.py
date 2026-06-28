@@ -74,6 +74,9 @@ def test_admin_clients_use_public_http_boundary() -> None:
     assert admin_async_client.AsyncRetryTransport is honua_http.AsyncRetryTransport
     assert admin_async_client.AuthProvider is honua_http.AuthProvider
     assert admin_async_client.HonuaHttpError is honua_http.HonuaHttpError
-    assert admin_async_client.apply_sensitive_auth_headers is honua_http.apply_sensitive_auth_headers
+    assert (
+        admin_async_client.apply_sensitive_auth_headers_async
+        is honua_http.apply_sensitive_auth_headers_async
+    )
     assert admin_async_client.encode_path_segment is honua_http.encode_path_segment
     assert admin_async_client.to_http_error is honua_http.to_http_error

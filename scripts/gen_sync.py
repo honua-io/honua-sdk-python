@@ -187,6 +187,14 @@ _COMMON_RULES: tuple[Rule, ...] = (
         r"\b_apply_sensitive_auth_headers_async\b",
         "_apply_sensitive_auth_headers",
     ),
+    # honua-admin imports the public (non-underscore) async applier from
+    # ``honua_sdk.http`` and awaits it; its generated sync mirror calls the
+    # synchronous public applier. Matched separately from the underscore rule
+    # above (whose ``\b_`` prefix never fires on the public name).
+    _rule(
+        r"\bapply_sensitive_auth_headers_async\b",
+        "apply_sensitive_auth_headers",
+    ),
     #
     # --- module-name seams -------------------------------------------------
     # Async-only sibling modules collapse onto their sync equivalents.

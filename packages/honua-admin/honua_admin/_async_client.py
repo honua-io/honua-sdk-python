@@ -13,7 +13,7 @@ from honua_sdk.http import (
     AsyncRetryTransport,
     AuthProvider,
     HonuaHttpError,
-    apply_sensitive_auth_headers,
+    apply_sensitive_auth_headers_async,
     build_sensitive_auth_headers,
     encode_path_segment,
     extract_trusted_authority,
@@ -201,7 +201,7 @@ class AsyncHonuaAdminClient:
         auth_headers = build_sensitive_auth_headers(api_key=api_key, bearer_token=bearer_token)
 
         async def _request_hook(request: httpx.Request) -> None:
-            apply_sensitive_auth_headers(
+            await apply_sensitive_auth_headers_async(
                 request,
                 trusted_authority=trusted_authority,
                 auth_headers=auth_headers,

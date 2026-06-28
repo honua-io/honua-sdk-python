@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 import httpx
@@ -29,7 +30,11 @@ from honua_admin import (
     TableDiscoveryResponse,
     UpdateSecureConnectionRequest,
 )
-from honua_sdk import CallableAuthProvider, HonuaHttpError
+from honua_sdk import (
+    AsyncRefreshableBearerTokenProvider,
+    CallableAuthProvider,
+    HonuaHttpError,
+)
 from honua_sdk.errors import HonuaTransportError
 
 from .conftest import make_api_response
@@ -1061,3 +1066,76 @@ async def test_async_delete_metadata_resource_with_if_match() -> None:
 
     assert seen["method"] == "DELETE"
     assert seen["if_match"] == "prev-etag"
+
+
+# ---------------------------------------------------------------------------
+# Async auth providers on the admin client.
+#
+# The admin async client must apply request-time auth headers through the
+# awaitable applier so that (1) async-only providers exposing
+# ``auth_headers_async`` work without raising ``AttributeError`` and (2) a
+# synchronous provider's blocking refresh is offloaded off the event loop.
+# This mirrors the data-plane ``AsyncHonuaClient`` behaviour.
+# ---------------------------------------------------------------------------
+
+
+async def test_async_admin_client_awaits_async_auth_provider() -> None:
+    refreshed: list[str] = []
+
+    async def refresh() -> str:
+        refreshed.append("called")
+        return "async-token"
+
+    provider = AsyncRefreshableBearerTokenProvider(refresh)
+
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("authorization", ""))
+        return httpx.Response(200, json=make_api_response([]))
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaAdminClient(
+        "http://test.honua.io", transport=transport, auth_provider=provider
+    ) as client:
+        await client.list_services()
+
+    # An async-only provider previously raised AttributeError because the admin
+    # client called the synchronous ``auth_headers``; it must now be awaited.
+    assert refreshed == ["called"]
+    assert seen == ["Bearer async-token"]
+
+
+async def test_async_admin_client_offloads_sync_auth_provider_off_the_loop() -> None:
+    loop_thread = threading.get_ident()
+    call_threads: list[int] = []
+
+    class _RecordingProvider:
+        def auth_headers(self) -> dict[str, str]:
+            call_threads.append(threading.get_ident())
+            return {"Authorization": "Bearer sync-token"}
+
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("authorization", ""))
+        return httpx.Response(200, json=make_api_response([]))
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaAdminClient(
+        "http://test.honua.io", transport=transport, auth_provider=_RecordingProvider()
+    ) as client:
+        await client.list_services()
+
+    assert seen == ["Bearer sync-token"]
+    # The synchronous provider ran in a worker thread, not on the event loop.
+    assert call_threads and all(tid != loop_thread for tid in call_threads)
+
+
+# ---------------------------------------------------------------------------
+# Async auth providers on the admin client.
+#
+# The admin async client must apply request-time auth headers through the
+# awaitable applier so that (1) async-only providers exposing
+# auth_headers_async work without raising AttributeError and (2) a
+# synchronous providers

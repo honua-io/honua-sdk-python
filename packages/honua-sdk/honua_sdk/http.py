@@ -23,6 +23,8 @@ HTTP helpers (no leading underscore):
 * :func:`encode_path_segment`       — URL-safe path segment encoder
 * :func:`build_sensitive_auth_headers`
 * :func:`apply_sensitive_auth_headers`
+* :func:`apply_sensitive_auth_headers_async` — awaitable variant for async
+  clients; resolves dynamic/async auth providers without blocking the loop
 * :func:`extract_trusted_authority`
 * :func:`validate_auth_configuration`
 * :func:`validate_external_client_auth_configuration`
@@ -55,6 +57,7 @@ from __future__ import annotations
 from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
 from ._http import (
     _apply_sensitive_auth_headers,
+    _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
     _encode_path_segment,
     _extract_trusted_authority,
@@ -79,6 +82,7 @@ from .errors import (
 # Canonical (non-underscore) aliases. The underscore-prefixed originals
 # remain importable for back-compat with code pinned to those names.
 apply_sensitive_auth_headers = _apply_sensitive_auth_headers
+apply_sensitive_auth_headers_async = _apply_sensitive_auth_headers_async
 build_sensitive_auth_headers = _build_sensitive_auth_headers
 encode_path_segment = _encode_path_segment
 extract_trusted_authority = _extract_trusted_authority
@@ -112,6 +116,7 @@ __all__ = [
     "_validate_external_client_auth_configuration",
     "_warn_deprecated_bearer_token",
     "apply_sensitive_auth_headers",
+    "apply_sensitive_auth_headers_async",
     "build_sensitive_auth_headers",
     "encode_path_segment",
     "extract_trusted_authority",

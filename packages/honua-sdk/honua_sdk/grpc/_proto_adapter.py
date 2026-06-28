@@ -282,11 +282,18 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference 
             point.m = geom["m"]
         msg.point.CopyFrom(point)
     elif "xmin" in geom and "ymin" in geom and "xmax" in geom and "ymax" in geom:
+        # Emit the envelope ring clockwise so an Esri-winding-aware engine
+        # reads it as an exterior, not a hole. Per the Esri convention used
+        # elsewhere in the SDK (see ``geopandas`` ring decoding), an exterior
+        # ring is clockwise (negative shoelace area) and a CCW ring is a hole.
+        # Walking the corners (xmin,ymin)->(xmin,ymax)->(xmax,ymax)->(xmax,ymin)
+        # yields a clockwise ring; the reverse order is CCW and would be read
+        # as a hole, producing an inverted/empty bbox spatial filter over gRPC.
         ring = pb2.CoordinateSequence(coords=[
             pb2.Coordinate(x=geom["xmin"], y=geom["ymin"]),
-            pb2.Coordinate(x=geom["xmax"], y=geom["ymin"]),
-            pb2.Coordinate(x=geom["xmax"], y=geom["ymax"]),
             pb2.Coordinate(x=geom["xmin"], y=geom["ymax"]),
+            pb2.Coordinate(x=geom["xmax"], y=geom["ymax"]),
+            pb2.Coordinate(x=geom["xmax"], y=geom["ymin"]),
             pb2.Coordinate(x=geom["xmin"], y=geom["ymin"]),
         ])
         msg.polygon.CopyFrom(pb2.PolygonGeometry(rings=[ring]))

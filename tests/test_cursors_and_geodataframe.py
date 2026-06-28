@@ -193,7 +193,13 @@ def test_update_cursor_iterates_and_writes_back() -> None:
 
     assert len(edits) == 1  # single batch flushed on exit
     updates = edits[0]["updates"]
-    assert {u["attributes"]["OBJECTID"] for u in updates} == {1, 2}
+    # The source carries its OID under the lowercase ``objectid`` key; update_row
+    # must reuse that exact key and NOT also inject a canonical ``OBJECTID`` (which
+    # would leave two object-id-like keys for the same row and corrupt the edit).
+    for update in updates:
+        oid_keys = [k for k in update["attributes"] if k in ("objectid", "objectId", "OBJECTID")]
+        assert oid_keys == ["objectid"], oid_keys
+    assert {u["attributes"]["objectid"] for u in updates} == {1, 2}
     assert {u["attributes"]["name"] for u in updates} == {"a", "b"}
 
 
@@ -218,6 +224,22 @@ def test_update_row_without_object_id_raises() -> None:
         row = Row(feature=QueryFeature(id=None, properties={"name": "no-oid"}))
         with pytest.raises(ValueError, match="object id"):
             cursor.update_row(row)
+
+
+def test_update_row_adds_canonical_objectid_only_when_absent() -> None:
+    from honua_sdk.models import QueryFeature
+
+    edits: list[dict[str, Any]] = []
+    with HonuaClient("http://example.test", transport=_edit_transport(edits)) as client:
+        source = client.source(_descriptor())
+        cursor = source.update_cursor(batch_size=1)
+        # OID present only via the feature id, not in properties -> canonical
+        # ``OBJECTID`` is injected.
+        cursor.update_row(Row(feature=QueryFeature(id=7, properties={"name": "x"})))
+    attrs = edits[0]["updates"][0]["attributes"]
+    oid_keys = [k for k in attrs if k in ("objectid", "objectId", "OBJECTID")]
+    assert oid_keys == ["OBJECTID"]
+    assert attrs["OBJECTID"] == 7
 
 
 # ---------------------------------------------------------------------------

@@ -373,6 +373,7 @@ class ODataClient(_SyncProtocol):
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         skip = int((extra_params or {}).get("$skip", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -402,6 +403,13 @@ class ODataClient(_SyncProtocol):
             page_values = _values_from_page(page)
             fetched += len(page_values)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor: if the
+            # server keeps returning the same non-null next link, stop instead
+            # of fetching the same page forever (matches the FeatureServer
+            # query_pages id-subset guard).
+            if next_href is not None and next_href == previous_next_href:
+                return
+            previous_next_href = next_href
             if next_href is None:
                 if len(page_values) < page_limit:
                     break
@@ -753,6 +761,7 @@ class AsyncODataClient(_AsyncProtocol):
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         skip = int((extra_params or {}).get("$skip", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -782,6 +791,13 @@ class AsyncODataClient(_AsyncProtocol):
             page_values = _values_from_page(page)
             fetched += len(page_values)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor: if the
+            # server keeps returning the same non-null next link, stop instead
+            # of fetching the same page forever (matches the FeatureServer
+            # query_pages id-subset guard).
+            if next_href is not None and next_href == previous_next_href:
+                return
+            previous_next_href = next_href
             if next_href is None:
                 if len(page_values) < page_limit:
                     break

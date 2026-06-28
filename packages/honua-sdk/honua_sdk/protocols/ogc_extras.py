@@ -663,6 +663,7 @@ class OgcRecordsCollectionClient:
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         current_offset = 0 if offset is None else max(0, offset)
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -691,6 +692,13 @@ class OgcRecordsCollectionClient:
             page_records = _records_from_page(page)
             fetched += len(page_records)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor: if the
+            # server keeps returning the same non-null next link, stop instead
+            # of fetching the same page forever (matches the FeatureServer
+            # query_pages id-subset guard).
+            if next_href is not None and next_href == previous_next_href:
+                return
+            previous_next_href = next_href
             if next_href is None:
                 if len(page_records) < page_limit:
                     break
@@ -944,6 +952,7 @@ class AsyncOgcRecordsCollectionClient:
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         current_offset = 0 if offset is None else max(0, offset)
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -972,6 +981,13 @@ class AsyncOgcRecordsCollectionClient:
             page_records = _records_from_page(page)
             fetched += len(page_records)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor: if the
+            # server keeps returning the same non-null next link, stop instead
+            # of fetching the same page forever (matches the FeatureServer
+            # query_pages id-subset guard).
+            if next_href is not None and next_href == previous_next_href:
+                return
+            previous_next_href = next_href
             if next_href is None:
                 if len(page_records) < page_limit:
                     break

@@ -845,8 +845,9 @@ class HonuaClient:
         resolved_target = target or _grpc_target_from_base_url(self._base_url)
         # Build only the static metadata (api-key / bearer / extra) here. Any
         # auth_provider is handed to the gRPC client so it is re-consulted per
-        # RPC -- otherwise a refreshable bearer token would be frozen at channel
-        # creation and every call would fail once it expired.
+        # RPC (awaiting ``auth_headers_async`` when available) -- otherwise a
+        # refreshable bearer token would be frozen at channel creation, and an
+        # async-only provider would raise AttributeError on the sync resolve.
         metadata = build_grpc_metadata(
             api_key=self._init_api_key,
             bearer_token=self._init_bearer_token,

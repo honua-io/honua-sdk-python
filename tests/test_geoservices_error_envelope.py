@@ -11,7 +11,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from honua_sdk import HonuaClient, HonuaGeocodingClient, HonuaHttpError
+from honua_sdk import HonuaAuthError, HonuaClient, HonuaGeocodingClient, HonuaHttpError
 from honua_sdk._endpoints import parse_json_response_body
 
 
@@ -30,13 +30,41 @@ def test_query_features_raises_on_error_envelope() -> None:
     assert "Unable to complete" in str(excinfo.value)
 
 
-def test_apply_edits_raises_on_error_envelope() -> None:
+def test_apply_edits_raises_auth_on_token_required_envelope() -> None:
+    # Esri code 499 (Token Required) is an application code, not an HTTP status:
+    # it must surface as HonuaAuthError (catchable via ``except HonuaAuthError``)
+    # while preserving the original Esri code on ``error_code`` and normalizing
+    # the HTTP ``status_code`` surface to 403.
     with HonuaClient(
         "http://example.test", transport=_envelope_handler(code=499, message="Token Required")
     ) as client:
-        with pytest.raises(HonuaHttpError) as excinfo:
+        with pytest.raises(HonuaAuthError) as excinfo:
             client.apply_edits("Parcels", 0, adds=[{"attributes": {"NAME": "x"}}])
-    assert excinfo.value.status_code == 499
+    assert excinfo.value.error_code == 499
+    assert excinfo.value.status_code == 403
+
+
+def test_invalid_token_envelope_maps_to_auth_error() -> None:
+    # Esri code 498 (Invalid Token) likewise maps to HonuaAuthError.
+    with HonuaClient(
+        "http://example.test", transport=_envelope_handler(code=498, message="Invalid Token")
+    ) as client:
+        with pytest.raises(HonuaAuthError) as excinfo:
+            client.query_features("Parcels", 0, where="1=1")
+    assert excinfo.value.error_code == 498
+    assert excinfo.value.status_code == 403
+
+
+def test_exotic_negative_code_normalizes_status_but_preserves_error_code() -> None:
+    # A large negative HRESULT-style code must not be surfaced verbatim as an HTTP
+    # status; it normalizes to 500 while the original code is kept on error_code.
+    with HonuaClient(
+        "http://example.test", transport=_envelope_handler(code=-2147217395, message="Workspace error")
+    ) as client:
+        with pytest.raises(HonuaHttpError) as excinfo:
+            client.query_features("Parcels", 0, where="1=1")
+    assert excinfo.value.error_code == -2147217395
+    assert excinfo.value.status_code == 500
 
 
 def test_list_services_raises_on_error_envelope() -> None:

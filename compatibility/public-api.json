@@ -4612,7 +4612,7 @@
           "kind": "class",
           "module": "honua_sdk.errors",
           "qualname": "HonuaAuthError",
-          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None) -> 'None'"
+          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None, error_code: 'int | None' = None) -> 'None'"
         },
         "HonuaCapabilityNotSupportedError": {
           "kind": "class",
@@ -4819,13 +4819,13 @@
           "kind": "class",
           "module": "honua_sdk.errors",
           "qualname": "HonuaHttpError",
-          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None) -> 'None'"
+          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None, error_code: 'int | None' = None) -> 'None'"
         },
         "HonuaRateLimitError": {
           "kind": "class",
           "module": "honua_sdk.errors",
           "qualname": "HonuaRateLimitError",
-          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, retry_after: 'float | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None) -> 'None'"
+          "signature": "(status_code: 'int', message: 'str', *, body: 'Any | None' = None, retry_after: 'float | None' = None, request_id: 'str | None' = None, headers: 'Mapping[str, str] | None' = None, error_code: 'int | None' = None) -> 'None'"
         },
         "HonuaTimeoutError": {
           "kind": "class",
@@ -5683,7 +5683,7 @@
           },
           "module": "honua_sdk.grpc._client",
           "qualname": "HonuaGrpcAsyncClient",
-          "signature": "(target: 'str', *, channel: 'grpc.aio.Channel | None' = None, credentials: 'grpc.ChannelCredentials | None' = None, insecure: 'bool' = False, metadata: 'list[tuple[str, str]] | None' = None, timeout: 'float | None' = 30.0, compression: 'grpc.Compression | None' = <Compression.Gzip: 2>) -> 'None'"
+          "signature": "(target: 'str', *, channel: 'grpc.aio.Channel | None' = None, credentials: 'grpc.ChannelCredentials | None' = None, insecure: 'bool' = False, metadata: 'list[tuple[str, str]] | None' = None, auth_provider: 'AuthProvider | None' = None, timeout: 'float | None' = 30.0, compression: 'grpc.Compression | None' = <Compression.Gzip: 2>) -> 'None'"
         },
         "HonuaGrpcClient": {
           "kind": "class",
@@ -5703,7 +5703,7 @@
           },
           "module": "honua_sdk.grpc._client",
           "qualname": "HonuaGrpcClient",
-          "signature": "(target: 'str', *, channel: 'grpc.Channel | None' = None, credentials: 'grpc.ChannelCredentials | None' = None, insecure: 'bool' = False, metadata: 'list[tuple[str, str]] | None' = None, timeout: 'float | None' = 30.0, compression: 'grpc.Compression | None' = <Compression.Gzip: 2>) -> 'None'"
+          "signature": "(target: 'str', *, channel: 'grpc.Channel | None' = None, credentials: 'grpc.ChannelCredentials | None' = None, insecure: 'bool' = False, metadata: 'list[tuple[str, str]] | None' = None, auth_provider: 'AuthProvider | None' = None, timeout: 'float | None' = 30.0, compression: 'grpc.Compression | None' = <Compression.Gzip: 2>) -> 'None'"
         },
         "HonuaGrpcError": {
           "kind": "class",

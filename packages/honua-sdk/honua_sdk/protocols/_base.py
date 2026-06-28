@@ -235,6 +235,28 @@ def _next_link_object(response: Mapping[str, Any]) -> Mapping[str, Any] | None:
     return None
 
 
+def _next_link_signature(next_link: Mapping[str, Any] | None, next_href: str | None) -> str | None:
+    """A stable signature for a STAC ``next`` link used to detect non-advancing cursors.
+
+    For STAC POST ``/search`` the continuation token lives in the link ``body``,
+    so two consecutive pages can share the same ``href`` while still advancing.
+    Fold the method/href/body into one comparable string so the pagination loop
+    only treats a page as non-advancing when the *entire* next link repeats.
+    Falls back to the bare ``href`` when no link object is available.
+    """
+    if next_link is None:
+        return next_href
+    method = str(next_link.get("method", "GET")).upper()
+    href = next_link.get("href")
+    href_str = href if isinstance(href, str) else (next_href or "")
+    body = next_link.get("body")
+    try:
+        body_sig = json.dumps(body, sort_keys=True, default=str) if body is not None else ""
+    except (TypeError, ValueError):
+        body_sig = repr(body)
+    return f"{method} {href_str} {body_sig}"
+
+
 def _path_and_params_from_href(href: str) -> tuple[str, dict[str, str]]:
     parsed = urlsplit(href)
     path = parsed.path or href
@@ -304,6 +326,8 @@ class _SyncProtocol:
         *,
         params: Params = None,
         json_body: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -316,6 +340,8 @@ class _SyncProtocol:
                 path,
                 params=params,
                 json_body=json_body,
+                files=files,
+                data=data,
                 headers=headers,
                 **_per_call_kwargs(
                     timeout=timeout,
@@ -413,6 +439,8 @@ class _AsyncProtocol:
         *,
         params: Params = None,
         json_body: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -425,6 +453,8 @@ class _AsyncProtocol:
                 path,
                 params=params,
                 json_body=json_body,
+                files=files,
+                data=data,
                 headers=headers,
                 **_per_call_kwargs(
                     timeout=timeout,

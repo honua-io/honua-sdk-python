@@ -17,9 +17,10 @@ from ._base import (
     Params,
     _AsyncProtocol,
     _features_from_page,
+    _iter_page_indices,
     _next_link,
     _next_link_object,
-    _normalize_max_pages,
+    _next_link_signature,
     _normalize_page_limit,
     _normalize_total_limit,
     _params,
@@ -99,15 +100,15 @@ class StacClient(_SyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         offset = int((extra_params or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -127,6 +128,13 @@ class StacClient(_SyncProtocol):
             page_items = _features_from_page(page)
             fetched += len(page_items)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor: if the
+            # server keeps returning the same non-null next link, stop instead
+            # of fetching the same page forever (matches the FeatureServer
+            # query_pages id-subset guard).
+            if next_href is not None and next_href == previous_next_href:
+                return
+            previous_next_href = next_href
             if next_href is None:
                 if len(page_items) < page_limit:
                     break
@@ -229,7 +237,6 @@ class StacClient(_SyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -237,8 +244,9 @@ class StacClient(_SyncProtocol):
         fetched = 0
         next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
+        previous_next_href: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -273,6 +281,15 @@ class StacClient(_SyncProtocol):
             fetched += len(page_items)
             next_link = _next_link_object(page)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor. For STAC
+            # POST /search the continuation lives in the link body, so compare a
+            # signature of the whole next link (method/href/body) rather than the
+            # href alone; stop if the server repeats it (matches the FeatureServer
+            # query_pages id-subset guard).
+            next_signature = _next_link_signature(next_link, next_href)
+            if next_signature is not None and next_signature == previous_next_href:
+                return
+            previous_next_href = next_signature
             if next_href is None:
                 if len(page_items) < page_limit:
                     break
@@ -371,15 +388,15 @@ class AsyncStacClient(_AsyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
 
         fetched = 0
         next_href: str | None = None
+        previous_next_href: str | None = None
         offset = int((extra_params or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -399,6 +416,13 @@ class AsyncStacClient(_AsyncProtocol):
             page_items = _features_from_page(page)
             fetched += len(page_items)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor: if the
+            # server keeps returning the same non-null next link, stop instead
+            # of fetching the same page forever (matches the FeatureServer
+            # query_pages id-subset guard).
+            if next_href is not None and next_href == previous_next_href:
+                return
+            previous_next_href = next_href
             if next_href is None:
                 if len(page_items) < page_limit:
                     break
@@ -502,7 +526,6 @@ class AsyncStacClient(_AsyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -510,8 +533,9 @@ class AsyncStacClient(_AsyncProtocol):
         fetched = 0
         next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
+        previous_next_href: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -546,6 +570,15 @@ class AsyncStacClient(_AsyncProtocol):
             fetched += len(page_items)
             next_link = _next_link_object(page)
             next_href = _next_link(page)
+            # Guard against a self-referential / non-advancing cursor. For STAC
+            # POST /search the continuation lives in the link body, so compare a
+            # signature of the whole next link (method/href/body) rather than the
+            # href alone; stop if the server repeats it (matches the FeatureServer
+            # query_pages id-subset guard).
+            next_signature = _next_link_signature(next_link, next_href)
+            if next_signature is not None and next_signature == previous_next_href:
+                return
+            previous_next_href = next_signature
             if next_href is None:
                 if len(page_items) < page_limit:
                     break

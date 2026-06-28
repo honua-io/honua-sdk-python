@@ -86,13 +86,17 @@ resets on each new request.
 
 ## `Retry-After`
 
-When the server responds with `Retry-After`, the parsed value is used
-verbatim and is **never** jittered. Both forms from RFC 7231 are
-supported (see `parse_retry_after` re-exported via `honua_sdk.http`):
+When the server responds with `Retry-After`, the parsed value is honoured
+(and is **never** jittered) but is **clamped to `backoff_max`** (default
+`5.0s`) so a large server-sent header cannot block far longer than the
+configured ceiling. Both forms from RFC 7231 are supported (see
+`parse_retry_after` re-exported via `honua_sdk.http`):
 
-- delta-seconds: `Retry-After: 120` → 120.0 seconds
+- delta-seconds: `Retry-After: 3` → 3.0 seconds; `Retry-After: 120` is
+  clamped to `backoff_max` (→ 5.0 seconds with the defaults).
 - HTTP-date: `Retry-After: Wed, 21 Oct 2026 07:28:00 GMT` →
-  `max(0, target - now)` in seconds. A date in the past becomes `0.0`.
+  `min(max(0, target - now), backoff_max)` in seconds. A date in the past
+  becomes `0.0`.
 
 Unparseable values fall back to the exponential backoff above.
 

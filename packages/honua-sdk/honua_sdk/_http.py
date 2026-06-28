@@ -397,11 +397,85 @@ def raise_for_geoservices_error(response: httpx.Response, payload: Mapping[str, 
         except ValueError:
             body = payload
 
-    raise _build_http_error(
-        status_code=code,
+    raise _build_geoservices_error(
+        error_code=code,
         message=message,
         body=body,
         response=response,
+    )
+
+
+# Esri GeoServices auth/token error codes. These are an application code space,
+# NOT HTTP statuses: 498 = Invalid Token, 499 = Token Required, 403 = permission
+# denied. They must map to HonuaAuthError so ``except HonuaAuthError`` catches a
+# token-required rejection (which previously surfaced as a generic HonuaHttpError).
+_GEOSERVICES_AUTH_CODES = frozenset({401, 403, 498, 499})
+
+
+def _normalize_geoservices_status(error_code: int) -> int:
+    """Map a GeoServices envelope ``code`` onto a sane ``status_code`` surface.
+
+    GeoServices codes are an application code space, so an arbitrary code (e.g. a
+    large negative HRESULT-style value such as ``-2147217395``) must not be
+    surfaced verbatim as an HTTP ``status_code``. Codes that already fall in the
+    valid HTTP range are passed through; auth/token codes collapse to ``403``;
+    everything else normalizes to ``500`` (server-side failure). The original
+    code is always preserved on ``error_code``.
+    """
+    if error_code in _GEOSERVICES_AUTH_CODES:
+        return error_code if error_code in (401, 403) else 403
+    if 100 <= error_code <= 599:
+        return error_code
+    return 500
+
+
+def _build_geoservices_error(
+    *,
+    error_code: int,
+    message: str,
+    body: Any | None,
+    response: httpx.Response,
+) -> HonuaHttpError:
+    """Construct a Honua exception from an Esri GeoServices error envelope.
+
+    Chooses the exception subtype from a GeoServices-aware mapping (auth/token
+    codes -> :class:`HonuaAuthError`) rather than reinterpreting the envelope
+    code as an HTTP status, and records the original Esri code on ``error_code``.
+    """
+    request_id = (
+        response.headers.get("x-request-id")
+        or response.headers.get("honua-request-id")
+        or response.headers.get("x-correlation-id")
+    )
+    headers = dict(response.headers)
+    status_code = _normalize_geoservices_status(error_code)
+    if error_code in _GEOSERVICES_AUTH_CODES:
+        return HonuaAuthError(
+            status_code,
+            message,
+            body=body,
+            request_id=request_id,
+            headers=headers,
+            error_code=error_code,
+        )
+    if error_code == 429:
+        retry_after = _parse_retry_after(response.headers.get("retry-after"))
+        return HonuaRateLimitError(
+            status_code,
+            message,
+            body=body,
+            retry_after=retry_after,
+            request_id=request_id,
+            headers=headers,
+            error_code=error_code,
+        )
+    return HonuaHttpError(
+        status_code,
+        message,
+        body=body,
+        request_id=request_id,
+        headers=headers,
+        error_code=error_code,
     )
 
 

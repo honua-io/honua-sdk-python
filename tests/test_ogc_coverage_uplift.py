@@ -20,8 +20,8 @@ from honua_sdk import HonuaClient
 from honua_sdk.async_client import AsyncHonuaClient
 from honua_sdk.ogc import (
     _features_from_collection,
+    _iter_page_indices,
     _next_link,
-    _normalize_max_pages,
     _normalize_offset,
     _normalize_page_size,
     _normalize_total_limit,
@@ -82,10 +82,15 @@ class TestPrivateHelpers:
         assert _normalize_page_size(0, None) == 100
         assert _normalize_page_size(-5, None) == 100
 
-    def test_normalize_max_pages(self) -> None:
-        assert _normalize_max_pages(7) == 7
-        assert _normalize_max_pages(None) == 100
-        assert _normalize_max_pages(0) == 100
+    def test_iter_page_indices(self) -> None:
+        # A positive cap yields exactly that many 0-based indices.
+        assert list(_iter_page_indices(3)) == [0, 1, 2]
+        # Non-positive caps yield nothing.
+        assert list(_iter_page_indices(0)) == []
+        assert list(_iter_page_indices(-5)) == []
+        # ``None`` is unbounded (no silent 100-page cap); sample the prefix.
+        unbounded = _iter_page_indices(None)
+        assert [next(unbounded) for _ in range(150)] == list(range(150))
 
     def test_normalize_offset(self) -> None:
         assert _normalize_offset(None) == 0
@@ -292,6 +297,43 @@ def test_sync_items_pages_max_pages_cutoff() -> None:
 
     assert len(pages) == 2
     assert counter["n"] == 2
+
+
+def test_sync_items_pages_unbounded_walks_past_legacy_cap() -> None:
+    """``max_pages=None`` must walk every advertised page, not stop at 100.
+
+    The cursor-based walkers previously normalized ``None`` to a hard 100-page
+    cap and silently truncated, diverging from the FeatureServer walker (which
+    treats ``None`` as unbounded). Walking 150 advertised pages proves the cap
+    is gone.
+    """
+    total = 150
+    counter = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        counter["n"] += 1
+        if counter["n"] < total:
+            features = [{"id": counter["n"]}, {"id": counter["n"] + 1000}]
+            links = [{"rel": "next", "href": "/ogc/features/collections/parcels/items?cont"}]
+        else:
+            features = [{"id": counter["n"]}]  # short final page terminates the walk
+            links = []
+        return httpx.Response(
+            200,
+            json={"type": "FeatureCollection", "features": features, "links": links},
+        )
+
+    with HonuaClient(
+        "http://example.test", transport=httpx.MockTransport(handler)
+    ) as client:
+        pages = list(
+            client.ogc_features()
+            .collection("parcels")
+            .items_pages(page_size=2, max_pages=None)
+        )
+
+    assert len(pages) == total
+    assert counter["n"] == total
 
 
 def test_sync_item_get_uses_crs_parameter() -> None:

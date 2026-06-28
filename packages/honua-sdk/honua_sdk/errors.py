@@ -100,9 +100,14 @@ class HonuaHttpError(HonuaError):
             headers (``x-request-id`` / ``Honua-Request-Id`` /
             ``X-Correlation-ID``), or ``None`` when not present.
         headers: Full response headers as a plain ``dict[str, str]``.
+        error_code: The application-level error code reported by an Esri
+            GeoServices error envelope (e.g. ``498``/``499`` token errors), when
+            the failure originated from such an envelope. ``None`` for ordinary
+            transport-level HTTP failures. Distinct from ``status_code`` because
+            GeoServices codes are an application code space, not HTTP statuses.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — kwarg-only fields surface server diagnostics
         self,
         status_code: int,
         message: str,
@@ -110,6 +115,7 @@ class HonuaHttpError(HonuaError):
         body: Any | None = None,
         request_id: str | None = None,
         headers: Mapping[str, str] | None = None,
+        error_code: int | None = None,
     ) -> None:
         super().__init__(f"HTTP {status_code}: {message}")
         self.status_code = status_code
@@ -117,6 +123,7 @@ class HonuaHttpError(HonuaError):
         self.body = body
         self.request_id = request_id
         self.headers: Mapping[str, str] = dict(headers) if headers is not None else {}
+        self.error_code = error_code
 
 
 class HonuaAuthError(HonuaHttpError):
@@ -163,6 +170,7 @@ class HonuaRateLimitError(HonuaHttpError):
         retry_after: float | None = None,
         request_id: str | None = None,
         headers: Mapping[str, str] | None = None,
+        error_code: int | None = None,
     ) -> None:
         super().__init__(
             status_code,
@@ -170,6 +178,7 @@ class HonuaRateLimitError(HonuaHttpError):
             body=body,
             request_id=request_id,
             headers=headers,
+            error_code=error_code,
         )
         self.retry_after = retry_after
 

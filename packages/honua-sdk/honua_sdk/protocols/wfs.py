@@ -33,8 +33,11 @@ class WfsClient(_SyncProtocol):
         params = _params({"typeNames": _csv(type_names)} if type_names is not None else None, extra_params)
         return self.request("GetFeature", params=params)
 
-    def transaction(self, xml: str | bytes) -> str:
-        return self._text("POST", self.path, content=xml)
+    def transaction(self, xml: str | bytes, *, content_type: str = "application/xml") -> str:
+        # WFS-T request bodies are XML; declare the content type explicitly so a
+        # conformant WFS endpoint (or a strict proxy/WAF) does not 415/400 the
+        # transaction or mis-route it as form data. Override with text/xml if needed.
+        return self._text("POST", self.path, content=xml, extra_headers={"Content-Type": content_type})
 
 
 class AsyncWfsClient(_AsyncProtocol):
@@ -56,5 +59,6 @@ class AsyncWfsClient(_AsyncProtocol):
         params = _params({"typeNames": _csv(type_names)} if type_names is not None else None, extra_params)
         return await self.request("GetFeature", params=params)
 
-    async def transaction(self, xml: str | bytes) -> str:
-        return await self._text("POST", self.path, content=xml)
+    async def transaction(self, xml: str | bytes, *, content_type: str = "application/xml") -> str:
+        # See WfsClient.transaction: declare the XML content type explicitly.
+        return await self._text("POST", self.path, content=xml, extra_headers={"Content-Type": content_type})

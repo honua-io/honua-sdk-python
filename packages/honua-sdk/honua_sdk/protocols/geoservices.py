@@ -7,9 +7,11 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import partial
 from typing import IO, Any, cast
 
 import httpx
+from anyio import to_thread
 
 from honua_sdk._http import _encode_path_segment
 from honua_sdk.models import Feature, FeatureSet, LayerSchema
@@ -1165,7 +1167,11 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         object, or raw ``bytes``. The returned ``object_id`` is the id of the
         newly created attachment.
         """
-        files = {"attachment": _attachment_multipart_file(file, content_type=content_type)}
+        # Offload the (blocking, whole-file) read to a worker thread so the
+        # event loop is not stalled for the duration of the disk read, mirroring
+        # _resolve_dynamic_auth_headers_async in _http.py.
+        part = await to_thread.run_sync(partial(_attachment_multipart_file, file, content_type=content_type))
+        files = {"attachment": part}
         data = {"f": "json"}
         if keywords is not None:
             data["keywords"] = keywords
@@ -1200,9 +1206,11 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         data: dict[str, Any] = {"f": "json", "attachmentId": attachment_id}
         if keywords is not None:
             data["keywords"] = keywords
-        files = (
-            {"attachment": _attachment_multipart_file(file, content_type=content_type)} if file is not None else None
-        )
+        files = None
+        if file is not None:
+            # Offload the blocking read off the event loop (see add_attachment).
+            part = await to_thread.run_sync(partial(_attachment_multipart_file, file, content_type=content_type))
+            files = {"attachment": part}
         payload = await self._json(
             "POST",
             f"{self.path}/{layer_id}/{object_id}/updateAttachment",

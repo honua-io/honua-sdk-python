@@ -179,6 +179,30 @@ def test_stac_item_iterators_follow_next_links_and_clip_limit() -> None:
     assert seen == [{"limit": "2", "offset": "0"}, {"offset": "2", "limit": "2"}]
 
 
+def test_stac_iter_items_breaks_on_non_advancing_next_link() -> None:
+    # A buggy/hostile server returns a constant, self-referential ``next`` link
+    # pointing at a full page. With an unbounded walk (max_pages=None) the loop
+    # must terminate via the non-advancing-cursor guard rather than fetch forever.
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] > 50:  # safety net so a regression fails fast instead of hanging
+            raise AssertionError("pagination did not stop on a non-advancing next link")
+        page = [{"type": "Feature", "id": "scene-1"}, {"type": "Feature", "id": "scene-2"}]
+        links = [{"rel": "next", "href": "http://example.test/stac/collections/imagery/items?cursor=stuck"}]
+        return httpx.Response(200, json={"type": "FeatureCollection", "features": page, "links": links})
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        pages = list(client.stac().item_pages("imagery", page_size=2, max_pages=None))
+
+    # First page is fetched/yielded; the second fetch returns the identical next
+    # link, which trips the non-advancing guard and stops the unbounded walk.
+    assert calls["n"] == 2
+    assert len(pages) == 2
+
+
 def test_odata_query_helpers_and_iterators() -> None:
     seen: list[dict[str, str]] = []
 

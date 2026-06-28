@@ -273,7 +273,12 @@ class UpdateCursor(_BaseWriteCursor):
         merged = dict(row.feature.properties)
         if attributes:
             merged.update(attributes)
-        merged.setdefault("OBJECTID", object_id)
+        # Reuse whatever OID key the row already carries (server casing may be
+        # 'objectid' or 'objectId'); only add the canonical 'OBJECTID' when none
+        # of the recognized variants is present, so the applyEdits payload never
+        # ends up with two object-id-like keys for the same row.
+        if not any(key in merged for key in ("objectid", "objectId", "OBJECTID")):
+            merged["OBJECTID"] = object_id
         geom = geometry if geometry is not None else row.feature.geometry
         self._buffer.updates.append(_esri_feature_from(merged, geom))
         if self._buffer.pending >= self._buffer.batch_size:
@@ -438,7 +443,12 @@ class AsyncUpdateCursor(_BaseWriteCursor):
         merged = dict(row.feature.properties)
         if attributes:
             merged.update(attributes)
-        merged.setdefault("OBJECTID", object_id)
+        # Reuse whatever OID key the row already carries (server casing may be
+        # 'objectid' or 'objectId'); only add the canonical 'OBJECTID' when none
+        # of the recognized variants is present, so the applyEdits payload never
+        # ends up with two object-id-like keys for the same row.
+        if not any(key in merged for key in ("objectid", "objectId", "OBJECTID")):
+            merged["OBJECTID"] = object_id
         geom = geometry if geometry is not None else row.feature.geometry
         self._buffer.updates.append(_esri_feature_from(merged, geom))
 

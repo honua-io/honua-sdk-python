@@ -48,10 +48,10 @@ for feature in result.features[:3]:
 `client.source(...)` returns a source-bound facade; `source.query(...)`
 returns a canonical `Result` whose `features` are normalized
 `QueryFeature` entries (`id`, `properties`, `geometry`, `protocol`,
-`source`, `raw`). The `raw` attribute on each feature -- and
-`result.raw` on the result -- still expose the underlying protocol
-payload (for FeatureServer that is the GeoServices JSON shape with
-`"attributes"` and `"geometry"` sub-keys) when you need it.
+`source`, `raw`). The `raw` attribute on each feature still exposes that
+feature's underlying protocol payload (for FeatureServer that is the
+GeoServices JSON shape with `"attributes"` and `"geometry"` sub-keys), and
+`result.raw_legacy` holds the underlying query envelope, when you need it.
 
 > **Legacy / compact form.** `client.query_features("test_service",
 > layer_id=0, where="1=1", return_geometry=True, out_fields=["*"])`
@@ -61,22 +61,30 @@ payload (for FeatureServer that is the GeoServices JSON shape with
 
 ## Step 3: Convert to GeoDataFrame (10 seconds)
 
-The SDK ships `features_to_geodataframe`, which converts a FeatureServer
-response (including Esri JSON geometries and the layer's `spatialReference`)
-directly into a GeoDataFrame -- no Shapely glue code required.
+A `Result` from the `Source` API converts directly with one call -- no
+Shapely glue code required:
 
 ```python
-from honua_sdk.geopandas import features_to_geodataframe
-
-gdf = features_to_geodataframe(result.raw)
+gdf = result.to_geodataframe()
 print(gdf.head())
 print(gdf.crs)
 ```
 
-`features_to_geodataframe` accepts the raw FeatureServer payload (as
-exposed via `result.raw` from the Source API or returned directly by
-`query_features`), the typed `FeatureSet` returned by
-`query_feature_set`, or a list of feature dicts.
+`Result.to_geodataframe()` reads attributes and geometry from the result's
+normalized features and resolves the CRS from the query's spatial reference.
+
+For raw FeatureServer payloads (the GeoServices dict returned directly by
+`query_features`), the typed `FeatureSet` returned by `query_feature_set`, or
+a list of feature dicts, use `features_to_geodataframe`, which also accepts
+Esri JSON geometries and the layer's `spatialReference`:
+
+```python
+from honua_sdk.geopandas import features_to_geodataframe
+
+raw = client.query_features("test_service", layer_id=0, where="1=1")
+gdf = features_to_geodataframe(raw)
+```
+
 The reverse helper, `geodataframe_to_features`, turns an edited GeoDataFrame
 back into payloads ready for `apply_edits`.
 
@@ -198,7 +206,6 @@ from honua_sdk import (
     SourceDescriptor,
     SourceLocator,
 )
-from honua_sdk.geopandas import features_to_geodataframe
 
 SERVER = "https://your-honua-server.com"
 
@@ -216,7 +223,7 @@ with HonuaClient(SERVER) as client:
 print(f"Found {len(result.features)} features")
 
 # --- Build GeoDataFrame ----------------------------------------------------
-gdf = features_to_geodataframe(result.raw)
+gdf = result.to_geodataframe()
 
 # --- Plot ------------------------------------------------------------------
 ax = gdf.plot(figsize=(12, 8), color="lightgrey", edgecolor="black")
@@ -252,13 +259,15 @@ plt.show()
 If you cannot install the `geopandas` extra and need to handle the FeatureServer
 response yourself, the JSON shape is straightforward. Each feature has
 `"attributes"` and `"geometry"` keys; the geometry uses Esri JSON
-(`rings`, `paths`, or `x`/`y`) rather than GeoJSON.
+(`rings`, `paths`, or `x`/`y`) rather than GeoJSON. Use the legacy
+`query_features` call, which returns that raw GeoServices dict directly:
 
 ```python
 import geopandas as gpd
 from shapely.geometry import shape
 
-features = result.raw.get("features", [])
+raw = client.query_features("test_service", layer_id=0, where="1=1")
+features = raw.get("features", [])
 
 rows = []
 for f in features:

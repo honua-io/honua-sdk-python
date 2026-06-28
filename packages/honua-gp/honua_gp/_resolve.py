@@ -223,4 +223,45 @@ def descriptor_mapping(
     }
 
 
-__all__ = ["ResolvedSource", "descriptor_mapping", "resolve", "resolve_or_register_output"]
+def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
+    """Project an arcpy path / layer alias onto a honua-server ``layerId``.
+
+    honua-server's layer-aware geoprocessing operations
+    (``analytics.spatial-join``, ``generalization.dissolve``,
+    ``conversion.feature-project``, ``data-management.*``) address their input
+    by a numeric ``layerId``, not by an arcpy feature-class path. This helper
+    reuses :func:`resolve` + :func:`descriptor_mapping` so a single source of
+    truth (alias map, ``honua://`` URIs, ``HONUA_GP_PATH_MAP``) drives both
+    the source-facade descriptor and the process ``layerId``.
+
+    The ``layerId`` is taken from the resolved descriptor's ``locator.layerId``.
+    ``descriptor_mapping`` defaults unrecognized paths to ``layerId=0``; a
+    ``honua://services/<svc>/<n>`` URI yields ``<n>``. A non-integer or negative
+    layer id raises :class:`HonuaArcpyResolveError` so the caller surfaces the
+    gap arcpy-style instead of POSTing an invalid process payload.
+    """
+
+    session = session or get_session()
+    resolved = resolve(path, session=session)
+    descriptor = descriptor_mapping(resolved, session=session)
+    layer_id = descriptor.get("locator", {}).get("layerId")
+    if not isinstance(layer_id, int) or isinstance(layer_id, bool) or layer_id < 0:
+        raise HonuaArcpyResolveError(
+            str(path),
+            hint=(
+                "Layer-aware geoprocessing requires a numeric layer id. Point "
+                "the input at a honua://services/<service>/<layerId> URI (or a "
+                "HONUA_GP_PATH_MAP entry that resolves to one) so the shim "
+                "can address the honua-server process by layerId."
+            ),
+        )
+    return layer_id
+
+
+__all__ = [
+    "ResolvedSource",
+    "descriptor_mapping",
+    "resolve",
+    "resolve_layer_id",
+    "resolve_or_register_output",
+]

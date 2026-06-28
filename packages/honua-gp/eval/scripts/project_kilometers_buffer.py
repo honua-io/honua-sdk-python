@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.Project."""
+"""Project a layer then buffer the projected output."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,9 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.Project('roads', 'roads_wgs84', 4326)
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_project_roads_to_wgs84 caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_project_roads_to_wgs84 did not raise")
+arcpy.management.Project("honua://services/parcels/0", "parcels_wgs", 4326)
+result = arcpy.analysis.Buffer("honua://services/parcels/0", "parcels_buf", "1 Kilometers")
+print(f"project_kilometers_buffer ok output={result[0]}")

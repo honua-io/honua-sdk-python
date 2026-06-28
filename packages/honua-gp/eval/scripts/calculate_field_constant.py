@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.CalculateField."""
+"""CalculateField with a SQL/constant expression via data-management.calculate-field."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.CalculateField('parcels', 'group', '!zoning_code!', expression_type='PYTHON3')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_calculate_field_group caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_calculate_field_group did not raise")
+result = arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")
+print(f"calculate_field_constant ok output={result[0]}")

@@ -46,18 +46,16 @@ def _audit_lines(audit_root: Path) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+# Overlay tools (Clip/Intersect/Union/Erase) only have single-WKB
+# geometry.* counterparts, not layer-aware ones, so they stay stubs. Delete
+# stays a stub because arcpy.Delete removes a dataset while honua-server's
+# delete-features only deletes filtered features inside a layer.
 _DOWNGRADED = [
-    ("analysis.Buffer", lambda: honua_gp.analysis.Buffer("roads", "out", "5 Meters")),
     ("analysis.Clip", lambda: honua_gp.analysis.Clip("roads", "study", "clip")),
     ("analysis.Intersect", lambda: honua_gp.analysis.Intersect(["roads", "parcels"], "out")),
     ("analysis.Union", lambda: honua_gp.analysis.Union(["a", "b"], "out")),
     ("analysis.Erase", lambda: honua_gp.analysis.Erase("roads", "water", "out")),
-    ("analysis.SpatialJoin", lambda: honua_gp.analysis.SpatialJoin("a", "b", "out")),
-    ("management.CalculateField", lambda: honua_gp.management.CalculateField("t", "f", "1")),
-    ("management.Dissolve", lambda: honua_gp.management.Dissolve("a", "out")),
-    ("management.Copy", lambda: honua_gp.management.Copy("a", "b")),
     ("management.Delete", lambda: honua_gp.management.Delete("a")),
-    ("management.Project", lambda: honua_gp.management.Project("a", "out", 4326)),
 ]
 
 
@@ -65,11 +63,12 @@ _DOWNGRADED = [
 def test_downgraded_process_entries_raise_unsupported(
     _isolated_audit_dir: Path, qualified: str, invoke,
 ) -> None:
-    """Pinned by audit pass 8: arcpy -> honua-server projection adapter is
-    not yet implemented, so every previously process-backed entry must
-    raise ``HonuaGpUnsupportedError`` and write a JSONL audit line with
-    ``status="error"`` / ``error_kind="unsupported"`` and a tracking ticket
-    that points at the adapter work."""
+    """The overlay tools (Clip/Intersect/Union/Erase) have no layer-aware
+    honua-server process -- only single-WKB ``geometry.*`` ops -- and Delete
+    has different semantics from delete-features, so each must stay an honest
+    stub that raises ``HonuaGpUnsupportedError`` and writes a JSONL audit
+    line with ``status="error"`` / ``error_kind="unsupported"`` plus a
+    tracking ticket."""
 
     with pytest.raises(honua_gp.HonuaGpUnsupportedError) as info:
         invoke()

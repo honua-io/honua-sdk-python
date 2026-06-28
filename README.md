@@ -216,7 +216,7 @@ Convert query results to GeoDataFrames in one call:
 
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
-from honua_sdk.geopandas import features_to_geodataframe, geodataframe_to_features
+from honua_sdk.geopandas import geodataframe_to_features
 
 with HonuaClient("https://your-honua-server.com") as client:
     source = client.source(
@@ -227,7 +227,7 @@ with HonuaClient("https://your-honua-server.com") as client:
         )
     )
     result = source.query(Query(where="1=1"))
-    gdf = features_to_geodataframe(result.raw)
+    gdf = result.to_geodataframe()
 
     # gdf is a GeoDataFrame with geometry column + CRS set
     print(gdf.head())

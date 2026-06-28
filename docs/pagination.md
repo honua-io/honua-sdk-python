@@ -130,7 +130,6 @@ request shapes; supplying them for a non-FeatureServer source raises
 
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
-from honua_sdk.geopandas import features_to_geodataframe
 
 with HonuaClient("https://example.com") as client:
     parcels = client.source(
@@ -141,7 +140,7 @@ with HonuaClient("https://example.com") as client:
         )
     )
     result = parcels.query(Query(where="status='active'", page_size=2000))
-    gdf = features_to_geodataframe(result.raw_legacy)
+    gdf = result.to_geodataframe()
     print(gdf.crs, len(gdf))
 ```
 

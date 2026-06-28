@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.8...python-sdk-v0.1.9) (2026-06-28)
+
+
+### Bug Fixes
+
+* **sdk:** harden cursor OID merge, async attachment I/O, link pagination, WFS-T, GeoServices error mapping ([#147](https://github.com/honua-io/honua-sdk-python/issues/147)) ([0ac130b](https://github.com/honua-io/honua-sdk-python/commit/0ac130b169d01a1f9f3cad322a37bae0de6b8b3a))
+
 ## [0.1.8](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.7...python-sdk-v0.1.8) (2026-06-28)
 
 

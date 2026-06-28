@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.5...python-admin-v0.1.6) (2026-06-28)
+
+
+### Performance
+
+* **sdk:** fix conversion, pagination-memory, and transport-reuse lifecycle issues ([#142](https://github.com/honua-io/honua-sdk-python/issues/142)) ([52db7f9](https://github.com/honua-io/honua-sdk-python/commit/52db7f924c52994a6a32036df7c67219442b2806)), closes [#131](https://github.com/honua-io/honua-sdk-python/issues/131)
+
 ## [0.1.5](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.4...python-admin-v0.1.5) (2026-06-27)
 
 

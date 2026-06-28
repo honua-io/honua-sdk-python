@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.7](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.6...python-sdk-v0.1.7) (2026-06-28)
+
+
+### Bug Fixes
+
+* **query:** honour max_pages=None as unbounded and re-wind GeoJSON spatial-filter rings ([#145](https://github.com/honua-io/honua-sdk-python/issues/145)) ([cb1d97b](https://github.com/honua-io/honua-sdk-python/commit/cb1d97be9734a878871cae67dc18e4f2ae14e1c5))
+* **sdk:** harden core client transport, async auth, and de-duplicate geocoding ([#141](https://github.com/honua-io/honua-sdk-python/issues/141)) ([fc85d18](https://github.com/honua-io/honua-sdk-python/commit/fc85d18ca5c0356542ce6cbf84447505a69d203d)), closes [#125](https://github.com/honua-io/honua-sdk-python/issues/125) [#126](https://github.com/honua-io/honua-sdk-python/issues/126) [#129](https://github.com/honua-io/honua-sdk-python/issues/129)
+
+
+### Performance
+
+* **sdk:** fix conversion, pagination-memory, and transport-reuse lifecycle issues ([#142](https://github.com/honua-io/honua-sdk-python/issues/142)) ([52db7f9](https://github.com/honua-io/honua-sdk-python/commit/52db7f924c52994a6a32036df7c67219442b2806)), closes [#131](https://github.com/honua-io/honua-sdk-python/issues/131)
+
 ## [0.1.6](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.5...python-sdk-v0.1.6) (2026-06-27)
 
 

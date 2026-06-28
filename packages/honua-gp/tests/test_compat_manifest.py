@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import honua_gp
 from honua_gp._compat import COMPAT
+
+_README_PATH = Path(honua_gp.__file__).resolve().parent.parent / "README.md"
 
 
 def test_manifest_covers_45_functions_across_three_families() -> None:
@@ -223,3 +227,53 @@ def test_stub_hints_do_not_recommend_stubbed_sibling_shims() -> None:
                 "acknowledge the shared blocker without inviting another "
                 "HonuaGpUnsupportedError."
             )
+
+
+def test_readme_coverage_counts_match_manifest() -> None:
+    """The README Status section quotes supported/partial/stub counts. Pin them
+    to the COMPAT manifest so the doc cannot drift back to a stale (and badly
+    understated) claim the way audit pass 8 left it."""
+    supported = sum(1 for e in COMPAT.values() if e.status == "supported")
+    partial = sum(1 for e in COMPAT.values() if e.status == "partial")
+    stubs = sum(1 for e in COMPAT.values() if e.status == "stub")
+    supported_or_partial = supported + partial
+
+    readme = _README_PATH.read_text(encoding="utf-8")
+    assert f"{supported} supported entries and {partial} partial entries" in readme, (
+        "README Status coverage line is stale; regenerate from the COMPAT manifest "
+        f"({supported} supported, {partial} partial, {stubs} stubs)."
+    )
+    assert f"({supported_or_partial} supported/partial) + {stubs} stubs" in readme
+
+
+def test_readme_only_lists_true_stubs_as_raising() -> None:
+    """The README must not claim a working tool raises HonuaGpUnsupportedError.
+    Every process op named as still raising must actually be a stub, and the
+    re-promoted tools must NOT be named in that raising list."""
+    readme = _README_PATH.read_text(encoding="utf-8")
+    promoted = [
+        "analysis.Buffer",
+        "analysis.SpatialJoin",
+        "management.CalculateField",
+        "management.Dissolve",
+        "management.Copy",
+        "management.Project",
+    ]
+    for name in promoted:
+        assert COMPAT[name].is_supported, f"{name} should be supported/partial in COMPAT"
+        # A re-promoted tool's bare function name must not be presented in the
+        # README's "still raise HonuaGpUnsupportedError" sentence.
+        func = name.split(".", 1)[1]
+        assert f"``{func}`` / ``Clip``" not in readme, (
+            f"README still lists {name} among the ops that raise"
+        )
+    # The raising list in the Quickstart enumerates the genuine process stubs.
+    raising_stubs = (
+        "analysis.Clip",
+        "analysis.Intersect",
+        "analysis.Union",
+        "analysis.Erase",
+        "management.Delete",
+    )
+    for name in raising_stubs:
+        assert COMPAT[name].status == "stub", f"{name} should be a stub in COMPAT"

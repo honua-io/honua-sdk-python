@@ -1386,9 +1386,9 @@
 <tbody>
 <tr>
 <td><a id="analysisbuffer"></a><code>arcpy.analysis.Buffer</code></td>
-<td>Stub</td>
-<td><code>not-implemented</code></td>
-<td>honua-server's geometry.buffer takes a single base64-WKB geometry plus srid+distance, not a feature class. The arcpy feature-class semantic requires a per-feature WKB serialization adapter that does not yet exist.<br><strong>hint:</strong> Iterate features client-side via honua_sdk.Source.iter_features(...), buffer each geometry through the geoprocessing client, and write the result back via Source.apply_edits.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+<td>Supported</td>
+<td><code>process</code></td>
+<td>Projects arcpy.analysis.Buffer onto honua-server's layer-aware analytics.buffer-aggregate process: in_features -&gt; layerId, the linear distance is split into distance+unit, and dissolve_option NONE/ALL maps to dissolve=false/true. Runs as an async OGC API Processes job (submit + poll). Deviation: arcpy's per-feature FULL/LIST buffer side table is not modelled; dissolve is all-or-nothing plus optional groupByFields.</td>
 </tr>
 <tr>
 <td><a id="analysisclip"></a><code>arcpy.analysis.Clip</code></td>
@@ -1418,7 +1418,7 @@
 <td><a id="analysismultipleringbuffer"></a><code>arcpy.analysis.MultipleRingBuffer</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
-<td>Multi-ring buffer wraps geometry.buffer across distance bands. Blocked on the same projection adapter as analysis.Buffer (see honua-server#feature-class-geometry-ops); honua_gp.analysis.Buffer is itself a stub today, so composing it is not a workaround.<br><strong>hint:</strong> Iterate features client-side via honua_sdk.Source.iter_features, call honua_sdk.protocols.OgcProcessesClient.execute('geometry.buffer') for each distance band, and merge the per-band geometries client-side.<br><strong>tracking:</strong> <code>honua-server#multiple-ring-buffer</code></td>
+<td>Multi-ring buffer emits one ring per distance band with the band distance carried as an attribute. honua-server's layer-aware analytics.buffer-aggregate (which analysis.Buffer now uses) buffers a single distance per call and does not emit the per-band ring attribute, so the multi-ring semantic is not a single-call mapping.<br><strong>hint:</strong> Call honua_gp.analysis.Buffer(...) once per distance band (it is now supported) and merge the per-band outputs client-side, tagging each with its ring distance.<br><strong>tracking:</strong> <code>honua-server#multiple-ring-buffer</code></td>
 </tr>
 <tr>
 <td><a id="analysisnear"></a><code>arcpy.analysis.Near</code></td>
@@ -1440,9 +1440,9 @@
 </tr>
 <tr>
 <td><a id="analysisspatialjoin"></a><code>arcpy.analysis.SpatialJoin</code></td>
-<td>Stub</td>
-<td><code>not-implemented</code></td>
-<td>honua-server's analytics.spatial-join takes a layerId/joinLayerId pair with a fixed predicate set (intersects, contains, within, dwithin) and carry-fields, not arcpy's join_operation/join_type/match_option/field_mapping vocabulary; the arcpy semantics need a translation layer.<br><strong>hint:</strong> Call honua_sdk.protocols.OgcProcessesClient.execute('analytics.spatial-join') directly with resolved layerId / joinLayerId / predicate inputs.<br><strong>tracking:</strong> <code>honua-server#arcpy-spatial-join-adapter</code></td>
+<td>Partial</td>
+<td><code>process</code></td>
+<td>Projects arcpy.analysis.SpatialJoin onto honua-server's analytics.spatial-join: target_features -&gt; layerId, join_features -&gt; joinLayerId, and match_option -&gt; predicate (INTERSECT/CONTAINS/WITHIN/WITHIN_A_DISTANCE+search_radius -&gt; intersects/contains/within/dwithin). Runs as an async job. Partial: arcpy's join_operation (ONE_TO_ONE vs ONE_TO_MANY), join_type (KEEP_ALL/KEEP_COMMON), and field_mapping vocabulary are not modelled; the process emits the server's carry-field join shape.</td>
 </tr>
 <tr>
 <td><a id="analysissummarizewithin"></a><code>arcpy.analysis.SummarizeWithin</code></td>
@@ -1501,15 +1501,15 @@
 </tr>
 <tr>
 <td><a id="managementcalculatefield"></a><code>arcpy.management.CalculateField</code></td>
-<td>Stub</td>
-<td><code>not-implemented</code></td>
-<td>honua-server's data-management.calculate-field requires layerId / fieldName / expression / where</td>
+<td>Partial</td>
+<td><code>process</code></td>
+<td>Projects arcpy.management.CalculateField onto honua-server's data-management.calculate-field: in_table -&gt; layerId, field -&gt; fieldName, expression -&gt; expression, where_clause -&gt; where. Runs as an async (destructive, approval-gated) job and mutates the input table in place. Partial: the expression must pass honua-server's FeatureServer.Edits allow-list, so arcpy PYTHON3 expressions with !field! token syntax or arbitrary Python are rejected server-side; pass a SQL/constant expression.</td>
 </tr>
 <tr>
 <td><a id="managementcopy"></a><code>arcpy.management.Copy</code></td>
-<td>Stub</td>
-<td><code>not-implemented</code></td>
-<td>honua-server's data-management.copy-features takes sourceLayerId + targetLayerName + optional where/objectIds. Mapping arcpy paths to layer ids requires a translation layer that does not yet exist.<br><strong>hint:</strong> Resolve the source path via honua_sdk.Source / honua_admin and call honua_sdk.protocols.OgcProcessesClient.execute('data-management.copy-features') directly with sourceLayerId / targetLayerName.<br><strong>tracking:</strong> <code>honua-server#arcpy-copy-features-adapter</code></td>
+<td>Supported</td>
+<td><code>process</code></td>
+<td>Projects arcpy.management.Copy / CopyFeatures onto honua-server's data-management.copy-features: in_features -&gt; sourceLayerId, out_feature_class -&gt; targetLayerName, where_clause -&gt; where. Non-destructive; runs as an async job and registers the target as a session alias so downstream GP calls can reference it. Deviation: arcpy.Copy copies a whole dataset including schema; the process copies (optionally filtered) features into a new layer.</td>
 </tr>
 <tr>
 <td><a id="managementcreatefeatureclass"></a><code>arcpy.management.CreateFeatureclass</code></td>
@@ -1543,9 +1543,9 @@
 </tr>
 <tr>
 <td><a id="managementdissolve"></a><code>arcpy.management.Dissolve</code></td>
-<td>Stub</td>
-<td><code>not-implemented</code></td>
-<td>honua-server's geometry.dissolve takes a single wkbs[] + srid + optional groupKeys array, not a feature class with dissolve_field / statistics_fields semantics.<br><strong>hint:</strong> Use the layer-aware generalization.dissolve process via honua_sdk.protocols.OgcProcessesClient once the arcpy layer / field mapping adapter lands.<br><strong>tracking:</strong> <code>honua-server#arcpy-dissolve-adapter</code></td>
+<td>Partial</td>
+<td><code>process</code></td>
+<td>Projects arcpy.management.Dissolve onto honua-server's layer-aware generalization.dissolve: in_features -&gt; layerId and the dissolve_field list -&gt; comma-separated groupByFields. Runs as an async job. Partial: arcpy's statistics_fields (per-group SUM/MEAN/etc.) and multi_part / unsplit_lines flags are not modelled; the process emits one feature per group via the server's outStatistics shape only when configured server-side.</td>
 </tr>
 <tr>
 <td><a id="managementgetcount"></a><code>arcpy.management.GetCount</code></td>
@@ -1579,9 +1579,9 @@
 </tr>
 <tr>
 <td><a id="managementproject"></a><code>arcpy.management.Project</code></td>
-<td>Stub</td>
-<td><code>not-implemented</code></td>
-<td>honua-server's conversion.feature-project takes layerId + targetSrid; it returns a new artifact rather than writing into the arcpy-style out_dataset. The arcpy paths-and-named-output semantic requires an adapter that does not yet exist.<br><strong>hint:</strong> Resolve the source layer id and call honua_sdk.protocols.OgcProcessesClient.execute('conversion.feature-project') directly with layerId / targetSrid.<br><strong>tracking:</strong> <code>honua-server#arcpy-project-adapter</code></td>
+<td>Supported</td>
+<td><code>process</code></td>
+<td>Projects arcpy.management.Project onto honua-server's conversion.feature-project: in_dataset -&gt; layerId and the out_coor_system EPSG/WKID code -&gt; targetSrid. Runs as an async job and registers the named out_dataset as a session alias. Deviation: out_coor_system must be an EPSG/WKID code (int or numeric string); arcpy.SpatialReference objects and named transformations are not resolvable by the shim.</td>
 </tr>
 <tr>
 <td><a id="managementrename"></a><code>arcpy.management.Rename</code></td>
@@ -1685,8 +1685,8 @@
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Total functions: 45</li>
-<li>Supported / partial: 7</li>
-<li>Stubbed (raise <code>HonuaGpUnsupportedError</code>): 38</li>
+<li>Supported / partial: 13</li>
+<li>Stubbed (raise <code>HonuaGpUnsupportedError</code>): 32</li>
 </ul>
 <p>Stubs intentionally raise rather than silently fail so customer scripts surface gaps before the migration tool ingests the audit JSONL.</p>
 

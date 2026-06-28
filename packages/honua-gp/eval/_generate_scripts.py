@@ -271,26 +271,153 @@ raise SystemExit("expected_failure_{slug} did not raise")
     return spec
 
 
-# Downgraded process-backed entries (audit pass 8). Each previously
-# appeared in the supported block but emitted an arcpy-style payload
-# the honua-server BuiltInProcessCatalog rejects. These will be re-promoted
-# once the projection adapter lands; meanwhile they exercise the
-# raise_unsupported / audit-write contract.
-_expected_failure(
+# ---------------------------------------------------------------------------
+# Process-backed tools re-promoted via the layer-aware projection adapter.
+# Each submits an async OGC API Processes job (the stub transport models the
+# accepted -> successful lifecycle) and returns an arcpy-style Result. They use
+# honua://services/<svc>/<layerId> inputs so the shim can project a numeric
+# layerId for honua-server's layer-aware processes.
+# ---------------------------------------------------------------------------
+_supported(
     "buffer_roads",
-    "    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters', dissolve_option='ALL')",
-    "analysis.Buffer",
+    "transport",
+    "Buffer roads via the layer-aware analytics.buffer-aggregate projection.",
+    """result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "25 Meters", dissolve_option="ALL")
+print(f"buffer_roads ok output={result[0]}")
+""",
+    1,
+    "buffer_roads ok",
 )
-_expected_failure(
+_supported(
     "buffer_legacy_suffix",
-    "    arcpy.analysis.Buffer('trails', 'trails_buffer', '15 Meters')",
-    "analysis.Buffer",
+    "transport",
+    "Buffer via the Buffer_analysis legacy suffix alias.",
+    """result = arcpy.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
+print(f"buffer_legacy_suffix ok output={result[0]}")
+""",
+    1,
+    "buffer_legacy_suffix ok",
 )
-_expected_failure(
-    "buffer_then_clip",
-    "    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters')",
-    "analysis.Buffer",
+_supported(
+    "spatial_join_addresses_parcels",
+    "transport",
+    "Spatial join addresses to parcels via analytics.spatial-join.",
+    """result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/0", "addresses_with_parcel", match_option="INTERSECT")
+print(f"spatial_join_addresses_parcels ok output={result[0]}")
+""",
+    1,
+    "spatial_join_addresses_parcels ok",
 )
+_supported(
+    "spatial_join_with_radius",
+    "transport",
+    "Spatial join within a distance via the dwithin predicate.",
+    """result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/0", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
+print(f"spatial_join_with_radius ok output={result[0]}")
+""",
+    1,
+    "spatial_join_with_radius ok",
+)
+_supported(
+    "dissolve_parcels_by_zoning",
+    "transport",
+    "Dissolve parcels by zoning via generalization.dissolve.",
+    """result = arcpy.management.Dissolve("honua://services/parcels/0", "parcels_by_zoning", dissolve_field=["zoning_code"])
+print(f"dissolve_parcels_by_zoning ok output={result[0]}")
+""",
+    1,
+    "dissolve_parcels_by_zoning ok",
+)
+_supported(
+    "copy_pavement_to_backup",
+    "transport",
+    "Copy features into a backup layer via data-management.copy-features.",
+    """result = arcpy.management.Copy("honua://services/pavement/0", "pavement_backup")
+print(f"copy_pavement_to_backup ok output={result[0]}")
+""",
+    1,
+    "copy_pavement_to_backup ok",
+)
+_supported(
+    "copy_features_alias",
+    "transport",
+    "CopyFeatures alias routes through the same copy-features process.",
+    """result = arcpy.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")
+print(f"copy_features_alias ok output={result[0]}")
+""",
+    1,
+    "copy_features_alias ok",
+)
+_supported(
+    "project_roads_to_wgs84",
+    "transport",
+    "Reproject a layer to WGS84 via conversion.feature-project.",
+    """result = arcpy.management.Project("honua://services/roads/0", "roads_wgs84", 4326)
+print(f"project_roads_to_wgs84 ok output={result[0]}")
+""",
+    1,
+    "project_roads_to_wgs84 ok",
+)
+_supported(
+    "calculate_field_constant",
+    "transport",
+    "CalculateField with a SQL/constant expression via data-management.calculate-field.",
+    """result = arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")
+print(f"calculate_field_constant ok output={result[0]}")
+""",
+    1,
+    "calculate_field_constant ok",
+)
+_supported(
+    "buffer_then_dissolve",
+    "transport",
+    "Buffer then Dissolve, both via the layer-aware projection.",
+    """arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "5 Meters", dissolve_option="ALL")
+result = arcpy.management.Dissolve("honua://services/transport/0", "roads_dissolved", dissolve_field=["class"])
+print(f"buffer_then_dissolve ok output={result[0]}")
+""",
+    2,
+    "buffer_then_dissolve ok",
+)
+_supported(
+    "buffer_numeric_distance",
+    "transport",
+    "Buffer with a bare numeric distance (meters default).",
+    """result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buf_num", 50)
+print(f"buffer_numeric_distance ok output={result[0]}")
+""",
+    1,
+    "buffer_numeric_distance ok",
+)
+_supported(
+    "project_kilometers_buffer",
+    "transport",
+    "Project a layer then buffer the projected output.",
+    """arcpy.management.Project("honua://services/parcels/0", "parcels_wgs", 4326)
+result = arcpy.analysis.Buffer("honua://services/parcels/0", "parcels_buf", "1 Kilometers")
+print(f"project_kilometers_buffer ok output={result[0]}")
+""",
+    2,
+    "project_kilometers_buffer ok",
+)
+_supported(
+    "copy_then_calculate_field",
+    "transport",
+    "Copy features then calculate a constant field on the source layer.",
+    """arcpy.management.Copy("honua://services/stage/0", "published")
+result = arcpy.management.CalculateField("honua://services/stage/0", "reviewed", "1")
+print(f"copy_then_calculate_field ok output={result[0]}")
+""",
+    2,
+    "copy_then_calculate_field ok",
+)
+
+# ---------------------------------------------------------------------------
+# Honest stubs: arcpy overlay tools (Clip/Intersect/Union/Erase) have only
+# single-WKB geometry.* counterparts, Delete has different semantics from
+# delete-features, and the rest have no catalog op. These exercise the
+# raise_unsupported / audit-write contract.
+# ---------------------------------------------------------------------------
 _expected_failure(
     "clip_roads_in_study",
     "    arcpy.analysis.Clip('roads_buffer', 'study_area', 'roads_clip')",
@@ -312,65 +439,9 @@ _expected_failure(
     "analysis.Erase",
 )
 _expected_failure(
-    "spatial_join_addresses_parcels",
-    "    arcpy.analysis.SpatialJoin('addresses', 'parcels', 'addresses_with_parcel',"
-    " join_operation='JOIN_ONE_TO_ONE', join_type='KEEP_ALL', match_option='INTERSECT')",
-    "analysis.SpatialJoin",
-)
-_expected_failure(
-    "spatial_join_with_radius",
-    "    arcpy.analysis.SpatialJoin('facilities', 'parcels', 'out',"
-    " join_operation='JOIN_ONE_TO_ONE', match_option='WITHIN_A_DISTANCE',"
-    " search_radius='100 Meters')",
-    "analysis.SpatialJoin",
-)
-_expected_failure(
-    "dissolve_parcels_by_zoning",
-    "    arcpy.management.Dissolve('parcels', 'parcels_by_zoning',"
-    " dissolve_field=['zoning_code'], statistics_fields=[['acres', 'SUM']])",
-    "management.Dissolve",
-)
-_expected_failure(
-    "copy_pavement_to_backup",
-    "    arcpy.management.Copy('pavement', 'pavement_backup')",
-    "management.Copy",
-)
-_expected_failure(
-    "copy_features_alias",
-    "    arcpy.management.CopyFeatures('parcels_stage', 'parcels_published')",
-    "management.Copy",
-)
-_expected_failure(
     "delete_obsolete_layer",
     "    arcpy.management.Delete('scratch_layer')",
     "management.Delete",
-)
-_expected_failure(
-    "project_roads_to_wgs84",
-    "    arcpy.management.Project('roads', 'roads_wgs84', 4326)",
-    "management.Project",
-)
-_expected_failure(
-    "project_parcels_then_clip",
-    "    arcpy.management.Project('parcels', 'parcels_wgs', 4326)",
-    "management.Project",
-)
-_expected_failure(
-    "calculate_field_speed",
-    "    arcpy.management.CalculateField('segments', 'avg_speed', '!miles! / !hours!',"
-    " expression_type='PYTHON3')",
-    "management.CalculateField",
-)
-_expected_failure(
-    "calculate_field_group",
-    "    arcpy.management.CalculateField('parcels', 'group', '!zoning_code!',"
-    " expression_type='PYTHON3')",
-    "management.CalculateField",
-)
-_expected_failure(
-    "buffer_intersect_union",
-    "    arcpy.analysis.Buffer('roads', 'roads_buffer', '5 Meters', dissolve_option='ALL')",
-    "analysis.Buffer",
 )
 
 # Existing admin / analytics stubs (pre-existing, unchanged).

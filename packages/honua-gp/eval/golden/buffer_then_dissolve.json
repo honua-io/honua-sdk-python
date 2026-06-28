@@ -1,0 +1,5 @@
+{
+  "audit_lines": 2,
+  "expected_failure": false,
+  "stdout_contains": "buffer_then_dissolve ok"
+}

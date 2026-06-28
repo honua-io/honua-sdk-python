@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.Dissolve."""
+"""Buffer with a bare numeric distance (meters default)."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.Dissolve('parcels', 'parcels_by_zoning', dissolve_field=['zoning_code'], statistics_fields=[['acres', 'SUM']])
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_dissolve_parcels_by_zoning caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_dissolve_parcels_by_zoning did not raise")
+result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buf_num", 50)
+print(f"buffer_numeric_distance ok output={result[0]}")

@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.Copy."""
+"""Spatial join addresses to parcels via analytics.spatial-join."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.CopyFeatures('parcels_stage', 'parcels_published')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_copy_features_alias caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_copy_features_alias did not raise")
+result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/0", "addresses_with_parcel", match_option="INTERSECT")
+print(f"spatial_join_addresses_parcels ok output={result[0]}")

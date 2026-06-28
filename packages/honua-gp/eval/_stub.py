@@ -83,17 +83,44 @@ class _StubSource:
 
 
 class _StubProcessesClient:
+    """Stub OGC API Processes client that models the async job lifecycle.
+
+    honua-server runs every built-in geoprocessing operation as an
+    asynchronous job: ``execute`` returns a ``201`` StatusInfo with a
+    ``jobID`` + ``accepted`` status, the job transitions through ``running``
+    to ``successful``, and ``/results`` returns a document. The shim's
+    submit-and-poll helper drives exactly that contract, so the stub mirrors
+    it -- ``execute`` returns a fresh ``jobID``, the first poll resolves to
+    ``successful``, and ``job_results`` returns a synthetic results document.
+
+    ``calls`` exposes the original ``(process_id, payload)`` pairs as both the
+    legacy dict shape (``{"process_id", "payload"}``) via ``raw_calls`` and the
+    tuple shape used by the newer tests.
+    """
+
     def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.raw_calls: list[dict[str, Any]] = []
+        self._next_job = 0
 
     def execute(self, process_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        self.calls.append({"process_id": process_id, "payload": payload})
+        self.calls.append((process_id, payload))
+        self.raw_calls.append({"process_id": process_id, "payload": payload})
+        self._next_job += 1
         return {
             "processID": process_id,
+            "jobID": f"stub-job-{self._next_job}",
             "status": "accepted",
-            "inputs": payload.get("inputs", {}),
-            "outputs": payload.get("outputs", {}),
         }
+
+    def job(self, job_id: str) -> dict[str, Any]:
+        return {"jobID": job_id, "status": "successful"}
+
+    def job_results(self, job_id: str) -> dict[str, Any]:
+        return {"jobID": job_id, "outputs": {"result": {"href": f"honua://jobs/{job_id}/result"}}}
+
+    def dismiss_job(self, job_id: str) -> None:
+        return None
 
 
 class _StubAdminClient:

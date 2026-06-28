@@ -1,0 +1,5 @@
+{
+  "audit_lines": 1,
+  "expected_failure": false,
+  "stdout_contains": "calculate_field_constant ok"
+}

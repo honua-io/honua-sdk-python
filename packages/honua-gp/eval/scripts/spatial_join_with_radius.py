@@ -1,4 +1,4 @@
-"""Expected-failure script exercising analysis.SpatialJoin."""
+"""Spatial join within a distance via the dwithin predicate."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.analysis.SpatialJoin('addresses', 'parcels', 'addresses_with_parcel', join_operation='JOIN_ONE_TO_ONE', join_type='KEEP_ALL', match_option='INTERSECT')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_spatial_join_addresses_parcels caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_spatial_join_addresses_parcels did not raise")
+result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/0", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
+print(f"spatial_join_with_radius ok output={result[0]}")

@@ -19,7 +19,8 @@ from honua_gp._cli import (
 
 SAMPLE_INVENTORY = {
     "toolCalls": [
-        {"call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis"},
+        {"call": "arcpy.analysis.Clip", "tool": "Clip", "toolbox": "analysis"},
+        {"call": "arcpy.analysis.Clip", "tool": "Clip", "toolbox": "analysis"},
         {"call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis"},
         {"call": "arcpy.management.SelectLayerByLocation", "tool": "SelectLayerByLocation", "toolbox": "management"},
         {"call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management"},
@@ -32,11 +33,12 @@ SAMPLE_INVENTORY = {
 def test_assess_inventory_buckets_supported_stub_and_out_of_scope() -> None:
     rows = assess_inventory(SAMPLE_INVENTORY)
     statuses = {row.qualified_name: (row.status, row.occurrences) for row in rows}
-    # ``analysis.Buffer`` is currently a stub (audit pass 8 -- the shim's
-    # arcpy-style payload did not match the honua-server geometry.buffer
-    # contract). The migration tool must therefore report it as ``stub``
-    # so customers know the projection adapter is still pending.
-    assert statuses["analysis.Buffer"] == ("stub", 2)
+    # ``analysis.Clip`` is an honest stub: honua-server only exposes the
+    # single-WKB ``geometry.clip`` op, with no layer-aware counterpart, so
+    # the layer-projection adapter cannot promote it. ``analysis.Buffer`` is
+    # now supported via the layer-aware analytics.buffer-aggregate projection.
+    assert statuses["analysis.Clip"] == ("stub", 2)
+    assert statuses["analysis.Buffer"] == ("supported", 1)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
     assert statuses["management.MakeFeatureLayer"] == ("supported", 1)
     assert statuses["sa.Slope"] == ("out-of-scope", 1)
@@ -48,7 +50,7 @@ def test_render_assessment_prints_buckets() -> None:
     text = render_assessment(rows)
     assert "Supported" in text
     assert "Partial" in text
-    assert "analysis.Buffer" in text
+    assert "analysis.Clip" in text
     assert "SelectLayerByLocation" in text
     assert "Out of MVP scope" in text
 
@@ -61,13 +63,12 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
     with redirect_stdout(buf):
         exit_code = main(["assess", str(inventory_path)])
     assert exit_code == 0
-    assert "analysis.Buffer" in buf.getvalue()
+    assert "analysis.Clip" in buf.getvalue()
 
     machine = json.loads((tmp_path / "honua-gp-assessment.json").read_text(encoding="utf-8"))
     summary = machine["summary"]
-    # MakeFeatureLayer is supported, SearchCursor is partial, Buffer +
-    # SelectLayerByLocation are stubs (audit pass 8 downgraded the
-    # process-backed entries), and Slope is out-of-scope.
+    # MakeFeatureLayer + Buffer are supported, SearchCursor is partial, Clip +
+    # SelectLayerByLocation are stubs, and Slope is out-of-scope.
     assert summary["supported"] >= 1
     assert summary["partial"] >= 1
     assert summary["stub"] >= 2
@@ -135,13 +136,13 @@ def test_assess_inventory_accepts_sdk_migration_scan_report_calls_key() -> None:
 
     report = scan_arcpy_source(
         "import arcpy\n"
-        "arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters')\n"
+        "arcpy.analysis.Clip('roads', 'study', 'roads_clip')\n"
         "arcpy.management.SelectLayerByLocation('roads', 'INTERSECT', 'parcels')\n"
     )
     rows = assess_inventory(report.to_dict())
     statuses = {row.qualified_name: (row.status, row.occurrences) for row in rows}
-    # ``analysis.Buffer`` is a stub today (see test_compat_manifest).
-    assert statuses["analysis.Buffer"] == ("stub", 1)
+    # ``analysis.Clip`` stays a stub (no layer-aware honua-server op).
+    assert statuses["analysis.Clip"] == ("stub", 1)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
 
 
@@ -154,9 +155,9 @@ def test_assess_inventory_accepts_minimal_sdk_calls_shape() -> None:
         {
             "calls": [
                 {
-                    "qualifiedName": "arcpy.analysis.Buffer",
+                    "qualifiedName": "arcpy.analysis.Clip",
                     "family": "analysis",
-                    "tool": "Buffer",
+                    "tool": "Clip",
                 },
                 {
                     "qualifiedName": "arcpy.management.SelectLayerByLocation",
@@ -167,9 +168,9 @@ def test_assess_inventory_accepts_minimal_sdk_calls_shape() -> None:
         }
     )
     statuses = {row.qualified_name: row.status for row in rows}
-    # Both are stubs today; only the source/session-backed shims classify as
-    # ``supported`` or ``partial``.
-    assert statuses["analysis.Buffer"] == "stub"
+    # Both stay stubs: Clip has no layer-aware honua-server op, and
+    # SelectLayerByLocation has no spatial-select process.
+    assert statuses["analysis.Clip"] == "stub"
     assert statuses["management.SelectLayerByLocation"] == "stub"
 
 
@@ -193,11 +194,12 @@ def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     rows = assess_inventory(sdk_payload)
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    # The canonical ``management.Copy`` entry is currently a stub (audit
-    # pass 8); the canonicalization invariant is independent of the
-    # supported/stub bucket, what matters is that CopyFeatures maps to the
-    # same manifest row instead of dropping into out-of-scope.
-    assert rows[0].status == "stub"
+    # The canonical ``management.Copy`` entry is now supported (layer-aware
+    # data-management.copy-features projection); the canonicalization
+    # invariant is independent of the bucket -- what matters is that
+    # CopyFeatures maps to the same manifest row instead of dropping into
+    # out-of-scope.
+    assert rows[0].status == "supported"
     assert rows[0].occurrences == 1
 
     admin_payload = {
@@ -212,7 +214,7 @@ def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     rows = assess_inventory(admin_payload)
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    assert rows[0].status == "stub"
+    assert rows[0].status == "supported"
 
 
 def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
@@ -231,6 +233,6 @@ def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
     )
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    # Same canonicalization invariant as above; today's bucket is stub.
-    assert rows[0].status == "stub"
+    # Same canonicalization invariant as above; today's bucket is supported.
+    assert rows[0].status == "supported"
     assert rows[0].occurrences == 3

@@ -82,11 +82,11 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
 
     This test was added after audit pass 8 caught the original shim emitting
     arcpy-style ``input_features`` / ``result`` payloads against the
-    server's ``wkb`` / ``srid`` / ``layerId`` contract. Today every
-    process-backed entry is a stub, so the test currently asserts the
-    invariant against an empty set; the moment a future change re-promotes
-    one of these entries to ``backend="process"``, this test enforces the
-    contract.
+    server's ``wkb`` / ``srid`` / ``layerId`` contract. The layer-aware
+    projection adapter re-promoted Buffer / SpatialJoin / Dissolve /
+    CalculateField / Copy / Project to ``backend="process"``; this test now
+    enforces that each one's ``param_map`` values stay a subset of the
+    matching honua-server process inputs.
     """
 
     # Snapshot of honua-server's BuiltInProcessCatalog inputs (process_id
@@ -103,6 +103,19 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
         "analytics.spatial-join": {
             "layerId", "joinLayerId", "predicate", "distance",
             "carryFields", "outStatistics",
+            # Shared analytics filter parameters:
+            "where", "objectIds", "geometry", "geometryType", "inSR",
+            "spatialRel", "time", "timeRelation",
+        },
+        "analytics.buffer-aggregate": {
+            "layerId", "distance", "unit", "dissolve", "groupByFields",
+            "outStatistics",
+            # Shared analytics filter parameters:
+            "where", "objectIds", "geometry", "geometryType", "inSR",
+            "spatialRel", "time", "timeRelation",
+        },
+        "generalization.dissolve": {
+            "layerId", "groupByFields", "dissolve", "outStatistics",
             # Shared analytics filter parameters:
             "where", "objectIds", "geometry", "geometryType", "inSR",
             "spatialRel", "time", "timeRelation",

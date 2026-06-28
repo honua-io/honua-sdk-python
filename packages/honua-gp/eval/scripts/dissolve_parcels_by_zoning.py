@@ -1,4 +1,4 @@
-"""Expected-failure script exercising analysis.Buffer."""
+"""Dissolve parcels by zoning via generalization.dissolve."""
 
 import sys
 from pathlib import Path
@@ -20,12 +20,8 @@ else:
     # so the script runs against the configured Honua deployment.
     arcpy.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
+arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.analysis.Buffer('roads', 'roads_buffer', '25 Meters', dissolve_option='ALL')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_buffer_roads caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_buffer_roads did not raise")
+result = arcpy.management.Dissolve("honua://services/parcels/0", "parcels_by_zoning", dissolve_field=["zoning_code"])
+print(f"dissolve_parcels_by_zoning ok output={result[0]}")

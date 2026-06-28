@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from typing import Any, cast
 from urllib.parse import parse_qsl, urlsplit
@@ -122,10 +123,20 @@ def _normalize_page_size(page_size: int | None, limit: int | None) -> int:
     return 100
 
 
-def _normalize_max_pages(max_pages: int | None) -> int:
-    if isinstance(max_pages, int) and max_pages > 0:
-        return max_pages
-    return 100
+def _iter_page_indices(max_pages: int | None) -> Iterator[int]:
+    """Yield page indices for a pagination loop, honouring an unbounded cap.
+
+    ``max_pages=None`` means *unbounded* -- the loop walks every page the server
+    advertises (the next-link / short-page guard is what stops it), matching the
+    FeatureServer walker. Previously ``None`` was silently capped at 100 pages,
+    quietly truncating results when the server still advertised a ``rel=next``.
+    A positive ``int`` caps the walk; ``max_pages <= 0`` yields nothing.
+    """
+    if max_pages is None:
+        return itertools.count()
+    if max_pages <= 0:
+        return iter(())
+    return iter(range(max_pages))
 
 
 def _normalize_offset(offset: int | None) -> int:
@@ -610,7 +621,6 @@ class HonuaOgcFeatureCollection:
         extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_size(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         start_offset = _normalize_offset(offset)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
@@ -618,7 +628,7 @@ class HonuaOgcFeatureCollection:
 
         fetched = 0
         next_href: str | None = None
-        for page in range(effective_max_pages):
+        for page in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -1268,7 +1278,6 @@ class AsyncHonuaOgcFeatureCollection:
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_size(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         start_offset = _normalize_offset(offset)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
@@ -1276,7 +1285,7 @@ class AsyncHonuaOgcFeatureCollection:
 
         fetched = 0
         next_href: str | None = None
-        for page in range(effective_max_pages):
+        for page in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break

@@ -17,9 +17,9 @@ from ._base import (
     Params,
     _AsyncProtocol,
     _features_from_page,
+    _iter_page_indices,
     _next_link,
     _next_link_object,
-    _normalize_max_pages,
     _normalize_page_limit,
     _normalize_total_limit,
     _params,
@@ -99,7 +99,6 @@ class StacClient(_SyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -107,7 +106,7 @@ class StacClient(_SyncProtocol):
         fetched = 0
         next_href: str | None = None
         offset = int((extra_params or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -229,7 +228,6 @@ class StacClient(_SyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -238,7 +236,7 @@ class StacClient(_SyncProtocol):
         next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -371,7 +369,6 @@ class AsyncStacClient(_AsyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -379,7 +376,7 @@ class AsyncStacClient(_AsyncProtocol):
         fetched = 0
         next_href: str | None = None
         offset = int((extra_params or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -502,7 +499,6 @@ class AsyncStacClient(_AsyncProtocol):
         extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -511,7 +507,7 @@ class AsyncStacClient(_AsyncProtocol):
         next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break

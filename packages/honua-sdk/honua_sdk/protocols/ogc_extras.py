@@ -18,8 +18,8 @@ from ._base import (
     _AsyncProtocol,
     _bbox,
     _csv,
+    _iter_page_indices,
     _next_link,
-    _normalize_max_pages,
     _normalize_page_limit,
     _normalize_total_limit,
     _ogc_collection_path,
@@ -657,7 +657,6 @@ class OgcRecordsCollectionClient:
         type: str | None = None,
     ) -> Iterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -665,7 +664,7 @@ class OgcRecordsCollectionClient:
         fetched = 0
         next_href: str | None = None
         current_offset = 0 if offset is None else max(0, offset)
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
@@ -939,7 +938,6 @@ class AsyncOgcRecordsCollectionClient:
         type: str | None = None,
     ) -> AsyncIterator[JsonObject]:
         effective_page_size = _normalize_page_limit(page_size, limit)
-        effective_max_pages = _normalize_max_pages(max_pages)
         total_limit = _normalize_total_limit(limit)
         if total_limit == 0:
             return
@@ -947,7 +945,7 @@ class AsyncOgcRecordsCollectionClient:
         fetched = 0
         next_href: str | None = None
         current_offset = 0 if offset is None else max(0, offset)
-        for _ in range(effective_max_pages):
+        for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break

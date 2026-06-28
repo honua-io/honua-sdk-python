@@ -75,6 +75,34 @@ def test_coerce_geometry_geojson_polygon() -> None:
     assert geometry == {"rings": [[[0, 0], [0, 1], [1, 1], [0, 0]]]}
 
 
+def test_geojson_polygon_spatial_filter_orients_rings_to_esri_winding() -> None:
+    """An RFC 7946 GeoJSON polygon (CCW exterior, CW hole) must be re-wound to
+    the Esri convention (CW exterior, CCW hole). Emitting it verbatim would make
+    an Esri-conformant server read the exterior as a hole -> inverted/empty
+    filter and silently wrong results."""
+    geojson = {
+        "type": "Polygon",
+        "coordinates": [
+            [[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]],  # CCW exterior
+            [[1, 1], [1, 2], [2, 2], [2, 1], [1, 1]],  # CW hole
+        ],
+    }
+    geometry, gtype = coerce_geometry(geojson)
+    assert gtype == "esriGeometryPolygon"
+    # Exterior re-wound clockwise, hole re-wound counter-clockwise.
+    assert geometry["rings"][0] == [[0, 0], [0, 3], [3, 3], [3, 0], [0, 0]]
+    assert geometry["rings"][1] == [[1, 1], [2, 1], [2, 2], [1, 2], [1, 1]]
+
+
+def test_geojson_multipolygon_spatial_filter_orients_each_part() -> None:
+    geojson = {
+        "type": "MultiPolygon",
+        "coordinates": [[[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]]],  # CCW exterior
+    }
+    geometry, _ = coerce_geometry(geojson)
+    assert geometry["rings"] == [[[0, 0], [0, 2], [2, 2], [2, 0], [0, 0]]]
+
+
 def test_coerce_geometry_geojson_point_with_z() -> None:
     geometry, gtype = coerce_geometry({"type": "Point", "coordinates": [1, 2, 3]})
     assert gtype == "esriGeometryPoint"

@@ -44,14 +44,17 @@ pip install honua-sdk honua-admin
 # With gRPC support
 pip install honua-sdk[grpc]
 
-# With GeoPandas integration
+# With GeoPandas integration (vector result interop)
 pip install honua-sdk[geopandas]
+
+# With raster result interop (rasterio / rioxarray / xarray)
+pip install honua-sdk[raster]
 
 # Admin / control-plane client (depends on honua-sdk)
 pip install honua-admin
 
 # Everything
-pip install honua-sdk[grpc,geopandas] honua-admin
+pip install honua-sdk[grpc,geopandas,raster] honua-admin
 ```
 
 Requires Python 3.11+. See [INSTALL.md](INSTALL.md) for full details.

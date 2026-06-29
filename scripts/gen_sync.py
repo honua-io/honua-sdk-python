@@ -155,6 +155,10 @@ _COMMON_RULES: tuple[Rule, ...] = (
     _rule(r"__anext__", "__next__"),
     #
     # --- async stdlib / builtins ------------------------------------------
+    # The retry-transport mirror imports ``asyncio`` for ``asyncio.sleep``; its
+    # sync sibling imports ``time`` for ``time.sleep``. Rewrite the top-level
+    # import before the ``asyncio.sleep`` → ``time.sleep`` call rewrite below.
+    _rule(r"\bimport asyncio\b", "import time"),
     _rule(r"\basyncio\.sleep\b", "time.sleep"),
     # Any other ``asyncio.<attr>`` is unexpected in these facades; map the
     # module defensively so a stray reference becomes a clear sync error
@@ -178,6 +182,12 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # AsyncHTTPTransport → HTTPTransport), but the resource-close method is
     # distinct and must be mapped explicitly.
     _rule(r"\baclose\b", "close"),
+    # The async response/transport read + dispatch entry points have distinct
+    # names from their sync counterparts (``aread`` → ``read``,
+    # ``handle_async_request`` → ``handle_request``); the generic ``Async``
+    # strip never fires on these all-lowercase identifiers.
+    _rule(r"\baread\b", "read"),
+    _rule(r"\bhandle_async_request\b", "handle_request"),
     #
     # --- function-name seams ----------------------------------------------
     # The async client uses the awaitable auth-application helper; its sync
@@ -240,6 +250,10 @@ TARGETS: tuple[Target, ...] = (
     Target(
         source=ROOT / "packages/honua-sdk/honua_sdk/async_geocoding.py",
         dest=ROOT / "packages/honua-sdk/honua_sdk/geocoding.py",
+    ),
+    Target(
+        source=ROOT / "packages/honua-sdk/honua_sdk/_async_retry.py",
+        dest=ROOT / "packages/honua-sdk/honua_sdk/_retry.py",
     ),
     Target(
         source=ROOT / "packages/honua-admin/honua_admin/_async_client.py",

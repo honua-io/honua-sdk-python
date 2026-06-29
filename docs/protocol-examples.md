@@ -171,6 +171,48 @@ with HonuaClient(SERVER) as client:
     processes.dismiss_job("job-id")                 # None
 ```
 
+### Geoprocessing result interop (Honua computes, your ecosystem consumes)
+
+There is **one canonical geoprocessing engine: the server** (OGC API
+Processes). The SDK does not reimplement any analysis (no client-side
+buffer/overlay/interpolation/raster math); it is an OGC Processes *client* plus
+*last-mile interop* that drops server output straight into the tools you
+already use. Reach for native libraries (`geopandas`, `shapely`, `rasterio`,
+`pysal`, `scikit-learn`) for ad-hoc local work, and for server geoprocessing
+when you need canonical, repeatable analysis.
+
+The richer `client.geoprocessing()` client (submit / poll-to-terminal /
+fetch-results, plus multi-step plans) exposes interop helpers behind optional
+extras:
+
+```python
+from honua_sdk import HonuaClient
+from honua_sdk.geoprocessing import LayerReference
+
+with HonuaClient(SERVER) as client:
+    gp = client.geoprocessing()
+
+    # Vector: GeoDataFrame in -> server process -> GeoDataFrame out.
+    #   (requires: pip install honua-sdk[geopandas])
+    out_gdf = gp.execute_dataframe("geometry.buffer", gdf, parameters={"distance": 100})
+
+    # Raster: server raster output -> xarray / rasterio.
+    #   (requires: pip install honua-sdk[raster])
+    layer = LayerReference.from_query_result("layer-123")
+    data_array = gp.execute_raster("analytics.kernel-density", layer)   # xarray.DataArray
+
+    # Or convert an already-fetched results document:
+    results = gp.results("job-id")
+    data_array = gp.result_to_xarray(results)        # xarray.DataArray (via rioxarray)
+    with gp.result_to_rasterio(results) as dataset:  # rasterio dataset
+        band = dataset.read(1)
+```
+
+Heavy geo dependencies stay **optional**: the base SDK only needs `httpx`, the
+helpers import `geopandas` / `rasterio` / `rioxarray` / `xarray` lazily, and a
+clear `ImportError` (pointing at the right extra) is raised when they are
+absent. The `AsyncHonuaClient` exposes the same helpers as awaitables.
+
 ## STAC
 
 STAC helpers return STAC JSON dictionaries. Item collection and search responses

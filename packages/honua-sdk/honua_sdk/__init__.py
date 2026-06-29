@@ -21,6 +21,13 @@ Optional GeoPandas integration is available via ``honua_sdk.geopandas``::
     from honua_sdk.geopandas import features_to_geodataframe, geodataframe_to_features
 
 Install with:  ``pip install honua-sdk[geopandas]``
+
+Optional raster interop (for server geoprocessing output) is available via
+``honua_sdk.raster``::
+
+    from honua_sdk.raster import geotiff_to_xarray, open_geotiff
+
+Install with:  ``pip install honua-sdk[raster]``
 """
 
 from __future__ import annotations

@@ -659,6 +659,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="OGC API Processes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geoprocessing-result-interop-honua-computes-your-ecosystem-consumes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Geoprocessing result interop (Honua computes, your ecosystem consumes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1571,6 +1588,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="OGC API Processes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geoprocessing-result-interop-honua-computes-your-ecosystem-consumes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Geoprocessing result interop (Honua computes, your ecosystem consumes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1888,6 +1922,42 @@ dictionaries. <code>dismiss_job()</code> sends the delete request and returns <c
     <span class="n">results</span> <span class="o">=</span> <span class="n">processes</span><span class="o">.</span><span class="n">job_results</span><span class="p">(</span><span class="s2">&quot;job-id&quot;</span><span class="p">)</span>       <span class="c1"># dict JSON</span>
     <span class="n">processes</span><span class="o">.</span><span class="n">dismiss_job</span><span class="p">(</span><span class="s2">&quot;job-id&quot;</span><span class="p">)</span>                 <span class="c1"># None</span>
 </code></pre></div>
+<h3 id="geoprocessing-result-interop-honua-computes-your-ecosystem-consumes">Geoprocessing result interop (Honua computes, your ecosystem consumes)<a class="headerlink" href="#geoprocessing-result-interop-honua-computes-your-ecosystem-consumes" title="Permanent link">&para;</a></h3>
+<p>There is <strong>one canonical geoprocessing engine: the server</strong> (OGC API
+Processes). The SDK does not reimplement any analysis (no client-side
+buffer/overlay/interpolation/raster math); it is an OGC Processes <em>client</em> plus
+<em>last-mile interop</em> that drops server output straight into the tools you
+already use. Reach for native libraries (<code>geopandas</code>, <code>shapely</code>, <code>rasterio</code>,
+<code>pysal</code>, <code>scikit-learn</code>) for ad-hoc local work, and for server geoprocessing
+when you need canonical, repeatable analysis.</p>
+<p>The richer <code>client.geoprocessing()</code> client (submit / poll-to-terminal /
+fetch-results, plus multi-step plans) exposes interop helpers behind optional
+extras:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geoprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">LayerReference</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">geoprocessing</span><span class="p">()</span>
+
+    <span class="c1"># Vector: GeoDataFrame in -&gt; server process -&gt; GeoDataFrame out.</span>
+    <span class="c1">#   (requires: pip install honua-sdk[geopandas])</span>
+    <span class="n">out_gdf</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">execute_dataframe</span><span class="p">(</span><span class="s2">&quot;geometry.buffer&quot;</span><span class="p">,</span> <span class="n">gdf</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;distance&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">})</span>
+
+    <span class="c1"># Raster: server raster output -&gt; xarray / rasterio.</span>
+    <span class="c1">#   (requires: pip install honua-sdk[raster])</span>
+    <span class="n">layer</span> <span class="o">=</span> <span class="n">LayerReference</span><span class="o">.</span><span class="n">from_query_result</span><span class="p">(</span><span class="s2">&quot;layer-123&quot;</span><span class="p">)</span>
+    <span class="n">data_array</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">execute_raster</span><span class="p">(</span><span class="s2">&quot;analytics.kernel-density&quot;</span><span class="p">,</span> <span class="n">layer</span><span class="p">)</span>   <span class="c1"># xarray.DataArray</span>
+
+    <span class="c1"># Or convert an already-fetched results document:</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="s2">&quot;job-id&quot;</span><span class="p">)</span>
+    <span class="n">data_array</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">result_to_xarray</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>        <span class="c1"># xarray.DataArray (via rioxarray)</span>
+    <span class="k">with</span> <span class="n">gp</span><span class="o">.</span><span class="n">result_to_rasterio</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="k">as</span> <span class="n">dataset</span><span class="p">:</span>  <span class="c1"># rasterio dataset</span>
+        <span class="n">band</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>Heavy geo dependencies stay <strong>optional</strong>: the base SDK only needs <code>httpx</code>, the
+helpers import <code>geopandas</code> / <code>rasterio</code> / <code>rioxarray</code> / <code>xarray</code> lazily, and a
+clear <code>ImportError</code> (pointing at the right extra) is raised when they are
+absent. The <code>AsyncHonuaClient</code> exposes the same helpers as awaitables.</p>
 <h2 id="stac">STAC<a class="headerlink" href="#stac" title="Permanent link">&para;</a></h2>
 <p>STAC helpers return STAC JSON dictionaries. Item collection and search responses
 are GeoJSON-like STAC ItemCollection payloads.</p>

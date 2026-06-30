@@ -8,11 +8,19 @@ import os
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
-from typing import IO, Any, cast
+from typing import IO, Any
 
 import httpx
 from anyio import to_thread
 
+from honua_sdk._client_protocol import (
+    SupportsAsyncFeatureService,
+    SupportsAsyncMapService,
+    SupportsAsyncRequest,
+    SupportsSyncFeatureService,
+    SupportsSyncMapService,
+    SupportsSyncRequest,
+)
 from honua_sdk._http import _encode_path_segment
 from honua_sdk.models import Feature, FeatureSet, LayerSchema
 
@@ -262,7 +270,9 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
     callers. Reach this via :meth:`HonuaClient.feature_server`.
     """
 
-    def __init__(self, client: Any, service_id: str) -> None:
+    client: SupportsSyncFeatureService
+
+    def __init__(self, client: SupportsSyncFeatureService, service_id: str) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -296,18 +306,15 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        return cast(
-            JsonObject,
-            self.client.query_features(
-                self.service_id,
-                layer_id,
-                where=where,
-                out_fields=out_fields,
-                return_geometry=return_geometry,
-                extra_params=extra_params,
-                timeout=timeout,
-                extra_headers=extra_headers,
-            ),
+        return self.client.query_features(
+            self.service_id,
+            layer_id,
+            where=where,
+            out_fields=_csv(out_fields),
+            return_geometry=return_geometry,
+            extra_params=extra_params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     def query_pages(
@@ -452,19 +459,16 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        return cast(
-            JsonObject,
-            self.client.apply_edits(
-                self.service_id,
-                layer_id,
-                adds=adds,
-                updates=updates,
-                deletes=deletes,
-                rollback_on_failure=rollback_on_failure,
-                idempotency_key=idempotency_key,
-                timeout=timeout,
-                extra_headers=extra_headers,
-            ),
+        return self.client.apply_edits(
+            self.service_id,
+            layer_id,
+            adds=adds,
+            updates=updates,
+            deletes=deletes,
+            rollback_on_failure=rollback_on_failure,
+            idempotency_key=idempotency_key,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     def query_related_records(
@@ -655,7 +659,9 @@ class GeoServicesMapServerClient(_SyncProtocol):
     :meth:`HonuaClient.map_server`.
     """
 
-    def __init__(self, client: Any, service_id: str) -> None:
+    client: SupportsSyncMapService
+
+    def __init__(self, client: SupportsSyncMapService, service_id: str) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -681,19 +687,16 @@ class GeoServicesMapServerClient(_SyncProtocol):
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> bytes:
-        return cast(
-            bytes,
-            self.client.export_map(
-                self.service_id,
-                bbox,
-                size=size,
-                image_format=image_format,
-                transparent=transparent,
-                dpi=dpi,
-                extra_params=extra_params,
-                timeout=timeout,
-                extra_headers=extra_headers,
-            ),
+        return self.client.export_map(
+            self.service_id,
+            bbox,
+            size=size,
+            image_format=image_format,
+            transparent=transparent,
+            dpi=dpi,
+            extra_params=extra_params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     def identify(
@@ -730,7 +733,7 @@ class GeoServicesMapServerClient(_SyncProtocol):
 class GeoServicesImageServerClient(_SyncProtocol):
     """GeoServices ImageServer wrapper."""
 
-    def __init__(self, client: Any, service_id: str | None = None) -> None:
+    def __init__(self, client: SupportsSyncRequest, service_id: str | None = None) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -802,7 +805,7 @@ class GeoServicesImageServerClient(_SyncProtocol):
 class GeoServicesGeometryServerClient(_SyncProtocol):
     """GeoServices GeometryServer wrapper."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: SupportsSyncRequest) -> None:
         super().__init__(client)
         self.path = "/rest/services/Utilities/Geometry/GeometryServer"
 
@@ -876,7 +879,9 @@ class GeoServicesGeometryServerClient(_SyncProtocol):
 class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
     """Async GeoServices FeatureServer wrapper."""
 
-    def __init__(self, client: Any, service_id: str) -> None:
+    client: SupportsAsyncFeatureService
+
+    def __init__(self, client: SupportsAsyncFeatureService, service_id: str) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -910,18 +915,15 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        return cast(
-            JsonObject,
-            await self.client.query_features(
-                self.service_id,
-                layer_id,
-                where=where,
-                out_fields=out_fields,
-                return_geometry=return_geometry,
-                extra_params=extra_params,
-                timeout=timeout,
-                extra_headers=extra_headers,
-            ),
+        return await self.client.query_features(
+            self.service_id,
+            layer_id,
+            where=where,
+            out_fields=_csv(out_fields),
+            return_geometry=return_geometry,
+            extra_params=extra_params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     async def query_pages(
@@ -1066,19 +1068,16 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        return cast(
-            JsonObject,
-            await self.client.apply_edits(
-                self.service_id,
-                layer_id,
-                adds=adds,
-                updates=updates,
-                deletes=deletes,
-                rollback_on_failure=rollback_on_failure,
-                idempotency_key=idempotency_key,
-                timeout=timeout,
-                extra_headers=extra_headers,
-            ),
+        return await self.client.apply_edits(
+            self.service_id,
+            layer_id,
+            adds=adds,
+            updates=updates,
+            deletes=deletes,
+            rollback_on_failure=rollback_on_failure,
+            idempotency_key=idempotency_key,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     async def query_related_records(
@@ -1270,7 +1269,9 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
 class AsyncGeoServicesMapServerClient(_AsyncProtocol):
     """Async GeoServices MapServer wrapper."""
 
-    def __init__(self, client: Any, service_id: str) -> None:
+    client: SupportsAsyncMapService
+
+    def __init__(self, client: SupportsAsyncMapService, service_id: str) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -1296,19 +1297,16 @@ class AsyncGeoServicesMapServerClient(_AsyncProtocol):
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> bytes:
-        return cast(
-            bytes,
-            await self.client.export_map(
-                self.service_id,
-                bbox,
-                size=size,
-                image_format=image_format,
-                transparent=transparent,
-                dpi=dpi,
-                extra_params=extra_params,
-                timeout=timeout,
-                extra_headers=extra_headers,
-            ),
+        return await self.client.export_map(
+            self.service_id,
+            bbox,
+            size=size,
+            image_format=image_format,
+            transparent=transparent,
+            dpi=dpi,
+            extra_params=extra_params,
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
 
     async def identify(
@@ -1345,7 +1343,7 @@ class AsyncGeoServicesMapServerClient(_AsyncProtocol):
 class AsyncGeoServicesImageServerClient(_AsyncProtocol):
     """Async GeoServices ImageServer wrapper."""
 
-    def __init__(self, client: Any, service_id: str | None = None) -> None:
+    def __init__(self, client: SupportsAsyncRequest, service_id: str | None = None) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -1417,7 +1415,7 @@ class AsyncGeoServicesImageServerClient(_AsyncProtocol):
 class AsyncGeoServicesGeometryServerClient(_AsyncProtocol):
     """Async GeoServices GeometryServer wrapper."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: SupportsAsyncRequest) -> None:
         super().__init__(client)
         self.path = "/rest/services/Utilities/Geometry/GeometryServer"
 

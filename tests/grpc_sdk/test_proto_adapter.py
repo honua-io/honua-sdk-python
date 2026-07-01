@@ -1,6 +1,8 @@
 """Unit tests for the proto adapter conversion functions."""
 from __future__ import annotations
 
+from itertools import pairwise
+
 import pytest
 
 from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
@@ -190,6 +192,29 @@ class TestToProtoRequest:
         assert point.HasField("z") is False
         assert point.HasField("m") is True
         assert point.m == pytest.approx(99.0)
+
+    def test_envelope_spatial_filter_emits_clockwise_ring(self) -> None:
+        """An Esri envelope must convert to a clockwise (exterior) ring.
+
+        Per the Esri winding convention used elsewhere in the SDK an exterior
+        ring is clockwise (negative shoelace area); a CCW ring is read as a
+        hole, which would make a bbox spatial filter inverted/empty over gRPC.
+        """
+        msg, _ = adapter._to_proto_geometry(
+            {"xmin": 0.0, "ymin": 0.0, "xmax": 10.0, "ymax": 10.0}
+        )
+
+        ring = msg.polygon.rings[0]
+        coords = [(c.x, c.y) for c in ring.coords]
+        # Closed ring of five points.
+        assert len(coords) == 5
+        assert coords[0] == coords[-1]
+        # Signed area (shoelace); negative => clockwise => exterior.
+        signed_area = sum(
+            x1 * y2 - x2 * y1
+            for (x1, y1), (x2, y2) in pairwise(coords)
+        )
+        assert signed_area < 0, "envelope ring must be clockwise (Esri exterior)"
 
 
 # ---------------------------------------------------------------------------

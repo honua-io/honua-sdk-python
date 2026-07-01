@@ -316,32 +316,34 @@ def GetCount(in_rows: Any) -> int:
 # ---------------------------------------------------------------------------
 # Process-backed tools (layer-aware projection adapter)
 # ---------------------------------------------------------------------------
-# CalculateField / Dissolve / Copy / Project now project their arcpy
-# signatures onto honua-server's layer-aware processes
-# (data-management.calculate-field, generalization.dissolve,
-# data-management.copy-features, conversion.feature-project) via
-# ``honua_gp._process_tools.run_layer_process``: the input feature
-# class / layer alias resolves to a numeric ``layerId``, the remaining
-# arcpy params map onto the process's typed inputs, and the call submits
-# + polls an async OGC API Processes job before returning an arcpy-style
-# ``Result``.
+# Dissolve / Project project their arcpy signatures onto honua-server's
+# layer-aware processes (generalization.dissolve, conversion.feature-project)
+# via ``honua_gp._process_tools.run_layer_process``: the input feature class /
+# layer alias resolves to a numeric ``layerId``, the remaining arcpy params map
+# onto the process's typed inputs, and the call submits + polls an async OGC
+# API Processes job before returning an arcpy-style ``Result``.
 #
-# ``Delete`` stays a stub: arcpy.Delete removes an entire dataset, while
-# honua-server's data-management.delete-features only deletes features
-# matching a filter *inside* a layer. The semantics differ, so faking it
-# would silently do the wrong thing.
+# ``CalculateField`` / ``Copy`` / ``CopyFeatures`` are stubs: their honua-server
+# targets (data-management.calculate-field / data-management.copy-features) are
+# classified CanServe=false and are never projected as standalone OGC API
+# processes -- they are only reachable as steps inside a honua-geoprocessing
+# analysis plan, so a one-shot POST .../execution 404s on every server version.
+# ``Delete`` likewise stays a stub: arcpy.Delete removes an entire dataset,
+# while honua-server's data-management.delete-features only deletes features
+# matching a filter *inside* a layer. The semantics differ, so faking any of
+# these would silently do the wrong thing.
 
 
-def CalculateField(*args: Any, **kwargs: Any) -> Result:
-    return run_layer_process("management.CalculateField", *args, **kwargs)
+def CalculateField(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.CalculateField", args=args, kwargs=kwargs)
 
 
 def Dissolve(*args: Any, **kwargs: Any) -> Result:
     return run_layer_process("management.Dissolve", *args, **kwargs)
 
 
-def Copy(*args: Any, **kwargs: Any) -> Result:
-    return run_layer_process("management.Copy", *args, **kwargs)
+def Copy(*args: Any, **kwargs: Any) -> Any:
+    raise_unsupported("management.Copy", args=args, kwargs=kwargs)
 
 
 # Alias for `arcpy.management.CopyFeatures`, which the scanner also calls "Copy".

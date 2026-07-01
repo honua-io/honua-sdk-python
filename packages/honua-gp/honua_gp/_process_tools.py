@@ -265,40 +265,6 @@ def _project_dissolve(bound: Mapping[str, Any], *, session: HonuaSession, projec
     _register_output(bound.get("out_feature_class"), session=session, projected=projected)
 
 
-def _project_calculate_field(
-    bound: Mapping[str, Any], *, session: HonuaSession, projected: _ProjectedCall
-) -> None:
-    layer_id = resolve_layer_id(bound.get("in_table"), session=session)
-    field_name = bound.get("field")
-    expression = bound.get("expression")
-    if not isinstance(field_name, str) or not field_name:
-        raise HonuaGpConfigurationError("CalculateField requires a field name.")
-    if expression is None:
-        raise HonuaGpConfigurationError("CalculateField requires an expression.")
-    inputs: dict[str, Any] = {
-        "layerId": layer_id,
-        "fieldName": field_name,
-        "expression": str(expression),
-    }
-    if bound.get("where_clause"):
-        inputs["where"] = bound.get("where_clause")
-    projected.inputs = inputs
-    # CalculateField mutates in place: the "output" is the input table itself.
-    projected.output_name = bound.get("in_table") if isinstance(bound.get("in_table"), str) else None
-
-
-def _project_copy(bound: Mapping[str, Any], *, session: HonuaSession, projected: _ProjectedCall) -> None:
-    source_id = resolve_layer_id(bound.get("in_features"), session=session)
-    target_name = bound.get("out_feature_class")
-    if not isinstance(target_name, str) or not target_name:
-        raise HonuaGpConfigurationError("Copy/CopyFeatures requires an output feature class name.")
-    inputs: dict[str, Any] = {"sourceLayerId": source_id, "targetLayerName": target_name}
-    if bound.get("where_clause"):
-        inputs["where"] = bound.get("where_clause")
-    projected.inputs = inputs
-    _register_output(target_name, session=session, projected=projected)
-
-
 def _project_project(bound: Mapping[str, Any], *, session: HonuaSession, projected: _ProjectedCall) -> None:
     layer_id = resolve_layer_id(bound.get("in_dataset"), session=session)
     target = bound.get("out_coor_system")
@@ -338,8 +304,6 @@ _PROJECTORS = {
     "analysis.Buffer": _project_buffer,
     "analysis.SpatialJoin": _project_spatial_join,
     "management.Dissolve": _project_dissolve,
-    "management.CalculateField": _project_calculate_field,
-    "management.Copy": _project_copy,
     "management.Project": _project_project,
 }
 

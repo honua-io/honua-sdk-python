@@ -1,4 +1,10 @@
-"""CopyFeatures alias routes through the same copy-features process."""
+"""Expected-failure: Copy has no standalone honua-server process.
+
+honua-server classifies ``data-management.copy-features`` as CanServe=false; it
+is only reachable inside a honua-geoprocessing analysis plan, so a one-shot Copy
+404s on every server version. The shim surfaces that as a client-side
+``HonuaGpUnsupportedError``.
+"""
 
 import sys
 from pathlib import Path
@@ -23,5 +29,9 @@ else:
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-result = arcpy.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")
-print(f"copy_features_alias ok output={result[0]}")
+try:
+    arcpy.management.Copy("honua://services/pavement/0", "pavement_backup")
+except arcpy.HonuaGpUnsupportedError as exc:
+    print(f"expected_failure_copy_pavement_to_backup caught {exc.function}")
+    raise SystemExit(0) from exc
+raise SystemExit("expected_failure_copy_pavement_to_backup did not raise")

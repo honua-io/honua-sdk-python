@@ -75,17 +75,21 @@ with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
 
 Process-backed shims run a supported subset against honua-server's
 ``BuiltInProcessCatalog`` as asynchronous OGC API Processes jobs:
-``analysis.Buffer`` and ``management.Copy`` / ``CopyFeatures`` / ``Project``
-are **Supported**, and ``analysis.SpatialJoin`` plus
-``management.CalculateField`` / ``Dissolve`` are **Partial** (documented
-deviations -- see the matrix). The remaining process-shaped operations
-(``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase`` and
-``management.Delete``) still raise ``HonuaGpUnsupportedError`` because
+``analysis.Buffer`` and ``management.Project`` are **Supported**, and
+``analysis.SpatialJoin`` plus ``management.Dissolve`` are **Partial**
+(documented deviations -- see the matrix). The remaining process-shaped
+operations (``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase``,
+``management.Delete``, and ``management.CalculateField`` /
+``Copy`` / ``CopyFeatures``) still raise ``HonuaGpUnsupportedError``:
 honua-server only exposes the single-WKB ``geometry.*`` family (one geometry
-per call, not feature classes) and ``data-management.delete-features`` deletes
+per call, not feature classes), ``data-management.delete-features`` deletes
 filtered features inside a layer rather than dropping the dataset arcpy.Delete
-targets. The migration tool surfaces each unmapped op as a ``stub`` with a
-``honua-server#...`` tracking ticket so customers know what work remains. See
+targets, and ``data-management.calculate-field`` / ``data-management.copy-features``
+are classified CanServe=false -- they are never standalone OGC processes and
+are only reachable as steps inside a ``honua-geoprocessing`` analysis plan, so
+a one-shot call 404s. The migration tool surfaces each unmapped op as a
+``stub`` with a ``honua-server#...`` tracking ticket so customers know what
+work remains. See
 [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md) for the
 authoritative per-function status and [`CHANGELOG.md`](CHANGELOG.md) for the
 projection-adapter promotion. The end-to-end runnable example lives at
@@ -101,18 +105,19 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 45 functions (15 analysis + 20 management + 10 da); see
   [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
-- **Coverage today:** 7 supported entries and 6 partial entries
-  (13 supported/partial) + 32 stubs. Supported: session-backed
+- **Coverage today:** 6 supported entries and 5 partial entries
+  (11 supported/partial) + 34 stubs. Supported: session-backed
   ``MakeFeatureLayer`` / ``MakeTableView``, the two buffered ``da`` write
   cursors (``InsertCursor`` / ``UpdateCursor``), and process-backed
-  ``analysis.Buffer`` / ``management.Copy`` / ``management.Project``. Partial:
+  ``analysis.Buffer`` / ``management.Project``. Partial:
   source-backed ``SelectLayerByAttribute`` / ``GetCount`` / ``da.SearchCursor``,
-  and process-backed ``analysis.SpatialJoin`` / ``management.CalculateField`` /
-  ``management.Dissolve`` (documented deviations). The layer-aware projection
-  adapter (see [`CHANGELOG.md`](CHANGELOG.md)) re-promoted the six high-frequency
+  and process-backed ``analysis.SpatialJoin`` / ``management.Dissolve``
+  (documented deviations). The layer-aware projection adapter (see
+  [`CHANGELOG.md`](CHANGELOG.md)) re-promoted the four layer-aware vector
   process tools from stub to working. The remaining process-shaped stubs
-  (``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase`` and
-  ``management.Delete``) each carry a ``honua-server#...`` tracking ticket
-  because no single ``BuiltInProcessCatalog`` op maps onto them.
+  (``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase``,
+  ``management.Delete``, and ``management.CalculateField`` / ``Copy`` /
+  ``CopyFeatures``) each carry a ``honua-server#...`` tracking ticket because
+  no standalone ``BuiltInProcessCatalog`` op maps onto them.
 - **Audit:** every invocation produces a redacted JSONL record (paths and
   secrets are stripped per the `honua_admin._arcpy_scanner` heuristics).

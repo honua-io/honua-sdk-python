@@ -194,12 +194,12 @@ def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     rows = assess_inventory(sdk_payload)
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    # The canonical ``management.Copy`` entry is now supported (layer-aware
-    # data-management.copy-features projection); the canonicalization
-    # invariant is independent of the bucket -- what matters is that
-    # CopyFeatures maps to the same manifest row instead of dropping into
-    # out-of-scope.
-    assert rows[0].status == "supported"
+    # The canonical ``management.Copy`` entry is a stub (honua-server never
+    # projects data-management.copy-features as a standalone process); the
+    # canonicalization invariant is independent of the bucket -- what matters
+    # is that CopyFeatures maps to the same manifest row instead of dropping
+    # into out-of-scope.
+    assert rows[0].status == "stub"
     assert rows[0].occurrences == 1
 
     admin_payload = {
@@ -214,7 +214,7 @@ def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     rows = assess_inventory(admin_payload)
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    assert rows[0].status == "supported"
+    assert rows[0].status == "stub"
 
 
 def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
@@ -233,6 +233,6 @@ def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
     )
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
-    # Same canonicalization invariant as above; today's bucket is supported.
-    assert rows[0].status == "supported"
+    # Same canonicalization invariant as above; today's bucket is a stub.
+    assert rows[0].status == "stub"
     assert rows[0].occurrences == 3

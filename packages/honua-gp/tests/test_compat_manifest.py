@@ -87,10 +87,12 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
     This test was added after audit pass 8 caught the original shim emitting
     arcpy-style ``input_features`` / ``result`` payloads against the
     server's ``wkb`` / ``srid`` / ``layerId`` contract. The layer-aware
-    projection adapter re-promoted Buffer / SpatialJoin / Dissolve /
-    CalculateField / Copy / Project to ``backend="process"``; this test now
-    enforces that each one's ``param_map`` values stay a subset of the
-    matching honua-server process inputs.
+    projection adapter re-promoted Buffer / SpatialJoin / Dissolve / Project
+    to ``backend="process"`` (CalculateField / Copy stay stubs because their
+    data-management.* targets are CanServe=false and never standalone
+    processes); this test now enforces that each remaining process entry's
+    ``param_map`` values stay a subset of the matching honua-server process
+    inputs.
     """
 
     # Snapshot of honua-server's BuiltInProcessCatalog inputs (process_id
@@ -254,9 +256,7 @@ def test_readme_only_lists_true_stubs_as_raising() -> None:
     promoted = [
         "analysis.Buffer",
         "analysis.SpatialJoin",
-        "management.CalculateField",
         "management.Dissolve",
-        "management.Copy",
         "management.Project",
     ]
     for name in promoted:
@@ -268,12 +268,17 @@ def test_readme_only_lists_true_stubs_as_raising() -> None:
             f"README still lists {name} among the ops that raise"
         )
     # The raising list in the Quickstart enumerates the genuine process stubs.
+    # CalculateField / Copy join the geometry-only stubs: honua-server never
+    # projects data-management.calculate-field / data-management.copy-features
+    # as standalone OGC processes (CanServe=false), so a one-shot call 404s.
     raising_stubs = (
         "analysis.Clip",
         "analysis.Intersect",
         "analysis.Union",
         "analysis.Erase",
         "management.Delete",
+        "management.CalculateField",
+        "management.Copy",
     )
     for name in raising_stubs:
         assert COMPAT[name].status == "stub", f"{name} should be a stub in COMPAT"

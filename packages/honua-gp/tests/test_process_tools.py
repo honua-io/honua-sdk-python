@@ -1,7 +1,7 @@
 """Layer-aware GP tool projection: arcpy signature -> honua-server process.
 
-Each promoted tool (Buffer, SpatialJoin, Dissolve, CalculateField, Copy,
-Project) is exercised through a faked OGC API Processes transport that models
+Each promoted tool (Buffer, SpatialJoin, Dissolve, Project) is exercised
+through a faked OGC API Processes transport that models
 the async job lifecycle honua-server uses: ``execute`` returns a ``201``
 StatusInfo with a ``jobID`` + ``accepted`` status, ``job(jobID)`` resolves to
 ``successful``, and ``job_results(jobID)`` returns the results document. The
@@ -224,52 +224,44 @@ def test_dissolve_projects_group_by_fields(_isolated_audit_dir: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# management.CalculateField -> data-management.calculate-field
+# management.CalculateField / Copy / CopyFeatures are unsupported stubs.
+#
+# honua-server classifies data-management.calculate-field and
+# data-management.copy-features as CanServe=false: they are never projected as
+# standalone OGC API processes (only reachable as steps inside a
+# honua-geoprocessing analysis plan), so a one-shot POST .../execution 404s on
+# every server version. The shim refuses them client-side without touching the
+# transport.
 # ---------------------------------------------------------------------------
 
 
-def test_calculate_field_projects_field_and_expression(_isolated_audit_dir: Path) -> None:
+def test_calculate_field_raises_unsupported(_isolated_audit_dir: Path) -> None:
     proc = _FakeProcessesClient()
     _configure(proc)
 
-    honua_gp.management.CalculateField(
-        "honua://services/segments/5", "speed", "miles / hours", where_clause="miles > 0"
-    )
-
-    process_id, payload = proc.calls[0]
-    assert process_id == "data-management.calculate-field"
-    assert payload["inputs"] == {
-        "layerId": 5,
-        "fieldName": "speed",
-        "expression": "miles / hours",
-        "where": "miles > 0",
-    }
+    with pytest.raises(honua_gp.HonuaGpUnsupportedError):
+        honua_gp.management.CalculateField(
+            "honua://services/segments/5", "speed", "miles / hours", where_clause="miles > 0"
+        )
+    assert proc.calls == []
 
 
-# ---------------------------------------------------------------------------
-# management.Copy / CopyFeatures -> data-management.copy-features
-# ---------------------------------------------------------------------------
-
-
-def test_copy_projects_source_and_target(_isolated_audit_dir: Path) -> None:
+def test_copy_raises_unsupported(_isolated_audit_dir: Path) -> None:
     proc = _FakeProcessesClient()
     _configure(proc)
 
-    result = honua_gp.management.Copy("honua://services/stage/4", "published")
-
-    process_id, payload = proc.calls[0]
-    assert process_id == "data-management.copy-features"
-    assert payload["inputs"] == {"sourceLayerId": 4, "targetLayerName": "published"}
-    assert str(result) == "published"
+    with pytest.raises(honua_gp.HonuaGpUnsupportedError):
+        honua_gp.management.Copy("honua://services/stage/4", "published")
+    assert proc.calls == []
 
 
-def test_copy_features_alias_uses_same_process(_isolated_audit_dir: Path) -> None:
+def test_copy_features_alias_raises_unsupported(_isolated_audit_dir: Path) -> None:
     proc = _FakeProcessesClient()
     _configure(proc)
 
-    honua_gp.management.CopyFeatures("honua://services/stage/0", "out")
-
-    assert proc.calls[0][0] == "data-management.copy-features"
+    with pytest.raises(honua_gp.HonuaGpUnsupportedError):
+        honua_gp.management.CopyFeatures("honua://services/stage/0", "out")
+    assert proc.calls == []
 
 
 # ---------------------------------------------------------------------------
@@ -316,11 +308,11 @@ def test_failed_job_raises_execute_error_with_message(_isolated_audit_dir: Path)
     _configure(proc)
 
     with pytest.raises(honua_gp.ExecuteError) as info:
-        honua_gp.management.Copy("honua://services/s/0", "out")
+        honua_gp.management.Project("honua://services/s/0", "out", 4326)
     assert info.value.error_kind == "failed"
     assert "boom" in str(info.value)
 
-    lines = [r for r in _audit_lines(_isolated_audit_dir) if r["function"] == "management.Copy"]
+    lines = [r for r in _audit_lines(_isolated_audit_dir) if r["function"] == "management.Project"]
     assert lines[-1]["status"] == "error"
     assert lines[-1]["error_kind"] == "failed"
 
@@ -329,7 +321,7 @@ def test_poll_loop_runs_until_terminal(_isolated_audit_dir: Path) -> None:
     proc = _FakeProcessesClient(poll_terminal_after=3)
     _configure(proc)
 
-    honua_gp.management.Copy("honua://services/s/0", "out")
+    honua_gp.management.Project("honua://services/s/0", "out", 4326)
 
     # running, running, successful -> three polls before terminal.
     assert proc.job_polls == ["job-1", "job-1", "job-1"]
@@ -341,7 +333,7 @@ def test_failed_job_rolls_back_output_alias(_isolated_audit_dir: Path) -> None:
     honua_gp.env.overwriteOutput = False
 
     with pytest.raises(honua_gp.ExecuteError):
-        honua_gp.management.Copy("honua://services/s/0", "scratch")
+        honua_gp.management.Project("honua://services/s/0", "scratch", 4326)
 
     # A failed job must not leave the output alias behind (so a retry is not
     # blocked by the duplicate-output guard).

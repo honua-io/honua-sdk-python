@@ -312,23 +312,18 @@ def test_field_describe_dataclass_is_importable(stub_clients) -> None:
     assert honua_gp.DescribeResult(name="segments").name == "segments"
 
 
-def test_calculate_field_projects_onto_data_management_process(stub_clients) -> None:
-    """``management.CalculateField`` now projects its arcpy signature onto
-    honua-server's ``data-management.calculate-field`` process: in_table ->
-    layerId, field -> fieldName, expression -> expression, where_clause ->
-    where. The detailed payload assertions live in
-    ``tests/test_process_tools.py``; here we confirm the stub-mode client
-    submits the right process id."""
+def test_calculate_field_is_an_unsupported_stub(stub_clients) -> None:
+    """``management.CalculateField`` is a stub: honua-server classifies
+    ``data-management.calculate-field`` as CanServe=false, so it is never a
+    standalone OGC process and a one-shot call 404s. The shim raises a
+    client-side ``HonuaGpUnsupportedError`` without touching the transport."""
 
     client, _ = stub_clients
-    result = honua_gp.management.CalculateField(
-        "honua://services/segments/2", "scaled_speed", "speed * 1.1", where_clause="speed > 0"
-    )
-    assert str(result) == "honua://services/segments/2" or result.job_id
-    process_id, payload = client.ogc_processes().calls[-1]
-    assert process_id == "data-management.calculate-field"
-    assert payload["inputs"]["layerId"] == 2
-    assert payload["inputs"]["fieldName"] == "scaled_speed"
+    with pytest.raises(honua_gp.HonuaGpUnsupportedError):
+        honua_gp.management.CalculateField(
+            "honua://services/segments/2", "scaled_speed", "speed * 1.1", where_clause="speed > 0"
+        )
+    assert client.ogc_processes().calls == []
 
 
 def test_stubs_raise_with_replacement_hints(stub_clients) -> None:

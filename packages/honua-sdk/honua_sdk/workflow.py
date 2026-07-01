@@ -58,6 +58,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from ._http import _encode_path_segment
 
 JsonObject = dict[str, Any]
@@ -184,7 +185,7 @@ class HonuaWorkflow:
 
     root = _ROOT
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: SupportsSyncRequest) -> None:
         self.client = client
 
     # -- node registry -----------------------------------------------------
@@ -342,7 +343,7 @@ class AsyncHonuaWorkflow:
 
     root = _ROOT
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: SupportsAsyncRequest) -> None:
         self.client = client
 
     # -- node registry -----------------------------------------------------

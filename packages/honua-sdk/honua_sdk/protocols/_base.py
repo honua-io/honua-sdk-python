@@ -8,11 +8,12 @@ import itertools
 import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, TypeAlias, cast
+from typing import Any, Literal, TypeAlias
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
 
+from honua_sdk._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from honua_sdk._http import _encode_path_segment
 
 JsonObject = dict[str, Any]
@@ -316,7 +317,9 @@ def _per_call_kwargs(
 
 
 class _SyncProtocol:
-    def __init__(self, client: Any) -> None:
+    client: SupportsSyncRequest
+
+    def __init__(self, client: SupportsSyncRequest) -> None:
         self.client = client
 
     def _json(
@@ -333,21 +336,18 @@ class _SyncProtocol:
         extra_headers: Mapping[str, str] | None = None,
         idempotency_key: str | None = None,
     ) -> JsonObject:
-        return cast(
-            JsonObject,
-            self.client._request_json(
-                method,
-                path,
-                params=params,
-                json_body=json_body,
-                files=files,
-                data=data,
-                headers=headers,
-                **_per_call_kwargs(
-                    timeout=timeout,
-                    extra_headers=extra_headers,
-                    idempotency_key=idempotency_key,
-                ),
+        return self.client._request_json(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            files=files,
+            data=data,
+            headers=headers,
+            **_per_call_kwargs(
+                timeout=timeout,
+                extra_headers=extra_headers,
+                idempotency_key=idempotency_key,
             ),
         )
 
@@ -375,15 +375,12 @@ class _SyncProtocol:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> bytes:
-        return cast(
-            bytes,
-            self.client._request(
-                "GET",
-                path,
-                params=params,
-                **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
-            ).content,
-        )
+        return self.client._request(
+            "GET",
+            path,
+            params=params,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        ).content
 
     def _binary_response(
         self,
@@ -425,11 +422,13 @@ class _SyncProtocol:
             content=body,
             **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
         )
-        return cast(str, response.text)
+        return response.text
 
 
 class _AsyncProtocol:
-    def __init__(self, client: Any) -> None:
+    client: SupportsAsyncRequest
+
+    def __init__(self, client: SupportsAsyncRequest) -> None:
         self.client = client
 
     async def _json(
@@ -446,21 +445,18 @@ class _AsyncProtocol:
         extra_headers: Mapping[str, str] | None = None,
         idempotency_key: str | None = None,
     ) -> JsonObject:
-        return cast(
-            JsonObject,
-            await self.client._request_json(
-                method,
-                path,
-                params=params,
-                json_body=json_body,
-                files=files,
-                data=data,
-                headers=headers,
-                **_per_call_kwargs(
-                    timeout=timeout,
-                    extra_headers=extra_headers,
-                    idempotency_key=idempotency_key,
-                ),
+        return await self.client._request_json(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            files=files,
+            data=data,
+            headers=headers,
+            **_per_call_kwargs(
+                timeout=timeout,
+                extra_headers=extra_headers,
+                idempotency_key=idempotency_key,
             ),
         )
 
@@ -494,7 +490,7 @@ class _AsyncProtocol:
             params=params,
             **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
         )
-        return cast(bytes, response.content)
+        return response.content
 
     async def _binary_response(
         self,
@@ -535,4 +531,4 @@ class _AsyncProtocol:
             content=body,
             **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
         )
-        return cast(str, response.text)
+        return response.text

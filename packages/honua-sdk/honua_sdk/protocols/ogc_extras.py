@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterator, Mapping
 from typing import Any
 
+from honua_sdk._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from honua_sdk._http import _encode_path_segment
 
 from ._base import (
@@ -561,7 +562,7 @@ class OgcRecordsClient(_SyncProtocol):
 class OgcRecordsCollectionClient:
     """Collection-bound synchronous OGC API Records wrapper."""
 
-    def __init__(self, client: Any, collection_id: FeatureId) -> None:
+    def __init__(self, client: SupportsSyncRequest, collection_id: FeatureId) -> None:
         self.client = client
         self.collection_id = collection_id
 
@@ -850,7 +851,7 @@ class AsyncOgcRecordsClient(_AsyncProtocol):
 class AsyncOgcRecordsCollectionClient:
     """Collection-bound asynchronous OGC API Records wrapper."""
 
-    def __init__(self, client: Any, collection_id: FeatureId) -> None:
+    def __init__(self, client: SupportsAsyncRequest, collection_id: FeatureId) -> None:
         self.client = client
         self.collection_id = collection_id
 

@@ -398,3 +398,91 @@ def test_with_options_enables_retries_on_zero_built_async_client() -> None:
     result = asyncio.run(run())
     assert result == {"status": "ready"}
     assert call_count["n"] == 3
+
+
+# ---------------------------------------------------------------------------
+# AUD-162 (issue #129): protocol ``_text`` requests must route through the
+# client's normal request path so per-call options carried by ``with_options``
+# (``timeout`` / ``max_retries``) apply to text protocols — every WFS operation
+# and OData ``$metadata`` — exactly like the JSON path. These previously
+# bypassed ``_request`` and silently ignored the overrides.
+# ---------------------------------------------------------------------------
+
+
+def test_with_options_timeout_applies_to_wfs_text_path() -> None:
+    seen_timeouts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_timeouts.append(request.extensions.get("timeout", {}))
+        return httpx.Response(200, text="<wfs:Capabilities/>")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient(
+        "http://example.test", transport=transport, timeout=30.0, max_retries=0
+    ) as original:
+        # WfsClient.capabilities() flows through the protocol ``_text`` path.
+        original.with_options(timeout=2.5).wfs().capabilities()
+        original.wfs().capabilities()
+
+    assert seen_timeouts[0]["connect"] == 2.5
+    # The un-cloned client still uses its constructor-time default (30s).
+    assert seen_timeouts[1]["connect"] == 30.0
+
+
+def test_with_options_timeout_applies_to_odata_metadata_text_path() -> None:
+    seen_timeouts: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_timeouts.append(request.extensions.get("timeout", {}))
+        return httpx.Response(200, text="<edmx:Edmx/>")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient(
+        "http://example.test", transport=transport, timeout=30.0, max_retries=0
+    ) as original:
+        # ODataClient.metadata() fetches ``$metadata`` over the ``_text`` path.
+        original.with_options(timeout=4.0).odata().metadata()
+
+    assert seen_timeouts[0]["connect"] == 4.0
+
+
+def test_with_options_max_retries_applies_to_wfs_text_path() -> None:
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, text="<wfs:Capabilities/>")
+
+    transport = httpx.MockTransport(handler)
+    original = HonuaClient("http://example.test", transport=transport, max_retries=0)
+    try:
+        retrying = original.with_options(max_retries=5)
+        with patch("honua_sdk._retry.time.sleep"):
+            result = retrying.wfs().capabilities()
+        assert result == "<wfs:Capabilities/>"
+        # Two 503s retried before the 200 — the override reached the _text path.
+        assert call_count["n"] == 3
+    finally:
+        original.close()
+
+
+def test_async_with_options_timeout_applies_to_wfs_text_path() -> None:
+    seen_timeouts: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen_timeouts.append(request.extensions.get("timeout", {}))
+        return httpx.Response(200, text="<wfs:Capabilities/>")
+
+    async def run() -> None:
+        transport = httpx.MockTransport(handler)
+        async with AsyncHonuaClient(
+            "http://example.test", transport=transport, timeout=30.0, max_retries=0
+        ) as original:
+            await original.with_options(timeout=2.5).wfs().capabilities()
+            await original.wfs().capabilities()
+
+    asyncio.run(run())
+    assert seen_timeouts[0]["connect"] == 2.5
+    assert seen_timeouts[1]["connect"] == 30.0

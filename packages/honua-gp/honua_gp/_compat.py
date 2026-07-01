@@ -390,36 +390,24 @@ COMPAT: dict[str, FunctionEntry] = {
         tracking="honua-server#spatial-filter",
     ),
     "management.CalculateField": FunctionEntry(
-        backend="process",
-        status="partial",
-        process_id="data-management.calculate-field",
+        backend="not_implemented",
+        status="stub",
         notes=(
-            "Projects arcpy.management.CalculateField onto honua-server's "
-            "data-management.calculate-field: in_table -> layerId, field -> "
-            "fieldName, expression -> expression, where_clause -> where. Runs as "
-            "an async (destructive, approval-gated) job and mutates the input "
-            "table in place. Partial: the expression must pass honua-server's "
-            "FeatureServer.Edits allow-list, so arcpy PYTHON3 expressions with "
-            "!field! token syntax or arbitrary Python are rejected server-side; "
-            "pass a SQL/constant expression."
+            "honua-server classifies data-management.calculate-field as "
+            "CanServe=false by design: it is never projected as a standalone "
+            "OGC API process and is only reachable as a step inside a "
+            "honua-geoprocessing analysis plan. A one-shot "
+            "POST /processes/data-management.calculate-field/execution therefore "
+            "404s on every server version (Process does not exist), so the shim "
+            "cannot run CalculateField standalone."
         ),
-        param_map={
-            "in_table": "layerId",
-            "field": "fieldName",
-            "expression": "expression",
-            "where_clause": "where",
-        },
-        arcpy_params=(
-            "in_table",
-            "field",
-            "expression",
-            "expression_type",
-            "code_block",
-            "field_type",
-            "enforce_domains",
-            "where_clause",
+        replacement_hint=(
+            "Compose a honua-geoprocessing analysis plan with a calculate-field "
+            "step and submit it via "
+            "honua_sdk.protocols.OgcProcessesClient.execute('honua-geoprocessing', ...), "
+            "or edit field values directly with honua_sdk.Source.apply_edits."
         ),
-        source_params=("in_table",),
+        tracking="honua-server#data-management-standalone-processes",
     ),
     "management.AddField": FunctionEntry(
         backend="not_implemented",
@@ -480,29 +468,25 @@ COMPAT: dict[str, FunctionEntry] = {
         source_params=("in_features",),
     ),
     "management.Copy": FunctionEntry(
-        backend="process",
-        status="supported",
-        process_id="data-management.copy-features",
+        backend="not_implemented",
+        status="stub",
         notes=(
-            "Projects arcpy.management.Copy / CopyFeatures onto honua-server's "
-            "data-management.copy-features: in_features -> sourceLayerId, "
-            "out_feature_class -> targetLayerName, where_clause -> where. "
-            "Non-destructive; runs as an async job and registers the target as "
-            "a session alias so downstream GP calls can reference it. "
-            "Deviation: arcpy.Copy copies a whole dataset including schema; the "
-            "process copies (optionally filtered) features into a new layer."
+            "honua-server classifies data-management.copy-features as "
+            "CanServe=false by design: it is never projected as a standalone "
+            "OGC API process and is only reachable as a step inside a "
+            "honua-geoprocessing analysis plan. A one-shot "
+            "POST /processes/data-management.copy-features/execution therefore "
+            "404s on every server version (Process does not exist), so the shim "
+            "cannot run Copy / CopyFeatures standalone."
         ),
-        param_map={
-            "in_features": "sourceLayerId",
-            "where_clause": "where",
-        },
-        arcpy_params=(
-            "in_features",
-            "out_feature_class",
-            "where_clause",
+        replacement_hint=(
+            "Compose a honua-geoprocessing analysis plan with a copy-features "
+            "step and submit it via "
+            "honua_sdk.protocols.OgcProcessesClient.execute('honua-geoprocessing', ...), "
+            "or read the source features with honua_sdk.Source and write them "
+            "into the target layer via apply_edits."
         ),
-        output_params=("out_feature_class",),
-        source_params=("in_features",),
+        tracking="honua-server#data-management-standalone-processes",
     ),
     "management.Delete": FunctionEntry(
         backend="not_implemented",

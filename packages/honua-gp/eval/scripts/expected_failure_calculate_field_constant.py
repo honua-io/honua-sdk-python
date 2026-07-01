@@ -1,4 +1,10 @@
-"""CalculateField with a SQL/constant expression via data-management.calculate-field."""
+"""Expected-failure: CalculateField has no standalone honua-server process.
+
+honua-server classifies ``data-management.calculate-field`` as CanServe=false;
+it is only reachable inside a honua-geoprocessing analysis plan, so a one-shot
+CalculateField 404s on every server version. The shim surfaces that as a
+client-side ``HonuaGpUnsupportedError``.
+"""
 
 import sys
 from pathlib import Path
@@ -23,5 +29,9 @@ else:
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-result = arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")
-print(f"calculate_field_constant ok output={result[0]}")
+try:
+    arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")
+except arcpy.HonuaGpUnsupportedError as exc:
+    print(f"expected_failure_calculate_field_constant caught {exc.function}")
+    raise SystemExit(0) from exc
+raise SystemExit("expected_failure_calculate_field_constant did not raise")

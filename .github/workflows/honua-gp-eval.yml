@@ -117,6 +117,21 @@ jobs:
     env:
       HONUA_BASE_URL: ${{ vars.HONUA_BASE_URL }}
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
+      # NOTE (issue #157): the layer-aware vector ops (Buffer / SpatialJoin /
+      # Dissolve / Project -> analytics.buffer-aggregate / analytics.spatial-join
+      # / generalization.dissolve / conversion.feature-project) cannot yet run
+      # end-to-end against ANY current honua-server AOT image. Post-#1382 images
+      # DO advertise + accept those per-op OGC processes (the process-resolution
+      # 404 is gone), but the geoprocessing dispatch runtime only registers the
+      # ``*-managed`` executors (analytics.buffer-aggregate-managed, ...) plus
+      # the geometry.*/transform.*/overlay.* families -- the per-op projection
+      # never remaps to the managed id, so the async job is refused with
+      # "unsupported process id ... this slice" and never reaches a terminal
+      # state (verified live on nightly-aot-20260628 and -20260630). Pinning a
+      # post-#1382 image here would therefore turn the fast per-op 404 into a
+      # 600s-per-op poll hang, so we do NOT re-pin until honua-server wires the
+      # OGC per-op execution path to the managed runtime. See #157 for the full
+      # ground-truth diagnosis and the tracked honua-server follow-up.
       HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:latest-aot' }}
     steps:
       - uses: actions/checkout@v7

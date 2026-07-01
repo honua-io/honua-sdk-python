@@ -11,7 +11,6 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
-  HONUA_ENABLE_WRITE_SMOKE: "true"
   HONUA_SMOKE_RESULTS_PATH: "staging-smoke-results.json"
   HONUA_SMOKE_UID_PREFIX: "sdk-python-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
 
@@ -29,6 +28,13 @@ jobs:
       packages: read
     environment: staging
     env:
+      # Write (applyEdits) smoke defaults on, but a live staging target that
+      # does not offer FeatureServer editing (e.g. a Community-edition server,
+      # where edits require the Pro `editing.featureserver-edits` entitlement)
+      # can opt out by setting HONUA_ENABLE_WRITE_SMOKE=false in the `staging`
+      # environment. Defaults to true when the variable is unset (the
+      # seeded-local fallback and Pro-edition targets keep write coverage).
+      HONUA_ENABLE_WRITE_SMOKE: ${{ vars.HONUA_ENABLE_WRITE_SMOKE || 'true' }}
       HONUA_BASE_URL: ${{ vars.HONUA_BASE_URL }}
       HONUA_SERVICE_ID: ${{ vars.HONUA_SERVICE_ID }}
       HONUA_LAYER_ID: ${{ vars.HONUA_LAYER_ID }}

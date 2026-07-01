@@ -29,11 +29,21 @@ the build.
 Whenever a sync/async pair drifts in a way this transform cannot express,
 *reconcile the divergence in the async source* and extend the replacement table
 below — never hand-edit a generated sync file (its header says as much).
+
+In addition to the fully-generated file-pairs (``TARGETS``), the ``--check``
+mode also guards the hand-maintained **intra-file sync/async twins**
+(``TWIN_TARGETS``: the protocol / source / ogc / workflow / geoprocessing
+facades, where a sync class lives next to its ``Async`` twin in one module).
+Those twins are not whole-file generated — a few methods legitimately diverge in
+their bodies beyond the mechanical transform — so :func:`check_twins` instead
+verifies that both classes expose the *same method surface* (names + signatures,
+modulo the async→sync transform), failing the build on any silent drift.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import difflib
 import re
 import subprocess
@@ -262,6 +272,180 @@ TARGETS: tuple[Target, ...] = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Intra-file sync/async twin guard (AUD-160/161, issue #129)
+# ---------------------------------------------------------------------------
+#
+# The ``TARGETS`` above cover the async→sync *file-pair* mirrors, which are
+# fully generated. A second family of sync/async duplication lives *inside a
+# single module*: the protocol / source / ogc / workflow / geoprocessing
+# facades each ship a hand-written sync class next to its ``Async`` twin
+# (``Source``/``AsyncSource``, ``WfsClient``/``AsyncWfsClient``, …). These are
+# NOT whole-file generated because a handful of methods legitimately diverge in
+# their *bodies* beyond the mechanical transform (e.g. ``anyio.to_thread`` for
+# blocking file I/O in ``geoservices``; ``asyncio.CancelledError`` handling in
+# ``geoprocessing``). They can therefore still silently drift in their *public
+# surface* — a method or parameter added to one twin but not the other.
+#
+# The guard below closes that gap: for every registered twin pair it verifies
+# that the two classes expose the **same set of methods with the same
+# signatures** (modulo the mechanical async→sync transform). Signatures are
+# normalized via :func:`ast.unparse` so formatting/whitespace never matters —
+# only the actual method surface. This runs as part of ``gen_sync.py --check``
+# (CI), so a divergent twin fails the build exactly like a stale file-pair.
+#
+# Twin classes are *not* rewritten by ``gen_sync.py`` (unlike ``TARGETS``);
+# they remain hand-maintained. The guard only *verifies* parity.
+
+# Extra replacements needed for the intra-file twins whose sync/async seam is
+# an *infix* ``Sync``/``Async`` (not the leading ``Async`` prefix handled by
+# ``_COMMON_RULES``): the typed request protocols and the shared protocol base.
+_TWIN_EXTRA_RULES: tuple[Rule, ...] = (
+    _rule(r"\bSupportsAsync", "SupportsSync"),
+    _rule(r"\b_AsyncProtocol\b", "_SyncProtocol"),
+)
+_TWIN_RULES: tuple[Rule, ...] = _COMMON_RULES + _TWIN_EXTRA_RULES
+
+_SDK_ROOT = ROOT / "packages/honua-sdk/honua_sdk"
+
+
+@dataclass(frozen=True)
+class Twin:
+    """A module holding hand-maintained sync/async twin classes to keep in lockstep.
+
+    ``pairs`` maps each ``async_class`` name to its ``sync_class`` name within
+    ``source``. The guard checks that the two classes expose an identical
+    method surface once the async names/signatures are mechanically transformed.
+    """
+
+    source: Path
+    pairs: tuple[tuple[str, str], ...]
+
+    @property
+    def source_rel(self) -> str:
+        return self.source.relative_to(ROOT).as_posix()
+
+
+TWIN_TARGETS: tuple[Twin, ...] = (
+    Twin(
+        _SDK_ROOT / "source.py",
+        (("AsyncSourceClientProtocol", "SourceClientProtocol"), ("AsyncSource", "Source")),
+    ),
+    Twin(
+        _SDK_ROOT / "ogc.py",
+        (
+            ("AsyncHonuaOgcFeatures", "HonuaOgcFeatures"),
+            ("AsyncHonuaOgcFeatureCollection", "HonuaOgcFeatureCollection"),
+        ),
+    ),
+    Twin(_SDK_ROOT / "workflow.py", (("AsyncHonuaWorkflow", "HonuaWorkflow"),)),
+    Twin(_SDK_ROOT / "geoprocessing.py", (("AsyncHonuaGeoprocessing", "HonuaGeoprocessing"),)),
+    Twin(_SDK_ROOT / "protocols/_base.py", (("_AsyncProtocol", "_SyncProtocol"),)),
+    Twin(
+        _SDK_ROOT / "protocols/geoservices.py",
+        (
+            ("AsyncGeoServicesFeatureServerClient", "GeoServicesFeatureServerClient"),
+            ("AsyncGeoServicesMapServerClient", "GeoServicesMapServerClient"),
+            ("AsyncGeoServicesImageServerClient", "GeoServicesImageServerClient"),
+            ("AsyncGeoServicesGeometryServerClient", "GeoServicesGeometryServerClient"),
+        ),
+    ),
+    Twin(_SDK_ROOT / "protocols/odata.py", (("AsyncODataClient", "ODataClient"),)),
+    Twin(
+        _SDK_ROOT / "protocols/ogc_extras.py",
+        (
+            ("AsyncOgcMapsClient", "OgcMapsClient"),
+            ("AsyncOgcTilesClient", "OgcTilesClient"),
+            ("AsyncOgcCoveragesClient", "OgcCoveragesClient"),
+            ("AsyncOgcProcessesClient", "OgcProcessesClient"),
+            ("AsyncOgcRecordsClient", "OgcRecordsClient"),
+            ("AsyncOgcRecordsCollectionClient", "OgcRecordsCollectionClient"),
+        ),
+    ),
+    Twin(
+        _SDK_ROOT / "protocols/scenes.py",
+        (("AsyncSceneClient", "SceneClient"), ("AsyncElevationClient", "ElevationClient")),
+    ),
+    Twin(_SDK_ROOT / "protocols/stac.py", (("AsyncStacClient", "StacClient"),)),
+    Twin(_SDK_ROOT / "protocols/wfs.py", (("AsyncWfsClient", "WfsClient"),)),
+    Twin(_SDK_ROOT / "protocols/wms.py", (("AsyncWmsClient", "WmsClient"),)),
+    Twin(_SDK_ROOT / "protocols/wmts.py", (("AsyncWmtsClient", "WmtsClient"),)),
+)
+
+
+def _transform_twin(text: str) -> str:
+    for rule in _TWIN_RULES:
+        text = rule.apply(text)
+    return text
+
+
+def _class_def(tree: ast.Module, name: str) -> ast.ClassDef:
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == name:
+            return node
+    raise KeyError(name)
+
+
+def _twin_method_surface(node: ast.ClassDef) -> dict[str, str]:
+    """Map each method name to a normalized ``name(args) -> return`` signature."""
+    surface: dict[str, str] = {}
+    for child in node.body:
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            args = ast.unparse(child.args)
+            returns = ast.unparse(child.returns) if child.returns is not None else ""
+            surface[child.name] = f"{child.name}({args}) -> {returns}"
+    return surface
+
+
+def check_twins() -> list[str]:
+    """Return a list of drift messages for the intra-file sync/async twins.
+
+    Each pair passes when the async class, once mechanically transformed to its
+    sync form, exposes exactly the sync class's method surface.
+    """
+    problems: list[str] = []
+    for twin in TWIN_TARGETS:
+        tree = ast.parse(twin.source.read_text(encoding="utf-8"))
+        for async_name, sync_name in twin.pairs:
+            try:
+                async_node = _class_def(tree, async_name)
+                sync_node = _class_def(tree, sync_name)
+            except KeyError as exc:
+                problems.append(f"{twin.source_rel}: missing twin class {exc}")
+                continue
+            sync_surface = _twin_method_surface(sync_node)
+            async_surface = {
+                # Transform the whole ``name(args) -> ret`` signature so that
+                # async-only dunder names (``__aenter__`` → ``__enter__``) and
+                # async return types (``AsyncIterator`` → ``Iterator``) line up.
+                sig.split("(", 1)[0]: sig
+                for sig in (
+                    _transform_twin(raw)
+                    for raw in _twin_method_surface(async_node).values()
+                )
+            }
+            only_async = sorted(set(async_surface) - set(sync_surface))
+            only_sync = sorted(set(sync_surface) - set(async_surface))
+            if only_async:
+                problems.append(
+                    f"{twin.source_rel}: {async_name} has method(s) missing from "
+                    f"{sync_name}: {only_async}"
+                )
+            if only_sync:
+                problems.append(
+                    f"{twin.source_rel}: {sync_name} has method(s) missing from "
+                    f"{async_name}: {only_sync}"
+                )
+            for name in sorted(set(async_surface) & set(sync_surface)):
+                if async_surface[name] != sync_surface[name]:
+                    problems.append(
+                        f"{twin.source_rel}: signature drift in {name}()\n"
+                        f"    {sync_name}: {sync_surface[name]}\n"
+                        f"    {async_name}: {async_surface[name]}"
+                    )
+    return problems
+
+
 def _ruff_fix_imports(text: str, dest: Path) -> str:
     """Re-sort imports in the generated source via ``ruff``.
 
@@ -368,14 +552,25 @@ def check_all() -> int:
                 tofile=f"{target.dest_rel} (regenerated)",
             )
             sys.stderr.writelines(diff)
+
+    twin_problems = check_twins()
+
     if stale:
         sys.stderr.write(
             "\nStale generated sync file(s): "
             + ", ".join(stale)
             + "\nRun `python scripts/gen_sync.py` and commit the result.\n"
         )
+    if twin_problems:
+        sys.stderr.write(
+            "\nSync/async twin drift (intra-file mirrors, issue #129):\n"
+            + "\n".join(f"  - {problem}" for problem in twin_problems)
+            + "\nReconcile the divergent twin so both classes expose the same "
+            "method surface.\n"
+        )
+    if stale or twin_problems:
         return 1
-    print("Generated sync files are up to date.")
+    print("Generated sync files are up to date; sync/async twins are in lockstep.")
     return 0
 
 

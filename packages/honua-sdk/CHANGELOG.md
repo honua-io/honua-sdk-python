@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.10](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.9...python-sdk-v0.1.10) (2026-07-01)
+
+
+### Features
+
+* **sdk:** raster result interop + typed transport protocol + retry codegen ([#155](https://github.com/honua-io/honua-sdk-python/issues/155)) ([a175423](https://github.com/honua-io/honua-sdk-python/commit/a175423f0f82bf9dd877488035969649d1f68cec)), closes [#124](https://github.com/honua-io/honua-sdk-python/issues/124)
+
+
+### Bug Fixes
+
+* **admin:** await async auth applier in async admin client ([#150](https://github.com/honua-io/honua-sdk-python/issues/150)) ([47fbbbf](https://github.com/honua-io/honua-sdk-python/commit/47fbbbf8b4e93fd9b47997d862f85dbdd06cf8e6))
+* **grpc:** emit envelope spatial filter ring clockwise ([#154](https://github.com/honua-io/honua-sdk-python/issues/154)) ([fbe70eb](https://github.com/honua-io/honua-sdk-python/commit/fbe70eb5d4db49ed4984b2e297a65e9ed5152ed6))
+* **ogc:** guard OGC Features paging against a non-advancing next link ([#151](https://github.com/honua-io/honua-sdk-python/issues/151)) ([dec88bd](https://github.com/honua-io/honua-sdk-python/commit/dec88bdc7231bba41979bdcb363fb419599cb56b))
+* **sdk:** honour with_options on protocol _text path; type protocol facades ([#156](https://github.com/honua-io/honua-sdk-python/issues/156)) ([89c48da](https://github.com/honua-io/honua-sdk-python/commit/89c48da2aaab2a6b567a12a191dff2fab2a81339))
+
 ## [0.1.9](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.8...python-sdk-v0.1.9) (2026-06-28)
 
 

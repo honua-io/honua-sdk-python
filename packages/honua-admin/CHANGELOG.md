@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.6...python-admin-v0.1.7) (2026-07-01)
+
+
+### Bug Fixes
+
+* **admin:** await async auth applier in async admin client ([#150](https://github.com/honua-io/honua-sdk-python/issues/150)) ([47fbbbf](https://github.com/honua-io/honua-sdk-python/commit/47fbbbf8b4e93fd9b47997d862f85dbdd06cf8e6))
+
 ## [0.1.6](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.5...python-admin-v0.1.6) (2026-06-28)
 
 

@@ -24,3 +24,4 @@ packages/honua-gp/eval/.audit/
 
 # Generated MkDocs static site output
 /site/
+.serena/

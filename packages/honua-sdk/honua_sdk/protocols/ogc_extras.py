@@ -721,6 +721,9 @@ class OgcRecordsCollectionClient:
     def items_all(self, **kwargs: Any) -> list[JsonObject]:
         return self.records_all(**kwargs)
 
+    def iter_items(self, **kwargs: Any) -> Iterator[JsonObject]:
+        yield from self.iter_records(**kwargs)
+
 
 class AsyncOgcRecordsClient(_AsyncProtocol):
     """Async OGC API Records wrapper."""
@@ -836,8 +839,41 @@ class AsyncOgcRecordsClient(_AsyncProtocol):
             return await self._json("POST", path, params=params, json_body=json_body)
         return await self._json("GET", path, params=params)
 
-    async def record_pages(self, collection_id: FeatureId, **kwargs: Any) -> AsyncIterator[JsonObject]:
-        async for page in self.collection(collection_id).record_pages(**kwargs):
+    async def record_pages(
+        self,
+        collection_id: FeatureId,
+        *,
+        response_format: str = "json",
+        extra_params: Params = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        page_size: int | None = None,
+        max_pages: int | None = None,
+        bbox: BboxValue | None = None,
+        datetime: str | None = None,
+        filter: str | None = None,
+        q: str | None = None,
+        ids: CsvValue | None = None,
+        properties: CsvValue | None = None,
+        sortby: str | None = None,
+        type: str | None = None,
+    ) -> AsyncIterator[JsonObject]:
+        async for page in self.collection(collection_id).record_pages(
+            response_format=response_format,
+            extra_params=extra_params,
+            limit=limit,
+            offset=offset,
+            page_size=page_size,
+            max_pages=max_pages,
+            bbox=bbox,
+            datetime=datetime,
+            filter=filter,
+            q=q,
+            ids=ids,
+            properties=properties,
+            sortby=sortby,
+            type=type,
+        ):
             yield page
 
     async def records_all(self, collection_id: FeatureId, **kwargs: Any) -> list[JsonObject]:

@@ -1501,15 +1501,15 @@
 </tr>
 <tr>
 <td><a id="managementcalculatefield"></a><code>arcpy.management.CalculateField</code></td>
-<td>Partial</td>
-<td><code>process</code></td>
-<td>Projects arcpy.management.CalculateField onto honua-server's data-management.calculate-field: in_table -&gt; layerId, field -&gt; fieldName, expression -&gt; expression, where_clause -&gt; where. Runs as an async (destructive, approval-gated) job and mutates the input table in place. Partial: the expression must pass honua-server's FeatureServer.Edits allow-list, so arcpy PYTHON3 expressions with !field! token syntax or arbitrary Python are rejected server-side; pass a SQL/constant expression.</td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server classifies data-management.calculate-field as CanServe=false by design: it is never projected as a standalone OGC API process and is only reachable as a step inside a honua-geoprocessing analysis plan. A one-shot POST /processes/data-management.calculate-field/execution therefore 404s on every server version (Process does not exist), so the shim cannot run CalculateField standalone.<br><strong>hint:</strong> Compose a honua-geoprocessing analysis plan with a calculate-field step and submit it via honua_sdk.protocols.OgcProcessesClient.execute('honua-geoprocessing', ...), or edit field values directly with honua_sdk.Source.apply_edits.<br><strong>tracking:</strong> <code>honua-server#data-management-standalone-processes</code></td>
 </tr>
 <tr>
 <td><a id="managementcopy"></a><code>arcpy.management.Copy</code></td>
-<td>Supported</td>
-<td><code>process</code></td>
-<td>Projects arcpy.management.Copy / CopyFeatures onto honua-server's data-management.copy-features: in_features -&gt; sourceLayerId, out_feature_class -&gt; targetLayerName, where_clause -&gt; where. Non-destructive; runs as an async job and registers the target as a session alias so downstream GP calls can reference it. Deviation: arcpy.Copy copies a whole dataset including schema; the process copies (optionally filtered) features into a new layer.</td>
+<td>Stub</td>
+<td><code>not-implemented</code></td>
+<td>honua-server classifies data-management.copy-features as CanServe=false by design: it is never projected as a standalone OGC API process and is only reachable as a step inside a honua-geoprocessing analysis plan. A one-shot POST /processes/data-management.copy-features/execution therefore 404s on every server version (Process does not exist), so the shim cannot run Copy / CopyFeatures standalone.<br><strong>hint:</strong> Compose a honua-geoprocessing analysis plan with a copy-features step and submit it via honua_sdk.protocols.OgcProcessesClient.execute('honua-geoprocessing', ...), or read the source features with honua_sdk.Source and write them into the target layer via apply_edits.<br><strong>tracking:</strong> <code>honua-server#data-management-standalone-processes</code></td>
 </tr>
 <tr>
 <td><a id="managementcreatefeatureclass"></a><code>arcpy.management.CreateFeatureclass</code></td>
@@ -1685,8 +1685,8 @@
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Total functions: 45</li>
-<li>Supported / partial: 13</li>
-<li>Stubbed (raise <code>HonuaGpUnsupportedError</code>): 32</li>
+<li>Supported / partial: 11</li>
+<li>Stubbed (raise <code>HonuaGpUnsupportedError</code>): 34</li>
 </ul>
 <p>Stubs intentionally raise rather than silently fail so customer scripts surface gaps before the migration tool ingests the audit JSONL.</p>
 

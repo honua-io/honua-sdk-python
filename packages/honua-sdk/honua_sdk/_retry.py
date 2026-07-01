@@ -1,18 +1,13 @@
-"""Sync retry transport wrapper for httpx.
+"""Synchronous retry transport wrapper for httpx.
 
-This module owns only the **sync I/O dispatch** for retries: it calls
+This module owns only the **synchronous I/O dispatch** for retries: it drives
 ``self._wrapped.handle_request`` and ``time.sleep`` between attempts.
 Every pure policy decision (transient-exception set, should-retry-on
-status/method, exponential backoff math, ``Retry-After`` parsing) lives
-in :mod:`honua_sdk._retry_core` and is shared verbatim with the async
-counterpart in :mod:`honua_sdk._async_retry`.
-
-Boundary recap::
-
-    _retry_core   -> pure functions, no I/O
-    _retry        -> sync I/O dispatch + ``time.sleep``   (this module)
-    _async_retry  -> async I/O dispatch + ``asyncio.sleep``
+status/method, exponential backoff math, ``Retry-After`` parsing) lives in the
+shared, I/O-free :mod:`honua_sdk._retry_core`.
 """
+# AUTO-GENERATED from packages/honua-sdk/honua_sdk/_async_retry.py by scripts/gen_sync.py — do not edit by hand.
+# Edit the async source-of-truth and run `python scripts/gen_sync.py`.
 
 from __future__ import annotations
 
@@ -34,8 +29,6 @@ from ._retry_core import (
     should_retry_status,
 )
 
-# Re-export for back-compat with tests that imported the constants from
-# this module before the policy was moved into ``_retry_core``.
 __all__ = [
     "NonClosingTransport",
     "RetryTransport",
@@ -43,12 +36,12 @@ __all__ = [
 
 
 class NonClosingTransport(httpx.BaseTransport):
-    """Transport wrapper whose ``close`` does not close the wrapped transport.
+    """Synchronous transport wrapper whose ``close`` does not close the wrapped transport.
 
     Used by ``with_options`` / ``copy`` when an independently-owned clone must
     reuse a caller-supplied transport: the clone owns its own
-    :class:`httpx.Client`, so closing it would otherwise tear down the shared
-    transport's connection pool and break the original client that still
+    :class:`httpx.Client`, so closing it would otherwise tear down the
+    shared transport's connection pool and break the original client that still
     depends on it. Ownership of the wrapped transport stays with the original.
     """
 
@@ -64,7 +57,7 @@ class NonClosingTransport(httpx.BaseTransport):
 
 
 class RetryTransport(httpx.BaseTransport):
-    """An httpx transport wrapper that retries on transient HTTP errors.
+    """A httpx transport wrapper that retries on transient HTTP errors.
 
     Retries are triggered for responses whose status codes are listed in
     ``retry_statuses`` (default: ``429``, ``502``, ``503``, ``504``).

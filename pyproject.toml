@@ -63,6 +63,9 @@ ignore = []
 "packages/honua-sdk/honua_sdk/client.py" = ["PLC0415", "PLR0913", "PLR2004"]
 "packages/honua-sdk/honua_sdk/async_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
 "packages/honua-sdk/honua_sdk/ogc.py" = ["PLR0913"]
+# _client_protocol.py mirrors the client's wide request signatures in a typed
+# Protocol, so it forwards the same many optional knobs (PLR0913).
+"packages/honua-sdk/honua_sdk/_client_protocol.py" = ["PLR0913"]
 "packages/honua-sdk/honua_sdk/migration/arcpy.py" = ["E501", "PLR2004"]
 # _cli.py imports HonuaClient lazily inside the `run` subcommand so the
 # offline scan/translate/pyt commands work without httpx wired up.
@@ -128,3 +131,14 @@ disallow_untyped_defs = false
 disallow_untyped_calls = false
 disallow_any_generics = false
 disallow_subclassing_any = false
+
+# Optional raster-interop extra (``honua-sdk[raster]``): rasterio/rioxarray/
+# xarray and their transitive numpy stack are heavy third-party deps used only
+# behind the optional ``honua_sdk.raster`` module. Treat them as untyped (Any)
+# rather than following their published stubs — numpy's stubs use 3.12-only
+# ``type`` statements that mypy's pinned 3.11 target cannot parse, and the
+# raster module already degrades gracefully when the extra is absent.
+[[tool.mypy.overrides]]
+module = ["rasterio.*", "rioxarray.*", "xarray.*"]
+follow_imports = "skip"
+ignore_missing_imports = true

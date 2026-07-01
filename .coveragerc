@@ -8,6 +8,12 @@ omit =
     # extra-less ``grpc`` matrix where the module is intentionally unimportable.
     packages/honua-sdk/honua_sdk/geopandas.py
     */honua_sdk/geopandas.py
+    # raster interop lives behind the optional ``raster`` extra and is exercised
+    # (via importorskip) only when rasterio/rioxarray/xarray are installed.
+    # Omitting it keeps the combined coverage gate stable across matrices where
+    # the module is intentionally unimportable.
+    packages/honua-sdk/honua_sdk/raster.py
+    */honua_sdk/raster.py
 
 [report]
 exclude_lines =

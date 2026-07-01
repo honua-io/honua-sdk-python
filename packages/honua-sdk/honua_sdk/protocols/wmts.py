@@ -4,8 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
+from honua_sdk._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from honua_sdk._http import _encode_path_segment
 
 from ._base import (
@@ -21,7 +20,7 @@ from ._base import (
 class WmtsClient(_SyncProtocol):
     """WMTS wrapper."""
 
-    def __init__(self, client: Any, service_id: str) -> None:
+    def __init__(self, client: SupportsSyncRequest, service_id: str) -> None:
         super().__init__(client)
         self.service_id = service_id
         self.path = f"/ogc/services/{_encode_path_segment(service_id)}/wmts"
@@ -71,7 +70,7 @@ class WmtsClient(_SyncProtocol):
 class AsyncWmtsClient(_AsyncProtocol):
     """Async WMTS wrapper."""
 
-    def __init__(self, client: Any, service_id: str) -> None:
+    def __init__(self, client: SupportsAsyncRequest, service_id: str) -> None:
         super().__init__(client)
         self.service_id = service_id
         self.path = f"/ogc/services/{_encode_path_segment(service_id)}/wmts"

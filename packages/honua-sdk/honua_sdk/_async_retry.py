@@ -1,17 +1,10 @@
-"""Async retry transport wrapper for httpx.
+"""Asynchronous retry transport wrapper for httpx.
 
-This module owns only the **async I/O dispatch** for retries: it awaits
-``self._wrapped.handle_async_request`` and ``asyncio.sleep`` between
-attempts. Every pure policy decision (transient-exception set,
-should-retry-on status/method, exponential backoff math,
-``Retry-After`` parsing) lives in :mod:`honua_sdk._retry_core` and is
-shared verbatim with the sync counterpart in :mod:`honua_sdk._retry`.
-
-Boundary recap::
-
-    _retry_core   -> pure functions, no I/O
-    _retry        -> sync I/O dispatch + ``time.sleep``
-    _async_retry  -> async I/O dispatch + ``asyncio.sleep``   (this module)
+This module owns only the **asynchronous I/O dispatch** for retries: it drives
+``self._wrapped.handle_async_request`` and ``asyncio.sleep`` between attempts.
+Every pure policy decision (transient-exception set, should-retry-on
+status/method, exponential backoff math, ``Retry-After`` parsing) lives in the
+shared, I/O-free :mod:`honua_sdk._retry_core`.
 """
 
 from __future__ import annotations
@@ -41,7 +34,7 @@ __all__ = [
 
 
 class AsyncNonClosingTransport(httpx.AsyncBaseTransport):
-    """Async transport wrapper whose ``aclose`` does not close the wrapped transport.
+    """Asynchronous transport wrapper whose ``aclose`` does not close the wrapped transport.
 
     Used by ``with_options`` / ``copy`` when an independently-owned clone must
     reuse a caller-supplied transport: the clone owns its own

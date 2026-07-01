@@ -46,13 +46,16 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
+from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from ._http import _encode_path_segment
 from .errors import HonuaError
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import geopandas as gpd
+    import rasterio
+    import xarray
 
 JsonObject = dict[str, Any]
 LayerReferenceKind = Literal["inlineGeoJson", "queryResult"]
@@ -334,23 +337,35 @@ def _job_results_path(root: str, job_id: str) -> str:
     return f"{_job_path(root, job_id)}/results"
 
 
+def _href_path_and_params(href: str) -> tuple[str, dict[str, str]]:
+    """Split a (possibly absolute) ``href`` into a request path and query params.
+
+    By-reference raster outputs point at a result on the same Honua host; only
+    the path + query are forwarded so the bound client's base URL, auth, and
+    retry policy apply (the host/scheme are taken from the client).
+    """
+    parsed = urlsplit(href)
+    path = parsed.path or href
+    return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
+
+
 class HonuaGeoprocessing:
     """Synchronous geoprocessing client built on OGC API Processes."""
 
     root = "/ogc/processes"
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: SupportsSyncRequest) -> None:
         self.client = client
 
     # -- discovery ---------------------------------------------------------
 
     def processes(self) -> JsonObject:
         """List the available processes."""
-        return cast(JsonObject, self.client._request_json("GET", _processes_path(self.root)))
+        return self.client._request_json("GET", _processes_path(self.root))
 
     def describe(self, process_id: str) -> JsonObject:
         """Describe one process (inputs, outputs, job-control options)."""
-        return cast(JsonObject, self.client._request_json("GET", _process_path(self.root, process_id)))
+        return self.client._request_json("GET", _process_path(self.root, process_id))
 
     # -- raw execution -----------------------------------------------------
 
@@ -508,6 +523,71 @@ class HonuaGeoprocessing:
             out = out.to_crs(source_crs)
         return out
 
+    # -- raster result interop --------------------------------------------
+
+    def result_raster_bytes(self, results: Mapping[str, Any]) -> bytes:
+        """Return the GeoTIFF bytes of a results document's raster output.
+
+        Selects the raster output (see
+        :func:`honua_sdk.raster.find_raster_output`), decoding an inline base64
+        ``value`` or fetching a by-reference ``href`` through the bound client
+        (so base URL, auth, and retry policy apply). Raises
+        :class:`~honua_sdk.errors.HonuaError` when no usable raster output is
+        present.
+        """
+        from .raster import find_raster_output, inline_raster_bytes, raster_href
+
+        member = find_raster_output(results)
+        inline = inline_raster_bytes(member)
+        if inline is not None:
+            return inline
+        href = raster_href(member)
+        if href:
+            path, params = _href_path_and_params(href)
+            return self.client._request("GET", path, params=params).content
+        raise HonuaError("Raster output has neither an inline value nor an href to fetch.")
+
+    def result_to_rasterio(self, results: Mapping[str, Any]) -> "rasterio.io.DatasetReader":
+        """Open a results document's raster output as a :mod:`rasterio` dataset.
+
+        Requires the ``raster`` extra (``pip install honua-sdk[raster]``).
+        """
+        from .raster import open_geotiff
+
+        return open_geotiff(self.result_raster_bytes(results))
+
+    def result_to_xarray(self, results: Mapping[str, Any]) -> "xarray.DataArray":
+        """Convert a results document's raster output to an :class:`xarray.DataArray`.
+
+        Requires the ``raster`` extra (``pip install honua-sdk[raster]``).
+        """
+        from .raster import geotiff_to_xarray
+
+        return geotiff_to_xarray(self.result_raster_bytes(results))
+
+    def execute_raster(
+        self,
+        process_id: str,
+        layer: LayerReference,
+        *,
+        parameters: Mapping[str, Any] | None = None,
+        poll_interval: float = 0.5,
+        timeout: float | None = 120.0,
+    ) -> "xarray.DataArray":
+        """Run a raster-producing process and return the output as an xarray array.
+
+        Convenience wrapper that runs :meth:`execute` and converts the raster
+        output via :meth:`result_to_xarray`. Requires the ``raster`` extra.
+        """
+        result = self.execute(
+            process_id,
+            layer,
+            parameters=parameters,
+            poll_interval=poll_interval,
+            timeout=timeout,
+        )
+        return self.result_to_xarray(result)
+
     # -- canonical multi-step plan ----------------------------------------
 
     def submit_plan(self, plan: Mapping[str, Any], *, respond_async: bool = True) -> GeoprocessingJob:
@@ -544,11 +624,11 @@ class HonuaGeoprocessing:
 
     def results(self, job_id: str) -> JsonObject:
         """Fetch the results document for a (successful) job."""
-        return cast(JsonObject, self.client._request_json("GET", _job_results_path(self.root, job_id)))
+        return self.client._request_json("GET", _job_results_path(self.root, job_id))
 
     def jobs(self) -> JsonObject:
         """List submitted jobs."""
-        return cast(JsonObject, self.client._request_json("GET", f"{self.root}/jobs"))
+        return self.client._request_json("GET", f"{self.root}/jobs")
 
     def dismiss(self, job_id: str) -> None:
         """Dismiss (cancel/forget) a job."""
@@ -593,20 +673,18 @@ class AsyncHonuaGeoprocessing:
 
     root = "/ogc/processes"
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: SupportsAsyncRequest) -> None:
         self.client = client
 
     # -- discovery ---------------------------------------------------------
 
     async def processes(self) -> JsonObject:
         """List the available processes."""
-        return cast(JsonObject, await self.client._request_json("GET", _processes_path(self.root)))
+        return await self.client._request_json("GET", _processes_path(self.root))
 
     async def describe(self, process_id: str) -> JsonObject:
         """Describe one process (inputs, outputs, job-control options)."""
-        return cast(
-            JsonObject, await self.client._request_json("GET", _process_path(self.root, process_id))
-        )
+        return await self.client._request_json("GET", _process_path(self.root, process_id))
 
     # -- raw execution -----------------------------------------------------
 
@@ -731,6 +809,64 @@ class AsyncHonuaGeoprocessing:
             out = out.to_crs(source_crs)
         return out
 
+    # -- raster result interop --------------------------------------------
+
+    async def result_raster_bytes(self, results: Mapping[str, Any]) -> bytes:
+        """Return the GeoTIFF bytes of a results document's raster output."""
+        from .raster import find_raster_output, inline_raster_bytes, raster_href
+
+        member = find_raster_output(results)
+        inline = inline_raster_bytes(member)
+        if inline is not None:
+            return inline
+        href = raster_href(member)
+        if href:
+            path, params = _href_path_and_params(href)
+            response = await self.client._request("GET", path, params=params)
+            return response.content
+        raise HonuaError("Raster output has neither an inline value nor an href to fetch.")
+
+    async def result_to_rasterio(self, results: Mapping[str, Any]) -> "rasterio.io.DatasetReader":
+        """Open a results document's raster output as a :mod:`rasterio` dataset.
+
+        Requires the ``raster`` extra (``pip install honua-sdk[raster]``).
+        """
+        from .raster import open_geotiff
+
+        return open_geotiff(await self.result_raster_bytes(results))
+
+    async def result_to_xarray(self, results: Mapping[str, Any]) -> "xarray.DataArray":
+        """Convert a results document's raster output to an :class:`xarray.DataArray`.
+
+        Requires the ``raster`` extra (``pip install honua-sdk[raster]``).
+        """
+        from .raster import geotiff_to_xarray
+
+        return geotiff_to_xarray(await self.result_raster_bytes(results))
+
+    async def execute_raster(
+        self,
+        process_id: str,
+        layer: LayerReference,
+        *,
+        parameters: Mapping[str, Any] | None = None,
+        poll_interval: float = 0.5,
+        timeout: float | None = 120.0,
+    ) -> "xarray.DataArray":
+        """Run a raster-producing process and return the output as an xarray array.
+
+        Convenience wrapper that runs :meth:`execute` and converts the raster
+        output via :meth:`result_to_xarray`. Requires the ``raster`` extra.
+        """
+        result = await self.execute(
+            process_id,
+            layer,
+            parameters=parameters,
+            poll_interval=poll_interval,
+            timeout=timeout,
+        )
+        return await self.result_to_xarray(result)
+
     # -- canonical multi-step plan ----------------------------------------
 
     async def submit_plan(self, plan: Mapping[str, Any], *, respond_async: bool = True) -> GeoprocessingJob:
@@ -763,13 +899,11 @@ class AsyncHonuaGeoprocessing:
 
     async def results(self, job_id: str) -> JsonObject:
         """Fetch the results document for a (successful) job."""
-        return cast(
-            JsonObject, await self.client._request_json("GET", _job_results_path(self.root, job_id))
-        )
+        return await self.client._request_json("GET", _job_results_path(self.root, job_id))
 
     async def jobs(self) -> JsonObject:
         """List submitted jobs."""
-        return cast(JsonObject, await self.client._request_json("GET", f"{self.root}/jobs"))
+        return await self.client._request_json("GET", f"{self.root}/jobs")
 
     async def dismiss(self, job_id: str) -> None:
         """Dismiss (cancel/forget) a job."""

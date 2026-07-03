@@ -47,8 +47,8 @@ def _make_capabilities_payload(
                 "deprecated": deprecated,
             },
             "metadataSchemas": [
-                {"version": "v1", "deprecated": False},
-                {"version": "v1beta1", "deprecated": True},
+                {"version": "metadata.honua.io/v2alpha1", "deprecated": False},
+                {"version": "metadata.honua.io/v1", "deprecated": True},
             ],
             "features": {
                 "metadataResources": metadata_resources,
@@ -62,7 +62,7 @@ def _make_capabilities_payload(
     if include_legacy_fields:
         payload.update(
             {
-                "metadataApiVersions": ["v1", "v1beta1"],
+                "metadataApiVersions": ["metadata.honua.io/v2alpha1", "metadata.honua.io/v1"],
                 "resourceKinds": ["Layer", "Service"],
                 "manifestSupported": True,
                 "manifestDryRunSupported": True,

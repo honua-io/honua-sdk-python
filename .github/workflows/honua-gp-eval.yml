@@ -119,20 +119,16 @@ jobs:
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
       # NOTE (issue #157): the layer-aware vector ops (Buffer / SpatialJoin /
       # Dissolve / Project -> analytics.buffer-aggregate / analytics.spatial-join
-      # / generalization.dissolve / conversion.feature-project) cannot yet run
-      # end-to-end against ANY current honua-server AOT image. Post-#1382 images
-      # DO advertise + accept those per-op OGC processes (the process-resolution
-      # 404 is gone), but the geoprocessing dispatch runtime only registers the
-      # ``*-managed`` executors (analytics.buffer-aggregate-managed, ...) plus
-      # the geometry.*/transform.*/overlay.* families -- the per-op projection
-      # never remaps to the managed id, so the async job is refused with
-      # "unsupported process id ... this slice" and never reaches a terminal
-      # state (verified live on nightly-aot-20260628 and -20260630). Pinning a
-      # post-#1382 image here would therefore turn the fast per-op 404 into a
-      # 600s-per-op poll hang, so we do NOT re-pin until honua-server wires the
-      # OGC per-op execution path to the managed runtime. See #157 for the full
-      # ground-truth diagnosis and the tracked honua-server follow-up.
-      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:latest-aot' }}
+      # / generalization.dissolve / conversion.feature-project) now run
+      # end-to-end once honua-server#2327 wired the per-op OGC projections to the
+      # managed geoprocessing executors. That fix is NOT in the old
+      # ``latest-aot`` tag (stuck on an April build that predates the in-process
+      # GP dispatch worker, so every layer-aware job hangs in ``Queued``), so we
+      # pin ``nightly-aot`` -- verified live (2026-07 build): buffer x3 +
+      # buffer_then_dissolve, dissolve, project x2, and spatial-join x2 all reach
+      # a terminal SUCCEEDED. Operators can override via the
+      # ``HONUA_LOCAL_SERVER_IMAGE`` repo variable to pin a dated build.
+      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:nightly-aot' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -207,6 +203,17 @@ jobs:
                   echo "honua-gp smoke seed complete."
             honua:
               image: ${HONUA_LOCAL_SERVER_IMAGE}
+              environment:
+                # Run the ephemeral server in Development (same as the
+                # tests/conformance lane): the client-compat seed only activates
+                # its metadata-v2 snapshot for default/Development/Test, and
+                # Licensing:DevGrantEdition is fail-closed in Production. Granting
+                # the Enterprise edition without a signed license lets the write
+                # eval scripts (da.InsertCursor -> FeatureServer applyEdits, gated
+                # on ``editing.featureserver-edits`` since honua-server#1591)
+                # exercise editing end-to-end. Test/CI only -- never in prod.
+                ASPNETCORE_ENVIRONMENT: Development
+                Licensing__DevGrantEdition: Enterprise
               ports:
                 - "5000:5000"
           YAML
@@ -237,6 +244,14 @@ jobs:
             docker compose -f "${compose_file}" -f "${override_file}" logs honua | tail -100 || true
             exit 1
           fi
+          # The canonical client-compat seed registers a single layer (layer 0).
+          # honua-server's analytics.spatial-join rejects a self-join, so the
+          # SpatialJoin eval scripts need a second, distinct join layer. Apply
+          # the in-repo second-layer fixture against the seeded postgres. See
+          # packages/honua-gp/eval/seed/spatial-join-second-layer.sql (#157).
+          second_layer_sql="${GITHUB_WORKSPACE}/packages/honua-gp/eval/seed/spatial-join-second-layer.sql"
+          docker compose -f "${compose_file}" -f "${override_file}" exec -T postgres \
+            psql -U postgres -d honua_compat -v ON_ERROR_STOP=1 < "${second_layer_sql}"
 
       - name: Run ephemeral smoke
         env:

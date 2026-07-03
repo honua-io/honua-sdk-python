@@ -23,5 +23,5 @@ else:
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/0", "addresses_with_parcel", match_option="INTERSECT")
+result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
 print(f"spatial_join_addresses_parcels ok output={result[0]}")

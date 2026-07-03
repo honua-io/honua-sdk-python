@@ -250,12 +250,19 @@ print(f"insert_cursor_then_search ok rows={len(rows)}")
 EXPECTED_FAILURE_TEMPLATES: list[ScriptSpec] = []
 
 
-def _expected_failure(slug: str, body: str, marker: str) -> ScriptSpec:
+def _expected_failure(
+    slug: str,
+    body: str,
+    marker: str,
+    *,
+    docstring: str | None = None,
+    workspace: str = "legacy",
+) -> ScriptSpec:
     full_slug = f"expected_failure_{slug}"
     spec = ScriptSpec(
         slug=full_slug,
-        workspace="legacy",
-        docstring=f"Expected-failure script exercising {marker}.",
+        workspace=workspace,
+        docstring=docstring if docstring is not None else f"Expected-failure script exercising {marker}.",
         body=f"""try:
 {body}
 except arcpy.HonuaGpUnsupportedError as exc:
@@ -298,11 +305,16 @@ print(f"buffer_legacy_suffix ok output={result[0]}")
     1,
     "buffer_legacy_suffix ok",
 )
+# SpatialJoin: the join_features MUST resolve to a different layerId than
+# target_features -- honua-server's analytics.spatial-join rejects a self-join
+# ("joinLayerId must differ from the target layerId"). The trailing ``/1`` on
+# the join path resolves to layer 1, which the ephemeral-server-smoke seeds via
+# packages/honua-gp/eval/seed/spatial-join-second-layer.sql. Keep join at /1.
 _supported(
     "spatial_join_addresses_parcels",
     "transport",
     "Spatial join addresses to parcels via analytics.spatial-join.",
-    """result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/0", "addresses_with_parcel", match_option="INTERSECT")
+    """result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
 print(f"spatial_join_addresses_parcels ok output={result[0]}")
 """,
     1,
@@ -312,7 +324,7 @@ _supported(
     "spatial_join_with_radius",
     "transport",
     "Spatial join within a distance via the dwithin predicate.",
-    """result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/0", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
+    """result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/1", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
 print(f"spatial_join_with_radius ok output={result[0]}")
 """,
     1,
@@ -328,25 +340,36 @@ print(f"dissolve_parcels_by_zoning ok output={result[0]}")
     1,
     "dissolve_parcels_by_zoning ok",
 )
-_supported(
+# data-management.copy-features / .calculate-field are CanServe=false by design
+# (honua-server#1382): never projected as standalone OGC API processes, only
+# reachable inside a honua-geoprocessing analysis plan. A one-shot execute 404s
+# on every server version, so the shim raises HonuaGpUnsupportedError and these
+# are expected-unsupported, not supported (honua-sdk-python#159).
+_expected_failure(
     "copy_pavement_to_backup",
-    "transport",
-    "Copy features into a backup layer via data-management.copy-features.",
-    """result = arcpy.management.Copy("honua://services/pavement/0", "pavement_backup")
-print(f"copy_pavement_to_backup ok output={result[0]}")
+    """    arcpy.management.Copy("honua://services/pavement/0", "pavement_backup")""",
+    "management.Copy",
+    docstring="""Expected-failure: Copy has no standalone honua-server process.
+
+honua-server classifies ``data-management.copy-features`` as CanServe=false; it
+is only reachable inside a honua-geoprocessing analysis plan, so a one-shot Copy
+404s on every server version. The shim surfaces that as a client-side
+``HonuaGpUnsupportedError``.
 """,
-    1,
-    "copy_pavement_to_backup ok",
+    workspace="transport",
 )
-_supported(
+_expected_failure(
     "copy_features_alias",
-    "transport",
-    "CopyFeatures alias routes through the same copy-features process.",
-    """result = arcpy.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")
-print(f"copy_features_alias ok output={result[0]}")
+    """    arcpy.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")""",
+    "management.CopyFeatures",
+    docstring="""Expected-failure: CopyFeatures has no standalone honua-server process.
+
+honua-server classifies ``data-management.copy-features`` as CanServe=false; it
+is only reachable inside a honua-geoprocessing analysis plan, so a one-shot
+Copy / CopyFeatures 404s on every server version. The shim surfaces that as a
+client-side ``HonuaGpUnsupportedError``.
 """,
-    1,
-    "copy_features_alias ok",
+    workspace="transport",
 )
 _supported(
     "project_roads_to_wgs84",
@@ -358,15 +381,18 @@ print(f"project_roads_to_wgs84 ok output={result[0]}")
     1,
     "project_roads_to_wgs84 ok",
 )
-_supported(
+_expected_failure(
     "calculate_field_constant",
-    "transport",
-    "CalculateField with a SQL/constant expression via data-management.calculate-field.",
-    """result = arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")
-print(f"calculate_field_constant ok output={result[0]}")
+    """    arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")""",
+    "management.CalculateField",
+    docstring="""Expected-failure: CalculateField has no standalone honua-server process.
+
+honua-server classifies ``data-management.calculate-field`` as CanServe=false;
+it is only reachable inside a honua-geoprocessing analysis plan, so a one-shot
+CalculateField 404s on every server version. The shim surfaces that as a
+client-side ``HonuaGpUnsupportedError``.
 """,
-    1,
-    "calculate_field_constant ok",
+    workspace="transport",
 )
 _supported(
     "buffer_then_dissolve",
@@ -400,16 +426,19 @@ print(f"project_kilometers_buffer ok output={result[0]}")
     2,
     "project_kilometers_buffer ok",
 )
-_supported(
+_expected_failure(
     "copy_then_calculate_field",
-    "transport",
-    "Copy features then calculate a constant field on the source layer.",
-    """arcpy.management.Copy("honua://services/stage/0", "published")
-result = arcpy.management.CalculateField("honua://services/stage/0", "reviewed", "1")
-print(f"copy_then_calculate_field ok output={result[0]}")
+    """    arcpy.management.Copy("honua://services/stage/0", "published")
+    arcpy.management.CalculateField("honua://services/stage/0", "reviewed", "1")""",
+    "management.Copy",
+    docstring="""Expected-failure: a Copy-then-CalculateField chain raises on the first step.
+
+Both ``data-management.copy-features`` and ``data-management.calculate-field``
+are classified CanServe=false on honua-server (only reachable inside a
+honua-geoprocessing analysis plan), so the leading Copy already raises a
+client-side ``HonuaGpUnsupportedError`` before CalculateField is reached.
 """,
-    2,
-    "copy_then_calculate_field ok",
+    workspace="transport",
 )
 
 # ---------------------------------------------------------------------------

@@ -23,5 +23,5 @@ else:
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/0", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
+result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/1", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
 print(f"spatial_join_with_radius ok output={result[0]}")

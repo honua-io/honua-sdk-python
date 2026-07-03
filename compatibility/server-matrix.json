@@ -20,7 +20,7 @@
         },
         "metadataSchemas": [
           {
-            "version": "v1",
+            "version": "metadata.honua.io/v2alpha1",
             "deprecated": false
           }
         ],
@@ -55,7 +55,7 @@
         },
         "metadataSchemas": [
           {
-            "version": "v1",
+            "version": "metadata.honua.io/v2alpha1",
             "deprecated": false
           }
         ],
@@ -88,7 +88,7 @@
         },
         "metadataSchemas": [
           {
-            "version": "v1",
+            "version": "metadata.honua.io/v2alpha1",
             "deprecated": false
           }
         ],
@@ -189,7 +189,7 @@
         },
         "metadataSchemas": [
           {
-            "version": "v1",
+            "version": "metadata.honua.io/v2alpha1",
             "deprecated": false
           }
         ],
@@ -221,7 +221,7 @@
         },
         "metadataSchemas": [
           {
-            "version": "v1",
+            "version": "metadata.honua.io/v2alpha1",
             "deprecated": false
           }
         ],

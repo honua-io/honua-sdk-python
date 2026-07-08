@@ -676,13 +676,17 @@ class HonuaGeoprocessing:
         deadline = None if timeout is None else time.monotonic() + timeout
         poll_delay = _initial_poll_delay(poll_interval)
         while not current.is_terminal:
-            if deadline is not None and time.monotonic() >= deadline:
-                self._safe_dismiss(job_id)
-                raise TimeoutError(
-                    f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
-                    f"(last status: {current.status!r})."
-                )
-            time.sleep(poll_delay)
+            sleep_delay = poll_delay
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self._safe_dismiss(job_id)
+                    raise TimeoutError(
+                        f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
+                        f"(last status: {current.status!r})."
+                    )
+                sleep_delay = min(sleep_delay, remaining)
+            time.sleep(sleep_delay)
             current = self.job(job_id)
             poll_delay = _next_poll_delay(poll_delay)
         return current
@@ -963,13 +967,17 @@ class AsyncHonuaGeoprocessing:
         poll_delay = _initial_poll_delay(poll_interval)
         try:
             while not current.is_terminal:
-                if deadline is not None and time.monotonic() >= deadline:
-                    await self._safe_dismiss(job_id)
-                    raise TimeoutError(
-                        f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
-                        f"(last status: {current.status!r})."
-                    )
-                await asyncio.sleep(poll_delay)
+                sleep_delay = poll_delay
+                if deadline is not None:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        await self._safe_dismiss(job_id)
+                        raise TimeoutError(
+                            f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
+                            f"(last status: {current.status!r})."
+                        )
+                    sleep_delay = min(sleep_delay, remaining)
+                await asyncio.sleep(sleep_delay)
                 current = await self.job(job_id)
                 poll_delay = _next_poll_delay(poll_delay)
         except asyncio.CancelledError:

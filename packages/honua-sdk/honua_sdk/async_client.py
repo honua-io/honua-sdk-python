@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import warnings
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
@@ -25,28 +26,21 @@ from ._http import (
     join_base_path,
 )
 from ._query import (
-    features_from_geojson_page,
     normalize_query_protocol,
-    odata_features_from_page,
-    odata_pagination_signals,
-    ogc_pagination_signals,
     query_feature_from_feature_server,
     query_feature_from_geojson,
     query_feature_from_mapping,
     resolve_feature_query,
 )
 from ._query_dispatch import (
+    collect_query_pages_async,
     feature_server_items_kwargs,
-    feature_server_pages_kwargs,
     merge_idempotency_into_headers,
     merge_request_headers,
     odata_items_kwargs,
-    odata_pages_kwargs,
     ogc_features_items_kwargs,
-    ogc_features_pages_kwargs,
     reject_odata_bbox,
     stac_items_kwargs,
-    stac_pages_kwargs,
     validate_filter_routing,
     warn_if_truncated,
 )
@@ -62,6 +56,8 @@ from .models import (
     QueryProtocol,
     ServiceSummary,
 )
+
+_LOGGER = logging.getLogger("honua_sdk.client")
 
 if TYPE_CHECKING:
     from .async_geocoding import AsyncHonuaGeocodingClient
@@ -444,6 +440,10 @@ class AsyncHonuaClient:
         except HonuaHttpError as exc:
             if exc.status_code != 404:
                 raise
+            _LOGGER.warning(
+                "Server lacks /api/v1/capabilities; falling back to readiness "
+                "and service catalog discovery."
+            )
             return DataPlaneCapabilities.from_discovery(
                 readiness=await self.readiness(timeout=timeout, extra_headers=extra_headers),
                 catalog=await self.list_services(timeout=timeout, extra_headers=extra_headers),
@@ -1003,104 +1003,13 @@ class AsyncHonuaClient:
         :mod:`._query_dispatch` so the sync and async dispatchers share
         every non-IO step.
         """
-        collected: list[QueryFeature] = []
-        exceeded = False
-        total_count: int | None = None
-        pages_seen = 0
-        limit = query.limit
-
-        def _extend(items: list[QueryFeature]) -> bool:
-            if limit is not None:
-                remaining = limit - len(collected)
-                if remaining <= 0:
-                    return True
-                items = items[:remaining]
-            collected.extend(items)
-            return limit is not None and len(collected) >= limit
-
-        if normalized_protocol == "feature-server":
-            async for page in self.feature_server(query.source).query_pages(
-                **feature_server_pages_kwargs(
-                    query, timeout=timeout, extra_headers=extra_headers
-                ),
-            ):
-                pages_seen += 1
-                exceeded = bool(page.exceeded_transfer_limit)
-                page_features = [
-                    query_feature_from_feature_server(
-                        feature, source=query.source, protocol=normalized_protocol
-                    )
-                    for feature in page.features
-                ]
-                if _extend(page_features):
-                    break
-            # FeatureServer ``query`` responses do not carry a grand total
-            # (no ``numberMatched`` equivalent), so ``total_count`` is unknown.
-            # Reporting ``len(collected)`` here is misleading because it is the
-            # number of features *returned* — capped by ``limit``/``max_pages``
-            # — not the server's total match count. Surface ``None`` instead.
-            return tuple(collected), exceeded, None, pages_seen
-
-        if normalized_protocol == "ogc-features":
-            last_page: Any = None
-            async for page in self.ogc_features().collection(query.source).items_pages(  # type: ignore[assignment]
-                **ogc_features_pages_kwargs(
-                    query, timeout=timeout, extra_headers=extra_headers
-                ),
-            ):
-                pages_seen += 1
-                last_page = page
-                page_features = [
-                    query_feature_from_geojson(
-                        item, source=query.source, protocol=normalized_protocol
-                    )
-                    for item in features_from_geojson_page(page)  # type: ignore[arg-type]
-                ]
-                if _extend(page_features):
-                    break
-            total_count, exceeded = ogc_pagination_signals(last_page)
-            return tuple(collected), exceeded, total_count, pages_seen
-
-        if normalized_protocol == "stac":
-            last_page = None
-            async for page in self.stac().item_pages(  # type: ignore[assignment]
-                query.source,
-                **stac_pages_kwargs(
-                    query, timeout=timeout, extra_headers=extra_headers
-                ),
-            ):
-                pages_seen += 1
-                last_page = page
-                page_features = [
-                    query_feature_from_geojson(
-                        item, source=query.source, protocol=normalized_protocol
-                    )
-                    for item in features_from_geojson_page(page)  # type: ignore[arg-type]
-                ]
-                if _extend(page_features):
-                    break
-            total_count, exceeded = ogc_pagination_signals(last_page)
-            return tuple(collected), exceeded, total_count, pages_seen
-
-        reject_odata_bbox(query)
-        last_page = None
-        async for page in self.odata().features_pages(  # type: ignore[assignment]
-            **odata_pages_kwargs(
-                query, timeout=timeout, extra_headers=extra_headers
-            ),
-        ):
-            pages_seen += 1
-            last_page = page
-            page_features = [
-                query_feature_from_mapping(
-                    item, source=query.source, protocol=normalized_protocol
-                )
-                for item in odata_features_from_page(page)  # type: ignore[arg-type]
-            ]
-            if _extend(page_features):
-                break
-        total_count, exceeded = odata_pagination_signals(last_page)
-        return tuple(collected), exceeded, total_count, pages_seen
+        return await collect_query_pages_async(
+            self,
+            query,
+            normalized_protocol,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
 
     async def iter_query(
         self,
@@ -1384,7 +1293,7 @@ class AsyncHonuaClient:
         features: list[Feature] = []
         offset = _endpoints.initial_offset(extra_params)
         base_extra_params = dict(extra_params or {})
-        seen_object_ids: set[int] = set()
+        previous_object_ids: set[int] = set()
         for _ in range(max_pages):
             remaining = None if limit is None else limit - len(features)
             if remaining is not None and remaining <= 0:
@@ -1406,17 +1315,15 @@ class AsyncHonuaClient:
             )
             page_features = list(page.features)
             # Non-advancing-cursor guard: a server that ignores ``resultOffset``
-            # keeps returning the same page with ``exceededTransferLimit=true``,
-            # which would otherwise loop to ``max_pages`` and duplicate every
-            # feature. When object ids are present, stop once a page adds no new
-            # ones (and drop the duplicates we already collected this page).
+            # keeps returning the same page with ``exceededTransferLimit=true``.
+            # Compare only with the previous page so the tracking set stays
+            # bounded to one page, matching the protocol wrapper.
             new_object_ids = {
                 oid for f in page_features if (oid := f.object_id) is not None
             }
-            stalled = bool(new_object_ids) and new_object_ids.issubset(seen_object_ids)
-            if stalled:
+            if new_object_ids and new_object_ids.issubset(previous_object_ids):
                 break
-            seen_object_ids |= new_object_ids
+            previous_object_ids = new_object_ids
             if remaining is not None:
                 page_features = page_features[:remaining]
             features.extend(page_features)

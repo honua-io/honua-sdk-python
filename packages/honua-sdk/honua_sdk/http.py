@@ -21,6 +21,10 @@ HTTP helpers (no leading underscore):
 
 * :func:`normalize_base_url`        — strip + re-append trailing slash
 * :func:`encode_path_segment`       — URL-safe path segment encoder
+* :func:`join_base_path`            — preserve sub-path deployments
+* :func:`encode_request_path`       — raw-path bytes for httpx URL overrides
+* :func:`merge_request_headers`
+* :func:`build_idempotency_headers`
 * :func:`build_sensitive_auth_headers`
 * :func:`apply_sensitive_auth_headers`
 * :func:`apply_sensitive_auth_headers_async` — awaitable variant for async
@@ -68,6 +72,10 @@ from ._http import (
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
     _warn_deprecated_bearer_token,
+    build_idempotency_headers,
+    encode_request_path,
+    join_base_path,
+    merge_request_headers,
 )
 from ._retry import NonClosingTransport, RetryTransport
 from .auth import AuthProvider
@@ -117,9 +125,13 @@ __all__ = [
     "_warn_deprecated_bearer_token",
     "apply_sensitive_auth_headers",
     "apply_sensitive_auth_headers_async",
+    "build_idempotency_headers",
     "build_sensitive_auth_headers",
     "encode_path_segment",
+    "encode_request_path",
     "extract_trusted_authority",
+    "join_base_path",
+    "merge_request_headers",
     "normalize_base_url",
     "parse_retry_after",
     "to_http_error",

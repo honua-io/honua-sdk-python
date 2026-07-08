@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import httpx
@@ -108,7 +109,9 @@ def test_capabilities_reads_data_plane_contract() -> None:
     assert capabilities.supports("experimental") is False
 
 
-def test_capabilities_falls_back_to_readiness_and_catalog_for_older_servers() -> None:
+def test_capabilities_falls_back_to_readiness_and_catalog_for_older_servers(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     seen: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -131,9 +134,11 @@ def test_capabilities_falls_back_to_readiness_and_catalog_for_older_servers() ->
 
     transport = httpx.MockTransport(handler)
     with HonuaClient("http://example.test", transport=transport) as client:
-        capabilities = client.capabilities()
+        with caplog.at_level(logging.WARNING, logger="honua_sdk.client"):
+            capabilities = client.capabilities()
 
     assert seen == ["/api/v1/capabilities", "/healthz/ready", "/rest/services"]
+    assert "Server lacks /api/v1/capabilities" in caplog.text
     assert capabilities.server_version == "2026.3.0"
     assert capabilities.supports("geoservices") is True
     assert capabilities.supports("feature-server") is True
@@ -242,6 +247,33 @@ def test_query_features_all_stops_on_non_advancing_cursor() -> None:
     # the stall (one extra probe page) rather than walking all 100 pages.
     assert [feature.object_id for feature in features] == [1, 2]
     assert call_count["n"] <= 2
+
+
+def test_query_features_all_compares_cursor_ids_to_previous_page_only() -> None:
+    pages = [
+        [1, 2],
+        [3, 4],
+        [1, 2],
+    ]
+    call_count = {"n": 0}
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        ids = pages[call_count["n"]]
+        call_count["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "features": [{"attributes": {"objectid": oid}} for oid in ids],
+                "exceededTransferLimit": True,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.query_features_all("parcels", 0, page_size=2, max_pages=3)
+
+    assert [feature.object_id for feature in features] == [1, 2, 3, 4, 1, 2]
+    assert call_count["n"] == 3
 
 
 def test_shared_query_feature_server_normalizes_common_args() -> None:

@@ -30,16 +30,24 @@ from typing import Any
 
 import httpx
 
+from ._http import merge_request_headers
 from ._query import (
     bbox_text,
     feature_server_extra_params,
+    features_from_geojson_page,
     field_list,
     field_text,
+    odata_features_from_page,
     odata_layer_id,
+    odata_pagination_signals,
+    ogc_pagination_signals,
+    query_feature_from_feature_server,
+    query_feature_from_geojson,
+    query_feature_from_mapping,
     query_filter,
     query_page_size,
 )
-from .models import FeatureQuery
+from .models import FeatureQuery, QueryFeature
 
 # Protocols whose ``filter`` slot expects CQL2-text; rejecting silent
 # ``where``→CQL forwarding here keeps the legacy dispatcher honest.
@@ -110,29 +118,6 @@ def merge_idempotency_into_headers(
         return extra_headers
     merged: dict[str, str] = dict(extra_headers) if extra_headers else {}
     merged["Idempotency-Key"] = idempotency_key
-    return merged
-
-
-def merge_request_headers(
-    headers: Mapping[str, str] | None,
-    extra_headers: Mapping[str, str] | None,
-    idempotency_key: str | None,
-) -> dict[str, str] | None:
-    """Merge per-request header overrides.
-
-    Precedence (lowest → highest): ``extra_headers`` → ``headers`` →
-    explicit ``idempotency_key``. Returns ``None`` when no headers are set
-    so we don't perturb httpx's default header handling.
-    """
-    if headers is None and extra_headers is None and idempotency_key is None:
-        return None
-    merged: dict[str, str] = {}
-    if extra_headers:
-        merged.update(extra_headers)
-    if headers:
-        merged.update(headers)
-    if idempotency_key is not None:
-        merged["Idempotency-Key"] = idempotency_key
     return merged
 
 
@@ -314,7 +299,197 @@ def odata_items_kwargs(
     return odata_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers)
 
 
+def _extend_collected_query_features(
+    collected: list[QueryFeature],
+    items: list[QueryFeature],
+    limit: int | None,
+) -> bool:
+    if limit is not None:
+        remaining = limit - len(collected)
+        if remaining <= 0:
+            return True
+        items = items[:remaining]
+    collected.extend(items)
+    return limit is not None and len(collected) >= limit
+
+
+def collect_query_pages(
+    client: Any,
+    query: FeatureQuery,
+    normalized_protocol: str,
+    *,
+    timeout: float | httpx.Timeout | None = None,
+    extra_headers: Mapping[str, str] | None = None,
+) -> tuple[tuple[QueryFeature, ...], bool, int | None, int]:
+    """Walk protocol pages and collect normalized query features (sync)."""
+    collected: list[QueryFeature] = []
+    exceeded = False
+    total_count: int | None = None
+    pages_seen = 0
+    limit = query.limit
+
+    if normalized_protocol == "feature-server":
+        for page in client.feature_server(query.source).query_pages(
+            **feature_server_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+        ):
+            pages_seen += 1
+            exceeded = bool(page.exceeded_transfer_limit)
+            page_features = [
+                query_feature_from_feature_server(
+                    feature, source=query.source, protocol=normalized_protocol
+                )
+                for feature in page.features
+            ]
+            if _extend_collected_query_features(collected, page_features, limit):
+                break
+        return tuple(collected), exceeded, None, pages_seen
+
+    if normalized_protocol == "ogc-features":
+        last_page: Any = None
+        for page in client.ogc_features().collection(query.source).items_pages(
+            **ogc_features_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+        ):
+            pages_seen += 1
+            last_page = page
+            page_features = [
+                query_feature_from_geojson(
+                    item, source=query.source, protocol=normalized_protocol
+                )
+                for item in features_from_geojson_page(page)
+            ]
+            if _extend_collected_query_features(collected, page_features, limit):
+                break
+        total_count, exceeded = ogc_pagination_signals(last_page)
+        return tuple(collected), exceeded, total_count, pages_seen
+
+    if normalized_protocol == "stac":
+        last_page = None
+        for page in client.stac().item_pages(
+            query.source,
+            **stac_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+        ):
+            pages_seen += 1
+            last_page = page
+            page_features = [
+                query_feature_from_geojson(
+                    item, source=query.source, protocol=normalized_protocol
+                )
+                for item in features_from_geojson_page(page)
+            ]
+            if _extend_collected_query_features(collected, page_features, limit):
+                break
+        total_count, exceeded = ogc_pagination_signals(last_page)
+        return tuple(collected), exceeded, total_count, pages_seen
+
+    reject_odata_bbox(query)
+    last_page = None
+    for page in client.odata().features_pages(
+        **odata_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+    ):
+        pages_seen += 1
+        last_page = page
+        page_features = [
+            query_feature_from_mapping(
+                item, source=query.source, protocol=normalized_protocol
+            )
+            for item in odata_features_from_page(page)
+        ]
+        if _extend_collected_query_features(collected, page_features, limit):
+            break
+    total_count, exceeded = odata_pagination_signals(last_page)
+    return tuple(collected), exceeded, total_count, pages_seen
+
+
+async def collect_query_pages_async(
+    client: Any,
+    query: FeatureQuery,
+    normalized_protocol: str,
+    *,
+    timeout: float | httpx.Timeout | None = None,
+    extra_headers: Mapping[str, str] | None = None,
+) -> tuple[tuple[QueryFeature, ...], bool, int | None, int]:
+    """Walk protocol pages and collect normalized query features (async)."""
+    collected: list[QueryFeature] = []
+    exceeded = False
+    total_count: int | None = None
+    pages_seen = 0
+    limit = query.limit
+
+    if normalized_protocol == "feature-server":
+        async for page in client.feature_server(query.source).query_pages(
+            **feature_server_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+        ):
+            pages_seen += 1
+            exceeded = bool(page.exceeded_transfer_limit)
+            page_features = [
+                query_feature_from_feature_server(
+                    feature, source=query.source, protocol=normalized_protocol
+                )
+                for feature in page.features
+            ]
+            if _extend_collected_query_features(collected, page_features, limit):
+                break
+        return tuple(collected), exceeded, None, pages_seen
+
+    if normalized_protocol == "ogc-features":
+        last_page: Any = None
+        async for page in client.ogc_features().collection(query.source).items_pages(
+            **ogc_features_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+        ):
+            pages_seen += 1
+            last_page = page
+            page_features = [
+                query_feature_from_geojson(
+                    item, source=query.source, protocol=normalized_protocol
+                )
+                for item in features_from_geojson_page(page)
+            ]
+            if _extend_collected_query_features(collected, page_features, limit):
+                break
+        total_count, exceeded = ogc_pagination_signals(last_page)
+        return tuple(collected), exceeded, total_count, pages_seen
+
+    if normalized_protocol == "stac":
+        last_page = None
+        async for page in client.stac().item_pages(
+            query.source,
+            **stac_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+        ):
+            pages_seen += 1
+            last_page = page
+            page_features = [
+                query_feature_from_geojson(
+                    item, source=query.source, protocol=normalized_protocol
+                )
+                for item in features_from_geojson_page(page)
+            ]
+            if _extend_collected_query_features(collected, page_features, limit):
+                break
+        total_count, exceeded = ogc_pagination_signals(last_page)
+        return tuple(collected), exceeded, total_count, pages_seen
+
+    reject_odata_bbox(query)
+    last_page = None
+    async for page in client.odata().features_pages(
+        **odata_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
+    ):
+        pages_seen += 1
+        last_page = page
+        page_features = [
+            query_feature_from_mapping(
+                item, source=query.source, protocol=normalized_protocol
+            )
+            for item in odata_features_from_page(page)
+        ]
+        if _extend_collected_query_features(collected, page_features, limit):
+            break
+    total_count, exceeded = odata_pagination_signals(last_page)
+    return tuple(collected), exceeded, total_count, pages_seen
+
+
 __all__ = [
+    "collect_query_pages",
+    "collect_query_pages_async",
     "feature_server_items_kwargs",
     "feature_server_pages_kwargs",
     "merge_idempotency_into_headers",

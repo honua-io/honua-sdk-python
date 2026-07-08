@@ -197,6 +197,33 @@ async def test_query_features_all_stops_on_non_advancing_cursor() -> None:
     assert call_count["n"] < 100
 
 
+async def test_query_features_all_compares_cursor_ids_to_previous_page_only() -> None:
+    pages = [
+        [1, 2],
+        [3, 4],
+        [1, 2],
+    ]
+    call_count = {"n": 0}
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        ids = pages[call_count["n"]]
+        call_count["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "features": [{"attributes": {"objectid": oid}} for oid in ids],
+                "exceededTransferLimit": True,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = await client.query_features_all("parcels", 0, page_size=2, max_pages=3)
+
+    assert [feature.object_id for feature in features] == [1, 2, 3, 4, 1, 2]
+    assert call_count["n"] == 3
+
+
 async def test_shared_query_feature_server_normalizes_common_args() -> None:
     seen: dict[str, str] = {}
 

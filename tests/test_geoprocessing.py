@@ -12,7 +12,9 @@ honua-server OGC API Processes contract:
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -307,7 +309,9 @@ def test_wait_dismisses_job_on_timeout() -> None:
     assert deleted == ["/ogc/processes/jobs/job-to"]
 
 
-def test_wait_timeout_swallows_dismiss_failure() -> None:
+def test_wait_timeout_swallows_dismiss_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Dismiss failure during timeout cleanup does not mask the TimeoutError."""
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -317,8 +321,48 @@ def test_wait_timeout_swallows_dismiss_failure() -> None:
 
     with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
         gp = client.geoprocessing()
-        with pytest.raises(TimeoutError):
-            gp.wait("job-tf", poll_interval=0.0, timeout=0.0)
+        with caplog.at_level(logging.DEBUG, logger="honua_sdk.geoprocessing"):
+            with pytest.raises(TimeoutError):
+                gp.wait("job-tf", poll_interval=0.0, timeout=0.0)
+
+    assert "Failed to dismiss geoprocessing job 'job-tf' during cleanup." in caplog.text
+
+
+def test_wait_uses_exponential_poll_backoff() -> None:
+    statuses = iter(["running", "running", "successful"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        return httpx.Response(200, json=_status("job-backoff", next(statuses)))
+
+    delays: list[float] = []
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        with patch("honua_sdk.geoprocessing.time.sleep", side_effect=delays.append):
+            terminal = gp.wait("job-backoff", poll_interval=0.5, timeout=10.0)
+
+    assert terminal.succeeded is True
+    assert delays == [0.5, 1.0]
+
+
+def test_wait_clamps_poll_delay_to_timeout_deadline() -> None:
+    statuses = iter(["running", "running", "successful"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        return httpx.Response(200, json=_status("job-deadline", next(statuses)))
+
+    delays: list[float] = []
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        with (
+            patch("honua_sdk.geoprocessing.time.monotonic", side_effect=[100.0, 100.0, 100.25]),
+            patch("honua_sdk.geoprocessing.time.sleep", side_effect=delays.append),
+        ):
+            terminal = gp.wait("job-deadline", poll_interval=0.5, timeout=0.75)
+
+    assert terminal.succeeded is True
+    assert delays == [0.5, 0.5]
 
 
 def test_submit_uses_location_header_when_body_lacks_job_id() -> None:
@@ -667,6 +711,31 @@ async def test_async_wait_dismisses_on_timeout() -> None:
             await gp.wait("ajob-to", poll_interval=0.0, timeout=0.0)
 
     assert deleted == ["/ogc/processes/jobs/ajob-to"]
+
+
+@pytest.mark.anyio
+async def test_async_wait_clamps_poll_delay_to_timeout_deadline() -> None:
+    statuses = iter(["running", "running", "successful"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        return httpx.Response(200, json=_status("ajob-deadline", next(statuses)))
+
+    delays: list[float] = []
+
+    async def sleep(delay: float) -> None:
+        delays.append(delay)
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        with (
+            patch("honua_sdk.geoprocessing.time.monotonic", side_effect=[100.0, 100.0, 100.25]),
+            patch("asyncio.sleep", new=sleep),
+        ):
+            terminal = await gp.wait("ajob-deadline", poll_interval=0.5, timeout=0.75)
+
+    assert terminal.succeeded is True
+    assert delays == [0.5, 0.5]
 
 
 @pytest.mark.anyio

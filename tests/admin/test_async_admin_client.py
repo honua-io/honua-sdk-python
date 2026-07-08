@@ -447,6 +447,33 @@ async def test_async_get_service_settings_returns_typed_response() -> None:
     assert result.service_name == "default"
 
 
+async def test_async_admin_request_preserves_base_path_and_encodes_non_ascii_service() -> None:
+    seen: dict[str, str] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["raw_path"] = request.url.raw_path.decode("ascii").split("?")[0]
+        return httpx.Response(
+            200,
+            json=make_api_response(
+                {
+                    "serviceName": "café",
+                    "enabledProtocols": [],
+                    "availableProtocols": [],
+                    "accessPolicy": None,
+                    "timeInfo": None,
+                    "mapServer": None,
+                }
+            ),
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaAdminClient("http://test.honua.io/honua", transport=transport) as client:
+        result = await client.get_service_settings("café")
+
+    assert seen["raw_path"] == "/honua/api/v1/admin/services/caf%C3%A9/settings"
+    assert result.service_name == "café"
+
+
 async def test_async_update_protocols_sends_list_body() -> None:
     import json
 

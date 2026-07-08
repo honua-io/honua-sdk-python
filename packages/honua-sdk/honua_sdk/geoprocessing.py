@@ -40,8 +40,8 @@ reuse the bound :class:`~honua_sdk.client.HonuaClient` /
 
 from __future__ import annotations
 
-import contextlib
 import json
+import logging
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -65,6 +65,8 @@ CANONICAL_PROCESS_ID = "honua-geoprocessing"
 
 #: OGC job statuses that are terminal (no further transition will occur).
 TERMINAL_JOB_STATUSES: frozenset[str] = frozenset({"successful", "failed", "dismissed"})
+_LOGGER = logging.getLogger("honua_sdk.geoprocessing")
+_MAX_POLL_INTERVAL = 10.0
 
 #: Namespaced catalog process ids that execute at *layer scope* (feature
 #: collection in / out) and are projected through OGC API Processes today.
@@ -335,6 +337,16 @@ def _job_path(root: str, job_id: str) -> str:
 
 def _job_results_path(root: str, job_id: str) -> str:
     return f"{_job_path(root, job_id)}/results"
+
+
+def _initial_poll_delay(poll_interval: float) -> float:
+    return min(max(0.0, poll_interval), _MAX_POLL_INTERVAL)
+
+
+def _next_poll_delay(current: float) -> float:
+    if current <= 0.0:
+        return 0.0
+    return min(current * 2.0, _MAX_POLL_INTERVAL)
 
 
 def _href_path_and_params(href: str) -> tuple[str, dict[str, str]]:
@@ -638,8 +650,14 @@ class HonuaGeoprocessing:
         """Best-effort :meth:`dismiss`; never raises (cleanup-only path)."""
         if not job_id:
             return
-        with contextlib.suppress(Exception):
+        try:
             self.dismiss(job_id)
+        except Exception:
+            _LOGGER.debug(
+                "Failed to dismiss geoprocessing job %r during cleanup.",
+                job_id,
+                exc_info=True,
+            )
 
     def wait(
         self,
@@ -656,6 +674,7 @@ class HonuaGeoprocessing:
         job_id = job.job_id if isinstance(job, GeoprocessingJob) else str(job)
         current = job if isinstance(job, GeoprocessingJob) else self.job(job_id)
         deadline = None if timeout is None else time.monotonic() + timeout
+        poll_delay = _initial_poll_delay(poll_interval)
         while not current.is_terminal:
             if deadline is not None and time.monotonic() >= deadline:
                 self._safe_dismiss(job_id)
@@ -663,8 +682,9 @@ class HonuaGeoprocessing:
                     f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
                     f"(last status: {current.status!r})."
                 )
-            time.sleep(max(0.0, poll_interval))
+            time.sleep(poll_delay)
             current = self.job(job_id)
+            poll_delay = _next_poll_delay(poll_delay)
         return current
 
 
@@ -913,8 +933,14 @@ class AsyncHonuaGeoprocessing:
         """Best-effort :meth:`dismiss`; never raises (cleanup-only path)."""
         if not job_id:
             return
-        with contextlib.suppress(Exception):
+        try:
             await self.dismiss(job_id)
+        except Exception:
+            _LOGGER.debug(
+                "Failed to dismiss geoprocessing job %r during cleanup.",
+                job_id,
+                exc_info=True,
+            )
 
     async def wait(
         self,
@@ -934,6 +960,7 @@ class AsyncHonuaGeoprocessing:
         job_id = job.job_id if isinstance(job, GeoprocessingJob) else str(job)
         current = job if isinstance(job, GeoprocessingJob) else await self.job(job_id)
         deadline = None if timeout is None else time.monotonic() + timeout
+        poll_delay = _initial_poll_delay(poll_interval)
         try:
             while not current.is_terminal:
                 if deadline is not None and time.monotonic() >= deadline:
@@ -942,8 +969,9 @@ class AsyncHonuaGeoprocessing:
                         f"Geoprocessing job {job_id!r} did not reach a terminal status within {timeout}s "
                         f"(last status: {current.status!r})."
                     )
-                await asyncio.sleep(max(0.0, poll_interval))
+                await asyncio.sleep(poll_delay)
                 current = await self.job(job_id)
+                poll_delay = _next_poll_delay(poll_delay)
         except asyncio.CancelledError:
             await self._safe_dismiss(job_id)
             raise

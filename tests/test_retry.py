@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import patch
 
@@ -56,6 +57,23 @@ def test_retry_on_502() -> None:
     assert response.status_code == 200
     assert transport._call_count["n"] == 2  # type: ignore[attr-defined]
     mock_sleep.assert_called_once_with(0.5)
+
+
+def test_retry_logs_http_status_trigger(caplog: pytest.LogCaptureFixture) -> None:
+    transport = _make_transport(
+        [
+            httpx.Response(503, text="Service Unavailable"),
+            httpx.Response(200, json={"ok": True}),
+        ],
+    )
+    request = httpx.Request("GET", "http://example.test/")
+
+    with caplog.at_level(logging.DEBUG, logger="honua_sdk.transport"):
+        with patch("honua_sdk._retry.time.sleep"):
+            response = transport.handle_request(request)
+
+    assert response.status_code == 200
+    assert "Retrying GET / after HTTP 503" in caplog.text
 
 
 def test_retry_on_503() -> None:

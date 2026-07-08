@@ -8,7 +8,7 @@ import os
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
-from typing import IO, Any
+from typing import IO, Any, Self
 
 import httpx
 from anyio import to_thread
@@ -122,7 +122,28 @@ class AttachmentQueryResult:
 
 
 @dataclass(frozen=True)
-class AddAttachmentResult:
+class AttachmentOperationResult:
+    """Common parsed result shape for attachment add/update operations."""
+    object_id: "int | None"
+    success: bool
+    global_id: "str | None" = None
+    raw: "JsonObject | None" = None
+
+    @classmethod
+    def _from_envelope(cls, payload: Mapping[str, Any], envelope_key: str) -> Self:
+        result = payload.get(envelope_key)
+        if not isinstance(result, Mapping):
+            result = payload
+        raw_id = result.get("objectId")
+        return cls(
+            object_id=int(raw_id) if isinstance(raw_id, (int, float)) else None,
+            success=bool(result.get("success", False)),
+            global_id=_opt_str(result.get("globalId")),
+            raw=dict(payload),
+        )
+
+
+class AddAttachmentResult(AttachmentOperationResult):
     """Parsed ``addAttachment`` response.
 
     ``object_id`` is the id of the newly created attachment (Esri returns the
@@ -130,46 +151,17 @@ class AddAttachmentResult:
     :meth:`download_attachment` / :meth:`delete_attachment`.
     """
 
-    object_id: "int | None"
-    success: bool
-    global_id: "str | None" = None
-    raw: "JsonObject | None" = None
-
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "AddAttachmentResult":
-        result = payload.get("addAttachmentResult")
-        if not isinstance(result, Mapping):
-            result = payload
-        raw_id = result.get("objectId")
-        return cls(
-            object_id=int(raw_id) if isinstance(raw_id, (int, float)) else None,
-            success=bool(result.get("success", False)),
-            global_id=_opt_str(result.get("globalId")),
-            raw=dict(payload),
-        )
+        return cls._from_envelope(payload, "addAttachmentResult")
 
 
-@dataclass(frozen=True)
-class UpdateAttachmentResult:
+class UpdateAttachmentResult(AttachmentOperationResult):
     """Parsed ``updateAttachment`` response."""
-
-    object_id: "int | None"
-    success: bool
-    global_id: "str | None" = None
-    raw: "JsonObject | None" = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "UpdateAttachmentResult":
-        result = payload.get("updateAttachmentResult")
-        if not isinstance(result, Mapping):
-            result = payload
-        raw_id = result.get("objectId")
-        return cls(
-            object_id=int(raw_id) if isinstance(raw_id, (int, float)) else None,
-            success=bool(result.get("success", False)),
-            global_id=_opt_str(result.get("globalId")),
-            raw=dict(payload),
-        )
+        return cls._from_envelope(payload, "updateAttachmentResult")
 
 
 @dataclass(frozen=True)

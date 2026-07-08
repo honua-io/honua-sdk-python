@@ -16,9 +16,13 @@ from honua_sdk.http import (
     NonClosingTransport,
     RetryTransport,
     apply_sensitive_auth_headers,
+    build_idempotency_headers,
     build_sensitive_auth_headers,
     encode_path_segment,
+    encode_request_path,
     extract_trusted_authority,
+    join_base_path,
+    merge_request_headers,
     normalize_base_url,
     to_http_error,
     to_transport_error,
@@ -211,11 +215,10 @@ class HonuaAdminClient:
             )
 
         effective_transport = transport
-        if max_retries > 0:
-            inner = effective_transport or httpx.HTTPTransport()
-            retry_transport = RetryTransport(inner, max_retries=max_retries)
-            effective_transport = retry_transport
-            self._retry_methods = retry_transport.retry_methods
+        inner = effective_transport or httpx.HTTPTransport()
+        retry_transport = RetryTransport(inner, max_retries=max_retries)
+        effective_transport = retry_transport
+        self._retry_methods = retry_transport.retry_methods
 
         self._client = httpx.Client(
             base_url=self._base_url,
@@ -384,7 +387,7 @@ class HonuaAdminClient:
         extra: Mapping[str, str] | None = None,
     ) -> dict[str, str] | None:
         """Build the ``Idempotency-Key`` header dict, auto-generating if needed."""
-        return _endpoints.build_idempotency_headers(
+        return build_idempotency_headers(
             idempotency_key,
             retry_methods=self._retry_methods,
             extra=extra,
@@ -416,8 +419,9 @@ class HonuaAdminClient:
         * ``idempotency_key``: when set, attaches an ``Idempotency-Key``
           header to the outbound request.
         """
-        url = self._base_url.copy_with(raw_path=path.encode("ascii"))
-        merged_headers = _merge_request_headers(headers, extra_headers, idempotency_key)
+        raw_path = join_base_path(self._base_url, path)
+        url = self._base_url.copy_with(raw_path=encode_request_path(raw_path))
+        merged_headers = merge_request_headers(headers, extra_headers, idempotency_key)
         request_kwargs: dict[str, Any] = {
             "method": method,
             "url": url,
@@ -1073,6 +1077,9 @@ class HonuaAdminClient:
         request: MigrationInventoryScanRequest,
         *,
         export_json: bool = False,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> MigrationSourceInventoryArtifact:
         """POST /api/v1/admin/import/scan"""
         params = {"export": "json"} if export_json else None
@@ -1081,6 +1088,9 @@ class HonuaAdminClient:
             "/api/v1/admin/import/scan",
             params=params,
             json_body=request.to_dict(),
+            headers=self._idempotency_headers(idempotency_key),
+            timeout=timeout,
+            extra_headers=extra_headers,
         )
         return MigrationSourceInventoryArtifact.from_dict(data)
 
@@ -1843,29 +1853,6 @@ class HonuaAdminClient:
         if isinstance(data, dict):
             return data
         return {}
-
-
-def _merge_request_headers(
-    headers: Mapping[str, str] | None,
-    extra_headers: Mapping[str, str] | None,
-    idempotency_key: str | None,
-) -> dict[str, str] | None:
-    """Merge per-request header overrides.
-
-    Precedence (lowest → highest): ``extra_headers`` → ``headers`` →
-    explicit ``idempotency_key``.
-    """
-    if headers is None and extra_headers is None and idempotency_key is None:
-        return None
-    merged: dict[str, str] = {}
-    if extra_headers:
-        merged.update(extra_headers)
-    if headers:
-        merged.update(headers)
-    if idempotency_key is not None:
-        merged["Idempotency-Key"] = idempotency_key
-    return merged
-
 
 def _json_object(response: httpx.Response) -> dict[str, Any]:
     """Parse an unenveloped OGC JSON response body as an object.

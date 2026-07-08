@@ -17,22 +17,22 @@ where the sync/async split is unavoidable.
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from ._http import _encode_path_segment, raise_for_geoservices_error
+from ._http import (
+    _encode_path_segment,
+    build_idempotency_headers,
+    raise_for_geoservices_error,
+)
 from .models import (
     ApplyEditsResult,
     DataPlaneCapabilities,
     FeatureSet,
     ServiceSummary,
 )
-
-
-def _bool_text(value: bool) -> str:
-    return "true" if value else "false"
+from .protocols._base import _bool_text
 
 
 @dataclass(frozen=True)
@@ -253,24 +253,6 @@ def page_record_count(page_size: int, remaining: int | None) -> int:
     if remaining is None:
         return page_size
     return min(page_size, remaining)
-
-
-def build_idempotency_headers(
-    idempotency_key: str | None,
-    *,
-    retry_methods: frozenset[str],
-) -> dict[str, str] | None:
-    """Build the ``Idempotency-Key`` header dict, auto-generating if needed.
-
-    When ``idempotency_key`` is ``None`` and ``retry_methods`` opts
-    ``POST`` in, a fresh ``uuid4().hex`` is used. Returns ``None`` when
-    no header should be sent.
-    """
-    if idempotency_key is not None:
-        return {"Idempotency-Key": idempotency_key}
-    if "POST" in retry_methods:
-        return {"Idempotency-Key": uuid.uuid4().hex}
-    return None
 
 
 def parse_json_response_body(response: "Any") -> dict[str, Any]:

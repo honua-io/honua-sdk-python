@@ -222,6 +222,34 @@ def test_scan_migration_source_export_json_sets_query() -> None:
     assert result.artifact_version == "1.0"
 
 
+def test_scan_migration_source_accepts_per_call_options() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["headers"] = request.headers
+        seen["timeout"] = request.extensions.get("timeout", {})
+        return httpx.Response(200, json=_INVENTORY_ARTIFACT)
+
+    transport = httpx.MockTransport(handler)
+    request = MigrationInventoryScanRequest(
+        source_kind="geoservices",
+        source_url="https://example.com/arcgis/rest/services/Parcels/FeatureServer",
+    )
+
+    with HonuaAdminClient("http://test.honua.io", transport=transport) as client:
+        result = client.scan_migration_source(
+            request,
+            timeout=1.25,
+            extra_headers={"X-Trace-Id": "trace-1"},
+            idempotency_key="scan-key",
+        )
+
+    assert result.source_kind == "arcgis-geoservices-rest"
+    assert seen["headers"]["x-trace-id"] == "trace-1"
+    assert seen["headers"]["idempotency-key"] == "scan-key"
+    assert seen["timeout"]["connect"] == 1.25
+
+
 @pytest.mark.anyio
 async def test_async_scan_migration_source() -> None:
     seen: dict[str, Any] = {}
@@ -246,6 +274,35 @@ async def test_async_scan_migration_source() -> None:
         "sourceUrl": "https://example.com/arcgis/rest/services/Parcels/FeatureServer",
     }
     assert result.source_kind == "arcgis-geoservices-rest"
+
+
+@pytest.mark.anyio
+async def test_async_scan_migration_source_accepts_per_call_options() -> None:
+    seen: dict[str, Any] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["headers"] = request.headers
+        seen["timeout"] = request.extensions.get("timeout", {})
+        return httpx.Response(200, json=_INVENTORY_ARTIFACT)
+
+    transport = httpx.MockTransport(handler)
+    request = MigrationInventoryScanRequest(
+        source_kind="geoservices",
+        source_url="https://example.com/arcgis/rest/services/Parcels/FeatureServer",
+    )
+
+    async with AsyncHonuaAdminClient("http://test.honua.io", transport=transport) as client:
+        result = await client.scan_migration_source(
+            request,
+            timeout=1.25,
+            extra_headers={"X-Trace-Id": "trace-1"},
+            idempotency_key="scan-key",
+        )
+
+    assert result.source_kind == "arcgis-geoservices-rest"
+    assert seen["headers"]["x-trace-id"] == "trace-1"
+    assert seen["headers"]["idempotency-key"] == "scan-key"
+    assert seen["timeout"]["connect"] == 1.25
 
 
 def test_migration_inventory_scan_request_repr_redacts_password() -> None:

@@ -400,6 +400,53 @@ def test_with_options_enables_retries_on_zero_built_async_client() -> None:
     assert call_count["n"] == 3
 
 
+def test_with_options_enables_retries_on_zero_built_admin_client() -> None:
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, json={"data": []})
+
+    transport = httpx.MockTransport(handler)
+    original = HonuaAdminClient("http://example.test", transport=transport, max_retries=0)
+    try:
+        retrying = original.with_options(max_retries=5)
+        with patch("honua_sdk._retry.time.sleep"):
+            result = retrying.list_services()
+        assert result == []
+        assert call_count["n"] == 3
+    finally:
+        original.close()
+
+
+def test_with_options_enables_retries_on_zero_built_async_admin_client() -> None:
+    call_count = {"n": 0}
+
+    def handler(_r: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            return httpx.Response(503, text="retry")
+        return httpx.Response(200, json={"data": []})
+
+    async def run() -> list[Any]:
+        transport = httpx.MockTransport(handler)
+        original = AsyncHonuaAdminClient(
+            "http://example.test", transport=transport, max_retries=0
+        )
+        try:
+            retrying = original.with_options(max_retries=5)
+            with patch("honua_sdk._async_retry.asyncio.sleep"):
+                return await retrying.list_services()
+        finally:
+            await original.close()
+
+    result = asyncio.run(run())
+    assert result == []
+    assert call_count["n"] == 3
+
+
 # ---------------------------------------------------------------------------
 # AUD-162 (issue #129): protocol ``_text`` requests must route through the
 # client's normal request path so per-call options carried by ``with_options``

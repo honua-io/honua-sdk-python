@@ -16,6 +16,10 @@ from honua_sdk._http import (
     _to_transport_error,
     _validate_auth_configuration,
     _validate_external_client_auth_configuration,
+    build_idempotency_headers,
+    encode_request_path,
+    join_base_path,
+    merge_request_headers,
 )
 from honua_sdk._retry import RetryTransport
 from honua_sdk.auth import AuthProvider
@@ -40,6 +44,10 @@ def test_public_http_module_reexports_admin_dependencies() -> None:
         honua_http._validate_external_client_auth_configuration
         is _validate_external_client_auth_configuration
     )
+    assert honua_http.build_idempotency_headers is build_idempotency_headers
+    assert honua_http.encode_request_path is encode_request_path
+    assert honua_http.join_base_path is join_base_path
+    assert honua_http.merge_request_headers is merge_request_headers
 
 
 def test_shared_sdk_boundary_reexports_admin_dependencies() -> None:
@@ -60,6 +68,10 @@ def test_shared_sdk_boundary_reexports_admin_dependencies() -> None:
         _shared._validate_external_client_auth_configuration
         is _validate_external_client_auth_configuration
     )
+    assert _shared.build_idempotency_headers is build_idempotency_headers
+    assert _shared.encode_request_path is encode_request_path
+    assert _shared.join_base_path is join_base_path
+    assert _shared.merge_request_headers is merge_request_headers
 
 
 def test_admin_clients_use_public_http_boundary() -> None:
@@ -69,6 +81,9 @@ def test_admin_clients_use_public_http_boundary() -> None:
     assert admin_client.RetryTransport is honua_http.RetryTransport
     assert admin_client.apply_sensitive_auth_headers is honua_http.apply_sensitive_auth_headers
     assert admin_client.encode_path_segment is honua_http.encode_path_segment
+    assert admin_client.encode_request_path is honua_http.encode_request_path
+    assert admin_client.join_base_path is honua_http.join_base_path
+    assert admin_client.merge_request_headers is honua_http.merge_request_headers
     assert admin_client.to_http_error is honua_http.to_http_error
 
     assert admin_async_client.AsyncRetryTransport is honua_http.AsyncRetryTransport
@@ -79,4 +94,7 @@ def test_admin_clients_use_public_http_boundary() -> None:
         is honua_http.apply_sensitive_auth_headers_async
     )
     assert admin_async_client.encode_path_segment is honua_http.encode_path_segment
+    assert admin_async_client.encode_request_path is honua_http.encode_request_path
+    assert admin_async_client.join_base_path is honua_http.join_base_path
+    assert admin_async_client.merge_request_headers is honua_http.merge_request_headers
     assert admin_async_client.to_http_error is honua_http.to_http_error

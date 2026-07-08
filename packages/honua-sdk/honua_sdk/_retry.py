@@ -11,6 +11,7 @@ shared, I/O-free :mod:`honua_sdk._retry_core`.
 
 from __future__ import annotations
 
+import logging
 import time
 
 import httpx
@@ -33,6 +34,8 @@ __all__ = [
     "NonClosingTransport",
     "RetryTransport",
 ]
+
+_LOGGER = logging.getLogger("honua_sdk.transport")
 
 
 class NonClosingTransport(httpx.BaseTransport):
@@ -136,15 +139,25 @@ class RetryTransport(httpx.BaseTransport):
         # signals an override by stashing the value in ``request.extensions``.
         override = request.extensions.get("honua_max_retries")
         retries_remaining = override if isinstance(override, int) else self._max_retries
+        retry_budget = retries_remaining
         attempt = 0
 
         while True:
             try:
                 response = self._wrapped.handle_request(request)
-            except _RETRIABLE_TRANSPORT_EXCEPTIONS:
+            except _RETRIABLE_TRANSPORT_EXCEPTIONS as exc:
                 if retries_remaining <= 0:
                     raise
                 delay = self._compute_backoff(attempt)
+                _LOGGER.debug(
+                    "Retrying %s %s after transport error %s (attempt %s/%s, delay %.3fs)",
+                    request.method,
+                    request.url.path,
+                    exc.__class__.__name__,
+                    attempt + 1,
+                    retry_budget,
+                    delay,
+                )
                 time.sleep(delay)
                 retries_remaining -= 1
                 attempt += 1
@@ -156,6 +169,15 @@ class RetryTransport(httpx.BaseTransport):
                 return response
 
             delay = self._compute_delay(response, attempt)
+            _LOGGER.debug(
+                "Retrying %s %s after HTTP %s (attempt %s/%s, delay %.3fs)",
+                request.method,
+                request.url.path,
+                response.status_code,
+                attempt + 1,
+                retry_budget,
+                delay,
+            )
 
             # Read and close the unsuccessful response BEFORE sleeping so the
             # underlying connection is returned to the pool during the backoff

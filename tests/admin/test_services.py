@@ -112,6 +112,33 @@ def test_get_service_settings_returns_nested_models(make_client) -> None:
     assert result.map_server.default_format == "png"
 
 
+def test_admin_request_preserves_base_path_and_encodes_non_ascii_service() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["raw_path"] = request.url.raw_path.decode("ascii").split("?")[0]
+        return httpx.Response(
+            200,
+            json=make_api_response(
+                {
+                    "serviceName": "café",
+                    "enabledProtocols": [],
+                    "availableProtocols": [],
+                    "accessPolicy": None,
+                    "timeInfo": None,
+                    "mapServer": None,
+                }
+            ),
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaAdminClient("http://test.honua.io/honua", transport=transport) as client:
+        result = client.get_service_settings("café")
+
+    assert seen["raw_path"] == "/honua/api/v1/admin/services/caf%C3%A9/settings"
+    assert result.service_name == "café"
+
+
 def test_update_protocols_sends_list_body(make_client) -> None:
     seen: dict[str, Any] = {}
 

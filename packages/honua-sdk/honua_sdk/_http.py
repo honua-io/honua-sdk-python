@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import uuid
 import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -73,6 +74,52 @@ def encode_request_path(raw_path: str) -> bytes:
             char if ord(char) < 128 else quote(char, safe="") for char in raw_path
         )
         return encoded.encode("ascii")
+
+
+def build_idempotency_headers(
+    idempotency_key: str | None,
+    *,
+    retry_methods: frozenset[str],
+    extra: Mapping[str, str] | None = None,
+) -> dict[str, str] | None:
+    """Build an ``Idempotency-Key`` header dict, auto-generating when needed.
+
+    ``extra`` is merged first, then an explicit ``idempotency_key`` wins. When
+    no explicit key is supplied and ``POST`` has been opted into retryable
+    methods, a fresh UUID hex key is generated so retried mutations can be
+    de-duplicated server-side.
+    """
+    headers: dict[str, str] = {}
+    if extra:
+        headers.update(extra)
+    if idempotency_key is not None:
+        headers["Idempotency-Key"] = idempotency_key
+    elif "POST" in retry_methods:
+        headers["Idempotency-Key"] = uuid.uuid4().hex
+    return headers or None
+
+
+def merge_request_headers(
+    headers: Mapping[str, str] | None,
+    extra_headers: Mapping[str, str] | None,
+    idempotency_key: str | None,
+) -> dict[str, str] | None:
+    """Merge per-request header overrides with stable precedence.
+
+    Precedence from lowest to highest is ``extra_headers`` -> ``headers`` ->
+    explicit ``idempotency_key``. Returns ``None`` when no headers are set so
+    httpx's default header handling remains untouched.
+    """
+    if headers is None and extra_headers is None and idempotency_key is None:
+        return None
+    merged: dict[str, str] = {}
+    if extra_headers:
+        merged.update(extra_headers)
+    if headers:
+        merged.update(headers)
+    if idempotency_key is not None:
+        merged["Idempotency-Key"] = idempotency_key
+    return merged
 
 
 def _build_sensitive_auth_headers(

@@ -215,6 +215,7 @@ _COMMON_RULES: tuple[Rule, ...] = (
         r"\bapply_sensitive_auth_headers_async\b",
         "apply_sensitive_auth_headers",
     ),
+    _rule(r"\bcollect_query_pages_async\b", "collect_query_pages"),
     #
     # --- module-name seams -------------------------------------------------
     # Async-only sibling modules collapse onto their sync equivalents.

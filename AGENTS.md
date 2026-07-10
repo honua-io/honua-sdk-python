@@ -156,10 +156,14 @@ pyproject.toml                   # shared tool config ONLY (not installable)
 - **ruff**: line-length 120, target py311, selects `E,F,I,UP,B,SIM,RUF,TID,PL,S`.
   Generated grpc code and `packages/honua-gp` are excluded. Many narrow
   per-file ignores exist — match the existing pattern, don't widen globally.
-- **mypy**: `disallow_untyped_defs`, `disallow_any_generics`,
-  `disallow_untyped_calls`, `warn_return_any` all on (not full `strict`).
-  Every def in `honua_sdk`/`honua_admin` is annotated; keep it that way.
-  Generated protobuf modules are exempted.
+- **mypy**: full `strict = true` workspace-wide (`pyproject.toml`
+  `[tool.mypy]`). Every def in `honua_sdk`/`honua_admin` is annotated; keep it
+  that way. A narrow override exempts the generated protobuf stubs
+  (`honua_sdk.grpc._generated.*`) from `disallow_untyped_defs`,
+  `disallow_untyped_calls`, `disallow_any_generics`, and
+  `disallow_subclassing_any`, since they're untyped upstream codegen output
+  and regenerating them just to add annotations would be erased by the next
+  codegen run.
 - **UP037 (quoted forward refs) is intentionally kept** in package source so the
   compatibility-gate public-API snapshot stays stable — don't strip the quotes.
 - **Protocol IDs**: use canonical cross-SDK ids (`geoservices-feature-service`,

@@ -161,6 +161,53 @@ def test_irregular_or_oversized_dimension_has_extent_but_no_values() -> None:
     assert std_time.dimension_size == 25000
 
 
+def test_ranged_values_dimension_preserves_pairs() -> None:
+    # The Esri multidimensionalInfo contract allows hasRanges: true axes whose
+    # "values" entries are [lower, upper] PAIRS, e.g. a pressure axis
+    # "values": [[18000, 0], [25500, 0]] (see the ArcGIS multidimensional-info
+    # REST reference). honua-server's builder never emits ranged values today
+    # (ImageServerMultidimensionalDimension.Values is a flat double[] with no
+    # HasRanges property), but the parser must not crash on the documented
+    # contract shape -- regression test for the float(list) TypeError.
+    payload = {
+        "variables": [
+            {
+                "name": "wind_speed",
+                "unit": "m/s",
+                "dimensions": [
+                    {
+                        "name": "StdZ",
+                        "unit": "Pascals",
+                        "extent": [0.0, 25500.0],
+                        "values": [[18000.0, 0.0], [25500.0, 0.0]],
+                        "hasRanges": True,
+                        "hasRegularIntervals": False,
+                        "dimensionSize": 2,
+                    },
+                ],
+            },
+        ],
+    }
+
+    (wind_speed,) = parse_multidimensional_info(payload)
+    std_z = wind_speed.dimensions[0]
+
+    assert std_z.has_ranges is True
+    assert std_z.values == ((18000.0, 0.0), (25500.0, 0.0))
+    assert std_z.dimension_size == 2
+
+
+def test_scalar_values_dimension_reports_no_ranges() -> None:
+    # honua-server's real output: flat scalar values, no "hasRanges" key at
+    # all -- has_ranges defaults to False and scalars stay scalars.
+    water_temp = parse_multidimensional_info(_ENVELOPE)[0]
+    std_time = water_temp.dimensions[0]
+
+    assert std_time.has_ranges is False
+    assert std_time.values is not None
+    assert all(isinstance(v, float) for v in std_time.values)
+
+
 def test_parse_multidimensional_info_empty_document() -> None:
     assert parse_multidimensional_info({"multidimensionalInfo": {"variables": []}}) == ()
     assert parse_multidimensional_info({"variables": []}) == ()

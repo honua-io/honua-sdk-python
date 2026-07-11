@@ -182,6 +182,18 @@ def xarray_to_geotiff(data_array: xarray.DataArray) -> bytes:
 # ---------------------------------------------------------------------------
 # Multidimensional coverage metadata (pure -- no optional deps required).
 # ---------------------------------------------------------------------------
+def _coerce_dimension_value(value: Any) -> float | tuple[float, ...]:
+    """Coerce one ``values[]`` entry: a scalar coordinate or a ranged pair.
+
+    The Esri contract allows ``hasRanges: true`` axes whose entries are
+    ``[lower, upper]`` arrays; those are preserved as tuples rather than
+    scalar-coerced (which would raise ``TypeError``).
+    """
+    if isinstance(value, (list, tuple)):
+        return tuple(float(bound) for bound in value)
+    return float(value)
+
+
 @dataclass(frozen=True)
 class MultidimensionalDimension:
     """One dimensional axis (e.g. ``StdTime``, ``StdZ``) of a coverage variable.
@@ -200,14 +212,28 @@ class MultidimensionalDimension:
        more than 10,000 steps therefore reports ``has_regular_intervals=False``
        -- the field conflates "values were enumerable" with "the spacing is
        regular"; don't read a ``False`` here as proof the axis is irregular.
+
+    .. note::
+
+       The Esri ``multidimensionalInfo`` contract also defines
+       ``hasRanges: true`` axes whose ``values`` entries are ``[lower, upper]``
+       pairs rather than scalars (e.g. ``"values": [[18000, 0], [25500, 0]]``
+       for a pressure/depth axis). honua-server's own builder never emits
+       ranged values today (``ImageServerMultidimensionalDimension.Values`` is
+       a flat ``double[]`` and carries no ``hasRanges`` property), but this
+       parser accepts them for contract compatibility: a pair entry is
+       preserved as a ``(lower, upper)`` tuple in :attr:`values`, and
+       :attr:`has_ranges` reflects the wire ``hasRanges`` flag (``False`` when
+       absent, as it always is from honua-server today).
     """
 
     name: str
     unit: str | None
     extent: tuple[float, float] | None
-    values: tuple[float, ...] | None
+    values: tuple[float | tuple[float, ...], ...] | None
     has_regular_intervals: bool
     dimension_size: int
+    has_ranges: bool = False
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "MultidimensionalDimension":
@@ -223,8 +249,10 @@ class MultidimensionalDimension:
                 extent = (float(lo), float(hi))
 
         values_raw = payload.get("values")
-        values: tuple[float, ...] | None = (
-            tuple(float(v) for v in values_raw) if isinstance(values_raw, (list, tuple)) else None
+        values: tuple[float | tuple[float, ...], ...] | None = (
+            tuple(_coerce_dimension_value(v) for v in values_raw)
+            if isinstance(values_raw, (list, tuple))
+            else None
         )
 
         return cls(
@@ -234,6 +262,7 @@ class MultidimensionalDimension:
             values=values,
             has_regular_intervals=bool(payload.get("hasRegularIntervals", False)),
             dimension_size=int(payload.get("dimensionSize") or 0),
+            has_ranges=bool(payload.get("hasRanges", False)),
         )
 
 

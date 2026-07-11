@@ -509,6 +509,25 @@ def test_consume_result_undeclared_kind_falls_back_to_json() -> None:
         assert client.geoprocessing().consume_result(results) == {"answer": 42}
 
 
+def test_consume_result_undeclared_kind_nested_value_wrapper_sniffed() -> None:
+    # Regression test (codex review, PR #173): a plain OGC results document in
+    # the normal outputs-map shape -- {"out": {"value": {...}}} -- with no
+    # Honua ArtifactKind ``kind`` tag anywhere. _primary_output_member() finds
+    # nothing (no "kind"), so the JSON sniff must still descend into the
+    # nested per-output "out" member's "value" instead of only checking the
+    # root results map -- otherwise a Table/Scalar output with no ArtifactKind
+    # metadata raises HonuaError instead of being sniffed successfully.
+    results = {"out": {"value": {"mean": 5.0}}}
+    with _client() as client:
+        assert client.geoprocessing().consume_result(results) == {"mean": 5.0}
+
+
+def test_result_json_value_sniffs_nested_value_wrapper_without_kind() -> None:
+    results = {"out": {"value": {"mean": 5.0}}}
+    with _client() as client:
+        assert client.geoprocessing()._result_json_value(results) == {"mean": 5.0}
+
+
 def _fetch_client(payload: bytes, expected_path: str) -> HonuaClient:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == expected_path
@@ -662,6 +681,29 @@ async def test_async_consume_result_undeclared_kind_falls_back_to_json() -> None
 
     async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
         assert await client.geoprocessing().consume_result(results) == {"answer": 42}
+
+
+@pytest.mark.anyio
+async def test_async_consume_result_undeclared_kind_nested_value_wrapper_sniffed() -> None:
+    # Regression test (codex review, PR #173) -- async twin.
+    results = {"out": {"value": {"mean": 5.0}}}
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        assert await client.geoprocessing().consume_result(results) == {"mean": 5.0}
+
+
+@pytest.mark.anyio
+async def test_async_result_json_value_sniffs_nested_value_wrapper_without_kind() -> None:
+    results = {"out": {"value": {"mean": 5.0}}}
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        assert await client.geoprocessing()._result_json_value(results) == {"mean": 5.0}
 
 
 @pytest.mark.anyio

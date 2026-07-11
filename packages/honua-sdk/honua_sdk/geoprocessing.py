@@ -491,6 +491,27 @@ def _primary_output_member(results: Mapping[str, Any]) -> Mapping[str, Any] | No
     return members[0] if members else None
 
 
+def _sniff_output_member(results: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Best-effort member lookup for outputs that carry no Honua ``kind`` tag.
+
+    :func:`_primary_output_member` requires a declared ``kind`` (Honua's
+    ``ArtifactKind`` metadata) and is the authoritative selector when present.
+    Some Table/Scalar outputs carry no ``kind`` at all -- just a plain OGC
+    ``value``/``href`` in the normal outputs-map shape, e.g.
+    ``{"out": {"value": {...}}}`` -- and still need to be found. This mirrors
+    the same kind-agnostic document-shape tolerance
+    :func:`_feature_collection_from_results` / ``find_raster_output`` already
+    apply: the whole document (a bare member) or the first nested member
+    carrying ``value``/``href`` is used, without requiring ``kind``.
+    """
+    if "value" in results or "href" in results:
+        return results
+    for member in results.values():
+        if isinstance(member, Mapping) and ("value" in member or "href" in member):
+            return member
+    return None
+
+
 def results_kind(results: Mapping[str, Any]) -> str | None:
     """Return the ``kind`` of a results document's primary output, if declared.
 
@@ -968,7 +989,7 @@ class HonuaGeoprocessing:
 
     def _result_json_value(self, results: Mapping[str, Any]) -> Any:
         """Parse a ``Table``/``Scalar`` output's JSON value from a results document."""
-        member = _primary_output_member(results) or results
+        member = _primary_output_member(results) or _sniff_output_member(results) or results
         data = _output_json_bytes(member)
         if data is None:
             href = member.get("href")
@@ -1399,7 +1420,7 @@ class AsyncHonuaGeoprocessing:
 
     async def _result_json_value(self, results: Mapping[str, Any]) -> Any:
         """Parse a ``Table``/``Scalar`` output's JSON value from a results document."""
-        member = _primary_output_member(results) or results
+        member = _primary_output_member(results) or _sniff_output_member(results) or results
         data = _output_json_bytes(member)
         if data is None:
             href = member.get("href")

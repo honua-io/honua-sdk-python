@@ -20,10 +20,15 @@ concrete REST call and assert against the live server. A fixture maps 1:1 to a
 pinned nightly drifts from that contract, the lane goes red.
 
 The honua-server#1238 class of regression (FeatureServer/OGC query of a
-JSONB-attribute layer failing with ``column ... does not exist``) is caught
-because the seeded ``test_service`` layer stores every attribute in a JSONB
-column and the feature-query case projects the JSON-typed ``tags``/``numbers``
-fields out of it.
+JSONB-attribute layer failing with ``column ... does not exist``, closed
+2026-05-31 and re-verified live 2026-07-10) is caught because the seeded
+``test_service`` layer stores every attribute in a JSONB column and a
+dedicated ``*_jsonb_projection`` case projects the JSON-typed
+``tags``/``numbers`` fields out of it — kept structurally separate from the
+core ``feature_query_envelope`` / ``ogc_features_items`` read-contract cases
+(features array, ``exceededTransferLimit``, FeatureCollection shape, etc.) so
+a regression in one is never silently absorbed by an xfail meant for the
+other.
 
 Known, already-tracked nightly gaps are reported as ``known_gap`` cases (the
 pytest layer turns these into ``xfail`` with explicit issue references) so the
@@ -221,11 +226,35 @@ def load_target_from_env() -> ConformanceTarget:
 #: Tracked nightly server gaps. A case bound to one of these is reported as a
 #: known gap (xfail at the pytest layer) until the server fix lands, at which
 #: point the case flips to required. Keep references explicit — never silent.
+#:
+#: honua-server#1238 (JSONB-attribute projection) and honua-server#1237
+#: (analysis process list/estimate) were closed 2026-05-31 and re-verified
+#: live against a seeded honua-server:nightly-20260530 target on 2026-07-10:
+#: both now genuinely pass, so no case references them any more (removed
+#: rather than left dangling).
 KNOWN_SERVER_GAPS: dict[str, str] = {
-    "honua-server#1238": "FeatureServer/OGC query of JSONB-attribute layer (column projection)",
-    "honua-server#1166": "Temporal query support",
-    "honua-server#1167": "Replica / offline sync endpoints",
-    "honua-server#1237": "Analysis (process) list/estimate endpoints",
+    "honua-server#2643": (
+        "client-compat-v1.sql seed does not set timeInfo for test_service "
+        "layer 0, so FeatureServer time= queries 400 as non-time-aware "
+        "(by-design per honua-server#1444) instead of filtering. NOTE: the "
+        "temporal_query case previously carried honua-server#1166, which was "
+        "re-verified 2026-07-10 to be an unrelated, already-closed as-of/"
+        "diff/rollback history API with no bearing on the time= query filter; "
+        "honua-server#2643 is the correct, newly-filed reference for the "
+        "actual seed gap this case hits."
+    ),
+    "honua-server#2645": (
+        "client-compat-v1.sql seed hardcodes an empty Metadata-V2 'options' "
+        "object for test_service, so the already-implemented Sync capability "
+        "advertisement (BuildServiceCapabilitiesV2/ServiceSupportsSyncV2) can "
+        "never surface a 'Sync' token / syncEnabled field for the seeded "
+        "layer. NOTE: the replica_sync_surface case previously carried "
+        "honua-server#1167, which was re-verified 2026-07-10 to be an "
+        "unrelated, already-closed admin conflict-review/named-replica API "
+        "with no bearing on FeatureServer capability advertisement; "
+        "honua-server#2645 is the correct, newly-filed reference for the "
+        "actual seed gap this case hits."
+    ),
 }
 
 
@@ -326,12 +355,12 @@ def _run_feature_query(
     Realizes ``feature_query_request.json`` against the live FeatureServer and
     asserts the response envelope matches the contract the fixture/golden
     encode: a ``features`` array; each feature with an ``attributes`` map and
-    (when requested) ``geometry``; field projection honored; and the canonical
-    ``exceededTransferLimit`` flag present.
-
-    Projecting ``out_fields=["*"]`` over the seeded JSONB-attribute layer is the
-    honua-server#1238 path: a regression there makes the live query fail and
-    this case go red.
+    (when requested) ``geometry``; and the canonical ``exceededTransferLimit``
+    flag present. This is the core read contract and is unconditionally
+    required — it does not carry a ``known_gap_issue``, so it can never go
+    silently advisory. The JSONB-typed-attribute-projection behavior is a
+    narrower, separately tracked concern; see
+    :func:`_run_feature_query_jsonb_projection`.
     """
     golden = bundle.response("feature_query")
     response = client.query_features(
@@ -356,17 +385,6 @@ def _run_feature_query(
     _require(len(attributes) > 0, "feature has no attributes")
     _require("geometry" in sample, "return_geometry=true but feature has no geometry")
 
-    # honua-server#1238: JSON/JSONB-typed attribute projection. The seeded
-    # layer's 'tags'/'numbers' columns live inside a JSONB attributes column;
-    # a projection bug surfaces as a 500 above or as missing fields here.
-    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
-    jsonb_fields = {"tags", "numbers"}
-    missing_jsonb = sorted(jsonb_fields - observed)
-    _require(
-        not missing_jsonb,
-        f"JSONB-typed attributes not projected (honua-server#1238): missing {missing_jsonb}",
-    )
-
     # Cross-check the contract envelope keys the golden advertises that have a
     # GeoServices analogue.
     golden_keys = set(golden)
@@ -378,10 +396,46 @@ def _run_feature_query(
 
     return {
         "feature_count": len(features),
-        "observed_fields": sorted(observed),
-        "jsonb_fields_projected": sorted(jsonb_fields),
         "golden_envelope_keys": sorted(golden_keys),
         "exceeded_transfer_limit": response.get("exceededTransferLimit"),
+    }
+
+
+def _run_feature_query_jsonb_projection(
+    client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
+) -> dict[str, Any]:
+    """JSON/JSONB-typed attribute projection over GeoServices FeatureServer.
+
+    Split out from :func:`_run_feature_query` so a regression here (or in the
+    core read contract) is attributable to the right failure mode instead of
+    both being hidden behind one ``known_gap`` xfail. Projecting
+    ``out_fields=["*"]`` over the seeded JSONB-attribute layer is the
+    honua-server#1238 path: a regression there makes the live query fail
+    outright or silently drop the 'tags'/'numbers' fields.
+    """
+    response = client.query_features(
+        target.service_id,
+        target.layer_id,
+        where="1=1",
+        out_fields=["*"],
+        return_geometry=True,
+        extra_params={"resultRecordCount": 5},
+    )
+    _require(isinstance(response, Mapping), "query response is not a JSON object")
+    features = _as_list(response.get("features"), "response is missing a 'features' array")
+    _require(len(features) > 0, "seeded layer returned no features")
+
+    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
+    jsonb_fields = {"tags", "numbers"}
+    missing_jsonb = sorted(jsonb_fields - observed)
+    _require(
+        not missing_jsonb,
+        f"JSONB-typed attributes not projected (honua-server#1238): missing {missing_jsonb}",
+    )
+    return {
+        "feature_count": len(features),
+        "observed_fields": sorted(observed),
+        "jsonb_fields_projected": sorted(jsonb_fields),
     }
 
 
@@ -467,26 +521,89 @@ def _run_catalog_lists_service(
     return {"service_count": len(services), "matched": target.service_id}
 
 
-def _run_ogc_features_items(
-    client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
-) -> dict[str, Any]:
-    """Same query contract over the OGC API Features surface (httpx client).
+def _configured_ogc_collection_candidates(target: ConformanceTarget) -> list[str]:
+    """OGC collection ids honua-server may expose for the configured target.
 
-    Cross-protocol confirmation that the JSONB-attribute layer projects through
-    the OGC items path too (honua-server#1238 also manifests here). Resolves the
-    collection from the live collections list to stay seed-agnostic.
+    honua-server derives an OGC API Features collection id from the layer
+    publication's ``serviceLocalId`` (see honua-server
+    ``CollectionsEndpoints.CreateCollectionAsync``:
+    ``collectionId = publication.ServiceLocalId ?? publication.Path
+    ?? resource.Metadata.Name``). For the seeded ``test_service`` layer 0 the
+    ``ogc-collection`` publication's ``serviceLocalId`` is the layer index as
+    text (``"0"``). Other deployments/naming schemes may instead expose the
+    collection under the service id or a service-qualified composite, so accept
+    the known equivalent forms. Service-qualified candidates are tried first so
+    they win over the bare layer-index form when a server uses them; the bare
+    ``str(layer_id)`` is the seeded default and is matched last.
+    """
+    sid = target.service_id
+    lid = target.layer_id
+    return [
+        f"{sid}_{lid}",
+        f"{sid}.{lid}",
+        f"{sid}/{lid}",
+        f"{sid}:{lid}",
+        f"{sid}-{lid}",
+        sid,
+        str(lid),
+    ]
+
+
+def _resolve_ogc_collection_id(client: HonuaClient, target: ConformanceTarget) -> str:
+    """Resolve the OGC API Features collection for the configured target.
+
+    Selects the advertised collection that corresponds to the
+    ``HONUA_SERVICE_ID``/``HONUA_LAYER_ID`` conformance target rather than
+    whichever collection the server happens to list first. On a live target
+    advertising multiple collections, taking the first would let the required
+    OGC cases pass or fail against an unrelated collection and stop validating
+    the seeded ``test_service``/layer 0. If no advertised collection matches the
+    configured target we fail with a clear error instead of silently falling
+    back to the first.
     """
     ogc = client.ogc_features()
     collections = ogc.collections()
     items_list = _as_list(collections.get("collections"), "OGC collections[] empty")
     _require(len(items_list) > 0, "OGC collections[] empty")
-    collection_id = None
+
+    advertised: list[str] = []
+    by_id: dict[str, str] = {}
     for col in items_list:
         if isinstance(col, Mapping) and col.get("id"):
-            collection_id = str(col["id"])
-            break
-    _require(collection_id is not None, "no OGC collection id available")
-    assert collection_id is not None
+            cid = str(col["id"])
+            advertised.append(cid)
+            # First writer wins so the earliest-listed id is the one returned on
+            # a (server-side) duplicate; case-insensitive to tolerate casing.
+            by_id.setdefault(cid.casefold(), cid)
+    _require(len(advertised) > 0, "no OGC collection id available")
+
+    for candidate in _configured_ogc_collection_candidates(target):
+        matched = by_id.get(candidate.casefold())
+        if matched is not None:
+            return matched
+
+    raise AssertionError(
+        "no advertised OGC collection matches the configured conformance target "
+        f"(service_id={target.service_id!r}, layer_id={target.layer_id!r}); "
+        f"tried {_configured_ogc_collection_candidates(target)!r} against "
+        f"advertised {sorted(advertised)!r}. Refusing to fall back to the first "
+        "collection so the required OGC cases keep validating the seeded target."
+    )
+
+
+def _run_ogc_features_items(
+    client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
+) -> dict[str, Any]:
+    """Same query contract over the OGC API Features surface (httpx client).
+
+    Core read contract: a FeatureCollection with non-empty items and
+    non-empty per-feature properties. Unconditionally required — it does not
+    carry a ``known_gap_issue``. The JSONB-typed-attribute-projection
+    behavior is a narrower, separately tracked concern; see
+    :func:`_run_ogc_features_items_jsonb_projection`.
+    """
+    collection_id = _resolve_ogc_collection_id(client, target)
+    ogc = client.ogc_features()
 
     items = ogc.items(collection_id, limit=5)
     _require(isinstance(items, Mapping), "OGC items response is not an object")
@@ -502,10 +619,44 @@ def _run_ogc_features_items(
     }
 
 
+def _run_ogc_features_items_jsonb_projection(
+    client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
+) -> dict[str, Any]:
+    """JSON/JSONB-typed attribute projection over the OGC API Features surface.
+
+    Cross-protocol confirmation that the JSONB-attribute layer projects
+    through the OGC items path too (honua-server#1238 also manifests here).
+    Split out from :func:`_run_ogc_features_items` so a regression here is
+    attributable to the right failure mode instead of hiding the core OGC
+    read contract behind the same xfail.
+    """
+    collection_id = _resolve_ogc_collection_id(client, target)
+    ogc = client.ogc_features()
+
+    items = ogc.items(collection_id, limit=5)
+    _require(isinstance(items, Mapping), "OGC items response is not an object")
+    features = _as_list(items.get("features"), "OGC items missing features[]")
+    _require(len(features) > 0, "OGC collection returned no items")
+
+    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
+    jsonb_fields = {"tags", "numbers"}
+    missing_jsonb = sorted(jsonb_fields - observed)
+    _require(
+        not missing_jsonb,
+        f"JSONB-typed attributes not projected via OGC items (honua-server#1238): "
+        f"missing {missing_jsonb}",
+    )
+    return {
+        "collection_id": collection_id,
+        "feature_count": len(features),
+        "jsonb_fields_projected": sorted(jsonb_fields),
+    }
+
+
 def _run_temporal_query(
     client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
 ) -> dict[str, Any]:
-    """Temporal-filtered feature query contract (honua-server#1166).
+    """Temporal-filtered feature query contract (honua-server#2643).
 
     The seeded layer carries temporal attributes (``created_at``/``event_date``).
     A FeatureServer ``time``-bounded query must actually *constrain* results by
@@ -513,8 +664,18 @@ def _run_temporal_query(
     therefore compare three queries: unfiltered, an in-range window, and a
     disjoint (pre-seed) window. A server that ignores ``time`` returns the same
     set for the disjoint window as for the unfiltered query, which fails the
-    probe instead of producing a false green PASS. Until the tracked temporal
-    support lands, this case is a known gap.
+    probe instead of producing a false green PASS.
+
+    Re-verified 2026-07-10: this previously carried honua-server#1166, but that
+    issue is closed and delivers an unrelated as-of/diff/rollback temporal
+    *history* API — it has no bearing on the classic FeatureServer ``time=``
+    query filter. Live re-run against a seeded honua-server:nightly-20260530
+    target shows the *actual* blocker is that ``tests/seed/client-compat-v1.sql``
+    never sets ``timeInfo`` on ``test_service`` layer 0, so the layer is not
+    time-aware and any non-empty ``time=`` value 400s by design (see
+    honua-server#1444, closed "by design"). honua-server#2643 tracks that seed
+    gap; until it lands, this case stays a known gap under the corrected
+    reference.
     """
     path = f"/rest/services/{target.service_id}/FeatureServer/{target.layer_id}/query"
 
@@ -556,11 +717,24 @@ def _run_temporal_query(
 def _run_replica_surface(
     client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
 ) -> dict[str, Any]:
-    """Replica / offline-sync surface contract (honua-server#1167).
+    """Replica / offline-sync surface contract (honua-server#2645).
 
     FeatureServer advertises its sync capability through a ``createReplica``
     operation. Probe the service metadata for the replica capability; absence is
     the tracked gap.
+
+    Re-verified 2026-07-10: this previously carried honua-server#1167, but
+    that issue is closed and delivers an unrelated admin conflict-review /
+    named-replica-listing API — it has no bearing on the FeatureServer
+    ``capabilities``/``syncEnabled`` advertisement checked here. Live re-run
+    against a seeded honua-server:nightly-20260530 target shows the *actual*
+    blocker is that ``tests/seed/client-compat-v1.sql``'s synthetic
+    Metadata-V2 snapshot hardcodes an empty ``options`` object for
+    ``test_service``, so the already-implemented Sync-capability advertisement
+    (``BuildServiceCapabilitiesV2``/``ServiceSupportsSyncV2``, gated on
+    ``Options["capabilities"]``) can never surface a ``"Sync"`` token for this
+    seeded layer. honua-server#2645 tracks that seed gap; until it lands, this
+    case stays a known gap under the corrected reference.
     """
     metadata = client.feature_server(target.service_id).metadata()
     _require(isinstance(metadata, Mapping), "feature server metadata is not an object")
@@ -585,11 +759,13 @@ def _run_replica_surface(
 def _run_analysis_process_surface(
     client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle
 ) -> dict[str, Any]:
-    """Analysis (process) list/estimate surface contract (honua-server#1237).
+    """Analysis (process) list/estimate surface contract.
 
     Realizes the ``ExecutePlan``/process fixture family's read-side: the OGC
-    Processes list must advertise an analysis process catalog. Until the tracked
-    analysis list/estimate support lands, this case is a known gap.
+    Processes list must advertise an analysis process catalog. Previously
+    tracked as honua-server#1237 (closed 2026-05-31); re-verified passing live
+    2026-07-10 against a seeded honua-server:nightly-20260530 target, so this
+    is now an unconditionally required assertion.
     """
     bundle.request("process_execute_plan")  # assert the fixture is present/loadable
     processes = client.ogc_processes().processes()
@@ -605,9 +781,16 @@ def build_cases() -> list[ConformanceCase]:
     Cases bound to a tracked nightly gap carry ``known_gap_issue`` so the pytest
     layer can xfail them with an explicit reference while any *new* drift in a
     required case still fails the lane.
+
+    The core read-contract cases for ``feature_query`` and
+    ``ogc_features_items`` are unconditionally required (no ``known_gap_issue``)
+    and are kept structurally separate from their narrower
+    JSONB-attribute-projection variants, so a regression in one is never
+    silently absorbed by an xfail meant for the other.
     """
     fs_query_path = "/rest/services/{service}/FeatureServer/{layer}/query"
     fs_meta_path = "/rest/services/{service}/FeatureServer/{layer}"
+    ogc_items_path = "/ogc/features/v1/collections/{collection}/items"
     return [
         ConformanceCase(
             name="feature_query_envelope",
@@ -615,8 +798,13 @@ def build_cases() -> list[ConformanceCase]:
             sdk_method="HonuaClient.query_features",
             request_path=fs_query_path,
             runner=_run_feature_query,
-            # honua-server#1238: JSONB-attribute projection on the seeded layer.
-            known_gap_issue="honua-server#1238",
+        ),
+        ConformanceCase(
+            name="feature_query_jsonb_projection",
+            fixture="feature_query",
+            sdk_method="HonuaClient.query_features",
+            request_path=fs_query_path,
+            runner=_run_feature_query_jsonb_projection,
         ),
         ConformanceCase(
             name="feature_query_field_metadata",
@@ -640,13 +828,18 @@ def build_cases() -> list[ConformanceCase]:
             runner=_run_catalog_lists_service,
         ),
         ConformanceCase(
-            name="ogc_features_items_projection",
+            name="ogc_features_items",
             fixture="feature_query",
             sdk_method="HonuaClient.ogc_features().items",
-            request_path="/ogc/features/v1/collections/{collection}/items",
+            request_path=ogc_items_path,
             runner=_run_ogc_features_items,
-            # honua-server#1238 also manifests on the OGC items projection path.
-            known_gap_issue="honua-server#1238",
+        ),
+        ConformanceCase(
+            name="ogc_features_items_jsonb_projection",
+            fixture="feature_query",
+            sdk_method="HonuaClient.ogc_features().items",
+            request_path=ogc_items_path,
+            runner=_run_ogc_features_items_jsonb_projection,
         ),
         ConformanceCase(
             name="temporal_query",
@@ -654,7 +847,7 @@ def build_cases() -> list[ConformanceCase]:
             sdk_method="HonuaClient.query_features(time=...)",
             request_path=fs_query_path,
             runner=_run_temporal_query,
-            known_gap_issue="honua-server#1166",
+            known_gap_issue="honua-server#2643",
         ),
         ConformanceCase(
             name="replica_sync_surface",
@@ -662,7 +855,7 @@ def build_cases() -> list[ConformanceCase]:
             sdk_method="HonuaClient.feature_server(...).metadata",
             request_path=fs_meta_path,
             runner=_run_replica_surface,
-            known_gap_issue="honua-server#1167",
+            known_gap_issue="honua-server#2645",
         ),
         ConformanceCase(
             name="analysis_process_list",
@@ -670,7 +863,6 @@ def build_cases() -> list[ConformanceCase]:
             sdk_method="HonuaClient.ogc_processes().processes",
             request_path="/ogc/processes/v1/processes",
             runner=_run_analysis_process_surface,
-            known_gap_issue="honua-server#1237",
         ),
     ]
 

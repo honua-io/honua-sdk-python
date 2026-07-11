@@ -359,6 +359,26 @@ def Project(*args: Any, **kwargs: Any) -> Result:
 
 
 # ---------------------------------------------------------------------------
+# Raster tools that live in the arcpy *management* toolbox in real arcpy
+# ---------------------------------------------------------------------------
+# ``ProjectRaster`` / ``Resample`` / ``Clip`` (raster) / ``Mosaic`` are Data
+# Management tools in real arcpy (``arcpy.management.ProjectRaster`` etc.), but
+# their honua-server targets are raster/surface processes, so the
+# implementation + COMPAT manifest rows live under ``honua_gp.sa`` (single
+# source of truth). These thin re-exports make ``arcpy.management.ProjectRaster``
+# resolve for drop-in scripts, mirroring the ``CopyFeatures = Copy`` alias
+# pattern. ``honua-gp assess`` canonicalizes the scanned ``management.*`` names
+# onto the ``sa.*`` manifest rows via ``_cli._ALIAS_TO_CANONICAL``.
+from ..sa import Clip as Clip  # noqa: E402 -- alias re-export after the management defs.
+from ..sa import Mosaic as Mosaic  # noqa: E402
+from ..sa import ProjectRaster as ProjectRaster  # noqa: E402
+from ..sa import Resample as Resample  # noqa: E402
+
+# arcpy also exposes the new-raster variant name; both map to raster.mosaic.
+MosaicToNewRaster = Mosaic
+
+
+# ---------------------------------------------------------------------------
 # Schema-shaped value objects (kept for typed return shapes)
 # ---------------------------------------------------------------------------
 
@@ -446,6 +466,7 @@ __all__ = [
     "AddField",
     "Append",
     "CalculateField",
+    "Clip",
     "Copy",
     "CopyFeatures",
     "CreateFeatureclass",
@@ -461,8 +482,12 @@ __all__ = [
     "MakeFeatureLayer",
     "MakeTableView",
     "Merge",
+    "Mosaic",
+    "MosaicToNewRaster",
     "Project",
+    "ProjectRaster",
     "Rename",
+    "Resample",
     "Result",
     "SelectLayerByAttribute",
     "SelectLayerByLocation",

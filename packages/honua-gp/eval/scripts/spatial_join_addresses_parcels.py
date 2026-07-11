@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
 print(f"spatial_join_addresses_parcels ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('spatial_join_addresses_parcels', feature_layer_fingerprint(result))

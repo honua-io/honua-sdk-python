@@ -1,5 +1,11 @@
 {
-  "audit_lines": 3,
   "expected_failure": false,
-  "stdout_contains": "get_count_after_select ok"
+  "plumbing": {
+    "audit_lines": 3,
+    "stdout_contains": "get_count_after_select ok"
+  },
+  "response": {
+    "count": 0
+  },
+  "schema_version": 2
 }

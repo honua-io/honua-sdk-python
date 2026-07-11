@@ -1,5 +1,27 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "buffer_roads ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "buffer_roads ok"
+  },
+  "request": [
+    {
+      "function": "analysis.Buffer",
+      "inputs": {
+        "dissolve": true,
+        "distance": 25.0,
+        "layerId": 0,
+        "unit": "meters"
+      },
+      "process_id": "analytics.buffer-aggregate"
+    }
+  ],
+  "response": {
+    "feature_count": 1,
+    "geometry_type": "Polygon",
+    "output_keys": [
+      "outputFeatureLayer"
+    ]
+  },
+  "schema_version": 2
 }

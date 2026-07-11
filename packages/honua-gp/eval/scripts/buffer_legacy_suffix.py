@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
 print(f"buffer_legacy_suffix ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('buffer_legacy_suffix', feature_layer_fingerprint(result))

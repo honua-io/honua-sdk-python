@@ -131,11 +131,23 @@ jobs:
   # round-trips (dispatch -> real HTTP -> response parse) against honua-server,
   # which the canned-response stub cannot check.
   #
-  # The response oracles in eval/golden/*.json are pinned to the honua-server
+  # The response oracles in eval/golden/*.json are pinned to a FRESH
   # client-compat seed (test_service/layer 0 + the in-repo spatial-join second
-  # layer). If the pinned server image or the seed changes the computed output,
-  # re-bless with ``HONUA_GP_EVAL_USE_STUB=0 HONUA_BASE_URL=... run_eval.py
-  # --update-golden`` and review the diff (see docs/golden-eval.md).
+  # layer) -- several eval scripts mutate the seeded layer (InsertCursor /
+  # UpdateCursor -> applyEdits) and those edits persist, so the oracles are
+  # only deterministic against a database that has not been touched by a prior
+  # run. This job therefore targets a DEDICATED ``vars.HONUA_GP_EVAL_BASE_URL``
+  # variable, not the generic ``vars.HONUA_BASE_URL`` other lanes (e.g.
+  # conformance) point at a persistent shared staging server -- reusing that
+  # generic var here previously ran this job's value diff against a drifted,
+  # non-fresh database and produced spurious response-mismatch failures with
+  # no real regression (see PR discussion). Leaving the dedicated var unset
+  # (the default posture) spins up a fresh, ephemeral, per-run Docker target so
+  # the response oracles reproduce. Set ``vars.HONUA_GP_EVAL_BASE_URL``
+  # explicitly ONLY if you intentionally want this lane to smoke-test against a
+  # persistent target instead of the fresh seed -- expect the seed-pinned
+  # response oracles to drift/flake against a non-fresh database in that case
+  # (see docs/golden-eval.md).
   #
   # This is NOT ArcGIS Pro parity: a licensed arcpy baseline does not exist in
   # this environment, so arcpy-level output equivalence stays out of scope and
@@ -149,7 +161,9 @@ jobs:
       packages: read
     environment: staging
     env:
-      HONUA_BASE_URL: ${{ vars.HONUA_BASE_URL }}
+      # Dedicated var -- see the job-level comment above for why this must NOT
+      # read the generic ``vars.HONUA_BASE_URL``.
+      HONUA_BASE_URL: ${{ vars.HONUA_GP_EVAL_BASE_URL }}
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
       # NOTE (issue #157): the layer-aware vector ops (Buffer / SpatialJoin /
       # Dissolve / Project -> analytics.buffer-aggregate / analytics.spatial-join
@@ -187,12 +201,17 @@ jobs:
           if [[ -n "${HONUA_BASE_URL}" ]]; then
             echo "configured=true" >> "${GITHUB_OUTPUT}"
             echo "local_stack=false" >> "${GITHUB_OUTPUT}"
+            {
+              echo "## honua-gp smoke"
+              echo '- ``vars.HONUA_GP_EVAL_BASE_URL`` is configured; smoke-testing against that persistent target instead of a fresh local seed.'
+              echo '- WARNING: the response-value oracles in eval/golden/*.json are pinned to a fresh client-compat seed and MAY drift/flake against a non-fresh database.'
+            } >> "${GITHUB_STEP_SUMMARY}"
           else
             echo "configured=true" >> "${GITHUB_OUTPUT}"
             echo "local_stack=true" >> "${GITHUB_OUTPUT}"
             {
               echo "## honua-gp smoke"
-              echo '- ``HONUA_BASE_URL`` not configured; reusing the seeded client-compat Docker target.'
+              echo '- ``vars.HONUA_GP_EVAL_BASE_URL`` not configured; standing up a fresh, ephemeral, seeded client-compat Docker target so the response-value oracles are deterministic.'
             } >> "${GITHUB_STEP_SUMMARY}"
           fi
 

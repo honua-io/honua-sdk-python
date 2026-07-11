@@ -91,10 +91,21 @@ The response oracles for count/row scripts record exact values pinned to the
 client-compat seed. Several eval scripts mutate the seeded layer
 (`da.InsertCursor` / `da.UpdateCursor` -> FeatureServer `applyEdits`), and
 those edits persist, so **each live run must start from a fresh seed** for the
-counts to reproduce. The CI `ephemeral-server-smoke` job stands up a fresh
-Docker compose (fresh Postgres) per run, so counts are deterministic there.
-Running live mode twice against the same persistent database will drift the
-count/row oracles -- reset the seed (or re-bless) between runs.
+counts to reproduce. Running live mode twice against the same persistent
+database will drift the count/row oracles -- reset the seed (or re-bless)
+between runs.
+
+**By default, the CI `ephemeral-server-smoke` job stands up a fresh Docker
+compose (fresh Postgres) per run**, so counts are deterministic there. This
+job intentionally targets a *dedicated* `vars.HONUA_GP_EVAL_BASE_URL` variable
+rather than the generic `vars.HONUA_BASE_URL` that other lanes (e.g.
+conformance) point at a persistent shared staging server -- pointing this job
+at that shared server ran the response-value diff against a drifted, non-fresh
+database and produced spurious mismatches with no real regression (the exact
+failure mode this note warns about). Only set `vars.HONUA_GP_EVAL_BASE_URL`
+explicitly if you intentionally want this lane to smoke-test against a
+persistent target instead of a fresh seed; if you do, expect the seed-pinned
+response oracles to drift/flake over repeated runs.
 
 ## Standing up a live target locally
 

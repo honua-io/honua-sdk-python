@@ -56,7 +56,7 @@ WORKING_TOOLS = {
 
 # A script exercising each working tool once, using real Esri namespacing
 # (arcpy.sa.* for Spatial Analyst, arcpy.management.* for the raster Data
-# Management tools).
+# Management tools) and each tool's real positional signature.
 RASTER_SCRIPT = """
 import arcpy
 
@@ -64,14 +64,14 @@ arcpy.sa.Slope("dem", "DEGREE", 1.0)
 arcpy.sa.Aspect("dem")
 arcpy.sa.Hillshade("dem", 315, 45)
 arcpy.sa.Contour("dem", "contours", 10)
-arcpy.sa.Viewshed("dem", "obs", "vshed")
-arcpy.sa.Roughness("dem", "rough")
-arcpy.sa.TPI("dem", "tpi")
-arcpy.sa.TRI("dem", "tri")
-arcpy.sa.Reclassify("landcover", "VALUE", "1 5;2 10", "reclass")
-arcpy.sa.RasterCalculator("(A-B)/(A+B)", "ndvi")
-arcpy.sa.Idw("stations", "ELEV", "idw_out")
-arcpy.sa.ZonalStatisticsAsTable("zones", "ZONE_ID", "value", "zstats", "MEAN")
+arcpy.sa.Viewshed("dem", "observers")
+arcpy.sa.Roughness("dem")
+arcpy.sa.TPI("dem")
+arcpy.sa.TRI("dem")
+arcpy.sa.Reclassify("landcover", "VALUE", "1 5;2 10", "NODATA")
+arcpy.sa.RasterCalculator(["a.tif", "b.tif"], ["A", "B"], "(A-B)/(A+B)", "ndvi.tif")
+arcpy.sa.Idw("stations", "ELEV", 50)
+arcpy.sa.ZonalStatisticsAsTable("zones", "ZONE_ID", "value", "zstats", "DATA", "MEAN")
 arcpy.management.ProjectRaster("dem", "dem_wgs84", 4326)
 arcpy.management.Resample("dem", "dem_10m", 10)
 arcpy.management.Clip("dem", "0 0 10 10", "dem_clip")
@@ -120,6 +120,112 @@ def test_raster_tools_translate_to_bare_ogc_ids_without_job_ids() -> None:
         assert process_ids[tool] == process_id
         # The raster run path is never claimed as server job-executable.
         assert job_ids[tool] is None
+
+
+def _payload_for(tool: str) -> dict:
+    plan = translate_arcpy_source(RASTER_SCRIPT, filename="raster.py")
+    (translation,) = [t for t in plan.translations if t.call.tool == tool]
+    return translation.payload
+
+
+def test_positional_args_map_to_correct_inputs_and_outputs() -> None:
+    # Every tool's raster/point/observer INPUT value must land in inputs, and
+    # NEVER in outputs. The four tools with a real arcpy output positional
+    # (Contour, ZonalStatisticsAsTable, RasterCalculator, and the management
+    # ProjectRaster/Resample/Clip) put their output dataset in outputs.
+    input_values = {
+        "Slope": "dem",
+        "Aspect": "dem",
+        "Hillshade": "dem",
+        "Contour": "dem",
+        "Viewshed": "dem",
+        "Roughness": "dem",
+        "TPI": "dem",
+        "TRI": "dem",
+        "Reclassify": "landcover",
+        "Idw": "stations",
+        "ZonalStatisticsAsTable": "value",  # in_value_raster -> source
+        "ProjectRaster": "dem",
+        "Resample": "dem",
+        "Clip": "dem",
+    }
+    for tool, raster in input_values.items():
+        payload = _payload_for(tool)
+        assert payload["inputs"].get("source") == raster or raster in payload["inputs"].values(), (
+            f"{tool}: input raster {raster!r} not in inputs"
+        )
+        assert raster not in payload.get("outputs", {}).values(), (
+            f"{tool}: input raster {raster!r} leaked into outputs"
+        )
+
+
+def test_raster_calculator_positionals_are_not_misassigned() -> None:
+    # BUG (P1): RasterCalculator(rasters, input_names, expression, output_raster).
+    # The raster list is the input, the expression is a parameter, and only
+    # output_raster is the output -- earlier the list was slotted as expression
+    # and input_names as the output.
+    payload = _payload_for("RasterCalculator")
+    assert payload["inputs"]["sources"] == ["a.tif", "b.tif"]
+    assert payload["inputs"]["expression"] == "(A-B)/(A+B)"
+    assert payload["inputs"]["inputNames"] == ["A", "B"]
+    assert payload["outputs"]["result"] == "ndvi.tif"
+    # The expression must never be treated as an output, nor the raster list.
+    assert "(A-B)/(A+B)" not in payload.get("outputs", {}).values()
+    assert payload["outputs"].get("result") != ["A", "B"]
+
+
+def test_viewshed_observer_is_an_input_not_an_output() -> None:
+    # BUG (P1): Viewshed(in_raster, in_observer_features, ...). The observer
+    # features are a REQUIRED input, not an output.
+    payload = _payload_for("Viewshed")
+    assert payload["inputs"]["source"] == "dem"
+    assert payload["inputs"]["observerFeatures"] == "observers"
+    assert "observers" not in payload.get("outputs", {}).values()
+
+
+def test_reclassify_missing_values_flag_is_not_an_output() -> None:
+    # BUG (P2): Reclassify(in_raster, reclass_field, remap, {missing_values}).
+    # missing_values is a DATA/NODATA flag, not an output path; Reclassify has
+    # no output positional.
+    payload = _payload_for("Reclassify")
+    assert payload["inputs"]["source"] == "landcover"
+    assert payload["inputs"]["remap"] == "1 5;2 10"
+    assert payload["inputs"]["missingValues"] == "NODATA"
+    assert "outputs" not in payload or "NODATA" not in payload["outputs"].values()
+
+
+def test_idw_cell_size_positional_is_not_an_output() -> None:
+    # Idw(in_point_features, z_field, {cell_size}, {power}, {search_radius}).
+    # cell_size (positional 2) is a parameter, not an output; Idw returns a
+    # raster and has no output positional.
+    payload = _payload_for("Idw")
+    assert payload["inputs"]["points"] == "stations"
+    assert payload["inputs"]["zField"] == "ELEV"
+    assert payload["inputs"]["cellSize"] == 50
+    assert "outputs" not in payload or 50 not in payload["outputs"].values()
+
+
+def test_zonal_statistics_output_and_stat_slots_are_correct() -> None:
+    # ZonalStatisticsAsTable(in_zone_data, zone_field, in_value_raster,
+    # out_table, {ignore_nodata}, {statistics_type}). out_table is the output;
+    # ignore_nodata and statistics_type occupy distinct later slots.
+    payload = _payload_for("ZonalStatisticsAsTable")
+    assert payload["outputs"]["result"] == "zstats"
+    assert payload["inputs"]["ignoreNoData"] == "DATA"
+    assert payload["inputs"]["statistics"] == "MEAN"
+    assert payload["inputs"]["source"] == "value"
+
+
+def test_hillshade_z_factor_slot_accounts_for_model_shadows() -> None:
+    # Hillshade(in_raster, {azimuth}, {altitude}, {model_shadows}, {z_factor}).
+    # A 5-positional call must map z_factor from slot 4, not slot 3.
+    payload = translate_arcpy_source(
+        'import arcpy\narcpy.sa.Hillshade("dem", 315, 45, "NO_SHADOWS", 2.0)\n'
+    ).translations[0].payload
+    assert payload["inputs"]["azimuth"] == 315
+    assert payload["inputs"]["altitude"] == 45
+    assert payload["inputs"]["modelShadows"] == "NO_SHADOWS"
+    assert payload["inputs"]["zFactor"] == 2.0
 
 
 def test_bare_project_raster_call_classifies_as_management() -> None:

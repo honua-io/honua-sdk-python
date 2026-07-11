@@ -34,16 +34,26 @@ _EXCLUDED_PARTS = frozenset({"_generated"})
 # all normalize to "customcode").
 _FORBIDDEN_NAME_FRAGMENTS = ("customcode",)
 
-# Parameter names that would let a caller pick where code runs. A bare "backend"
-# parameter on a submission helper is exactly the knob ADR-0063 says must not
-# exist on the client.
-_FORBIDDEN_PARAM_NAMES = frozenset(
-    {"backend", "customcode", "execution_backend", "compute_backend"}
-)
-
-
 def _normalize(name: str) -> str:
     return name.replace("_", "").replace("-", "").lower()
+
+
+# Parameter names that would let a caller pick where code runs. A bare "backend"
+# parameter on a submission helper is exactly the knob ADR-0063 says must not
+# exist on the client. Stored ALREADY-NORMALIZED (underscores/hyphens stripped,
+# lower-cased) because the comparison below is against ``_normalize(param.arg)``
+# — an un-normalized entry like "execution_backend" would normalize at compare
+# time to "executionbackend" and never match, silently defeating the tripwire.
+_FORBIDDEN_PARAM_NAMES = frozenset(
+    _normalize(name)
+    for name in (
+        "backend",
+        "customcode",
+        "execution_backend",
+        "compute_backend",
+        "local_backend",
+    )
+)
 
 
 def _package_py_files() -> list[Path]:
@@ -58,6 +68,25 @@ def _iter_defs(tree: ast.AST):
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             yield node
+
+
+def _forbidden_param_offenders(tree: ast.AST, label: str) -> list[str]:
+    """Return ``label::func(param)`` for every function param whose normalized name
+    is a forbidden execution-backend selector."""
+    offenders: list[str] = []
+    for node in _iter_defs(tree):
+        if isinstance(node, ast.ClassDef):
+            continue
+        args = node.args
+        params = [*args.posonlyargs, *args.args, *args.kwonlyargs]
+        if args.vararg is not None:
+            params.append(args.vararg)
+        if args.kwarg is not None:
+            params.append(args.kwarg)
+        for param in params:
+            if _normalize(param.arg) in _FORBIDDEN_PARAM_NAMES:
+                offenders.append(f"{label}::{node.name}({param.arg})")
+    return offenders
 
 
 def test_no_custom_code_named_public_api() -> None:
@@ -79,23 +108,31 @@ def test_no_execution_backend_selection_parameter() -> None:
     offenders: list[str] = []
     for path in _package_py_files():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in _iter_defs(tree):
-            if isinstance(node, ast.ClassDef):
-                continue
-            args = node.args
-            params = [*args.posonlyargs, *args.args, *args.kwonlyargs]
-            if args.vararg is not None:
-                params.append(args.vararg)
-            if args.kwarg is not None:
-                params.append(args.kwarg)
-            for param in params:
-                if _normalize(param.arg) in _FORBIDDEN_PARAM_NAMES:
-                    offenders.append(
-                        f"{path.relative_to(_PACKAGE_ROOT)}::{node.name}({param.arg})"
-                    )
+        offenders.extend(
+            _forbidden_param_offenders(tree, str(path.relative_to(_PACKAGE_ROOT)))
+        )
 
     assert not offenders, (
         "No honua_sdk API may accept an execution-backend selector: backend "
         "selection for geoprocessing is server configuration, and custom code is "
         f"AWS-Batch-only (ADR-0063). Found: {offenders}"
     )
+
+
+def test_tripwire_fires_on_underscored_backend_param() -> None:
+    # Regression guard for the normalization mismatch the tripwire is meant to
+    # catch: an UNDERSCORED param name (e.g. ``execution_backend``) must trip the
+    # check. If _FORBIDDEN_PARAM_NAMES stored un-normalized entries, this synthetic
+    # offender would slip through — proving the tripwire was inert.
+    for offending_source in (
+        "def submit_custom_gp(inputs, execution_backend): ...",
+        "def run_tool(compute_backend=None): ...",
+        "async def dispatch(*, backend): ...",
+    ):
+        tree = ast.parse(offending_source)
+        offenders = _forbidden_param_offenders(tree, "<synthetic>")
+        assert offenders, f"tripwire failed to flag: {offending_source!r}"
+
+    # And a benign signature must NOT trip it (no false positives).
+    benign = ast.parse("def query(where, out_fields=None): ...")
+    assert _forbidden_param_offenders(benign, "<synthetic>") == []

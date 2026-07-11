@@ -521,16 +521,74 @@ def _run_catalog_lists_service(
     return {"service_count": len(services), "matched": target.service_id}
 
 
-def _resolve_ogc_collection_id(client: HonuaClient) -> str:
-    """Resolve a live OGC API Features collection id, staying seed-agnostic."""
+def _configured_ogc_collection_candidates(target: ConformanceTarget) -> list[str]:
+    """OGC collection ids honua-server may expose for the configured target.
+
+    honua-server derives an OGC API Features collection id from the layer
+    publication's ``serviceLocalId`` (see honua-server
+    ``CollectionsEndpoints.CreateCollectionAsync``:
+    ``collectionId = publication.ServiceLocalId ?? publication.Path
+    ?? resource.Metadata.Name``). For the seeded ``test_service`` layer 0 the
+    ``ogc-collection`` publication's ``serviceLocalId`` is the layer index as
+    text (``"0"``). Other deployments/naming schemes may instead expose the
+    collection under the service id or a service-qualified composite, so accept
+    the known equivalent forms. Service-qualified candidates are tried first so
+    they win over the bare layer-index form when a server uses them; the bare
+    ``str(layer_id)`` is the seeded default and is matched last.
+    """
+    sid = target.service_id
+    lid = target.layer_id
+    return [
+        f"{sid}_{lid}",
+        f"{sid}.{lid}",
+        f"{sid}/{lid}",
+        f"{sid}:{lid}",
+        f"{sid}-{lid}",
+        sid,
+        str(lid),
+    ]
+
+
+def _resolve_ogc_collection_id(client: HonuaClient, target: ConformanceTarget) -> str:
+    """Resolve the OGC API Features collection for the configured target.
+
+    Selects the advertised collection that corresponds to the
+    ``HONUA_SERVICE_ID``/``HONUA_LAYER_ID`` conformance target rather than
+    whichever collection the server happens to list first. On a live target
+    advertising multiple collections, taking the first would let the required
+    OGC cases pass or fail against an unrelated collection and stop validating
+    the seeded ``test_service``/layer 0. If no advertised collection matches the
+    configured target we fail with a clear error instead of silently falling
+    back to the first.
+    """
     ogc = client.ogc_features()
     collections = ogc.collections()
     items_list = _as_list(collections.get("collections"), "OGC collections[] empty")
     _require(len(items_list) > 0, "OGC collections[] empty")
+
+    advertised: list[str] = []
+    by_id: dict[str, str] = {}
     for col in items_list:
         if isinstance(col, Mapping) and col.get("id"):
-            return str(col["id"])
-    raise AssertionError("no OGC collection id available")
+            cid = str(col["id"])
+            advertised.append(cid)
+            # First writer wins so the earliest-listed id is the one returned on
+            # a (server-side) duplicate; case-insensitive to tolerate casing.
+            by_id.setdefault(cid.casefold(), cid)
+    _require(len(advertised) > 0, "no OGC collection id available")
+
+    for candidate in _configured_ogc_collection_candidates(target):
+        matched = by_id.get(candidate.casefold())
+        if matched is not None:
+            return matched
+
+    raise AssertionError(
+        "no advertised OGC collection matches the configured conformance target "
+        f"(service_id={target.service_id!r}, layer_id={target.layer_id!r}); "
+        f"tried {_configured_ogc_collection_candidates(target)!r} against "
+        f"advertised {sorted(advertised)!r}. Refusing to fall back to the first "
+        "collection so the required OGC cases keep validating the seeded target."
+    )
 
 
 def _run_ogc_features_items(
@@ -544,7 +602,7 @@ def _run_ogc_features_items(
     behavior is a narrower, separately tracked concern; see
     :func:`_run_ogc_features_items_jsonb_projection`.
     """
-    collection_id = _resolve_ogc_collection_id(client)
+    collection_id = _resolve_ogc_collection_id(client, target)
     ogc = client.ogc_features()
 
     items = ogc.items(collection_id, limit=5)
@@ -572,7 +630,7 @@ def _run_ogc_features_items_jsonb_projection(
     attributable to the right failure mode instead of hiding the core OGC
     read contract behind the same xfail.
     """
-    collection_id = _resolve_ogc_collection_id(client)
+    collection_id = _resolve_ogc_collection_id(client, target)
     ogc = client.ogc_features()
 
     items = ogc.items(collection_id, limit=5)

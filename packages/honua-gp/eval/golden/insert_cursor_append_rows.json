@@ -1,5 +1,8 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "insert_cursor_append_rows ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "insert_cursor_append_rows ok"
+  },
+  "schema_version": 2
 }

@@ -1,5 +1,8 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "make_table_view ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "make_table_view ok"
+  },
+  "schema_version": 2
 }

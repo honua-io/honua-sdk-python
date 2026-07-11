@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "25 Meters", dissolve_option="ALL")
 print(f"buffer_roads ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('buffer_roads', feature_layer_fingerprint(result))

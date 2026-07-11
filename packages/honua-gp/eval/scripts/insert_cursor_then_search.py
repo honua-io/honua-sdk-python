@@ -28,3 +28,5 @@ with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
 with arcpy.da.SearchCursor("roads", ["OID@", "name"]) as cursor:
     rows = list(cursor)
 print(f"insert_cursor_then_search ok rows={len(rows)}")
+from eval._emit import emit_response
+emit_response('insert_cursor_then_search', {'rows': len(rows)})

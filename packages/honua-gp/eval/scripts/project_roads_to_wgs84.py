@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.management.Project("honua://services/roads/0", "roads_wgs84", 4326)
 print(f"project_roads_to_wgs84 ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('project_roads_to_wgs84', feature_layer_fingerprint(result))

@@ -48,13 +48,23 @@ def test_top_level_workspace_matrix_matches_package_matrix() -> None:
     )
 
 
-def test_classify_expected_failure_honours_golden_audit_lines(tmp_path: Path) -> None:
-    """An expected_failure script that emits the wrong number of audit lines
-    must fail eval, not silently pass. Previously ``_classify`` accepted any
-    audit count inside the expected_failure branch, so a regression that
-    dropped the refusal-time audit line was invisible."""
+def _grade(script, **kwargs):  # type: ignore[no-untyped-def]
+    """Call ``run_eval._grade`` with value-diff defaults filled in."""
 
-    from run_eval import _classify
+    from run_eval import _grade as _real_grade
+
+    kwargs.setdefault("request_actual", [])
+    kwargs.setdefault("response_actual", None)
+    kwargs.setdefault("live_mode", False)
+    return _real_grade(script, **kwargs)
+
+
+def test_grade_expected_failure_honours_golden_audit_lines(tmp_path: Path) -> None:
+    """An expected_failure script that emits the wrong number of audit lines
+    must fail eval, not silently pass. The golden ``audit_lines`` plumbing
+    check applies inside the expected_failure branch, so a regression that
+    dropped the refusal-time audit line surfaces as a fail. Also exercises the
+    legacy flat (v1) golden shape, which ``_plumbing`` still reads."""
 
     script = tmp_path / "expected_failure_widget.py"
     script.write_text("", encoding="utf-8")
@@ -64,7 +74,7 @@ def test_classify_expected_failure_honours_golden_audit_lines(tmp_path: Path) ->
         "expected_failure": True,
         "stdout_contains": "expected_failure_widget",
     }
-    status, expected_failure, reason = _classify(
+    status, expected_failure, reason, checks = _grade(
         script,
         exit_code=0,
         audit_lines=1,
@@ -75,9 +85,10 @@ def test_classify_expected_failure_honours_golden_audit_lines(tmp_path: Path) ->
     assert status == "pass"
     assert expected_failure is True
     assert reason == "caught expected unsupported error"
+    assert checks["plumbing"] == "pass"
 
     # Same golden, but the script actually wrote 0 audit lines (regression).
-    status, expected_failure, reason = _classify(
+    status, expected_failure, reason, checks = _grade(
         script,
         exit_code=0,
         audit_lines=0,
@@ -88,6 +99,110 @@ def test_classify_expected_failure_honours_golden_audit_lines(tmp_path: Path) ->
     assert status == "fail"
     assert expected_failure is True
     assert reason is not None and "audit line count" in reason
+
+
+def test_grade_request_fingerprint_mismatch_fails(tmp_path: Path) -> None:
+    """The request fingerprint diff catches a dispatch/parameter-mapping
+    regression -- a projected input that no longer matches golden -- in BOTH
+    stub and live mode, since the projection is transport-independent."""
+
+    script = tmp_path / "buffer_widget.py"
+    script.write_text("", encoding="utf-8")
+
+    golden = {
+        "schema_version": 2,
+        "expected_failure": False,
+        "plumbing": {"audit_lines": 1, "stdout_contains": "buffer_widget ok"},
+        "request": [
+            {
+                "function": "analysis.Buffer",
+                "process_id": "analytics.buffer-aggregate",
+                "inputs": {"layerId": 0, "distance": 25.0, "unit": "meters"},
+            }
+        ],
+    }
+    common = dict(
+        exit_code=0,
+        audit_lines=1,
+        golden=golden,
+        stdout="buffer_widget ok\n",
+        stderr="",
+    )
+
+    # Correct projection -> pass.
+    status, _, _, checks = _grade(
+        script,
+        request_actual=[
+            {
+                "function": "analysis.Buffer",
+                "process_id": "analytics.buffer-aggregate",
+                "inputs": {"layerId": 0, "distance": 25.0, "unit": "meters"},
+            }
+        ],
+        **common,
+    )
+    assert status == "pass"
+    assert checks["request"] == "pass"
+
+    # Distance mapped wrong (regression) -> fail on the request layer.
+    status, _, reason, checks = _grade(
+        script,
+        request_actual=[
+            {
+                "function": "analysis.Buffer",
+                "process_id": "analytics.buffer-aggregate",
+                "inputs": {"layerId": 0, "distance": 50.0, "unit": "meters"},
+            }
+        ],
+        **common,
+    )
+    assert status == "fail"
+    assert checks["request"] == "fail"
+    assert reason is not None and "request fingerprint mismatch" in reason
+
+
+def test_grade_response_value_diff_is_live_only(tmp_path: Path) -> None:
+    """The response value diff grades against a real server (live mode). In
+    stub mode it is skipped -- the stub returns a canned href, not real
+    values -- so a stub run never fails on a response mismatch."""
+
+    script = tmp_path / "buffer_widget.py"
+    script.write_text("", encoding="utf-8")
+
+    golden = {
+        "schema_version": 2,
+        "expected_failure": False,
+        "plumbing": {"audit_lines": 1, "stdout_contains": "buffer_widget ok"},
+        "response": {"geometry_type": "Polygon", "feature_count": 1},
+    }
+    common = dict(
+        exit_code=0,
+        audit_lines=1,
+        golden=golden,
+        stdout="buffer_widget ok\n",
+        stderr="",
+    )
+
+    # Stub mode: response layer is skipped even on a mismatch.
+    status, _, _, checks = _grade(
+        script,
+        response_actual={"geometry_type": "Point", "feature_count": 9},
+        live_mode=False,
+        **common,
+    )
+    assert status == "pass"
+    assert checks["response"] == "skip(stub)"
+
+    # Live mode: a real response mismatch fails.
+    status, _, reason, checks = _grade(
+        script,
+        response_actual={"geometry_type": "Point", "feature_count": 9},
+        live_mode=True,
+        **common,
+    )
+    assert status == "fail"
+    assert checks["response"] == "fail"
+    assert reason is not None and "response value mismatch" in reason
 
 
 def test_run_script_always_rebuilds_pythonpath_when_host_sets_it(
@@ -123,7 +238,7 @@ def test_run_script_always_rebuilds_pythonpath_when_host_sets_it(
     audit_root = tmp_path / "audit"
     audit_root.mkdir()
 
-    _run_script(script, audit_root=audit_root, timeout=5.0)
+    _run_script(script, audit_root=audit_root, result_dir=(tmp_path / "rd"), timeout=5.0)
 
     rebuilt = _build_pythonpath("/host/preexisting")
     assert captured["pythonpath"] == rebuilt, (
@@ -157,7 +272,7 @@ def test_main_fails_when_supported_pass_rate_below_required(
     for idx in range(5):
         (scripts / f"expected_failure_alpha_{idx}.py").write_text("", encoding="utf-8")
 
-    def fake_run_script(script, *, audit_root, timeout, extra_env=None):  # type: ignore[no-untyped-def]
+    def fake_run_script(script, *, audit_root, result_dir, timeout, extra_env=None):  # type: ignore[no-untyped-def]
         if "expected_failure" in script.stem:
             return 0, f"expected_failure_alpha_{script.stem} caught analysis.X\n", "", 1.0
         # The supported script exits non-zero (e.g. the seeded backend lacks
@@ -210,7 +325,7 @@ def test_main_passes_when_supported_pass_rate_meets_required(
     (scripts / "supported_only.py").write_text("", encoding="utf-8")
     (scripts / "expected_failure_alpha.py").write_text("", encoding="utf-8")
 
-    def fake_run_script(script, *, audit_root, timeout, extra_env=None):  # type: ignore[no-untyped-def]
+    def fake_run_script(script, *, audit_root, result_dir, timeout, extra_env=None):  # type: ignore[no-untyped-def]
         marker = f"{script.stem} caught analysis.X" if "expected_failure" in script.stem else "ok"
         return 0, f"{marker}\n", "", 1.0
 
@@ -266,7 +381,7 @@ def test_run_script_builds_pythonpath_when_host_has_none(
     audit_root = tmp_path / "audit"
     audit_root.mkdir()
 
-    _run_script(script, audit_root=audit_root, timeout=5.0)
+    _run_script(script, audit_root=audit_root, result_dir=(tmp_path / "rd"), timeout=5.0)
 
     parts = captured["pythonpath"].split(os.pathsep)
     assert str(_PACKAGE_ROOT) in parts

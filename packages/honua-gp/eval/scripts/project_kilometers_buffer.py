@@ -26,3 +26,5 @@ arcpy.env.overwriteOutput = True
 arcpy.management.Project("honua://services/parcels/0", "parcels_wgs", 4326)
 result = arcpy.analysis.Buffer("honua://services/parcels/0", "parcels_buf", "1 Kilometers")
 print(f"project_kilometers_buffer ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('project_kilometers_buffer', feature_layer_fingerprint(result))

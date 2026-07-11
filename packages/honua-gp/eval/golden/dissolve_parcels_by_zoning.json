@@ -1,5 +1,25 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "dissolve_parcels_by_zoning ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "dissolve_parcels_by_zoning ok"
+  },
+  "request": [
+    {
+      "function": "management.Dissolve",
+      "inputs": {
+        "groupByFields": "zoning_code",
+        "layerId": 0
+      },
+      "process_id": "generalization.dissolve"
+    }
+  ],
+  "response": {
+    "feature_count": 1,
+    "geometry_type": "MultiPoint",
+    "output_keys": [
+      "outputFeatureLayer"
+    ]
+  },
+  "schema_version": 2
 }

@@ -1,5 +1,35 @@
 {
-  "audit_lines": 2,
   "expected_failure": false,
-  "stdout_contains": "buffer_then_dissolve ok"
+  "plumbing": {
+    "audit_lines": 2,
+    "stdout_contains": "buffer_then_dissolve ok"
+  },
+  "request": [
+    {
+      "function": "analysis.Buffer",
+      "inputs": {
+        "dissolve": true,
+        "distance": 5.0,
+        "layerId": 0,
+        "unit": "meters"
+      },
+      "process_id": "analytics.buffer-aggregate"
+    },
+    {
+      "function": "management.Dissolve",
+      "inputs": {
+        "groupByFields": "class",
+        "layerId": 0
+      },
+      "process_id": "generalization.dissolve"
+    }
+  ],
+  "response": {
+    "feature_count": 1,
+    "geometry_type": "MultiPoint",
+    "output_keys": [
+      "outputFeatureLayer"
+    ]
+  },
+  "schema_version": 2
 }

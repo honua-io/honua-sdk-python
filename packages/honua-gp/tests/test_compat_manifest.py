@@ -10,18 +10,20 @@ from honua_gp._compat import COMPAT
 _README_PATH = Path(honua_gp.__file__).resolve().parent.parent / "README.md"
 
 
-def test_manifest_covers_45_functions_across_three_families() -> None:
-    families = {"analysis": 0, "management": 0, "da": 0}
+def test_manifest_covers_all_functions_across_families() -> None:
+    families = {"analysis": 0, "management": 0, "da": 0, "sa": 0}
     for name in COMPAT:
         family = name.split(".", 1)[0]
         assert family in families, f"Unexpected family {family!r}"
         families[family] += 1
-    assert families == {"analysis": 15, "management": 20, "da": 10}
-    assert len(COMPAT) == 45
+    # sa.* wraps 17 raster/surface tools (8 surface + 9 raster) plus 2 honest
+    # stubs (raster.histogram / raster.spectral-index) with no clean arcpy name.
+    assert families == {"analysis": 15, "management": 20, "da": 10, "sa": 19}
+    assert len(COMPAT) == 64
 
 
 def test_every_manifest_entry_has_backend_and_status() -> None:
-    valid_backends = {"process", "source", "admin", "session", "not_implemented"}
+    valid_backends = {"process", "raster", "source", "admin", "session", "not_implemented"}
     valid_statuses = {"supported", "partial", "stub"}
     for name, entry in COMPAT.items():
         assert entry.backend in valid_backends, f"{name}: bad backend {entry.backend!r}"
@@ -30,8 +32,8 @@ def test_every_manifest_entry_has_backend_and_status() -> None:
 
 def test_process_entries_carry_process_id() -> None:
     for name, entry in COMPAT.items():
-        if entry.backend == "process":
-            assert entry.process_id, f"{name}: process backend missing process_id"
+        if entry.backend in {"process", "raster"}:
+            assert entry.process_id, f"{name}: {entry.backend} backend missing process_id"
 
 
 def test_stub_entries_carry_replacement_hint_and_tracking() -> None:
@@ -155,6 +157,66 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
             "Either rename the param_map values to match the server "
             "contract or downgrade the entry to a stub until a projection "
             "adapter lands."
+        )
+
+
+def test_raster_backed_entries_match_honua_server_catalog() -> None:
+    """Contract guard for ``backend="raster"`` entries: every ``param_map`` value
+    must be an input the corresponding honua-server raster/surface process
+    accepts.
+
+    Mirrors ``test_process_backed_entries_match_honua_server_catalog`` for the
+    GDAL-worker raster/surface processes. The reference is a hand-maintained
+    snapshot of the raster/surface section of honua-server's
+    ``BuiltInProcessCatalog`` (``src/Honua.Geoprocessing/Features/Geoprocessing/
+    BuiltInProcessCatalog.cs``). The raster/point/zone *carrier* inputs
+    (``source`` / ``layerId`` / ``rasterId`` / ``sources`` / ``points`` /
+    ``zones``) are built in :mod:`honua_gp._raster_tools` rather than through
+    ``param_map``, so only the tool-specific parameter names appear here.
+    """
+
+    # NativeRasterSourceParameters (shared 'source' selector) resolves to these
+    # three carriers for surface.* and single-source raster.* processes.
+    source_carriers = {"source", "layerId", "rasterId"}
+    raster_server_inputs: dict[str, set[str]] = {
+        "surface.slope": source_carriers | {"units", "zFactor"},
+        "surface.aspect": set(source_carriers),
+        "surface.hillshade": source_carriers | {"azimuth", "altitude", "zFactor"},
+        "surface.contour": source_carriers | {"interval", "base"},
+        "surface.viewshed": source_carriers
+        | {"observerX", "observerY", "observerHeight", "targetHeight", "maxDistance"},
+        "surface.roughness": source_carriers | {"windowRadius"},
+        "surface.rugosity-tpi": source_carriers | {"windowRadius"},
+        "surface.rugosity-tri": source_carriers | {"windowRadius"},
+        "raster.clip": source_carriers | {"boundary", "boundarySrid"},
+        "raster.mosaic": {"sources", "operator", "resampling"},
+        "raster.reclassify": source_carriers | {"remap", "defaultValue", "dataType", "noData"},
+        "raster.reproject": source_carriers | {"targetSrid", "resampling"},
+        "raster.resample": source_carriers | {"cellSize", "cellSizeY", "resampling"},
+        "raster.map-algebra": {"sources", "expression", "dataType", "noData"},
+        "raster.interpolate-idw": {
+            "points", "zField", "power", "smoothing", "radius", "width", "height",
+        },
+        "raster.interpolate-kriging": {"points", "zField"},
+        "raster.zonal-statistics": source_carriers
+        | {"zones", "zonesLayerId", "band", "statistics"},
+    }
+
+    raster_entries = [
+        (name, entry) for name, entry in COMPAT.items() if entry.backend == "raster"
+    ]
+    assert raster_entries, "expected raster-backed sa.* entries in COMPAT"
+    for name, entry in raster_entries:
+        assert entry.process_id in raster_server_inputs, (
+            f"{name}: process_id {entry.process_id!r} is not in the honua-server "
+            "raster/surface catalog snapshot. Extend the snapshot or drop the entry."
+        )
+        accepted = raster_server_inputs[entry.process_id]
+        emitted = set(entry.param_map.values())
+        extras = emitted - accepted
+        assert not extras, (
+            f"{name}: param_map emits keys {sorted(extras)!r} that the server's "
+            f"{entry.process_id} process does not accept."
         )
 
 

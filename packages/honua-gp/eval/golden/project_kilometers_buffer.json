@@ -1,5 +1,34 @@
 {
-  "audit_lines": 2,
   "expected_failure": false,
-  "stdout_contains": "project_kilometers_buffer ok"
+  "plumbing": {
+    "audit_lines": 2,
+    "stdout_contains": "project_kilometers_buffer ok"
+  },
+  "request": [
+    {
+      "function": "management.Project",
+      "inputs": {
+        "layerId": 0,
+        "targetSrid": 4326
+      },
+      "process_id": "conversion.feature-project"
+    },
+    {
+      "function": "analysis.Buffer",
+      "inputs": {
+        "distance": 1.0,
+        "layerId": 0,
+        "unit": "kilometers"
+      },
+      "process_id": "analytics.buffer-aggregate"
+    }
+  ],
+  "response": {
+    "feature_count": 1,
+    "geometry_type": "Polygon",
+    "output_keys": [
+      "outputFeatureLayer"
+    ]
+  },
+  "schema_version": 2
 }

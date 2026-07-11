@@ -1,5 +1,11 @@
 {
-  "audit_lines": 4,
   "expected_failure": false,
-  "stdout_contains": "make_feature_layer_clear_then_count ok"
+  "plumbing": {
+    "audit_lines": 4,
+    "stdout_contains": "make_feature_layer_clear_then_count ok"
+  },
+  "response": {
+    "count": 14
+  },
+  "schema_version": 2
 }

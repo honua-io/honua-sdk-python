@@ -31,7 +31,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._audit import _shape_of, record_call
+from ._audit import _redact_value, _shape_of, record_call
 from ._compat import FunctionEntry, anchor_for, entry_for
 from ._errors import (
     ExecuteError,
@@ -357,6 +357,16 @@ def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
 
         output_name = projected.output_name or ""
         record["process_id"] = entry.process_id
+        # Record the projected process inputs (the actual payload POSTed to the
+        # server's OGC execute endpoint) so the eval harness can diff the
+        # dispatch/parameter-translation against a golden fingerprint. This is
+        # deterministic across the stub and a live server -- the projection is
+        # transport-independent -- so a regression that maps an arcpy argument
+        # to the wrong process input is caught in BOTH modes, not just when a
+        # real server happens to reject the malformed payload. Redacted with
+        # the same heuristics as args/kwargs; the typed inputs (layerId,
+        # distance, unit, predicate, targetSrid) carry no secrets.
+        record["process_inputs"] = _redact_value(dict(projected.inputs), context="process_inputs")
         record["job_id"] = outcome.job_id
         record["job_status"] = outcome.status
         record["result_shape"] = _shape_of({"output": output_name, "jobId": outcome.job_id})

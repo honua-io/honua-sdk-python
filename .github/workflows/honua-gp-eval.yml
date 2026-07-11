@@ -69,8 +69,25 @@ jobs:
         run: |
           python -m pytest packages/honua-gp/tests -q --tb=short
 
-      - name: Run honua-gp eval (stub mode)
+      - name: Run honua-gp eval (stub mode -- dispatch plumbing + request fingerprint)
         run: |
+          # WHAT THIS LANE VERIFIES (and what it does NOT):
+          #
+          #   * Dispatch plumbing: every eval script runs to exit 0 and emits
+          #     the expected audit JSONL stream + stdout marker.
+          #   * Request fingerprint: the projected process id + typed inputs the
+          #     shim POSTs (captured from the ``process_inputs`` audit field) are
+          #     diffed against the golden ``request`` block. This is
+          #     transport-independent, so a parameter-mapping / dispatch
+          #     regression is caught HERE, under the canned-response stub -- the
+          #     stub itself never validates the payload, so without this diff a
+          #     wrong-payload bug would sail through.
+          #
+          # This lane does NOT verify response round-trip correctness (the stub
+          # returns a canned href, not real geometry) and does NOT verify ArcGIS
+          # Pro output parity (no arcpy license exists; tracked separately). The
+          # live-server value diff runs in the ``ephemeral-server-smoke`` job.
+          #
           # ``--require-supported-pass-rate 1.0`` makes this blocking per-PR
           # lane fail on ANY regression in a *supported* (mapped) script,
           # instead of staying green off the overall pass rate (which is
@@ -106,6 +123,23 @@ jobs:
           path: packages/honua-gp/dist/*.whl
           retention-days: 30
 
+  # Live value diff: stands up a REAL, seeded honua-server (Docker) and runs
+  # the same eval scripts with the stub disabled, so run_eval.py grades its
+  # third layer -- the RESPONSE fingerprint (buffered geometry type + feature
+  # count, row counts) that the shim parsed back from the real server. This is
+  # the genuine correctness upgrade over the stub lane: it proves honua_gp
+  # round-trips (dispatch -> real HTTP -> response parse) against honua-server,
+  # which the canned-response stub cannot check.
+  #
+  # The response oracles in eval/golden/*.json are pinned to the honua-server
+  # client-compat seed (test_service/layer 0 + the in-repo spatial-join second
+  # layer). If the pinned server image or the seed changes the computed output,
+  # re-bless with ``HONUA_GP_EVAL_USE_STUB=0 HONUA_BASE_URL=... run_eval.py
+  # --update-golden`` and review the diff (see docs/golden-eval.md).
+  #
+  # This is NOT ArcGIS Pro parity: a licensed arcpy baseline does not exist in
+  # this environment, so arcpy-level output equivalence stays out of scope and
+  # is tracked separately.
   ephemeral-server-smoke:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
@@ -253,7 +287,7 @@ jobs:
           docker compose -f "${compose_file}" -f "${override_file}" exec -T postgres \
             psql -U postgres -d honua_compat -v ON_ERROR_STOP=1 < "${second_layer_sql}"
 
-      - name: Run ephemeral smoke
+      - name: Run ephemeral smoke (live value diff -- honua_gp <-> real honua-server)
         env:
           HONUA_GP_EVAL_USE_STUB: "0"
           HONUA_GP_AUDIT_DIR: ${{ runner.temp }}/honua-gp-smoke-audit

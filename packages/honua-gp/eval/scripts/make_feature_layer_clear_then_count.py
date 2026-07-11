@@ -28,3 +28,5 @@ arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 
 arcpy.management.SelectLayerByAttribute("roads_lyr", "CLEAR_SELECTION")
 count = arcpy.management.GetCount("roads_lyr")
 print(f"make_feature_layer_clear_then_count ok count={count}")
+from eval._emit import emit_response
+emit_response('make_feature_layer_clear_then_count', {'count': int(count)})

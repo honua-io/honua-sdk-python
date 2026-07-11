@@ -1,5 +1,11 @@
 {
-  "audit_lines": 2,
   "expected_failure": false,
-  "stdout_contains": "make_feature_layer_then_select ok"
+  "plumbing": {
+    "audit_lines": 2,
+    "stdout_contains": "make_feature_layer_then_select ok"
+  },
+  "response": {
+    "count": 3
+  },
+  "schema_version": 2
 }

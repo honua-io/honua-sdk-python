@@ -16,14 +16,14 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
-### Spatial Analyst (`honua_gp.sa`) -- 17 raster/surface tools wrapped
+### Spatial Analyst (`honua_gp.sa`) -- 16 raster/surface tools wrapped
 
-Adds an `arcpy.sa`-style surface (`honua_gp.sa`) covering 17 of honua-server's
+Adds an `arcpy.sa`-style surface (`honua_gp.sa`) covering 16 of honua-server's
 20 raster/surface GDAL-worker processes: `Slope`, `Aspect`, `Hillshade`,
 `Contour`, `Viewshed`, `Roughness`, `TPI`, `TRI`, `Clip` (raster), `Mosaic`,
-`Reclassify`, `ProjectRaster`, `Resample`, `RasterCalculator`, `Idw`,
-`Kriging`, and `ZonalStatisticsAsTable`. Esri tool names mirror honua-server's
-GPServer `GPServerEsriTaskAliases` where a mapping exists.
+`Reclassify`, `ProjectRaster`, `Resample`, `RasterCalculator`, `Idw`, and
+`ZonalStatisticsAsTable`. Esri tool names mirror honua-server's GPServer
+`GPServerEsriTaskAliases` where a mapping exists.
 
 Each tool projects its arcpy signature onto the target raster/surface process
 and runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
@@ -39,12 +39,15 @@ handle (`.to_xarray()` / `.raster_bytes` / `.to_geodataframe()` / `.consume()`,
 so the optional `raster` / `geopandas` extras load only on demand);
 `ZonalStatisticsAsTable` returns the Table-kind JSON (per-zone aggregate dicts).
 
-`raster.histogram` and `raster.spectral-index` are left as honest `stub`
-manifest entries (`sa.Histogram` / `sa.SpectralIndex`): neither has a clean
-single arcpy Spatial Analyst tool-name analog, and honua-server assigns them no
-GPServer Esri alias, so a name is not guessed. `Kriging` submits a well-formed
-job but honua-server flags kriging unsupported in the current build, so the job
-fails server-side; the manifest documents this and points at `Idw`.
+Three tools are honest `stub` manifest entries that raise
+`HonuaGpUnsupportedError`. `sa.Histogram` (`raster.histogram`) and
+`sa.SpectralIndex` (`raster.spectral-index`) have no clean single arcpy Spatial
+Analyst tool-name analog and no GPServer Esri alias, so a name is not guessed.
+`sa.Kriging` (`raster.interpolate-kriging`) never produces output server-side:
+the job executor fails before any raster work because stock GDAL bundles no
+kriging backend, so it fails for every possible input. It is refused
+client-side (rather than counted as a working migration target) with a hint
+pointing at the working `sa.Idw`.
 
 Live-verified against `ghcr.io/honua-io/honua-server:nightly-aot`: `Slope`,
 `ZonalStatisticsAsTable`, and `Idw` submissions are accepted and pass the

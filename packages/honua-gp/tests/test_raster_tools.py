@@ -404,18 +404,6 @@ def test_idw_encodes_points_and_power(_isolated_audit_dir: Path) -> None:
     assert json.loads(base64.b64decode(step["inputs"]["points"])) == _POINTS_FC
 
 
-def test_kriging_encodes_points(_isolated_audit_dir: Path) -> None:
-    client = _FakeRasterClient()
-    _configure(client)
-
-    honua_gp.sa.Kriging(_POINTS_FC, z_field="z")
-
-    step = _plan_step(client)
-    assert step["processId"] == "raster.interpolate-kriging"
-    assert step["inputs"]["zField"] == "z"
-    assert json.loads(base64.b64decode(step["inputs"]["points"])) == _POINTS_FC
-
-
 # ---------------------------------------------------------------------------
 # Generic passthrough, errors, stubs, audit
 # ---------------------------------------------------------------------------
@@ -459,10 +447,10 @@ def test_failed_job_raises_execute_error(_isolated_audit_dir: Path) -> None:
     _configure(client)
 
     with pytest.raises(honua_gp.ExecuteError) as info:
-        honua_gp.sa.Kriging(_POINTS_FC, z_field="z")
+        honua_gp.sa.Idw(_POINTS_FC, z_field="z")
     assert info.value.error_kind == "failed"
 
-    lines = [r for r in _audit_lines(_isolated_audit_dir) if r["function"] == "sa.Kriging"]
+    lines = [r for r in _audit_lines(_isolated_audit_dir) if r["function"] == "sa.Idw"]
     assert lines[-1]["status"] == "error"
     assert lines[-1]["error_kind"] == "failed"
 
@@ -482,14 +470,28 @@ def test_management_toolbox_raster_aliases_resolve() -> None:
     assert honua_gp.management.MosaicToNewRaster is honua_gp.sa.Mosaic
 
 
-@pytest.mark.parametrize("func", [honua_gp.sa.Histogram, honua_gp.sa.SpectralIndex])
+@pytest.mark.parametrize("func", [honua_gp.sa.Histogram, honua_gp.sa.SpectralIndex, honua_gp.sa.Kriging])
 def test_stubs_raise_unsupported(func, _isolated_audit_dir: Path) -> None:
     client = _FakeRasterClient()
     _configure(client)
 
     with pytest.raises(honua_gp.HonuaGpUnsupportedError):
         func(RasterReference.from_layer_id("x"))
+    # Stubs refuse client-side -- no server call is made.
     assert client.calls == []
+
+
+def test_kriging_refuses_before_any_server_call(_isolated_audit_dir: Path) -> None:
+    """sa.Kriging is a stub: honua-server's kriging job fails for every input
+    (no GDAL kriging backend), so the shim must not submit a job it knows will
+    fail, and must point at the working sa.Idw."""
+    client = _FakeRasterClient()
+    _configure(client)
+
+    with pytest.raises(honua_gp.HonuaGpUnsupportedError) as info:
+        honua_gp.sa.Kriging(_POINTS_FC, z_field="z")
+    assert client.calls == []
+    assert "Idw" in (info.value.replacement_hint or "")
 
 
 def test_writes_single_audit_line_with_process_metadata(_isolated_audit_dir: Path) -> None:

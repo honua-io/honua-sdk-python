@@ -913,19 +913,26 @@ COMPAT: dict[str, FunctionEntry] = {
         },
     ),
     "sa.Kriging": FunctionEntry(
-        backend="raster",
-        status="partial",
+        backend="not_implemented",
+        status="stub",
         process_id="raster.interpolate-kriging",
         notes=(
-            "Projects arcpy.sa.Kriging onto honua-server's raster.interpolate-kriging "
-            "process. Takes a scattered point FeatureCollection (base64 'points'); "
-            "z_field -> zField. Matches the GPServer 'Kriging' Esri task alias. Partial: "
-            "honua-server FLAGS kriging as UNSUPPORTED in the current build -- the "
-            "process is advertised for discovery but a submitted job FAILS with a clear "
-            "message (stock GDAL gdal_grid bundles no kriging backend). The wrapper "
-            "submits a well-formed job but cannot produce output; use sa.Idw instead."
+            "honua-server's raster.interpolate-kriging is advertised for discovery but "
+            "NEVER produces output: GdalRasterInterpolateJobExecutor returns "
+            "JobExecutionResult.Failed(...) before any raster work because stock GDAL "
+            "gdal_grid bundles no kriging backend. The tool fails for every possible "
+            "input, so the shim refuses it client-side (raising HonuaGpUnsupportedError "
+            "before any server call) rather than overclaiming it as a working migration "
+            "target -- exactly the failure mode a codemod reading manifest status must "
+            "not be told is supported."
         ),
-        param_map={"z_field": "zField"},
+        replacement_hint=(
+            "Use honua_gp.sa.Idw (raster.interpolate-idw) for a working "
+            "inverse-distance-weighted interpolation. If a real kriging backend lands "
+            "server-side, submit raster.interpolate-kriging directly via "
+            "honua_sdk.HonuaClient.geoprocessing().execute_raster_process(...)."
+        ),
+        tracking="honua-server#raster-kriging-backend",
     ),
     "sa.ZonalStatisticsAsTable": FunctionEntry(
         backend="raster",

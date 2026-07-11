@@ -105,8 +105,8 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 64 functions (15 analysis + 20 management + 10 da + 19 sa);
   see [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
-- **Coverage today:** 15 supported entries and 13 partial entries
-  (28 supported/partial) + 36 stubs. Supported: session-backed
+- **Coverage today:** 15 supported entries and 12 partial entries
+  (27 supported/partial) + 37 stubs. Supported: session-backed
   ``MakeFeatureLayer`` / ``MakeTableView``, the two buffered ``da`` write
   cursors (``InsertCursor`` / ``UpdateCursor``), and process-backed
   ``analysis.Buffer`` / ``management.Project``. Partial:
@@ -119,18 +119,19 @@ inventory to get a per-call TODO list against the compatibility matrix.
   ``management.Delete``, and ``management.CalculateField`` / ``Copy`` /
   ``CopyFeatures``) each carry a ``honua-server#...`` tracking ticket because
   no standalone ``BuiltInProcessCatalog`` op maps onto them.
-- **Spatial Analyst (`honua_gp.sa`):** 17 raster/surface tools wrap
+- **Spatial Analyst (`honua_gp.sa`):** 16 raster/surface tools wrap
   honua-server's GDAL-worker processes (``Slope`` / ``Aspect`` / ``Hillshade``
   / ``Contour`` / ``Viewshed`` / ``Roughness`` / ``TPI`` / ``TRI`` / ``Clip``
   / ``Mosaic`` / ``Reclassify`` / ``ProjectRaster`` / ``Resample`` /
-  ``RasterCalculator`` / ``Idw`` / ``Kriging`` / ``ZonalStatisticsAsTable``),
-  auto-wrapped as a single ``geoprocess`` step inside the canonical
-  ``honua-geoprocessing`` plan (raster ids 404 on direct execution). Raster
-  inputs are honua-native (``honua_gp.RasterReference`` or GeoTIFF bytes);
-  raster-output tools return a lazy ``honua_gp.RasterResult`` and
-  ``ZonalStatisticsAsTable`` returns the per-zone Table JSON. ``raster.histogram``
-  and ``raster.spectral-index`` are honest stubs (no clean single arcpy tool
-  name). ``Kriging`` submits but honua-server flags kriging unsupported, so the
-  job fails server-side; use ``Idw``.
+  ``RasterCalculator`` / ``Idw`` / ``ZonalStatisticsAsTable``), auto-wrapped as
+  a single ``geoprocess`` step inside the canonical ``honua-geoprocessing`` plan
+  (raster ids 404 on direct execution). Raster inputs are honua-native
+  (``honua_gp.RasterReference`` or GeoTIFF bytes); raster-output tools return a
+  lazy ``honua_gp.RasterResult`` and ``ZonalStatisticsAsTable`` returns the
+  per-zone Table JSON. Three are honest stubs that raise
+  ``HonuaGpUnsupportedError``: ``raster.histogram`` and ``raster.spectral-index``
+  have no clean single arcpy tool name, and ``Kriging`` never produces output
+  server-side (stock GDAL bundles no kriging backend, so the job fails before any
+  raster work) -- the shim refuses it client-side and points at ``Idw``.
 - **Audit:** every invocation produces a redacted JSONL record (paths and
   secrets are stripped per the `honua_admin._arcpy_scanner` heuristics).

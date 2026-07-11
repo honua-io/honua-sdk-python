@@ -333,27 +333,21 @@ def Idw(
     return run_raster_process("sa.Idw", inputs)
 
 
-def Kriging(
-    in_point_features: Any,
-    *,
-    z_field: Any = None,
-    parameters: Mapping[str, Any] | None = None,
-) -> RasterResult:
-    """arcpy.sa.Kriging -> honua-server ``raster.interpolate-kriging``.
+# ---------------------------------------------------------------------------
+# Honest stubs
+# ---------------------------------------------------------------------------
 
-    NOTE: honua-server flags kriging as UNSUPPORTED in the current build -- a
-    submitted job is accepted but FAILS with a clear message (stock GDAL bundles
-    no kriging backend). The wrapper submits a well-formed job; use :func:`Idw`
-    for a working interpolation.
+
+def Kriging(*args: Any, **kwargs: Any) -> Any:
+    """arcpy.sa.Kriging -> honua-server ``raster.interpolate-kriging`` (stub).
+
+    honua-server NEVER produces output for kriging: the job executor fails before
+    any raster work because stock GDAL bundles no kriging backend. Rather than
+    overclaim a guaranteed-failing tool as supported, the shim refuses it
+    client-side (raising :class:`~honua_gp.HonuaGpUnsupportedError` before any
+    server call). Use :func:`Idw` for a working interpolation.
     """
-    inputs: dict[str, Any] = {"points": encode_feature_collection(in_point_features)}
-    merge_parameters(inputs, _server_params("sa.Kriging", {"z_field": z_field}, parameters))
-    return run_raster_process("sa.Kriging", inputs)
-
-
-# ---------------------------------------------------------------------------
-# Honest stubs (no clean single arcpy Spatial Analyst tool-name analog)
-# ---------------------------------------------------------------------------
+    raise_unsupported("sa.Kriging", args=args, kwargs=kwargs)
 
 
 def Histogram(*args: Any, **kwargs: Any) -> Any:

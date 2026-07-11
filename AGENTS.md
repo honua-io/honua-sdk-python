@@ -193,6 +193,18 @@ pyproject.toml                   # shared tool config ONLY (not installable)
   into its own `known_gap` case so the core read contract is enforced
   unconditionally is tracked follow-up work. New/untracked drift in a required
   case still fails the lane — never blanket `continue-on-error`.
+- **No custom-code / local-execution surface (custom GP tools are AWS-Batch-only
+  server-side).** The SDK intentionally exposes **no** way to submit "custom code"
+  (operator-authored geoprocessing tools) and **no** way to select an execution
+  backend — backend selection is entirely server configuration. Per honua-server
+  **ADR-0063**, untrusted custom GP code runs only in an isolated cloud-managed AWS
+  Batch container, never on-host. The ArcPy/ModelBuilder migration codemod
+  (`honua_sdk.migration`) only ever translates recognized tools to **built-in
+  server processes** (`EXECUTABLE_PROCESS_IDS`); anything unrecognized is emitted as
+  `manual-review`, never an auto-submitted custom-code job. Do not add a
+  local/subprocess execution path or a `customcode`/backend-selection submission
+  helper here — `tests/test_custom_code_batch_only_policy.py` is a tripwire that
+  fails if such a surface is introduced.
 - CI runs on the `trunk` branch (lint, typecheck, test matrix, compatibility,
   security-audit, package smoke-install of built wheels, and the live-server
   conformance lane).

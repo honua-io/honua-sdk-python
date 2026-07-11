@@ -1,4 +1,18 @@
-"""Migration helpers for moving GIS workflows onto Honua surfaces."""
+"""Migration helpers for moving GIS workflows onto Honua surfaces.
+
+These helpers translate ArcPy scripts, Python toolboxes (``.pyt``), and
+ModelBuilder models into calls against **built-in** Honua server geoprocessing
+processes. A tool is only classified ``"translatable"`` when its target is in
+:data:`~honua_sdk.migration.arcpy.EXECUTABLE_PROCESS_IDS` (a server-runnable
+built-in process); anything else is emitted as ``"manual-review"``.
+
+The codemod deliberately has **no** notion of "custom code" execution or backend
+selection: it never emits a custom-code (operator-supplied-code) geoprocessing
+job, and it cannot request local/on-host execution. Per honua-server ADR-0063,
+custom GP tools run only in an isolated cloud-managed AWS Batch container,
+server-side; the SDK exposes no local-execution path. Keep it that way (see
+``tests/test_custom_code_batch_only_policy.py``).
+"""
 
 from __future__ import annotations
 

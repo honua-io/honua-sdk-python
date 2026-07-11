@@ -25,3 +25,6 @@ packages/honua-gp/eval/.audit/
 # Generated MkDocs static site output
 /site/
 .serena/
+
+# Local commit-message scratch files
+.git-msg-*.txt

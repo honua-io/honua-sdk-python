@@ -1,5 +1,11 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "get_count_roads ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "get_count_roads ok"
+  },
+  "response": {
+    "count": 10
+  },
+  "schema_version": 2
 }

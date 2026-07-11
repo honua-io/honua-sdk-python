@@ -1,18 +1,44 @@
-"""Pass-rate harness for the honua-gp eval suite.
+"""Golden eval harness for the honua-gp compatibility shim.
 
-The harness:
+The harness runs every ``eval/scripts/*.py`` in a subprocess and grades it on
+three independent layers, from weakest to strongest:
 
-* Walks ``eval/scripts/*.py`` and executes each script in a subprocess.
-* Wires a stub Honua transport (or the real ``HONUA_BASE_URL`` when set) so
-  scripts run without an ArcGIS Pro license.
-* Records exit code, audit-JSONL shape, and (optionally) a golden-output
-  digest match.
-* Writes ``eval-results.json`` (machine-readable) and ``eval-results.xml``
-  (JUnit) plus a workflow-summary table.
+1. **Plumbing** (every mode): exit code, audit-JSONL line count, and a required
+   ``stdout`` marker. This only proves the script ran without crashing and
+   emitted its audit stream -- it does NOT prove the shim sent the right thing
+   or parsed the right thing back.
+
+2. **Request value diff** (every mode): the projected process id + typed inputs
+   the shim POSTs to honua-server, captured from the ``process_inputs`` audit
+   field. This is deterministic across the stub transport and a live server
+   (the projection is transport-independent), so a dispatch /
+   parameter-translation regression -- an arcpy argument mapped to the wrong
+   process input -- is caught even under the stub, which the canned-response
+   stub could never catch on its own.
+
+3. **Response value diff** (live mode only): the values the shim parsed back
+   from a REAL, seeded honua-server (buffered geometry type + feature count,
+   row counts), captured from the per-script sidecar written by
+   ``eval/_emit.py``. The stub only returns a canned ``href``, so this layer is
+   graded only when ``HONUA_GP_EVAL_USE_STUB=0`` and a live ``HONUA_BASE_URL``
+   is configured.
+
+Honest scope: stub mode grades layers 1-2 (dispatch plumbing + request
+fingerprint). Live mode adds layer 3 (round-trip correctness against a real
+Honua server). Neither layer verifies ArcGIS Pro output parity -- that requires
+a licensed arcpy run and is out of scope here (tracked separately). See
+``docs/golden-eval.md``.
 
 Run from the package root::
 
     python eval/run_eval.py --output-json eval-results.json --output-junit eval-results.xml
+
+Re-capture (bless) the golden value oracles after an intentional change::
+
+    # request fingerprints (stub is enough -- projection is transport-independent)
+    python eval/run_eval.py --update-golden
+    # response fingerprints (requires a live, seeded honua-server)
+    HONUA_GP_EVAL_USE_STUB=0 HONUA_BASE_URL=... python eval/run_eval.py --update-golden
 
 Set ``HONUA_GP_EVAL_USE_STUB=1`` to force the stub transport even when
 ``HONUA_BASE_URL`` is configured.
@@ -25,6 +51,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,6 +77,7 @@ class ScriptResult:
     expected_failure: bool = False
     golden: dict[str, Any] | None = None
     reason: str | None = None
+    checks: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +87,7 @@ class ScriptResult:
             "exitCode": self.exit_code,
             "auditLines": self.audit_lines,
             "expectedFailure": self.expected_failure,
+            "checks": self.checks,
             "reason": self.reason,
         }
 
@@ -75,6 +104,7 @@ class EvalSummary:
     supported_total: int = 0
     supported_passed: int = 0
     supported_pass_rate: float = 0.0
+    live_mode: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,8 +117,32 @@ class EvalSummary:
             "supportedTotal": self.supported_total,
             "supportedPassed": self.supported_passed,
             "supportedPassRate": self.supported_pass_rate,
+            "liveMode": self.live_mode,
             "results": [result.to_dict() for result in self.results],
         }
+
+
+# ---------------------------------------------------------------------------
+# Mode detection
+# ---------------------------------------------------------------------------
+
+
+def live_values_available() -> bool:
+    """True when the run talks to a real server (so response values are real).
+
+    Mirrors ``eval/_stub.stub_active``: the stub transport is the default, and
+    a run only produces real response values when ``HONUA_GP_EVAL_USE_STUB`` is
+    explicitly ``0`` AND a ``HONUA_BASE_URL`` is configured.
+    """
+
+    if os.environ.get("HONUA_GP_EVAL_USE_STUB", "1") == "1":
+        return False
+    return bool(os.environ.get("HONUA_BASE_URL"))
+
+
+# ---------------------------------------------------------------------------
+# Golden schema (v2 with v1 back-compat)
+# ---------------------------------------------------------------------------
 
 
 def _golden_for(script: Path, golden_dir: Path) -> dict[str, Any] | None:
@@ -101,10 +155,93 @@ def _golden_for(script: Path, golden_dir: Path) -> dict[str, Any] | None:
         return None
 
 
+def _plumbing(golden: dict[str, Any] | None) -> dict[str, Any]:
+    """Return the plumbing block, tolerating the legacy flat v1 shape."""
+
+    if not golden:
+        return {}
+    plumbing = golden.get("plumbing")
+    if isinstance(plumbing, dict):
+        return plumbing
+    # v1: audit_lines / stdout_contains sat at the top level.
+    legacy: dict[str, Any] = {}
+    for key in ("audit_lines", "stdout_contains"):
+        if key in golden:
+            legacy[key] = golden[key]
+    return legacy
+
+
+def _golden_is_expected_failure(script: Path, golden: dict[str, Any] | None) -> bool:
+    if golden is not None and isinstance(golden.get("expected_failure"), bool):
+        return golden["expected_failure"]
+    return "expected_failure" in script.stem
+
+
+# ---------------------------------------------------------------------------
+# Captured value oracles
+# ---------------------------------------------------------------------------
+
+
+def _capture_request(audit_root: Path, script: Path) -> list[dict[str, Any]]:
+    """Extract the process-dispatch request fingerprint(s) from the audit stream.
+
+    Every process-backed shim call records one audit line carrying
+    ``process_id`` and ``process_inputs`` (the projected OGC ``inputs`` payload
+    the shim POSTs). Returned in call order so multi-op scripts (e.g.
+    buffer-then-dissolve) fingerprint each step. Non-process scripts return an
+    empty list.
+    """
+
+    audit_dir = audit_root / script.stem
+    requests: list[dict[str, Any]] = []
+    if not audit_dir.exists():
+        return requests
+    for file in sorted(audit_dir.glob("audit-*.jsonl")):
+        for line in file.open(encoding="utf-8"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if "process_id" in record and "process_inputs" in record:
+                requests.append(
+                    {
+                        "function": record.get("function"),
+                        "process_id": record.get("process_id"),
+                        "inputs": record.get("process_inputs"),
+                    }
+                )
+    return requests
+
+
+def _capture_response(result_dir: Path, script: Path) -> dict[str, Any] | None:
+    sidecar = result_dir / f"{script.stem}.json"
+    if not sidecar.exists():
+        return None
+    try:
+        return json.loads(sidecar.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+
+
+def _normalize(value: Any) -> Any:
+    """Canonicalize for structural comparison (dict key order, list of dicts)."""
+
+    return json.loads(json.dumps(value, sort_keys=True))
+
+
+# ---------------------------------------------------------------------------
+# Script execution
+# ---------------------------------------------------------------------------
+
+
 def _run_script(
     script: Path,
     *,
     audit_root: Path,
+    result_dir: Path,
     timeout: float,
     extra_env: dict[str, str] | None = None,
 ) -> tuple[int, str, str, float]:
@@ -112,6 +249,8 @@ def _run_script(
     audit_dir.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["HONUA_GP_AUDIT_DIR"] = str(audit_dir)
+    # Per-script response sidecar directory (read back for the live value diff).
+    env["HONUA_GP_EVAL_RESULT_DIR"] = str(result_dir)
     env.setdefault("HONUA_GP_EVAL_USE_STUB", "1")
     # ``_build_pythonpath`` preserves the existing PYTHONPATH and appends the
     # sibling-package extras (only when not already present). Assigning
@@ -158,7 +297,12 @@ def _count_audit_lines(audit_root: Path, script: Path) -> int:
     return total
 
 
-def _classify(
+# ---------------------------------------------------------------------------
+# Grading
+# ---------------------------------------------------------------------------
+
+
+def _grade(
     script: Path,
     *,
     exit_code: int,
@@ -166,48 +310,117 @@ def _classify(
     golden: dict[str, Any] | None,
     stdout: str,
     stderr: str,
-) -> tuple[str, bool, str | None]:
-    expected_failure = "expected_failure" in script.stem
-    if expected_failure:
-        # expected_failure scripts catch HonuaGpUnsupportedError, print the
-        # caught function name, and exit 0. The pass signal is the marker.
-        if exit_code != 0:
-            tail = stderr.strip().splitlines()[-1] if stderr.strip() else f"exit {exit_code}"
-            return "fail", True, f"expected_failure script exited {exit_code}: {tail}"
-        if golden is not None:
-            marker = golden.get("stdout_contains")
-            if isinstance(marker, str) and marker and marker not in stdout:
-                return "fail", True, f"expected_failure script missing marker {marker!r}"
-            # expected_failure scripts still write audit JSONL (the stub
-            # records the refused call with status=error). Honour the golden
-            # audit_lines count so a regression that loses the refusal-time
-            # audit shows up as an eval failure instead of slipping through
-            # the expected_failure branch.
-            expected_audit = golden.get("audit_lines")
-            if isinstance(expected_audit, int) and expected_audit != audit_lines:
-                return (
-                    "fail",
-                    True,
-                    f"expected_failure audit line count mismatch: expected {expected_audit}, got {audit_lines}",
-                )
-        return "pass", True, "caught expected unsupported error"
+    request_actual: list[dict[str, Any]],
+    response_actual: dict[str, Any] | None,
+    live_mode: bool,
+) -> tuple[str, bool, str | None, dict[str, str]]:
+    """Grade one script across plumbing + request + response layers."""
 
+    expected_failure = _golden_is_expected_failure(script, golden)
+    plumbing = _plumbing(golden)
+    checks: dict[str, str] = {}
+
+    # --- Layer 0: exit code -------------------------------------------------
     if exit_code != 0:
-        return "fail", False, stderr.strip().splitlines()[-1] if stderr.strip() else f"exit {exit_code}"
+        tail = stderr.strip().splitlines()[-1] if stderr.strip() else f"exit {exit_code}"
+        checks["exit"] = "fail"
+        return "fail", expected_failure, f"exited {exit_code}: {tail}", checks
+    checks["exit"] = "pass"
 
-    if golden is not None:
-        expected_audit = golden.get("audit_lines")
-        if isinstance(expected_audit, int) and expected_audit != audit_lines:
+    # --- Layer 1: plumbing (marker + audit line count) ----------------------
+    marker = plumbing.get("stdout_contains")
+    if isinstance(marker, str) and marker and marker not in stdout:
+        checks["plumbing"] = "fail"
+        prefix = "expected_failure script " if expected_failure else ""
+        return "fail", expected_failure, f"{prefix}missing stdout marker: {marker!r}", checks
+    expected_audit = plumbing.get("audit_lines")
+    if isinstance(expected_audit, int) and expected_audit != audit_lines:
+        checks["plumbing"] = "fail"
+        prefix = "expected_failure " if expected_failure else ""
+        return (
+            "fail",
+            expected_failure,
+            f"{prefix}audit line count mismatch: expected {expected_audit}, got {audit_lines}",
+            checks,
+        )
+    checks["plumbing"] = "pass"
+
+    if expected_failure:
+        # expected_failure scripts catch HonuaGpUnsupportedError and exit 0;
+        # they have no request/response oracle to diff.
+        return "pass", True, "caught expected unsupported error", checks
+
+    # --- Layer 2: request fingerprint (both modes) --------------------------
+    golden_request = golden.get("request") if golden else None
+    if golden_request is not None:
+        if _normalize(request_actual) != _normalize(golden_request):
+            checks["request"] = "fail"
             return (
                 "fail",
                 False,
-                f"audit line count mismatch: expected {expected_audit}, got {audit_lines}",
+                "request fingerprint mismatch (dispatch/parameter mapping regression); "
+                f"expected {json.dumps(golden_request, sort_keys=True)}, "
+                f"got {json.dumps(request_actual, sort_keys=True)}",
+                checks,
             )
-        required_marker = golden.get("stdout_contains")
-        if isinstance(required_marker, str) and required_marker and required_marker not in stdout:
-            return "fail", False, f"stdout missing marker: {required_marker!r}"
+        checks["request"] = "pass"
 
-    return "pass", False, None
+    # --- Layer 3: response fingerprint (live mode only) ---------------------
+    golden_response = golden.get("response") if golden else None
+    if golden_response is not None:
+        if not live_mode:
+            checks["response"] = "skip(stub)"
+        elif response_actual is None:
+            checks["response"] = "fail"
+            return (
+                "fail",
+                False,
+                "live response fingerprint missing (script emitted no sidecar)",
+                checks,
+            )
+        elif _normalize(response_actual) != _normalize(golden_response):
+            checks["response"] = "fail"
+            return (
+                "fail",
+                False,
+                "response value mismatch (server round-trip / response parsing regression); "
+                f"expected {json.dumps(golden_response, sort_keys=True)}, "
+                f"got {json.dumps(response_actual, sort_keys=True)}",
+                checks,
+            )
+        else:
+            checks["response"] = "pass"
+    elif live_mode and golden is not None and not expected_failure:
+        # Live run, supported script, but no response oracle recorded yet.
+        checks["response"] = "unblessed"
+
+    return "pass", False, None, checks
+
+
+def _update_golden(
+    script: Path,
+    golden_dir: Path,
+    golden: dict[str, Any] | None,
+    *,
+    request_actual: list[dict[str, Any]],
+    response_actual: dict[str, Any] | None,
+    live_mode: bool,
+) -> None:
+    """Re-capture (bless) the request/response oracles into the golden file.
+
+    Request fingerprints are written in any mode (transport-independent).
+    Response fingerprints are written ONLY in live mode -- the stub's canned
+    ``href`` carries no real values and must never be frozen as an oracle.
+    """
+
+    document = dict(golden) if golden else {}
+    document.setdefault("schema_version", 2)
+    if request_actual:
+        document["request"] = request_actual
+    if live_mode and response_actual is not None:
+        document["response"] = response_actual
+    target = golden_dir / f"{script.stem}.json"
+    target.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def run(
@@ -217,14 +430,20 @@ def run(
     audit_root: Path,
     timeout: float,
     pass_threshold: float,
+    update_golden: bool = False,
 ) -> EvalSummary:
     scripts = sorted(p for p in script_dir.glob("*.py") if not p.name.startswith("_"))
-    summary = EvalSummary(total=len(scripts), pass_threshold=pass_threshold)
+    live_mode = live_values_available()
+    summary = EvalSummary(total=len(scripts), pass_threshold=pass_threshold, live_mode=live_mode)
+    result_root = Path(tempfile.mkdtemp(prefix="honua-gp-eval-results-"))
     for script in scripts:
+        result_dir = result_root / script.stem
+        result_dir.mkdir(parents=True, exist_ok=True)
         try:
             exit_code, stdout, stderr, duration_ms = _run_script(
                 script,
                 audit_root=audit_root,
+                result_dir=result_dir,
                 timeout=timeout,
             )
         except subprocess.TimeoutExpired as exc:
@@ -244,13 +463,30 @@ def run(
             continue
         audit_lines = _count_audit_lines(audit_root, script)
         golden = _golden_for(script, golden_dir)
-        status, expected_failure, reason = _classify(
+        request_actual = _capture_request(audit_root, script)
+        response_actual = _capture_response(result_dir, script)
+
+        if update_golden:
+            _update_golden(
+                script,
+                golden_dir,
+                golden,
+                request_actual=request_actual,
+                response_actual=response_actual,
+                live_mode=live_mode,
+            )
+            golden = _golden_for(script, golden_dir)
+
+        status, expected_failure, reason, checks = _grade(
             script,
             exit_code=exit_code,
             audit_lines=audit_lines,
             golden=golden,
             stdout=stdout,
             stderr=stderr,
+            request_actual=request_actual,
+            response_actual=response_actual,
+            live_mode=live_mode,
         )
         result = ScriptResult(
             name=script.name,
@@ -263,6 +499,7 @@ def run(
             expected_failure=expected_failure,
             golden=golden,
             reason=reason,
+            checks=checks,
         )
         summary.results.append(result)
         if status == "pass":
@@ -323,20 +560,23 @@ def write_junit(summary: EvalSummary, path: Path) -> None:
 def write_step_summary(summary: EvalSummary, path: Path | None) -> None:
     if path is None:
         return
+    mode = "live (real honua-server)" if summary.live_mode else "stub (dispatch plumbing only)"
     lines: list[str] = []
     lines.append("# honua-gp eval results")
     lines.append("")
+    lines.append(f"Mode: **{mode}**")
     lines.append(
         f"Pass rate: **{summary.pass_rate:.0%}** ({summary.passed} / {max(summary.total - summary.skipped, 1)})"
     )
     lines.append(f"Threshold: {summary.pass_threshold:.0%}")
     lines.append("")
-    lines.append("| Script | Status | Audit lines | Latency (ms) | Notes |")
-    lines.append("| --- | --- | --- | --- | --- |")
+    lines.append("| Script | Status | Checks | Audit lines | Latency (ms) | Notes |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
     for result in summary.results:
         notes = result.reason or ""
+        check_str = ", ".join(f"{k}:{v}" for k, v in result.checks.items())
         lines.append(
-            f"| {result.name} | {result.status} | {result.audit_lines} | {result.duration_ms:.0f} | {notes} |"
+            f"| {result.name} | {result.status} | {check_str} | {result.audit_lines} | {result.duration_ms:.0f} | {notes} |"
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -345,7 +585,7 @@ def write_step_summary(summary: EvalSummary, path: Path | None) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the honua-gp compatibility eval suite.")
     parser.add_argument("--scripts", type=Path, default=DEFAULT_SCRIPT_DIR, help="Directory of eval scripts.")
-    parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN_DIR, help="Directory of golden reference outputs.")
+    parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN_DIR, help="Directory of golden reference values.")
     parser.add_argument(
         "--audit-root",
         type=Path,
@@ -374,6 +614,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--update-golden",
+        action="store_true",
+        help=(
+            "Re-capture (bless) the request/response value oracles into the "
+            "golden files instead of grading against them. Request fingerprints "
+            "are written in any mode; response fingerprints only in live mode "
+            "(HONUA_GP_EVAL_USE_STUB=0 + HONUA_BASE_URL). Review the diff before "
+            "committing."
+        ),
+    )
+    parser.add_argument(
         "--fail-under",
         action="store_true",
         default=True,
@@ -393,18 +644,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         audit_root=args.audit_root,
         timeout=args.timeout,
         pass_threshold=args.pass_threshold,
+        update_golden=args.update_golden,
     )
     write_json(summary, args.output_json)
     write_junit(summary, args.output_junit)
     write_step_summary(summary, args.step_summary)
 
+    mode = "live" if summary.live_mode else "stub"
     sys.stdout.write(
-        f"honua-gp eval: {summary.passed}/{summary.total} passed ({summary.pass_rate:.0%}); "
+        f"honua-gp eval [{mode}]: {summary.passed}/{summary.total} passed ({summary.pass_rate:.0%}); "
         f"threshold {args.pass_threshold:.0%}; "
         f"supported {summary.supported_passed}/{summary.supported_total} "
         f"({summary.supported_pass_rate:.0%}); "
         f"supported-required {args.require_supported_pass_rate:.0%}\n"
     )
+    if args.update_golden:
+        sys.stdout.write("honua-gp eval: golden value oracles updated; review the diff before committing.\n")
+        return 0
     if args.fail_under and summary.pass_rate + 1e-9 < args.pass_threshold:
         return 1
     if (

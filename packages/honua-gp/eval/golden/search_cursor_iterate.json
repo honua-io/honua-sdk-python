@@ -1,5 +1,11 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "search_cursor_iterate ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "search_cursor_iterate ok"
+  },
+  "response": {
+    "rows": 14
+  },
+  "schema_version": 2
 }

@@ -27,3 +27,5 @@ arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
 arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
 count = arcpy.management.GetCount("roads_lyr")
 print(f"get_count_after_select ok count={count}")
+from eval._emit import emit_response
+emit_response('get_count_after_select', {'count': int(count)})

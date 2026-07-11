@@ -73,12 +73,44 @@ class ScriptSpec:
     expected_audit_lines: int
     stdout_marker: str
     is_expected_failure: bool = False
+    response_emit: str = ""
+
+
+def _fl_emit(slug: str, var: str = "result") -> str:
+    """Emit a FeatureLayer response fingerprint (geometry type + feature count).
+
+    Appended to process-backed scripts (Buffer / SpatialJoin / Dissolve /
+    Project). No-op unless HONUA_GP_EVAL_RESULT_DIR is set, so stub / by-hand
+    runs are unaffected; ``run_eval.py`` diffs the sidecar in live mode only.
+    """
+
+    return (
+        "from eval._emit import emit_response, feature_layer_fingerprint\n"
+        f"emit_response({slug!r}, feature_layer_fingerprint({var}))\n"
+    )
+
+
+def _val_emit(slug: str, expr: str) -> str:
+    """Emit a scalar response fingerprint (a row count / feature count)."""
+
+    return (
+        "from eval._emit import emit_response\n"
+        f"emit_response({slug!r}, {expr})\n"
+    )
 
 
 SUPPORTED_TEMPLATES: list[ScriptSpec] = []
 
 
-def _supported(slug: str, workspace: str, docstring: str, body: str, audit_lines: int, marker: str) -> ScriptSpec:
+def _supported(
+    slug: str,
+    workspace: str,
+    docstring: str,
+    body: str,
+    audit_lines: int,
+    marker: str,
+    response_emit: str = "",
+) -> ScriptSpec:
     spec = ScriptSpec(
         slug=slug,
         workspace=workspace,
@@ -86,6 +118,7 @@ def _supported(slug: str, workspace: str, docstring: str, body: str, audit_lines
         body=body,
         expected_audit_lines=audit_lines,
         stdout_marker=marker,
+        response_emit=response_emit,
     )
     SUPPORTED_TEMPLATES.append(spec)
     return spec
@@ -115,6 +148,7 @@ print(f"make_feature_layer_then_select ok count={selection.count}")
 """,
     2,
     "make_feature_layer_then_select ok",
+    response_emit=_val_emit("make_feature_layer_then_select", "{'count': int(selection.count)}"),
 )
 
 _supported(
@@ -137,6 +171,7 @@ print(f"get_count_roads ok count={count}")
 """,
     1,
     "get_count_roads ok",
+    response_emit=_val_emit("get_count_roads", "{'count': int(count)}"),
 )
 
 _supported(
@@ -149,6 +184,7 @@ print(f"search_cursor_iterate ok rows={len(rows)}")
 """,
     1,
     "search_cursor_iterate ok",
+    response_emit=_val_emit("search_cursor_iterate", "{'rows': len(rows)}"),
 )
 
 _supported(
@@ -205,6 +241,7 @@ print(f"get_count_after_select ok count={count}")
 """,
     3,
     "get_count_after_select ok",
+    response_emit=_val_emit("get_count_after_select", "{'count': int(count)}"),
 )
 
 _supported(
@@ -219,6 +256,7 @@ print(f"make_feature_layer_clear_then_count ok count={count}")
 """,
     4,
     "make_feature_layer_clear_then_count ok",
+    response_emit=_val_emit("make_feature_layer_clear_then_count", "{'count': int(count)}"),
 )
 
 _supported(
@@ -231,6 +269,7 @@ print(f"search_cursor_filter ok rows={len(rows)}")
 """,
     1,
     "search_cursor_filter ok",
+    response_emit=_val_emit("search_cursor_filter", "{'rows': len(rows)}"),
 )
 
 _supported(
@@ -245,6 +284,7 @@ print(f"insert_cursor_then_search ok rows={len(rows)}")
 """,
     2,
     "insert_cursor_then_search ok",
+    response_emit=_val_emit("insert_cursor_then_search", "{'rows': len(rows)}"),
 )
 
 EXPECTED_FAILURE_TEMPLATES: list[ScriptSpec] = []
@@ -294,6 +334,7 @@ print(f"buffer_roads ok output={result[0]}")
 """,
     1,
     "buffer_roads ok",
+    response_emit=_fl_emit("buffer_roads"),
 )
 _supported(
     "buffer_legacy_suffix",
@@ -304,6 +345,7 @@ print(f"buffer_legacy_suffix ok output={result[0]}")
 """,
     1,
     "buffer_legacy_suffix ok",
+    response_emit=_fl_emit("buffer_legacy_suffix"),
 )
 # SpatialJoin: the join_features MUST resolve to a different layerId than
 # target_features -- honua-server's analytics.spatial-join rejects a self-join
@@ -319,6 +361,7 @@ print(f"spatial_join_addresses_parcels ok output={result[0]}")
 """,
     1,
     "spatial_join_addresses_parcels ok",
+    response_emit=_fl_emit("spatial_join_addresses_parcels"),
 )
 _supported(
     "spatial_join_with_radius",
@@ -329,6 +372,7 @@ print(f"spatial_join_with_radius ok output={result[0]}")
 """,
     1,
     "spatial_join_with_radius ok",
+    response_emit=_fl_emit("spatial_join_with_radius"),
 )
 _supported(
     "dissolve_parcels_by_zoning",
@@ -339,6 +383,7 @@ print(f"dissolve_parcels_by_zoning ok output={result[0]}")
 """,
     1,
     "dissolve_parcels_by_zoning ok",
+    response_emit=_fl_emit("dissolve_parcels_by_zoning"),
 )
 # data-management.copy-features / .calculate-field are CanServe=false by design
 # (honua-server#1382): never projected as standalone OGC API processes, only
@@ -380,6 +425,7 @@ print(f"project_roads_to_wgs84 ok output={result[0]}")
 """,
     1,
     "project_roads_to_wgs84 ok",
+    response_emit=_fl_emit("project_roads_to_wgs84"),
 )
 _expected_failure(
     "calculate_field_constant",
@@ -404,6 +450,7 @@ print(f"buffer_then_dissolve ok output={result[0]}")
 """,
     2,
     "buffer_then_dissolve ok",
+    response_emit=_fl_emit("buffer_then_dissolve"),
 )
 _supported(
     "buffer_numeric_distance",
@@ -414,6 +461,7 @@ print(f"buffer_numeric_distance ok output={result[0]}")
 """,
     1,
     "buffer_numeric_distance ok",
+    response_emit=_fl_emit("buffer_numeric_distance"),
 )
 _supported(
     "project_kilometers_buffer",
@@ -425,6 +473,7 @@ print(f"project_kilometers_buffer ok output={result[0]}")
 """,
     2,
     "project_kilometers_buffer ok",
+    response_emit=_fl_emit("project_kilometers_buffer"),
 )
 _expected_failure(
     "copy_then_calculate_field",
@@ -500,7 +549,38 @@ _expected_failure("rename_then_describe", "    arcpy.management.Rename('legacy_p
 
 def _render(spec: ScriptSpec) -> str:
     header = BOOTSTRAP.format(docstring=spec.docstring, workspace=spec.workspace)
-    return header + spec.body
+    body = spec.body
+    if spec.response_emit:
+        body = body + spec.response_emit
+    return header + body
+
+
+def _golden_document(spec: ScriptSpec, existing: dict | None) -> dict:
+    """Build the v2 golden document for ``spec``.
+
+    The generator owns the *scaffold*: ``schema_version``, ``expected_failure``,
+    and the ``plumbing`` block (exit-code-adjacent string / audit-line checks
+    that run in every mode). The value oracles -- the ``request`` fingerprint
+    (projected process id + inputs) and the live-only ``response`` fingerprint
+    (geometry type, feature/row counts) -- are captured and frozen by
+    ``run_eval.py --update-golden`` (see ``docs/golden-eval.md``). Regenerating
+    scripts must NOT wipe those blessed values, so any existing ``request`` /
+    ``response`` blocks are carried forward from the committed golden.
+    """
+
+    document: dict = {
+        "schema_version": 2,
+        "expected_failure": spec.is_expected_failure,
+        "plumbing": {
+            "audit_lines": spec.expected_audit_lines,
+            "stdout_contains": spec.stdout_marker,
+        },
+    }
+    if existing:
+        for carried in ("request", "response"):
+            if carried in existing:
+                document[carried] = existing[carried]
+    return document
 
 
 def _emit() -> None:
@@ -516,17 +596,14 @@ def _emit() -> None:
         target.write_text(_render(spec), encoding="utf-8")
 
         golden = GOLDEN_DIR / f"{spec.slug}.json"
+        existing: dict | None = None
+        if golden.exists():
+            try:
+                existing = json.loads(golden.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                existing = None
         golden.write_text(
-            json.dumps(
-                {
-                    "audit_lines": spec.expected_audit_lines,
-                    "stdout_contains": spec.stdout_marker,
-                    "expected_failure": spec.is_expected_failure,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
+            json.dumps(_golden_document(spec, existing), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
 

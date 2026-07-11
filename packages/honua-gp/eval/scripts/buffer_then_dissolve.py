@@ -26,3 +26,5 @@ arcpy.env.overwriteOutput = True
 arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "5 Meters", dissolve_option="ALL")
 result = arcpy.management.Dissolve("honua://services/transport/0", "roads_dissolved", dissolve_field=["class"])
 print(f"buffer_then_dissolve ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('buffer_then_dissolve', feature_layer_fingerprint(result))

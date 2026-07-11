@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buf_num", 50)
 print(f"buffer_numeric_distance ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('buffer_numeric_distance', feature_layer_fingerprint(result))

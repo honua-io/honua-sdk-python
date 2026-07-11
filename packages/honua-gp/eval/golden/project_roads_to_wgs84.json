@@ -1,5 +1,25 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "project_roads_to_wgs84 ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "project_roads_to_wgs84 ok"
+  },
+  "request": [
+    {
+      "function": "management.Project",
+      "inputs": {
+        "layerId": 0,
+        "targetSrid": 4326
+      },
+      "process_id": "conversion.feature-project"
+    }
+  ],
+  "response": {
+    "feature_count": 14,
+    "geometry_type": "Point",
+    "output_keys": [
+      "outputFeatureLayer"
+    ]
+  },
+  "schema_version": 2
 }

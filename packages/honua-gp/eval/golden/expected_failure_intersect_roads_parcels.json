@@ -1,5 +1,8 @@
 {
-  "audit_lines": 1,
   "expected_failure": true,
-  "stdout_contains": "expected_failure_intersect_roads_parcels"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "expected_failure_intersect_roads_parcels"
+  },
+  "schema_version": 2
 }

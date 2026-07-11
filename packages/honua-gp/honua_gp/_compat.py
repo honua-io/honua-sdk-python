@@ -581,18 +581,45 @@ COMPAT: dict[str, FunctionEntry] = {
         param_map={"in_rows": "layer_name"},
     ),
     "management.ListFields": FunctionEntry(
-        backend="not_implemented",
-        status="stub",
-        notes="Lists layer fields; HonuaAdminClient exposes discover_tables (per connection) but no per-layer schema reader today.",
-        replacement_hint="Use honua_admin.HonuaAdminClient.discover_tables for the parent connection and project the field list locally.",
-        tracking="honua-server#layer-schema-read",
+        backend="source",
+        status="partial",
+        notes=(
+            "Lists a layer's fields via honua_sdk.HonuaClient.feature_server(...).schema(layer_id) "
+            "(the typed LayerSchema built from the FeatureServer layer-metadata endpoint). "
+            "wild_card ('*'-glob, case-insensitive) and field_type (single value, "
+            "semicolon-delimited list, or Python sequence; 'All' / omitted disables the "
+            "filter) are both applied client-side against the fetched field list. Field "
+            "type tokens are normalized from honua-server's esriFieldType* vocabulary to "
+            "arcpy's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/"
+            "Single/Date/OID/Geometry/GUID/GlobalID/Blob/Raster/XML/DateOnly/TimeOnly/"
+            "TimestampOffset). Partial: honua-server's field JSON does not carry "
+            "precision/scale, so FieldDescribe.precision/.scale are always None (real "
+            "arcpy populates them for numeric fields); required/isVersioned/domain-code "
+            "nuances are also not modelled beyond passing the raw domain mapping through."
+        ),
+        param_map={"dataset": "layer_name"},
     ),
     "management.Describe": FunctionEntry(
-        backend="not_implemented",
-        status="stub",
-        notes="Inspects a dataset's schema; HonuaAdminClient does not expose a per-layer schema reader today.",
-        replacement_hint="Use honua_admin.HonuaAdminClient.discover_tables for the parent connection or honua_sdk.HonuaClient.feature_server(...).layer_metadata(layer_id).",
-        tracking="honua-server#layer-schema-read",
+        backend="source",
+        status="partial",
+        notes=(
+            "Describes a dataset's schema via honua_sdk.HonuaClient.feature_server(...)."
+            "schema(layer_id): .shapeType, .fields (ListFields-shaped), .spatialReference "
+            "(a minimal read-only SpatialReferenceInfo exposing .factoryCode / .wkid and, "
+            "when the server literally advertises one, .name), and .OIDFieldName are all "
+            "populated from the FeatureServer layer-metadata response. Partial / explicitly "
+            "out of scope: the optional arcpy data_type filter argument is not implemented "
+            "(every call describes the resolved dataset as-is); .catalogPath is the shim's "
+            "resolved source string, not a verified on-disk/catalog path; .dataType is a "
+            "heuristic ('FeatureClass' when a geometry type is present, else 'Table') -- "
+            "arcpy's full dataType vocabulary (ShapeFile, RasterDataset, Table, ...) is not "
+            "modelled; raster-specific Describe properties (bandCount, meanCellHeight, "
+            "noDataValue, ...) are not covered since honua-server's FeatureServer metadata "
+            "has no raster surface today; .spatialReference.name is only populated when the "
+            "server response includes a literal name (most only advertise a WKID), so it is "
+            "commonly None even when .factoryCode is set."
+        ),
+        param_map={"dataset": "layer_name"},
     ),
     # -----------------------------------------------------------------
     # da.* (10)

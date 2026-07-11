@@ -27,8 +27,17 @@ from ._resolve import ResolvedSource, resolve
 from ._session import HonuaSession, LayerAlias, get_session
 from .env import env
 
-# Re-export Describe at the package level to mirror ``arcpy.Describe``.
-from .management import Describe, DescribeResult, FieldDescribe, Selection
+# Re-export Describe / ListFields at the package level to mirror real arcpy,
+# where both are top-level convenience functions rather than
+# ``arcpy.management.*``-only.
+from .management import (
+    Describe,
+    DescribeResult,
+    FieldDescribe,
+    ListFields,
+    Selection,
+    SpatialReferenceInfo,
+)
 
 try:
     from importlib.metadata import version as _meta_version
@@ -142,7 +151,9 @@ __all__ = [
     "DescribeResult",
     "FieldDescribe",
     "GetCount",
+    "ListFields",
     "Selection",
+    "SpatialReferenceInfo",
     # Legacy suffix-form aliases (real arcpy exposes both)
     *_SUFFIX_ALIASES.keys(),
 ]

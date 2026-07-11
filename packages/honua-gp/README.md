@@ -33,7 +33,7 @@ honua-gp/
 │   ├── _cli.py                        # honua-gp assess <inventory.json> + matrix
 │   ├── env.py                         # arcpy.env shim
 │   ├── analysis/                      # 15 functions (0 mapped, 15 stubbed)
-│   ├── management/                    # 20 functions (4 mapped, 16 stubbed)
+│   ├── management/                    # 20 functions (8 mapped, 12 stubbed)
 │   └── da/                            # 10 functions (3 mapped, 7 stubbed)
 ├── docs/
 │   └── compatibility-matrix.md        # generated -- do not hand edit
@@ -105,14 +105,18 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 45 functions (15 analysis + 20 management + 10 da); see
   [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
-- **Coverage today:** 6 supported entries and 5 partial entries
-  (11 supported/partial) + 34 stubs. Supported: session-backed
+- **Coverage today:** 6 supported entries and 7 partial entries
+  (13 supported/partial) + 32 stubs. Supported: session-backed
   ``MakeFeatureLayer`` / ``MakeTableView``, the two buffered ``da`` write
   cursors (``InsertCursor`` / ``UpdateCursor``), and process-backed
   ``analysis.Buffer`` / ``management.Project``. Partial:
   source-backed ``SelectLayerByAttribute`` / ``GetCount`` / ``da.SearchCursor``,
-  and process-backed ``analysis.SpatialJoin`` / ``management.Dissolve``
-  (documented deviations). The layer-aware projection adapter (see
+  process-backed ``analysis.SpatialJoin`` / ``management.Dissolve``
+  (documented deviations), and source-backed ``management.Describe`` /
+  ``management.ListFields`` (schema introspection via the FeatureServer
+  layer-metadata endpoint -- partial because raster Describe properties,
+  field precision/scale, and a verified ``catalogPath`` are not modelled).
+  The layer-aware projection adapter (see
   [`CHANGELOG.md`](CHANGELOG.md)) re-promoted the four layer-aware vector
   process tools from stub to working. The remaining process-shaped stubs
   (``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase``,

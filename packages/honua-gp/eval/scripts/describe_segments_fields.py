@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.ListFields."""
+"""Describe a feature layer, then iterate its fields (a common arcpy idiom)."""
 
 import sys
 from pathlib import Path
@@ -23,9 +23,6 @@ else:
 arcpy.env.workspace = "honua://services/legacy"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.ListFields('segments')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_list_fields caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_list_fields did not raise")
+desc = arcpy.Describe("segments")
+names = [field.name for field in desc.fields]
+print(f"describe_segments_fields ok fields={','.join(names)}")

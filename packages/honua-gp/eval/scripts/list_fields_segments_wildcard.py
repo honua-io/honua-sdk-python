@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.Describe."""
+"""List fields on a feature layer matching a wild_card name pattern."""
 
 import sys
 from pathlib import Path
@@ -23,9 +23,6 @@ else:
 arcpy.env.workspace = "honua://services/legacy"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.Describe('segments')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_describe caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_describe did not raise")
+fields = arcpy.management.ListFields("segments", wild_card="STAT*")
+names = [f.name for f in fields]
+print(f"list_fields_segments_wildcard ok count={len(fields)} fields={','.join(names)}")

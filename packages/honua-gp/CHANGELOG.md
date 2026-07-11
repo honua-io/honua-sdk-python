@@ -4,6 +4,31 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### `management.Describe` / `management.ListFields` promoted from stub to partial
+
+The highest-frequency real-world blocker across migrated scripts was schema
+introspection: almost every arcpy script calls `arcpy.Describe(...)` or
+`arcpy.ListFields(...)`, and both were previously stubs. Both now fetch a
+dataset's typed `LayerSchema` via
+`honua_sdk.HonuaClient.feature_server(service_id).schema(layer_id)` (the
+FeatureServer layer-metadata endpoint) and project it onto arcpy-shaped
+return values:
+
+- `Describe(dataset)` returns a `DescribeResult` with `.shapeType`, `.fields`,
+  `.spatialReference` (a new minimal `SpatialReferenceInfo` wrapper exposing
+  `.factoryCode` / `.wkid` and, when advertised, `.name`), `.OIDFieldName`,
+  `.dataType`, and `.catalogPath`.
+- `ListFields(dataset, wild_card=None, field_type=None)` returns a
+  `list[FieldDescribe]`, filtered client-side by name glob and/or arcpy
+  field-type vocabulary (`String` / `Integer` / `Double` / `Geometry` / `OID`
+  / ...). `FieldDescribe.type` is normalized from honua-server's raw
+  `esriFieldType*` tokens via a new mapping table.
+
+Both are `status="partial"`: precision/scale, raster Describe properties, the
+`data_type` filter argument, and a verified `catalogPath` are not modelled --
+see the `management.Describe` / `management.ListFields` manifest notes in
+`_compat.py` for the complete list of documented deviations.
+
 - **Renamed** the distribution and import namespace from `honua-arcpy` /
   `honua_arcpy` to `honua-gp` / `honua_gp` to remove an Esri trademark from a
   package and import-namespace name (honua-io/honua-sdk-python#123). "ArcPy"

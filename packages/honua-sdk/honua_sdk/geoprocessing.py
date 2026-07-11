@@ -439,10 +439,11 @@ def _data_uri_bytes(uri: str) -> bytes | None:
 def _output_json_bytes(member: Mapping[str, Any]) -> bytes | None:
     """Return the JSON payload bytes carried inline by an output ``member``.
 
-    Reads an inline ``value`` (data URI, raw JSON string, or base64) or a
+    Reads an inline ``value`` (a ``data:`` URI or a raw JSON string) or a
     ``data:`` ``href``. Returns ``None`` when the payload is only reachable via a
     fetchable (``http(s)``) ``href`` -- the caller fetches that through the bound
-    client so base URL, auth, and retry policy apply.
+    client so base URL, auth, and retry policy apply -- or is carried as a raw
+    (non-string) ``value`` the caller can use as-is.
     """
     value = member.get("value")
     if isinstance(value, str):
@@ -452,10 +453,7 @@ def _output_json_bytes(member: Mapping[str, Any]) -> bytes | None:
         stripped = value.strip()
         if stripped[:1] in ("{", "["):
             return value.encode("utf-8")
-        try:
-            return base64.b64decode(value, validate=True)
-        except (binascii.Error, ValueError):
-            return value.encode("utf-8")
+        return None
     href = member.get("href")
     if isinstance(href, str) and href:
         return _data_uri_bytes(href)
@@ -553,6 +551,31 @@ def _feature_collection_from_results(results: Mapping[str, Any]) -> JsonObject:
         f"got output keys {sorted(results)!r}. "
         "execute_dataframe requires a feature-collection-out process."
     )
+
+
+def _feature_collection_from_output(results: Mapping[str, Any]) -> JsonObject | None:
+    """Best-effort, pure attempt to find a FeatureCollection in a results document.
+
+    Tries the declared-kind output member's JSON payload first (the
+    ``FeatureLayer`` shape published as a base64/``data:`` URI -- see
+    :func:`_output_json_bytes` -- for example ``surface.contour``'s output),
+    then falls back to :func:`_feature_collection_from_results` (the plain
+    inline-FeatureCollection vector-process shape). Returns ``None`` rather than
+    raising when neither is found, so a caller can decide what to do next (fetch
+    a live href, fall back to another kind, ...) -- and, notably, without
+    needing geopandas: this is pure selection logic only, no conversion.
+    """
+    member = _primary_output_member(results)
+    if member is not None:
+        data = _output_json_bytes(member)
+        if data is not None:
+            parsed = json.loads(data)
+            if _is_feature_collection(parsed):
+                return cast(JsonObject, parsed)
+    try:
+        return _feature_collection_from_results(results)
+    except HonuaError:
+        return None
 
 
 def _async_prefer_header(respond_async: bool) -> dict[str, str] | None:
@@ -959,27 +982,34 @@ class HonuaGeoprocessing:
             raise HonuaError("Table/Scalar output has no decodable JSON payload.")
         return json.loads(data)
 
+    def _result_feature_collection(self, results: Mapping[str, Any]) -> JsonObject:
+        """Select a results document's FeatureCollection output.
+
+        Pure selection plus, only when the pure attempt comes up empty, a live
+        ``href`` fetch through the bound client -- no geopandas needed.
+        :meth:`_result_geodataframe` is the thin geopandas-dependent conversion
+        built on top of this.
+        """
+        found = _feature_collection_from_output(results)
+        if found is not None:
+            return found
+        member = _primary_output_member(results)
+        href = member.get("href") if member is not None else None
+        if isinstance(href, str) and href and not href.startswith("data:"):
+            path, params = _href_path_and_params(href)
+            parsed = json.loads(self.client._request("GET", path, params=params).content)
+            if _is_feature_collection(parsed):
+                return cast(JsonObject, parsed)
+        raise HonuaError(
+            "Geoprocessing results document does not contain a FeatureCollection output; "
+            f"got output keys {sorted(results)!r}."
+        )
+
     def _result_geodataframe(self, results: Mapping[str, Any]) -> "gpd.GeoDataFrame":
         """Parse a ``FeatureLayer`` output to a GeoDataFrame (requires geopandas)."""
         from .geopandas import ogc_features_to_geodataframe
 
         return ogc_features_to_geodataframe(self._result_feature_collection(results))
-
-    def _result_feature_collection(self, results: Mapping[str, Any]) -> JsonObject:
-        member = _primary_output_member(results)
-        if member is not None:
-            data = _output_json_bytes(member)
-            if data is None:
-                href = member.get("href")
-                if isinstance(href, str) and href and not href.startswith("data:"):
-                    path, params = _href_path_and_params(href)
-                    data = self.client._request("GET", path, params=params).content
-            if data is not None:
-                parsed = json.loads(data)
-                if _is_feature_collection(parsed):
-                    return cast(JsonObject, parsed)
-        # Fall back to the inline-FeatureCollection selector (vector-process shape).
-        return _feature_collection_from_results(results)
 
     def consume_result(self, results: Mapping[str, Any]) -> Any:
         """Route a results document to the Python object matching its output kind.
@@ -987,7 +1017,10 @@ class HonuaGeoprocessing:
         * ``Raster`` -> :class:`xarray.DataArray` (via :meth:`result_to_xarray`).
         * ``FeatureLayer`` -> a :class:`geopandas.GeoDataFrame`.
         * ``Table`` / ``Scalar`` -> the parsed JSON value (``dict`` / ``list``).
-        * undeclared kind -> sniffed (raster, then feature collection, then JSON).
+        * undeclared kind -> sniffed, in priority order: raster, then feature
+          collection (via the pure :func:`_feature_collection_from_output`, so
+          geopandas is only touched once a FeatureCollection payload is actually
+          found), then a plain JSON value.
 
         Lets a caller consume :meth:`execute_raster_process` output without
         knowing in advance which kind a given ``process_id`` produces (xarray for
@@ -1002,20 +1035,19 @@ class HonuaGeoprocessing:
             return self._result_geodataframe(results)
         if kind in ("Table", "Scalar"):
             return self._result_json_value(results)
-        if kind is None:
-            from .raster import find_raster_output
+        if kind is not None:
+            raise HonuaError(f"Unsupported results kind {kind!r}.")
+        from .raster import find_raster_output
 
-            try:
-                find_raster_output(results)
-            except HonuaError:
-                pass
-            else:
-                return self.result_to_xarray(results)
-            try:
-                return self._result_geodataframe(results)
-            except HonuaError:
-                return self._result_json_value(results)
-        raise HonuaError(f"Unsupported results kind {kind!r}.")
+        try:
+            find_raster_output(results)
+        except HonuaError:
+            pass
+        else:
+            return self.result_to_xarray(results)
+        if _feature_collection_from_output(results) is not None:
+            return self._result_geodataframe(results)
+        return self._result_json_value(results)
 
     # -- canonical multi-step plan ----------------------------------------
 
@@ -1382,35 +1414,44 @@ class AsyncHonuaGeoprocessing:
             raise HonuaError("Table/Scalar output has no decodable JSON payload.")
         return json.loads(data)
 
+    async def _result_feature_collection(self, results: Mapping[str, Any]) -> JsonObject:
+        """Select a results document's FeatureCollection output.
+
+        Pure selection plus, only when the pure attempt comes up empty, a live
+        ``href`` fetch through the bound client -- no geopandas needed.
+        :meth:`_result_geodataframe` is the thin geopandas-dependent conversion
+        built on top of this.
+        """
+        found = _feature_collection_from_output(results)
+        if found is not None:
+            return found
+        member = _primary_output_member(results)
+        href = member.get("href") if member is not None else None
+        if isinstance(href, str) and href and not href.startswith("data:"):
+            path, params = _href_path_and_params(href)
+            response = await self.client._request("GET", path, params=params)
+            parsed = json.loads(response.content)
+            if _is_feature_collection(parsed):
+                return cast(JsonObject, parsed)
+        raise HonuaError(
+            "Geoprocessing results document does not contain a FeatureCollection output; "
+            f"got output keys {sorted(results)!r}."
+        )
+
     async def _result_geodataframe(self, results: Mapping[str, Any]) -> "gpd.GeoDataFrame":
         """Parse a ``FeatureLayer`` output to a GeoDataFrame (requires geopandas)."""
         from .geopandas import ogc_features_to_geodataframe
 
         return ogc_features_to_geodataframe(await self._result_feature_collection(results))
 
-    async def _result_feature_collection(self, results: Mapping[str, Any]) -> JsonObject:
-        member = _primary_output_member(results)
-        if member is not None:
-            data = _output_json_bytes(member)
-            if data is None:
-                href = member.get("href")
-                if isinstance(href, str) and href and not href.startswith("data:"):
-                    path, params = _href_path_and_params(href)
-                    response = await self.client._request("GET", path, params=params)
-                    data = response.content
-            if data is not None:
-                parsed = json.loads(data)
-                if _is_feature_collection(parsed):
-                    return cast(JsonObject, parsed)
-        # Fall back to the inline-FeatureCollection selector (vector-process shape).
-        return _feature_collection_from_results(results)
-
     async def consume_result(self, results: Mapping[str, Any]) -> Any:
         """Route a results document to the Python object matching its output kind.
 
         Async twin of :meth:`HonuaGeoprocessing.consume_result`: ``Raster`` ->
         :class:`xarray.DataArray`, ``FeatureLayer`` -> GeoDataFrame,
-        ``Table``/``Scalar`` -> parsed JSON, undeclared kind -> sniffed.
+        ``Table``/``Scalar`` -> parsed JSON, undeclared kind -> sniffed (raster,
+        then feature collection via the pure :func:`_feature_collection_from_output`,
+        then a plain JSON value).
         """
         kind = results_kind(results)
         if kind == "Raster":
@@ -1419,20 +1460,19 @@ class AsyncHonuaGeoprocessing:
             return await self._result_geodataframe(results)
         if kind in ("Table", "Scalar"):
             return await self._result_json_value(results)
-        if kind is None:
-            from .raster import find_raster_output
+        if kind is not None:
+            raise HonuaError(f"Unsupported results kind {kind!r}.")
+        from .raster import find_raster_output
 
-            try:
-                find_raster_output(results)
-            except HonuaError:
-                pass
-            else:
-                return await self.result_to_xarray(results)
-            try:
-                return await self._result_geodataframe(results)
-            except HonuaError:
-                return await self._result_json_value(results)
-        raise HonuaError(f"Unsupported results kind {kind!r}.")
+        try:
+            find_raster_output(results)
+        except HonuaError:
+            pass
+        else:
+            return await self.result_to_xarray(results)
+        if _feature_collection_from_output(results) is not None:
+            return await self._result_geodataframe(results)
+        return await self._result_json_value(results)
 
     # -- canonical multi-step plan ----------------------------------------
 

@@ -33,6 +33,9 @@ from honua_sdk.geoprocessing import (
     RASTER_SCOPE_PROCESS_IDS,
     LayerReference,
     RasterReference,
+    _data_uri_bytes,
+    _feature_collection_from_output,
+    _output_json_bytes,
     results_kind,
 )
 
@@ -114,6 +117,17 @@ def test_raster_reference_from_geotiff_bytes_type_checked() -> None:
         RasterReference.from_geotiff_bytes("not-bytes")  # type: ignore[arg-type]
 
 
+def test_raster_reference_to_inputs_guards_empty_carrier() -> None:
+    # __post_init__ only checks "populated" (not None); an empty-string carrier
+    # passes that check but must still be rejected by to_inputs()'s own guard.
+    with pytest.raises(ValueError, match="source raster reference requires"):
+        RasterReference(kind="source", source_base64="").to_inputs()
+    with pytest.raises(ValueError, match="layerId raster reference requires"):
+        RasterReference(kind="layerId", layer_id="").to_inputs()
+    with pytest.raises(ValueError, match="rasterId raster reference requires"):
+        RasterReference(kind="rasterId", raster_id="").to_inputs()
+
+
 # ---------------------------------------------------------------------------
 # Plan-wrapped submission body
 # ---------------------------------------------------------------------------
@@ -177,7 +191,7 @@ def test_execute_raster_process_wraps_source_bytes() -> None:
         result = client.geoprocessing().execute_raster_process(
             "surface.slope",
             raster,
-            parameters={"units": "degrees", "zFactor": 2},
+            parameters={"units": "degrees", "zFactor": 2, "invert": False},
             plan_id="plan-x",
             poll_interval=0.0,
         )
@@ -186,9 +200,11 @@ def test_execute_raster_process_wraps_source_bytes() -> None:
     step = captured[0]["inputs"]["plan"]["steps"][0]
     assert step["processId"] == "surface.slope"
     assert step["inputs"]["source"] == base64.b64encode(b"II*\x00dem").decode("ascii")
-    # Non-string parameters are canonicalized to strings, like the vector path.
+    # Non-string parameters are canonicalized to strings, like the vector path
+    # (including the boolean true/false spelling, not Python's True/False).
     assert step["inputs"]["units"] == "degrees"
     assert step["inputs"]["zFactor"] == "2"
+    assert step["inputs"]["invert"] == "false"
 
 
 def test_execute_raster_process_with_zones_base64_geojson() -> None:
@@ -384,8 +400,197 @@ def test_consume_result_unknown_kind_sniffs_json() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Pure decode/selection helpers (no optional extra needed for any of these --
+# these are the primitives consume_result's kind-routing is built on, and are
+# exercised directly so their branches stay covered independent of whether
+# geopandas/rasterio happen to be installed).
+# ---------------------------------------------------------------------------
+
+
+def test_data_uri_bytes_non_data_uri_is_none() -> None:
+    assert _data_uri_bytes("https://example.test/x.tif") is None
+
+
+def test_data_uri_bytes_base64() -> None:
+    encoded = base64.b64encode(b"hello").decode("ascii")
+    assert _data_uri_bytes(f"data:text/plain;base64,{encoded}") == b"hello"
+
+
+def test_data_uri_bytes_plain_percent_encoded() -> None:
+    assert _data_uri_bytes("data:text/plain,hello%20world") == b"hello world"
+
+
+def test_data_uri_bytes_invalid_base64_raises() -> None:
+    with pytest.raises(HonuaError, match="not valid base64"):
+        _data_uri_bytes("data:text/plain;base64,not-base64!!!")
+
+
+def test_output_json_bytes_data_uri_value() -> None:
+    encoded = base64.b64encode(b'{"a": 1}').decode("ascii")
+    member = {"value": f"data:application/json;base64,{encoded}"}
+    assert _output_json_bytes(member) == b'{"a": 1}'
+
+
+def test_output_json_bytes_raw_json_string_value() -> None:
+    member = {"value": '{"a": 1}'}
+    assert _output_json_bytes(member) == b'{"a": 1}'
+
+
+def test_output_json_bytes_non_json_non_data_value_is_none() -> None:
+    # A string value that is neither a ``data:`` URI nor JSON-looking.
+    assert _output_json_bytes({"value": "not-json-and-not-a-data-uri"}) is None
+
+
+def test_output_json_bytes_data_uri_href() -> None:
+    encoded = base64.b64encode(b"[1, 2]").decode("ascii")
+    member = {"href": f"data:application/json;base64,{encoded}"}
+    assert _output_json_bytes(member) == b"[1, 2]"
+
+
+def test_output_json_bytes_no_value_or_href_is_none() -> None:
+    assert _output_json_bytes({"id": "x", "kind": "Scalar"}) is None
+
+
+def test_results_kind_bare_document_is_the_member() -> None:
+    # The results document itself (not an outputs map) carries ``kind``.
+    assert results_kind({"id": "x", "kind": "Scalar", "value": {"mean": 1.0}}) == "Scalar"
+
+
+def test_results_kind_value_wrapped_member() -> None:
+    # OGC ``raw``/``value``-wrapped member: the kind-bearing payload sits under
+    # the outer member's ``value`` key rather than at the top level.
+    results = {"out": {"value": {"id": "x", "kind": "Table", "href": "data:application/json;base64,e30="}}}
+    assert results_kind(results) == "Table"
+
+
+def test_feature_collection_from_output_via_kind_based_decode() -> None:
+    found = _feature_collection_from_output(_featurelayer_results())
+    assert found == _CONTOUR_FC
+
+
+def test_feature_collection_from_output_falls_back_to_inline_shape() -> None:
+    # The plain inline-FeatureCollection vector-process shape (no ``kind``).
+    inline = {"out": {"value": _CONTOUR_FC}}
+    assert _feature_collection_from_output(inline) == _CONTOUR_FC
+
+
+def test_feature_collection_from_output_bare_document_is_the_collection() -> None:
+    # The whole results document IS the (pass-through) FeatureCollection.
+    assert _feature_collection_from_output(_CONTOUR_FC) == _CONTOUR_FC
+
+
+def test_feature_collection_from_output_member_is_the_collection_directly() -> None:
+    # An outputs-map member that IS a FeatureCollection directly (not wrapped
+    # under a ``value`` key).
+    results = {"out": _CONTOUR_FC}
+    assert _feature_collection_from_output(results) == _CONTOUR_FC
+
+
+def test_feature_collection_from_output_none_when_absent() -> None:
+    assert _feature_collection_from_output(_table_results()) is None
+
+
+def test_consume_result_unsupported_kind_raises() -> None:
+    results = {"out": {"id": "x", "kind": "SomethingElse", "value": {"a": 1}}}
+    with _client() as client:
+        with pytest.raises(HonuaError, match="Unsupported results kind"):
+            client.geoprocessing().consume_result(results)
+
+
+def test_consume_result_undeclared_kind_falls_back_to_json() -> None:
+    # No ``kind`` anywhere, no raster, no FeatureCollection -- falls all the way
+    # through to the plain-JSON-value path without needing any optional extra.
+    # The document itself is the "member" here (no outputs-map nesting), same
+    # bare-document shape ``_is_feature_collection``/``find_raster_output``
+    # already tolerate.
+    encoded = base64.b64encode(json.dumps({"answer": 42}).encode("utf-8")).decode("ascii")
+    results = {"value": f"data:application/json;base64,{encoded}"}
+    with _client() as client:
+        assert client.geoprocessing().consume_result(results) == {"answer": 42}
+
+
+def _fetch_client(payload: bytes, expected_path: str) -> HonuaClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == expected_path
+        return httpx.Response(200, content=payload, headers={"content-type": "application/json"})
+
+    return HonuaClient("http://example.test", transport=httpx.MockTransport(handler))
+
+
+def test_result_json_value_fetches_live_href() -> None:
+    # A Table/Scalar member with no inline value/data-uri href, only a live
+    # fetchable href -- exercises the (extras-independent) fetch fallback.
+    payload = json.dumps({"mean": 5.0}).encode("utf-8")
+    results = {"stats": {"id": "x", "kind": "Scalar", "href": "https://example.test/artifacts/stats.json"}}
+    with _fetch_client(payload, "/artifacts/stats.json") as client:
+        assert client.geoprocessing()._result_json_value(results) == {"mean": 5.0}
+
+
+def test_result_json_value_raw_dict_value() -> None:
+    results = {"stats": {"id": "x", "kind": "Scalar", "value": {"mean": 5.0}}}
+    with _client() as client:
+        assert client.geoprocessing()._result_json_value(results) == {"mean": 5.0}
+
+
+def test_result_json_value_raises_when_no_decodable_payload() -> None:
+    results = {"stats": {"id": "x", "kind": "Scalar"}}
+    with _client() as client:
+        with pytest.raises(HonuaError, match="no decodable JSON payload"):
+            client.geoprocessing()._result_json_value(results)
+
+
+def test_result_feature_collection_resolves_via_pure_decode() -> None:
+    # _result_feature_collection needs no client I/O (and no geopandas) when the
+    # pure _feature_collection_from_output decode already finds the payload --
+    # this is what lets _result_geodataframe stay a thin geopandas-only wrapper.
+    with _client() as client:
+        assert client.geoprocessing()._result_feature_collection(_featurelayer_results()) == _CONTOUR_FC
+
+
+def test_result_feature_collection_fetches_live_href() -> None:
+    payload = json.dumps(_CONTOUR_FC).encode("utf-8")
+    results = {"contour": {"id": "x", "kind": "FeatureLayer", "href": "https://example.test/artifacts/c.geojson"}}
+    with _fetch_client(payload, "/artifacts/c.geojson") as client:
+        assert client.geoprocessing()._result_feature_collection(results) == _CONTOUR_FC
+
+
+def test_result_feature_collection_raises_when_absent() -> None:
+    with _client() as client:
+        with pytest.raises(HonuaError, match="does not contain a FeatureCollection"):
+            client.geoprocessing()._result_feature_collection(_table_results())
+
+
+# ---------------------------------------------------------------------------
 # Async parity
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_async_submit_raster_process_wraps_into_canonical_plan() -> None:
+    captured: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        captured.append(json.loads(request.content))
+        return httpx.Response(201, json=_status("job-1", "accepted"))
+
+    raster = RasterReference.from_layer_id("dem-1")
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        await client.geoprocessing().submit_raster_process(
+            "surface.slope", raster, parameters={"units": "degrees"}, plan_id="plan-slope"
+        )
+
+    assert captured[0]["inputs"]["plan"] == {
+        "planId": "plan-slope",
+        "steps": [
+            {
+                "stepId": "s1",
+                "kind": "geoprocess",
+                "processId": "surface.slope",
+                "inputs": {"layerId": "dem-1", "units": "degrees"},
+            }
+        ],
+    }
 
 
 @pytest.mark.anyio
@@ -433,3 +638,99 @@ async def test_async_consume_result_featurelayer() -> None:
 
     assert len(gdf) == 1
     assert list(gdf["elev"]) == [100]
+
+
+@pytest.mark.anyio
+async def test_async_consume_result_unsupported_kind_raises() -> None:
+    results = {"out": {"id": "x", "kind": "SomethingElse", "value": {"a": 1}}}
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaError, match="Unsupported results kind"):
+            await client.geoprocessing().consume_result(results)
+
+
+@pytest.mark.anyio
+async def test_async_consume_result_undeclared_kind_falls_back_to_json() -> None:
+    encoded = base64.b64encode(json.dumps({"answer": 42}).encode("utf-8")).decode("ascii")
+    results = {"value": f"data:application/json;base64,{encoded}"}
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        assert await client.geoprocessing().consume_result(results) == {"answer": 42}
+
+
+@pytest.mark.anyio
+async def test_async_result_json_value_fetches_live_href() -> None:
+    payload = json.dumps({"mean": 5.0}).encode("utf-8")
+    results = {"stats": {"id": "x", "kind": "Scalar", "href": "https://example.test/artifacts/stats.json"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/artifacts/stats.json"
+        return httpx.Response(200, content=payload, headers={"content-type": "application/json"})
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        value = await client.geoprocessing()._result_json_value(results)
+    assert value == {"mean": 5.0}
+
+
+@pytest.mark.anyio
+async def test_async_result_json_value_raw_dict_value() -> None:
+    results = {"stats": {"id": "x", "kind": "Scalar", "value": {"mean": 5.0}}}
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        value = await client.geoprocessing()._result_json_value(results)
+    assert value == {"mean": 5.0}
+
+
+@pytest.mark.anyio
+async def test_async_result_json_value_raises_when_no_decodable_payload() -> None:
+    results = {"stats": {"id": "x", "kind": "Scalar"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaError, match="no decodable JSON payload"):
+            await client.geoprocessing()._result_json_value(results)
+
+
+@pytest.mark.anyio
+async def test_async_result_feature_collection_resolves_via_pure_decode() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        found = await client.geoprocessing()._result_feature_collection(_featurelayer_results())
+    assert found == _CONTOUR_FC
+
+
+@pytest.mark.anyio
+async def test_async_result_feature_collection_fetches_live_href() -> None:
+    payload = json.dumps(_CONTOUR_FC).encode("utf-8")
+    results = {"contour": {"id": "x", "kind": "FeatureLayer", "href": "https://example.test/artifacts/c.geojson"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/artifacts/c.geojson"
+        return httpx.Response(200, content=payload, headers={"content-type": "application/geo+json"})
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        found = await client.geoprocessing()._result_feature_collection(results)
+    assert found == _CONTOUR_FC
+
+
+@pytest.mark.anyio
+async def test_async_result_feature_collection_raises_when_absent() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaError, match="does not contain a FeatureCollection"):
+            await client.geoprocessing()._result_feature_collection(_table_results())

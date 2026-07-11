@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.Describe."""
+"""List all fields on a feature layer."""
 
 import sys
 from pathlib import Path
@@ -23,9 +23,6 @@ else:
 arcpy.env.workspace = "honua://services/legacy"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.Describe('segments')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_describe_then_iterate caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_describe_then_iterate did not raise")
+fields = arcpy.management.ListFields("segments")
+names = [f.name for f in fields]
+print(f"list_fields_segments ok count={len(fields)} fields={','.join(names)}")

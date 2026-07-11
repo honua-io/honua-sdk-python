@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.ListFields."""
+"""Describe a feature layer's schema."""
 
 import sys
 from pathlib import Path
@@ -23,9 +23,9 @@ else:
 arcpy.env.workspace = "honua://services/legacy"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.ListFields('segments', wild_card='STAT*')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_list_fields_wildcard caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_list_fields_wildcard did not raise")
+desc = arcpy.Describe("segments")
+srid = desc.spatialReference.factoryCode if desc.spatialReference else None
+print(
+    f"describe_segments ok shapeType={desc.shapeType} "
+    f"fields={len(desc.fields)} oidField={desc.OIDFieldName} srid={srid}"
+)

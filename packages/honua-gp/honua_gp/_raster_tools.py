@@ -371,10 +371,8 @@ def _consume(
 ) -> Any:
     """Route a terminal results document to JSON (Table/Scalar) or a handle."""
     if kind in _JSON_RESULT_KINDS:
-        from honua_sdk.geoprocessing import HonuaGeoprocessing
-
         try:
-            return HonuaGeoprocessing(get_session().client()).consume_result(results)
+            return _consume_json(results)
         except (ExecuteError, HonuaGpConfigurationError):
             raise
         except Exception as exc:  # decode/transport error consuming a JSON output.
@@ -391,6 +389,85 @@ def _consume(
         process_id=process_id,
         kind=kind,
     )
+
+
+def _consume_json(results: Mapping[str, Any]) -> Any:
+    """Parse a ``Table``/``Scalar`` output's JSON value from a results document.
+
+    Inline values (a ``data:`` URI, a raw JSON string, or an already-parsed
+    ``dict``/``list``) are decoded **without** constructing a
+    :class:`~honua_sdk.HonuaClient`: the GDAL worker publishes Table/Scalar
+    artifacts as inline ``data:`` URIs (``GdalDataUri.Build``), so the common
+    path needs no data client and works when only ``processes_client=`` is
+    configured. Only a fetchable ``http(s)`` ``href`` falls back to the
+    SDK's client-backed ``consume_result`` (which requires a data client).
+    """
+    member = _member_for_json(results)
+    if member is not None:
+        found, value = _decode_inline_json(member)
+        if found:
+            return value
+    # Non-inline (fetchable-href) output: delegate to the SDK's client-backed
+    # consumption, which fetches through the bound client (base URL + auth).
+    from honua_sdk.geoprocessing import HonuaGeoprocessing
+
+    return HonuaGeoprocessing(get_session().client()).consume_result(results)
+
+
+def _member_for_json(results: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Return the results document's primary JSON-bearing output member.
+
+    The document may itself be the member (carries ``kind``/``value``/``href``)
+    or an outputs map keyed by output id whose first such member holds the
+    payload. Mirrors the SDK's member selection without depending on its
+    private selectors.
+    """
+    keys = ("kind", "value", "href")
+    if any(key in results for key in keys):
+        return results
+    for member in results.values():
+        if isinstance(member, Mapping) and any(key in member for key in keys):
+            return member
+    return None
+
+
+def _decode_inline_json(member: Mapping[str, Any]) -> tuple[bool, Any]:
+    """Decode a member's inline JSON payload; ``(False, None)`` if only fetchable."""
+    value = member.get("value")
+    if isinstance(value, (dict, list)):
+        return True, value
+    if isinstance(value, str):
+        data = _inline_json_bytes(value)
+        if data is not None:
+            return True, json.loads(data)
+    href = member.get("href")
+    if isinstance(href, str) and href.startswith("data:"):
+        data = _data_uri_bytes(href)
+        if data is not None:
+            return True, json.loads(data)
+    return False, None
+
+
+def _inline_json_bytes(value: str) -> bytes | None:
+    """Return JSON bytes from a ``data:`` URI or a raw JSON string, else ``None``."""
+    if value.startswith("data:"):
+        return _data_uri_bytes(value)
+    stripped = value.strip()
+    if stripped[:1] in ("{", "["):
+        return value.encode("utf-8")
+    return None
+
+
+def _data_uri_bytes(uri: str) -> bytes | None:
+    """Decode a ``data:`` URI to bytes (base64 or percent-encoded payload)."""
+    if not uri.startswith("data:"):
+        return None
+    header, _, data = uri.partition(",")
+    if ";base64" in header:
+        return base64.b64decode(data, validate=True)
+    from urllib.parse import unquote
+
+    return unquote(data).encode("utf-8")
 
 
 __all__ = [

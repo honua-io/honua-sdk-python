@@ -92,6 +92,17 @@ def _qualified_name(entry: Mapping[str, Any]) -> str | None:
 # hiding stubs.
 _ALIAS_TO_CANONICAL: dict[str, str] = {
     "management.CopyFeatures": "management.Copy",
+    # Raster tools that live in the arcpy *management* toolbox in real arcpy
+    # but whose honua_gp implementation + COMPAT rows are keyed under ``sa.*``
+    # (raster/surface processes). Canonicalize the scanned management-toolbox
+    # names onto the sa rows so ``assess`` reports them as supported/partial
+    # rather than out-of-scope. ``honua_gp.management`` re-exports the same
+    # callables so drop-in ``arcpy.management.ProjectRaster`` calls resolve.
+    "management.ProjectRaster": "sa.ProjectRaster",
+    "management.Resample": "sa.Resample",
+    "management.Clip": "sa.Clip",
+    "management.Mosaic": "sa.Mosaic",
+    "management.MosaicToNewRaster": "sa.Mosaic",
 }
 
 

@@ -219,6 +219,29 @@ def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     assert rows[0].status == "stub"
 
 
+def test_assess_canonicalizes_management_raster_tools_to_sa_rows() -> None:
+    """Raster tools scanned under the arcpy management toolbox
+    (``arcpy.management.ProjectRaster`` / ``Resample`` / ``Clip`` / ``Mosaic``)
+    must map onto their supported ``sa.*`` manifest rows rather than dropping
+    into the out-of-scope bucket, mirroring the CopyFeatures->Copy alias."""
+
+    rows = assess_inventory(
+        {
+            "toolCalls": [
+                {"call": "arcpy.management.ProjectRaster", "tool": "ProjectRaster", "toolbox": "management"},
+                {"call": "arcpy.management.Resample", "tool": "Resample", "toolbox": "management"},
+                {"call": "arcpy.management.MosaicToNewRaster", "tool": "MosaicToNewRaster", "toolbox": "management"},
+            ]
+        }
+    )
+    statuses = {row.qualified_name: row.status for row in rows}
+    assert statuses["sa.ProjectRaster"] == "supported"
+    assert statuses["sa.Resample"] == "supported"
+    assert statuses["sa.Mosaic"] == "partial"
+    # None of them should have landed in the out-of-scope bucket.
+    assert all(row.status != "out-of-scope" for row in rows)
+
+
 def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:
     """When a scan reports both ``Copy`` and ``CopyFeatures`` calls, they
     should aggregate under ``management.Copy`` so the assessment surfaces a

@@ -305,6 +305,37 @@ def test_zonal_statistics_encodes_zones_and_returns_table_json(_isolated_audit_d
     assert result == table
 
 
+def test_zonal_statistics_inline_table_needs_no_data_client(_isolated_audit_dir: Path) -> None:
+    """Inline Table output is parsed without constructing a HonuaClient.
+
+    A caller may configure only ``processes_client=`` (no base_url / data
+    client) -- enough for the process-backed shims. ZonalStatisticsAsTable's
+    inline Table output must decode without tripping the missing-data-client
+    configuration error.
+    """
+    table = [{"zone": "A", "mean": 5.0}]
+    client = _FakeRasterClient(results={"stats": {"kind": "Table", "value": json.dumps(table)}})
+    # Inject ONLY the processes client -- no data client / base_url configured.
+    honua_gp.configure(processes_client=client)
+
+    result = honua_gp.sa.ZonalStatisticsAsTable(RasterReference.from_layer_id("elev"), _ZONES_FC)
+
+    assert result == table
+
+
+def test_zonal_statistics_inline_table_via_data_uri(_isolated_audit_dir: Path) -> None:
+    table = [{"zone": "B", "count": 7}]
+    encoded = base64.b64encode(json.dumps(table).encode()).decode()
+    client = _FakeRasterClient(
+        results={"stats": {"kind": "Table", "value": f"data:application/json;base64,{encoded}"}}
+    )
+    honua_gp.configure(processes_client=client)
+
+    result = honua_gp.sa.ZonalStatisticsAsTable(RasterReference.from_layer_id("elev"), _ZONES_FC)
+
+    assert result == table
+
+
 def test_zonal_statistics_accepts_layer_reference_zones(_isolated_audit_dir: Path) -> None:
     client = _FakeRasterClient(results={"stats": {"kind": "Table", "value": "[]"}})
     _configure(client)
@@ -434,6 +465,21 @@ def test_failed_job_raises_execute_error(_isolated_audit_dir: Path) -> None:
     lines = [r for r in _audit_lines(_isolated_audit_dir) if r["function"] == "sa.Kriging"]
     assert lines[-1]["status"] == "error"
     assert lines[-1]["error_kind"] == "failed"
+
+
+def test_management_toolbox_raster_aliases_resolve() -> None:
+    """arcpy.management raster tools re-export the sa implementations.
+
+    ProjectRaster / Resample / Clip (raster) / Mosaic live in the arcpy
+    management toolbox in real arcpy, so ``honua_gp.management.ProjectRaster``
+    must resolve for drop-in scripts even though the manifest keys them under
+    ``sa.*``.
+    """
+    assert honua_gp.management.ProjectRaster is honua_gp.sa.ProjectRaster
+    assert honua_gp.management.Resample is honua_gp.sa.Resample
+    assert honua_gp.management.Clip is honua_gp.sa.Clip
+    assert honua_gp.management.Mosaic is honua_gp.sa.Mosaic
+    assert honua_gp.management.MosaicToNewRaster is honua_gp.sa.Mosaic
 
 
 @pytest.mark.parametrize("func", [honua_gp.sa.Histogram, honua_gp.sa.SpectralIndex])

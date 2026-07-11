@@ -16,6 +16,43 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### Spatial Analyst (`honua_gp.sa`) -- 17 raster/surface tools wrapped
+
+Adds an `arcpy.sa`-style surface (`honua_gp.sa`) covering 17 of honua-server's
+20 raster/surface GDAL-worker processes: `Slope`, `Aspect`, `Hillshade`,
+`Contour`, `Viewshed`, `Roughness`, `TPI`, `TRI`, `Clip` (raster), `Mosaic`,
+`Reclassify`, `ProjectRaster`, `Resample`, `RasterCalculator`, `Idw`,
+`Kriging`, and `ZonalStatisticsAsTable`. Esri tool names mirror honua-server's
+GPServer `GPServerEsriTaskAliases` where a mapping exists.
+
+Each tool projects its arcpy signature onto the target raster/surface process
+and runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
+`geoprocess` step inside the canonical `honua-geoprocessing` plan (raster
+process ids 404 on direct execution). Dispatch reuses the existing
+`session.processes_client()` + submit/poll machinery via the new
+`honua_gp._raster_tools` module, building the flat process-input bag from
+`honua_sdk`'s public `RasterReference` / `LayerReference` model and consuming
+outputs through `honua_sdk`'s kind-routed `consume_result`. Raster inputs are
+honua-native (`honua_gp.RasterReference` -- layer id / raster id / GeoTIFF bytes
+-- or raw bytes). Raster-output tools return a lazy `honua_gp.RasterResult`
+handle (`.to_xarray()` / `.raster_bytes` / `.to_geodataframe()` / `.consume()`,
+so the optional `raster` / `geopandas` extras load only on demand);
+`ZonalStatisticsAsTable` returns the Table-kind JSON (per-zone aggregate dicts).
+
+`raster.histogram` and `raster.spectral-index` are left as honest `stub`
+manifest entries (`sa.Histogram` / `sa.SpectralIndex`): neither has a clean
+single arcpy Spatial Analyst tool-name analog, and honua-server assigns them no
+GPServer Esri alias, so a name is not guessed. `Kriging` submits a well-formed
+job but honua-server flags kriging unsupported in the current build, so the job
+fails server-side; the manifest documents this and points at `Idw`.
+
+Live-verified against `ghcr.io/honua-io/honua-server:nightly-aot`: `Slope`,
+`ZonalStatisticsAsTable`, and `Idw` submissions are accepted and pass the
+server's catalog validation (malformed plans -- unknown process, missing
+required parameter, invalid enum -- are rejected with HTTP 400), reaching
+`accepted`/`Queued`. The AOT image bundles no GDAL worker, so raster jobs do not
+execute to completion; submission-accepted is the honestly verified ceiling.
+
 ### Layer-aware projection adapter -- 6 GP tools promoted from stub to working
 
 Audit pass 8 downgraded every process-backed analysis/management entry to a

@@ -252,7 +252,7 @@ def _assessment_summary(rows: Sequence[AssessmentRow]) -> dict[str, Any]:
 def render_compat_matrix() -> str:
     """Render the compatibility manifest as a Markdown document."""
 
-    families = ("analysis", "management", "da")
+    families = ("analysis", "management", "da", "sa")
     lines: list[str] = []
     lines.append("# honua-gp compatibility matrix")
     lines.append("")

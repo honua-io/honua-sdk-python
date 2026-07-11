@@ -24,7 +24,7 @@ SAMPLE_INVENTORY = {
         {"call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis"},
         {"call": "arcpy.management.SelectLayerByLocation", "tool": "SelectLayerByLocation", "toolbox": "management"},
         {"call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management"},
-        {"call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa"},
+        {"call": "arcpy.sa.Fill", "tool": "Fill", "toolbox": "sa"},
         {"call": "arcpy.da.SearchCursor", "tool": "SearchCursor", "toolbox": "da"},
     ]
 }
@@ -41,7 +41,9 @@ def test_assess_inventory_buckets_supported_stub_and_out_of_scope() -> None:
     assert statuses["analysis.Buffer"] == ("supported", 1)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
     assert statuses["management.MakeFeatureLayer"] == ("supported", 1)
-    assert statuses["sa.Slope"] == ("out-of-scope", 1)
+    # sa.Fill is a real Spatial Analyst tool the shim does not wrap, so it lands
+    # in the out-of-scope bucket (sa.Slope / sa.Contour / ... are now in scope).
+    assert statuses["sa.Fill"] == ("out-of-scope", 1)
     assert statuses["da.SearchCursor"] == ("partial", 1)
 
 
@@ -68,7 +70,7 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
     machine = json.loads((tmp_path / "honua-gp-assessment.json").read_text(encoding="utf-8"))
     summary = machine["summary"]
     # MakeFeatureLayer + Buffer are supported, SearchCursor is partial, Clip +
-    # SelectLayerByLocation are stubs, and Slope is out-of-scope.
+    # SelectLayerByLocation are stubs, and sa.Fill is out-of-scope.
     assert summary["supported"] >= 1
     assert summary["partial"] >= 1
     assert summary["stub"] >= 2

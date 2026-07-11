@@ -336,6 +336,45 @@ def test_describe_is_audited_as_supported(stub_clients) -> None:
     assert describe_records and describe_records[-1]["status"] == "ok"
 
 
+def test_describe_accepts_and_audits_data_type_argument(stub_clients) -> None:
+    """arcpy's documented ``Describe(value, {datatype})`` form must not crash
+    at the wrapper boundary. honua-gp does not honor the ``data_type`` filter
+    (the manifest marks it unsupported), so the call is accepted, produces the
+    same result as the one-arg form, and the supplied ``data_type`` is recorded
+    in the audit trail rather than being silently swallowed."""
+
+    import json
+    import os
+    from pathlib import Path
+
+    honua_gp.env.workspace = "honua://services/legacy"
+
+    # Passing data_type as a second positional (arcpy's documented form) must
+    # NOT raise, and must yield the same Describe result as the one-arg call.
+    plain = honua_gp.Describe("segments")
+    with_type = honua_gp.Describe("segments", "FeatureClass")
+
+    assert with_type.name == plain.name
+    assert with_type.dataType == plain.dataType
+    assert with_type.shapeType == plain.shapeType
+    assert with_type.OIDFieldName == plain.OIDFieldName
+    assert {f.name for f in with_type.fields} == {f.name for f in plain.fields}
+
+    # The ignored-but-accepted data_type value is audited so operators can see
+    # it was supplied.
+    audit_dir = Path(os.environ["HONUA_GP_AUDIT_DIR"])
+    files = list(audit_dir.glob("audit-*.jsonl"))
+    assert files, "expected an audit JSONL file"
+    records = [
+        json.loads(line) for line in files[0].read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    describe_records = [r for r in records if r["function"] == "management.Describe"]
+    assert describe_records, "Describe call was not audited"
+    typed = [r for r in describe_records if r["kwargs"].get("data_type") == "FeatureClass"]
+    assert typed, "Describe(path, data_type) did not record data_type in the audit trail"
+    assert typed[-1]["status"] == "ok"
+
+
 def test_list_fields_returns_all_fields_by_default(stub_clients) -> None:
     honua_gp.env.workspace = "honua://services/legacy"
     fields = honua_gp.management.ListFields("segments")

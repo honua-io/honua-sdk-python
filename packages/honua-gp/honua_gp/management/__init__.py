@@ -606,18 +606,31 @@ def _filter_fields(
     return filtered
 
 
-def Describe(dataset: Any) -> DescribeResult:
-    """``arcpy.Describe(value)`` -- feature-class/table schema introspection.
+def Describe(dataset: Any, data_type: Any = None) -> DescribeResult:
+    """``arcpy.Describe(value, {datatype})`` -- feature-class/table schema
+    introspection.
 
     Fetches the dataset's typed ``LayerSchema`` from honua-server's
     FeatureServer layer-metadata endpoint and projects it onto an
     arcpy-shaped ``DescribeResult``. See the ``management.Describe``
     manifest entry for the properties this does not populate.
+
+    ``data_type`` is arcpy's optional second positional argument (a hint that
+    disambiguates which child element to describe when a name is ambiguous).
+    honua-server always describes the resolved dataset as-is, so this shim
+    does NOT honor ``data_type`` as a filter. It is accepted (so a migrated
+    ``Describe(path, "FeatureClass")`` call does not crash at the wrapper
+    boundary) and recorded in the audit trail (so it is not silently
+    swallowed), then ignored -- see the ``management.Describe`` manifest note.
     """
 
     qualified = "management.Describe"
     session = get_session()
-    with record_call(qualified, args=(dataset,), kwargs={}, writer=session.audit_writer()) as record:
+    # ``data_type`` is accepted-but-not-honored: record it in the audit kwargs
+    # so operators can see it was supplied (and ignored) rather than dropping
+    # it silently. It never influences the resolved schema.
+    audit_kwargs = {"data_type": data_type} if data_type is not None else {}
+    with record_call(qualified, args=(dataset,), kwargs=audit_kwargs, writer=session.audit_writer()) as record:
         try:
             schema = _fetch_layer_schema(dataset)
         except (ExecuteError, HonuaGpConfigurationError, HonuaGpResolveError):

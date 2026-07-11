@@ -1,4 +1,4 @@
-"""Expected-failure script exercising management.ListFields."""
+"""List only the String fields on a feature layer (field_type filter)."""
 
 import sys
 from pathlib import Path
@@ -23,9 +23,6 @@ else:
 arcpy.env.workspace = "honua://services/legacy"
 arcpy.env.overwriteOutput = True
 
-try:
-    arcpy.management.ListFields('segments', field_type='String')
-except arcpy.HonuaGpUnsupportedError as exc:
-    print(f"expected_failure_list_fields_filtered caught {exc.function}")
-    raise SystemExit(0) from exc
-raise SystemExit("expected_failure_list_fields_filtered did not raise")
+fields = arcpy.management.ListFields("segments", field_type="String")
+names = [f.name for f in fields]
+print(f"list_fields_segments_filtered ok count={len(fields)} fields={','.join(names)}")

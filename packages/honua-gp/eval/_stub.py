@@ -123,6 +123,95 @@ class _StubProcessesClient:
         return None
 
 
+class _StubFeatureServerNotFoundError(Exception):
+    """Mirrors a honua-server 404 for an unknown service/layer id."""
+
+
+class _StubFeatureServer:
+    """Stub ``honua_sdk.protocols.GeoServicesFeatureServerClient`` wrapper.
+
+    Backs ``management.Describe`` / ``management.ListFields`` in eval scripts
+    and tests. ``schema(layer_id)`` mirrors the real client's contract --
+    ``LayerSchema.from_metadata(layer_metadata(layer_id))`` -- against a tiny
+    canned catalog instead of an HTTP round trip, so the schema-introspection
+    shims exercise the same parsing path (``honua_sdk.models.LayerSchema``)
+    that a live honua-server response would.
+    """
+
+    _CATALOG: dict[tuple[str, int], dict[str, Any]] = {
+        ("legacy", 0): {
+            "id": 0,
+            "name": "segments",
+            "objectIdField": "OBJECTID",
+            "geometryType": "esriGeometryPolyline",
+            "spatialReference": {"wkid": 4326, "latestWkid": 4326},
+            "fields": [
+                {
+                    "name": "OBJECTID",
+                    "type": "esriFieldTypeOID",
+                    "alias": "OBJECTID",
+                    "nullable": False,
+                    "editable": False,
+                },
+                {
+                    "name": "STATUS",
+                    "type": "esriFieldTypeString",
+                    "alias": "Status",
+                    "length": 20,
+                    "nullable": True,
+                },
+                {
+                    "name": "LENGTH_KM",
+                    "type": "esriFieldTypeDouble",
+                    "alias": "Length (km)",
+                    "nullable": True,
+                },
+                {
+                    "name": "SHAPE",
+                    "type": "esriFieldTypeGeometry",
+                    "alias": "SHAPE",
+                    "nullable": True,
+                },
+            ],
+        },
+        ("transport", 0): {
+            "id": 0,
+            "name": "roads",
+            "objectIdField": "OBJECTID",
+            "geometryType": "esriGeometryPolyline",
+            "spatialReference": {"wkid": 4326, "latestWkid": 4326},
+            "fields": [
+                {"name": "OBJECTID", "type": "esriFieldTypeOID", "alias": "OBJECTID", "nullable": False},
+                {
+                    "name": "STATUS",
+                    "type": "esriFieldTypeString",
+                    "alias": "Status",
+                    "length": 10,
+                    "nullable": True,
+                },
+                {"name": "name", "type": "esriFieldTypeString", "alias": "Name", "length": 50, "nullable": True},
+            ],
+        },
+    }
+
+    def __init__(self, service_id: str) -> None:
+        self.service_id = service_id
+
+    def layer_metadata(self, layer_id: int, **_: Any) -> dict[str, Any]:
+        key = (self.service_id, layer_id)
+        payload = self._CATALOG.get(key)
+        if payload is None:
+            raise _StubFeatureServerNotFoundError(
+                f"layer {layer_id} not found on service {self.service_id!r}"
+            )
+        return dict(payload)
+
+    def schema(self, layer_id: int, **_: Any) -> Any:
+        from honua_sdk.models import LayerSchema
+
+        return LayerSchema.from_metadata(self.layer_metadata(layer_id))
+
+
 class _StubAdminClient:
     """Lightweight admin stub.
 
@@ -173,6 +262,9 @@ class StubHonuaClient:
 
     def ogc_processes(self) -> _StubProcessesClient:
         return self._processes
+
+    def feature_server(self, service_id: str) -> _StubFeatureServer:
+        return _StubFeatureServer(service_id)
 
 
 def install_stub() -> None:

@@ -1,8 +1,0 @@
-{
-  "expected_failure": true,
-  "plumbing": {
-    "audit_lines": 1,
-    "stdout_contains": "expected_failure_describe_then_iterate"
-  },
-  "schema_version": 2
-}

@@ -793,6 +793,218 @@ class GeoServicesImageServerClient(_SyncProtocol):
     def legend(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", f"{self.path}/legend", params=_params({"f": response_format}, extra_params))
 
+    def compute_histograms(
+        self,
+        geometry: Mapping[str, Any] | str,
+        *,
+        geometry_type: str = "esriGeometryEnvelope",
+        mosaic_rule: Mapping[str, Any] | str | None = None,
+        rendering_rule: Mapping[str, Any] | str | None = None,
+        raster_ids: CsvValue | None = None,
+        band_ids: CsvValue | None = None,
+        histogram_parameters: Mapping[str, Any] | str | None = None,
+        time: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Compute per-band histograms over ``geometry`` (GeoServices ``computeHistograms``).
+
+        ``geometry_type`` must be ``esriGeometryEnvelope`` or ``esriGeometryPolygon``
+        (honua-server's endpoint-level validator rejects anything else). ``time``
+        is a single ISO 8601 instant; ranges are not supported for raster temporal
+        mosaics.
+        """
+        params = _params({"f": response_format, "geometry": _query_value(geometry), "geometryType": geometry_type}, None)
+        if mosaic_rule is not None:
+            params["mosaicRule"] = _query_value(mosaic_rule)
+        if rendering_rule is not None:
+            params["renderingRule"] = _query_value(rendering_rule)
+        if raster_ids is not None:
+            params["rasterIds"] = _csv(raster_ids)
+        if band_ids is not None:
+            params["bandIds"] = _csv(band_ids)
+        if histogram_parameters is not None:
+            params["histogramParameters"] = _query_value(histogram_parameters)
+        if time is not None:
+            params["time"] = time
+        if extra_params:
+            params.update(extra_params)
+        return self._json("GET", f"{self.path}/computeHistograms", params=params)
+
+    def compute_statistics_histograms(
+        self,
+        geometry: Mapping[str, Any] | str,
+        *,
+        geometry_type: str = "esriGeometryEnvelope",
+        mosaic_rule: Mapping[str, Any] | str | None = None,
+        rendering_rule: Mapping[str, Any] | str | None = None,
+        raster_ids: CsvValue | None = None,
+        band_ids: CsvValue | None = None,
+        histogram_parameters: Mapping[str, Any] | str | None = None,
+        time: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Compute per-band statistics and histograms over ``geometry`` (GeoServices ``computeStatisticsHistograms``).
+
+        ``geometry_type`` must be ``esriGeometryEnvelope`` or ``esriGeometryPolygon``
+        (honua-server's endpoint-level validator rejects anything else). ``time``
+        is a single ISO 8601 instant; ranges are not supported for raster temporal
+        mosaics.
+        """
+        params = _params({"f": response_format, "geometry": _query_value(geometry), "geometryType": geometry_type}, None)
+        if mosaic_rule is not None:
+            params["mosaicRule"] = _query_value(mosaic_rule)
+        if rendering_rule is not None:
+            params["renderingRule"] = _query_value(rendering_rule)
+        if raster_ids is not None:
+            params["rasterIds"] = _csv(raster_ids)
+        if band_ids is not None:
+            params["bandIds"] = _csv(band_ids)
+        if histogram_parameters is not None:
+            params["histogramParameters"] = _query_value(histogram_parameters)
+        if time is not None:
+            params["time"] = time
+        if extra_params:
+            params.update(extra_params)
+        return self._json("GET", f"{self.path}/computeStatisticsHistograms", params=params)
+
+    def get_samples(
+        self,
+        geometry: Mapping[str, Any] | str,
+        *,
+        sample_count: int | None = None,
+        mosaic_rule: Mapping[str, Any] | str | None = None,
+        sr: int | str | None = None,
+        time: str | None = None,
+        multidimensional_definition: Sequence[Mapping[str, Any]] | Mapping[str, Any] | str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Sample raster pixel values at ``geometry`` (GeoServices ``getSamples``).
+
+        honua-server infers the geometry type from ``geometry`` itself, so
+        there is no ``geometryType`` parameter here. ``multidimensional_definition``
+        is validated server-side but currently always answers 501 (per-slice
+        sampling of a multidimensional cube is not wired up yet); it is exposed
+        so callers get that honest 501 rather than a silently-ignored parameter.
+        """
+        params = _params({"f": response_format, "geometry": _query_value(geometry)}, None)
+        if sample_count is not None:
+            params["sampleCount"] = sample_count
+        if mosaic_rule is not None:
+            params["mosaicRule"] = _query_value(mosaic_rule)
+        if sr is not None:
+            params["sr"] = sr
+        if time is not None:
+            params["time"] = time
+        if multidimensional_definition is not None:
+            params["multidimensionalDefinition"] = _query_value(multidimensional_definition)
+        if extra_params:
+            params.update(extra_params)
+        return self._json("GET", f"{self.path}/getSamples", params=params)
+
+    def multidimensional_info(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
+        """Return dimension/variable metadata for a multidimensional raster (GeoServices ``multidimensionalInfo``)."""
+        return self._json("GET", f"{self.path}/multidimensionalInfo", params=_params({"f": response_format}, extra_params))
+
+    def measure(
+        self,
+        from_geometry: Mapping[str, Any] | str,
+        measure_operation: str,
+        *,
+        geometry_type: str = "esriGeometryPoint",
+        to_geometry: Mapping[str, Any] | str | None = None,
+        linear_unit: str | None = None,
+        angular_unit: str | None = None,
+        area_unit: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Measure distance, angle, area, or a point on the raster (GeoServices ``measure``).
+
+        ``measure_operation`` is required: honua-server's ``ImageServerMeasureHandler``
+        400s ("measureOperation parameter is required.") without it. Values include
+        ``esriMensurationPoint``, ``esriMensurationDistanceAndAngle``,
+        ``esriMensurationAreaAndPerimeter``, ``esriMensurationCentroid``.
+        """
+        params = _params(
+            {
+                "f": response_format,
+                "fromGeometry": _query_value(from_geometry),
+                "geometryType": geometry_type,
+                "measureOperation": measure_operation,
+            },
+            None,
+        )
+        if to_geometry is not None:
+            params["toGeometry"] = _query_value(to_geometry)
+        if linear_unit is not None:
+            params["linearUnit"] = linear_unit
+        if angular_unit is not None:
+            params["angularUnit"] = angular_unit
+        if area_unit is not None:
+            params["areaUnit"] = area_unit
+        if extra_params:
+            params.update(extra_params)
+        return self._json("GET", f"{self.path}/measure", params=params)
+
+    def find(
+        self,
+        to_geometry: Mapping[str, Any] | str,
+        *,
+        from_geometry: Mapping[str, Any] | str | None = None,
+        in_sr: int | str | None = None,
+        where: str | None = None,
+        object_ids: CsvValue | None = None,
+        max_count: int | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Find raster catalog images whose footprint contains ``to_geometry`` (GeoServices ``find``).
+
+        ``to_geometry`` (an Esri point) is required by honua's ImageServer
+        ``find`` implementation; ``from_geometry`` is the optional viewpoint
+        used for orientation-ranked ordering. ``where``/``object_ids`` filter
+        the catalog the same way they do on :meth:`query`.
+        """
+        params = _params({"f": response_format, "toGeometry": _query_value(to_geometry)}, None)
+        if from_geometry is not None:
+            params["fromGeometry"] = _query_value(from_geometry)
+        if in_sr is not None:
+            params["inSR"] = in_sr
+        if where is not None:
+            params["where"] = where
+        if object_ids is not None:
+            params["objectIds"] = _csv(object_ids)
+        if max_count is not None:
+            params["maxCount"] = max_count
+        if extra_params:
+            params.update(extra_params)
+        return self._json("GET", f"{self.path}/find", params=params)
+
+    def project(
+        self,
+        geometries: Any,
+        *,
+        in_sr: int | str,
+        out_sr: int | str,
+        datum_transformation: int | str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Reproject a list of geometries against this ImageServer (GeoServices ``project``).
+
+        Distinct from :meth:`export_image`'s ``image_sr``: this reprojects
+        input/output *geometries* (points, envelopes, etc.), not the raster.
+        """
+        params = _params({"f": response_format, "geometries": _query_value(geometries), "inSR": in_sr, "outSR": out_sr}, None)
+        if datum_transformation is not None:
+            params["datumTransformation"] = datum_transformation
+        if extra_params:
+            params.update(extra_params)
+        return self._json("GET", f"{self.path}/project", params=params)
+
 
 class GeoServicesGeometryServerClient(_SyncProtocol):
     """GeoServices GeometryServer wrapper."""
@@ -1402,6 +1614,218 @@ class AsyncGeoServicesImageServerClient(_AsyncProtocol):
 
     async def legend(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", f"{self.path}/legend", params=_params({"f": response_format}, extra_params))
+
+    async def compute_histograms(
+        self,
+        geometry: Mapping[str, Any] | str,
+        *,
+        geometry_type: str = "esriGeometryEnvelope",
+        mosaic_rule: Mapping[str, Any] | str | None = None,
+        rendering_rule: Mapping[str, Any] | str | None = None,
+        raster_ids: CsvValue | None = None,
+        band_ids: CsvValue | None = None,
+        histogram_parameters: Mapping[str, Any] | str | None = None,
+        time: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Compute per-band histograms over ``geometry`` (GeoServices ``computeHistograms``).
+
+        ``geometry_type`` must be ``esriGeometryEnvelope`` or ``esriGeometryPolygon``
+        (honua-server's endpoint-level validator rejects anything else). ``time``
+        is a single ISO 8601 instant; ranges are not supported for raster temporal
+        mosaics.
+        """
+        params = _params({"f": response_format, "geometry": _query_value(geometry), "geometryType": geometry_type}, None)
+        if mosaic_rule is not None:
+            params["mosaicRule"] = _query_value(mosaic_rule)
+        if rendering_rule is not None:
+            params["renderingRule"] = _query_value(rendering_rule)
+        if raster_ids is not None:
+            params["rasterIds"] = _csv(raster_ids)
+        if band_ids is not None:
+            params["bandIds"] = _csv(band_ids)
+        if histogram_parameters is not None:
+            params["histogramParameters"] = _query_value(histogram_parameters)
+        if time is not None:
+            params["time"] = time
+        if extra_params:
+            params.update(extra_params)
+        return await self._json("GET", f"{self.path}/computeHistograms", params=params)
+
+    async def compute_statistics_histograms(
+        self,
+        geometry: Mapping[str, Any] | str,
+        *,
+        geometry_type: str = "esriGeometryEnvelope",
+        mosaic_rule: Mapping[str, Any] | str | None = None,
+        rendering_rule: Mapping[str, Any] | str | None = None,
+        raster_ids: CsvValue | None = None,
+        band_ids: CsvValue | None = None,
+        histogram_parameters: Mapping[str, Any] | str | None = None,
+        time: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Compute per-band statistics and histograms over ``geometry`` (GeoServices ``computeStatisticsHistograms``).
+
+        ``geometry_type`` must be ``esriGeometryEnvelope`` or ``esriGeometryPolygon``
+        (honua-server's endpoint-level validator rejects anything else). ``time``
+        is a single ISO 8601 instant; ranges are not supported for raster temporal
+        mosaics.
+        """
+        params = _params({"f": response_format, "geometry": _query_value(geometry), "geometryType": geometry_type}, None)
+        if mosaic_rule is not None:
+            params["mosaicRule"] = _query_value(mosaic_rule)
+        if rendering_rule is not None:
+            params["renderingRule"] = _query_value(rendering_rule)
+        if raster_ids is not None:
+            params["rasterIds"] = _csv(raster_ids)
+        if band_ids is not None:
+            params["bandIds"] = _csv(band_ids)
+        if histogram_parameters is not None:
+            params["histogramParameters"] = _query_value(histogram_parameters)
+        if time is not None:
+            params["time"] = time
+        if extra_params:
+            params.update(extra_params)
+        return await self._json("GET", f"{self.path}/computeStatisticsHistograms", params=params)
+
+    async def get_samples(
+        self,
+        geometry: Mapping[str, Any] | str,
+        *,
+        sample_count: int | None = None,
+        mosaic_rule: Mapping[str, Any] | str | None = None,
+        sr: int | str | None = None,
+        time: str | None = None,
+        multidimensional_definition: Sequence[Mapping[str, Any]] | Mapping[str, Any] | str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Sample raster pixel values at ``geometry`` (GeoServices ``getSamples``).
+
+        honua-server infers the geometry type from ``geometry`` itself, so
+        there is no ``geometryType`` parameter here. ``multidimensional_definition``
+        is validated server-side but currently always answers 501 (per-slice
+        sampling of a multidimensional cube is not wired up yet); it is exposed
+        so callers get that honest 501 rather than a silently-ignored parameter.
+        """
+        params = _params({"f": response_format, "geometry": _query_value(geometry)}, None)
+        if sample_count is not None:
+            params["sampleCount"] = sample_count
+        if mosaic_rule is not None:
+            params["mosaicRule"] = _query_value(mosaic_rule)
+        if sr is not None:
+            params["sr"] = sr
+        if time is not None:
+            params["time"] = time
+        if multidimensional_definition is not None:
+            params["multidimensionalDefinition"] = _query_value(multidimensional_definition)
+        if extra_params:
+            params.update(extra_params)
+        return await self._json("GET", f"{self.path}/getSamples", params=params)
+
+    async def multidimensional_info(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
+        """Return dimension/variable metadata for a multidimensional raster (GeoServices ``multidimensionalInfo``)."""
+        return await self._json("GET", f"{self.path}/multidimensionalInfo", params=_params({"f": response_format}, extra_params))
+
+    async def measure(
+        self,
+        from_geometry: Mapping[str, Any] | str,
+        measure_operation: str,
+        *,
+        geometry_type: str = "esriGeometryPoint",
+        to_geometry: Mapping[str, Any] | str | None = None,
+        linear_unit: str | None = None,
+        angular_unit: str | None = None,
+        area_unit: str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Measure distance, angle, area, or a point on the raster (GeoServices ``measure``).
+
+        ``measure_operation`` is required: honua-server's ``ImageServerMeasureHandler``
+        400s ("measureOperation parameter is required.") without it. Values include
+        ``esriMensurationPoint``, ``esriMensurationDistanceAndAngle``,
+        ``esriMensurationAreaAndPerimeter``, ``esriMensurationCentroid``.
+        """
+        params = _params(
+            {
+                "f": response_format,
+                "fromGeometry": _query_value(from_geometry),
+                "geometryType": geometry_type,
+                "measureOperation": measure_operation,
+            },
+            None,
+        )
+        if to_geometry is not None:
+            params["toGeometry"] = _query_value(to_geometry)
+        if linear_unit is not None:
+            params["linearUnit"] = linear_unit
+        if angular_unit is not None:
+            params["angularUnit"] = angular_unit
+        if area_unit is not None:
+            params["areaUnit"] = area_unit
+        if extra_params:
+            params.update(extra_params)
+        return await self._json("GET", f"{self.path}/measure", params=params)
+
+    async def find(
+        self,
+        to_geometry: Mapping[str, Any] | str,
+        *,
+        from_geometry: Mapping[str, Any] | str | None = None,
+        in_sr: int | str | None = None,
+        where: str | None = None,
+        object_ids: CsvValue | None = None,
+        max_count: int | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Find raster catalog images whose footprint contains ``to_geometry`` (GeoServices ``find``).
+
+        ``to_geometry`` (an Esri point) is required by honua's ImageServer
+        ``find`` implementation; ``from_geometry`` is the optional viewpoint
+        used for orientation-ranked ordering. ``where``/``object_ids`` filter
+        the catalog the same way they do on :meth:`query`.
+        """
+        params = _params({"f": response_format, "toGeometry": _query_value(to_geometry)}, None)
+        if from_geometry is not None:
+            params["fromGeometry"] = _query_value(from_geometry)
+        if in_sr is not None:
+            params["inSR"] = in_sr
+        if where is not None:
+            params["where"] = where
+        if object_ids is not None:
+            params["objectIds"] = _csv(object_ids)
+        if max_count is not None:
+            params["maxCount"] = max_count
+        if extra_params:
+            params.update(extra_params)
+        return await self._json("GET", f"{self.path}/find", params=params)
+
+    async def project(
+        self,
+        geometries: Any,
+        *,
+        in_sr: int | str,
+        out_sr: int | str,
+        datum_transformation: int | str | None = None,
+        response_format: str = "json",
+        extra_params: Params = None,
+    ) -> JsonObject:
+        """Reproject a list of geometries against this ImageServer (GeoServices ``project``).
+
+        Distinct from :meth:`export_image`'s ``image_sr``: this reprojects
+        input/output *geometries* (points, envelopes, etc.), not the raster.
+        """
+        params = _params({"f": response_format, "geometries": _query_value(geometries), "inSR": in_sr, "outSR": out_sr}, None)
+        if datum_transformation is not None:
+            params["datumTransformation"] = datum_transformation
+        if extra_params:
+            params.update(extra_params)
+        return await self._json("GET", f"{self.path}/project", params=params)
 
 
 class AsyncGeoServicesGeometryServerClient(_AsyncProtocol):

@@ -20,7 +20,7 @@ from typing import Literal
 # Types
 # ---------------------------------------------------------------------------
 
-Backend = Literal["process", "source", "admin", "session", "not_implemented"]
+Backend = Literal["process", "raster", "source", "admin", "session", "not_implemented"]
 Status = Literal["supported", "partial", "stub"]
 
 
@@ -92,6 +92,13 @@ def anchor_for(qualified_name: str) -> str:
 #
 # * ``backend="process"`` -- payload is sent through
 #   :class:`honua_sdk.protocols.OgcProcessesClient.execute`.
+# * ``backend="raster"`` -- a raster/surface (GDAL-worker) process. Reached
+#   through the SAME OGC API Processes transport as ``process``, but the
+#   raster/surface process ids 404 on direct execution, so the shim
+#   auto-wraps the call as a single ``geoprocess`` step inside the canonical
+#   ``honua-geoprocessing`` ``plan`` (using ``honua_sdk``'s ``RasterReference``
+#   / ``LayerReference`` input model) before submitting. Handled by
+#   :mod:`honua_gp._raster_tools` and surfaced under ``honua_gp.sa.*``.
 # * ``backend="source"`` -- routed through ``HonuaClient.source(...)`` and
 #   either ``Source.query`` / ``Source.iter_features`` / ``Source.apply_edits``.
 # * ``backend="admin"`` -- routed through ``HonuaAdminClient``.
@@ -581,18 +588,46 @@ COMPAT: dict[str, FunctionEntry] = {
         param_map={"in_rows": "layer_name"},
     ),
     "management.ListFields": FunctionEntry(
-        backend="not_implemented",
-        status="stub",
-        notes="Lists layer fields; HonuaAdminClient exposes discover_tables (per connection) but no per-layer schema reader today.",
-        replacement_hint="Use honua_admin.HonuaAdminClient.discover_tables for the parent connection and project the field list locally.",
-        tracking="honua-server#layer-schema-read",
+        backend="source",
+        status="partial",
+        notes=(
+            "Lists a layer's fields via honua_sdk.HonuaClient.feature_server(...).schema(layer_id) "
+            "(the typed LayerSchema built from the FeatureServer layer-metadata endpoint). "
+            "wild_card ('*'-glob, case-insensitive) and field_type (single value, "
+            "semicolon-delimited list, or Python sequence; 'All' / omitted disables the "
+            "filter) are both applied client-side against the fetched field list. Field "
+            "type tokens are normalized from honua-server's esriFieldType* vocabulary to "
+            "arcpy's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/"
+            "Single/Date/OID/Geometry/GUID/GlobalID/Blob/Raster/XML/DateOnly/TimeOnly/"
+            "TimestampOffset). Partial: honua-server's field JSON does not carry "
+            "precision/scale, so FieldDescribe.precision/.scale are always None (real "
+            "arcpy populates them for numeric fields); required/isVersioned/domain-code "
+            "nuances are also not modelled beyond passing the raw domain mapping through."
+        ),
+        param_map={"dataset": "layer_name"},
     ),
     "management.Describe": FunctionEntry(
-        backend="not_implemented",
-        status="stub",
-        notes="Inspects a dataset's schema; HonuaAdminClient does not expose a per-layer schema reader today.",
-        replacement_hint="Use honua_admin.HonuaAdminClient.discover_tables for the parent connection or honua_sdk.HonuaClient.feature_server(...).layer_metadata(layer_id).",
-        tracking="honua-server#layer-schema-read",
+        backend="source",
+        status="partial",
+        notes=(
+            "Describes a dataset's schema via honua_sdk.HonuaClient.feature_server(...)."
+            "schema(layer_id): .shapeType, .fields (ListFields-shaped), .spatialReference "
+            "(a minimal read-only SpatialReferenceInfo exposing .factoryCode / .wkid and, "
+            "when the server literally advertises one, .name), and .OIDFieldName are all "
+            "populated from the FeatureServer layer-metadata response. Partial / explicitly "
+            "out of scope: the optional arcpy data_type filter argument is accepted and "
+            "recorded in the audit trail but not honored -- it never filters or "
+            "disambiguates, every call describes the resolved dataset as-is; .catalogPath is the shim's "
+            "resolved source string, not a verified on-disk/catalog path; .dataType is a "
+            "heuristic ('FeatureClass' when a geometry type is present, else 'Table') -- "
+            "arcpy's full dataType vocabulary (ShapeFile, RasterDataset, Table, ...) is not "
+            "modelled; raster-specific Describe properties (bandCount, meanCellHeight, "
+            "noDataValue, ...) are not covered since honua-server's FeatureServer metadata "
+            "has no raster surface today; .spatialReference.name is only populated when the "
+            "server response includes a literal name (most only advertise a WKID), so it is "
+            "commonly None even when .factoryCode is set."
+        ),
+        param_map={"dataset": "layer_name"},
     ),
     # -----------------------------------------------------------------
     # da.* (10)
@@ -680,6 +715,312 @@ COMPAT: dict[str, FunctionEntry] = {
         notes="Joins a NumPy array onto an existing table.",
         replacement_hint="Use admin apply_manifest with a field-add + apply_edits update sequence.",
         tracking="honua-server#extend-table",
+    ),
+    # -----------------------------------------------------------------
+    # sa.* -- Spatial Analyst / raster-surface tools (18)
+    # -----------------------------------------------------------------
+    # These wrap honua-server's raster/surface (GDAL-worker) processes. Each
+    # ``backend="raster"`` entry is auto-wrapped as a single ``geoprocess``
+    # step inside the canonical ``honua-geoprocessing`` plan before submit
+    # (raster ids 404 on direct execution) by :mod:`honua_gp._raster_tools`,
+    # which builds the flat process-input bag from honua_sdk's public
+    # ``RasterReference`` / ``LayerReference`` model. ``param_map`` records the
+    # arcpy-keyword -> honua-server raster-process-input mapping and is
+    # validated as a subset of the server catalog by
+    # ``test_raster_backed_entries_match_honua_server_catalog``. Raster-output
+    # tools return a :class:`honua_gp.RasterResult` handle (lazy xarray /
+    # GeoDataFrame conversion via the ``raster`` / ``geopandas`` extras);
+    # ZonalStatisticsAsTable returns the Table-kind JSON (a list of per-zone
+    # dicts) directly. Esri task names mirror honua-server's
+    # ``GPServerEsriTaskAliases`` where a mapping exists.
+    "sa.Slope": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="surface.slope",
+        notes=(
+            "Projects arcpy.sa.Slope onto honua-server's surface.slope GDAL-worker "
+            "process (DEM 'source' in, slope raster out). units maps to the server "
+            "units enum (degrees/percent; radians rejected server-side) and "
+            "z_factor -> zFactor. Returns a honua_gp.RasterResult handle."
+        ),
+        param_map={"units": "units", "z_factor": "zFactor"},
+    ),
+    "sa.Aspect": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="surface.aspect",
+        notes=(
+            "Projects arcpy.sa.Aspect onto honua-server's surface.aspect GDAL-worker "
+            "process (DEM 'source' in, compass-bearing aspect raster out). Returns a "
+            "honua_gp.RasterResult handle."
+        ),
+    ),
+    "sa.Hillshade": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="surface.hillshade",
+        notes=(
+            "Projects arcpy.sa.Hillshade onto honua-server's surface.hillshade "
+            "GDAL-worker process. azimuth/altitude/z_factor -> azimuth/altitude/"
+            "zFactor. Returns a honua_gp.RasterResult handle."
+        ),
+        param_map={"azimuth": "azimuth", "altitude": "altitude", "z_factor": "zFactor"},
+    ),
+    "sa.Contour": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="surface.contour",
+        notes=(
+            "Projects arcpy.sa.Contour onto honua-server's surface.contour GDAL-worker "
+            "process. interval (required) -> interval, base -> base. Unlike the other "
+            "surface tools, the output is a FeatureLayer (GeoJSON contour lines with an "
+            "ELEV attribute); the returned RasterResult exposes it via .to_geodataframe()."
+        ),
+        param_map={"interval": "interval", "base": "base"},
+    ),
+    "sa.Viewshed": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="surface.viewshed",
+        notes=(
+            "Projects arcpy.sa.Viewshed onto honua-server's surface.viewshed GDAL-worker "
+            "process. observer_x/observer_y (required) -> observerX/observerY; "
+            "observer_height/target_height/max_distance -> observerHeight/targetHeight/"
+            "maxDistance. Returns a binary-visibility RasterResult handle."
+        ),
+        param_map={
+            "observer_x": "observerX",
+            "observer_y": "observerY",
+            "observer_height": "observerHeight",
+            "target_height": "targetHeight",
+            "max_distance": "maxDistance",
+        },
+    ),
+    "sa.Roughness": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="surface.roughness",
+        notes=(
+            "Projects arcpy Roughness onto honua-server's surface.roughness GDAL-worker "
+            "process. Partial: the server's canonical implementation supports only a "
+            "3x3 neighborhood (windowRadius=1); larger neighborhoods are rejected at "
+            "submit time, so window_radius is exposed but must currently be 1."
+        ),
+        param_map={"window_radius": "windowRadius"},
+    ),
+    "sa.TPI": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="surface.rugosity-tpi",
+        notes=(
+            "Projects arcpy TPI (topographic position index) onto honua-server's "
+            "surface.rugosity-tpi GDAL-worker process. Partial: the server supports "
+            "only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but "
+            "must currently be 1."
+        ),
+        param_map={"window_radius": "windowRadius"},
+    ),
+    "sa.TRI": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="surface.rugosity-tri",
+        notes=(
+            "Projects arcpy TRI (terrain ruggedness index) onto honua-server's "
+            "surface.rugosity-tri GDAL-worker process. Partial: the server supports "
+            "only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but "
+            "must currently be 1."
+        ),
+        param_map={"window_radius": "windowRadius"},
+    ),
+    "sa.Clip": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="raster.clip",
+        notes=(
+            "Projects arcpy raster Clip onto honua-server's raster.clip GDAL-worker "
+            "process (gdalwarp -cutline). boundary (WKB, required) -> boundary; "
+            "boundary_srid -> boundarySrid. Distinct from the vector analysis.Clip "
+            "stub. Returns a clipped RasterResult handle."
+        ),
+        param_map={"boundary": "boundary", "boundary_srid": "boundarySrid"},
+    ),
+    "sa.Mosaic": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="raster.mosaic",
+        notes=(
+            "Projects arcpy Mosaic onto honua-server's raster.mosaic GDAL-worker "
+            "process. Takes two or more input rasters (encoded to the '|'-separated "
+            "'sources' input); operator -> operator, resampling -> resampling. Partial: "
+            "the native worker offers only first/last overlap operators (no statistical "
+            "min/max/mean/sum), and the '|'-joined 'sources' input requires inline "
+            "GeoTIFF bytes -- layerId/rasterId-resolved inputs are not accepted for the "
+            "multi-raster list."
+        ),
+        param_map={"operator": "operator", "resampling": "resampling"},
+    ),
+    "sa.Reclassify": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="raster.reclassify",
+        notes=(
+            "Projects arcpy.sa.Reclassify onto honua-server's raster.reclassify "
+            "GDAL-worker process. remap (required) -> remap (';'-separated "
+            "'value:newValue' / 'lo..hi:newValue' entries); default_value/data_type/"
+            "no_data -> defaultValue/dataType/noData. Returns a RasterResult handle."
+        ),
+        param_map={
+            "remap": "remap",
+            "default_value": "defaultValue",
+            "data_type": "dataType",
+            "no_data": "noData",
+        },
+    ),
+    "sa.ProjectRaster": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="raster.reproject",
+        notes=(
+            "Projects arcpy.management.ProjectRaster onto honua-server's raster.reproject "
+            "GDAL-worker process (gdalwarp -t_srs). target_srid (required) -> targetSrid; "
+            "resampling -> resampling (nearestneighbor/bilinear/cubic/lanczos). Matches "
+            "the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle."
+        ),
+        param_map={"target_srid": "targetSrid", "resampling": "resampling"},
+    ),
+    "sa.Resample": FunctionEntry(
+        backend="raster",
+        status="supported",
+        process_id="raster.resample",
+        notes=(
+            "Projects arcpy.management.Resample onto honua-server's raster.resample "
+            "GDAL-worker process (gdalwarp -tr). cell_size (required) -> cellSize; "
+            "cell_size_y -> cellSizeY; resampling -> resampling. Matches the GPServer "
+            "'Resample' Esri task alias. Returns a RasterResult handle."
+        ),
+        param_map={
+            "cell_size": "cellSize",
+            "cell_size_y": "cellSizeY",
+            "resampling": "resampling",
+        },
+    ),
+    "sa.RasterCalculator": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="raster.map-algebra",
+        notes=(
+            "Projects arcpy.sa.RasterCalculator onto honua-server's raster.map-algebra "
+            "GDAL-worker process (gdal_calc.py). Takes one or more input rasters bound "
+            "to band variables A, B, C, ... (encoded to the '|'-separated 'sources' "
+            "input) and an expression -> expression; data_type/no_data -> dataType/noData. "
+            "Partial: the expression is restricted to single-letter band variables, "
+            "numeric literals, a fixed operator set, and a small NumPy allow-list "
+            "(arbitrary arcpy Map Algebra / Con()/nested-function syntax is not "
+            "evaluated), and inputs must be inline GeoTIFF bytes."
+        ),
+        param_map={"expression": "expression", "data_type": "dataType", "no_data": "noData"},
+    ),
+    "sa.Idw": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="raster.interpolate-idw",
+        notes=(
+            "Projects arcpy.sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker "
+            "process (gdal_grid -a invdist). Takes a scattered point FeatureCollection "
+            "(encoded to the base64 'points' input); z_field -> zField, power -> power, "
+            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' Esri "
+            "task alias. Partial: the native worker sizes the output via width/height "
+            "(passthrough) rather than an arcpy cell_size, and arcpy barrier/variable "
+            "search options are not modelled. Returns a RasterResult handle."
+        ),
+        param_map={
+            "z_field": "zField",
+            "power": "power",
+            "smoothing": "smoothing",
+            "radius": "radius",
+        },
+    ),
+    "sa.Kriging": FunctionEntry(
+        backend="not_implemented",
+        status="stub",
+        process_id="raster.interpolate-kriging",
+        notes=(
+            "honua-server's raster.interpolate-kriging is advertised for discovery but "
+            "NEVER produces output: GdalRasterInterpolateJobExecutor returns "
+            "JobExecutionResult.Failed(...) before any raster work because stock GDAL "
+            "gdal_grid bundles no kriging backend. The tool fails for every possible "
+            "input, so the shim refuses it client-side (raising HonuaGpUnsupportedError "
+            "before any server call) rather than overclaiming it as a working migration "
+            "target -- exactly the failure mode a codemod reading manifest status must "
+            "not be told is supported."
+        ),
+        replacement_hint=(
+            "Use honua_gp.sa.Idw (raster.interpolate-idw) for a working "
+            "inverse-distance-weighted interpolation. If a real kriging backend lands "
+            "server-side, submit raster.interpolate-kriging directly via "
+            "honua_sdk.HonuaClient.geoprocessing().execute_raster_process(...)."
+        ),
+        tracking="honua-server#raster-kriging-backend",
+    ),
+    "sa.ZonalStatisticsAsTable": FunctionEntry(
+        backend="raster",
+        status="partial",
+        process_id="raster.zonal-statistics",
+        notes=(
+            "Projects arcpy.sa.ZonalStatisticsAsTable onto honua-server's "
+            "raster.zonal-statistics GDAL-worker process. Takes a value raster ('source') "
+            "plus polygonal zones and returns the Table-kind JSON (a list of per-zone "
+            "aggregate dicts) directly rather than a raster. band -> band, statistics -> "
+            "statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer "
+            "'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones "
+            "are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved "
+            "zones are deferred server-side."
+        ),
+        param_map={"band": "band", "statistics": "statistics"},
+    ),
+    # Honest stubs: raster.histogram and raster.spectral-index have no clean,
+    # unambiguous single arcpy Spatial Analyst tool-name analog (histograms are
+    # reached in arcpy through RasterObject/segmentation, and spectral indices
+    # through per-index raster functions / the multidimensional toolset), and
+    # honua-server's GPServerEsriTaskAliases assigns them no Esri task name
+    # either. Rather than invent a fake arcpy name, they are surfaced as
+    # explicit stubs so the migration tool reports the gap honestly.
+    "sa.Histogram": FunctionEntry(
+        backend="not_implemented",
+        status="stub",
+        process_id="raster.histogram",
+        notes=(
+            "honua-server's raster.histogram (per-band 256-bin histograms) has no clean "
+            "single arcpy Spatial Analyst GP tool name -- arcpy exposes raster histograms "
+            "through RasterObject / interactive symbology rather than a standalone tool. "
+            "Left as an explicit stub instead of guessing a fake arcpy tool name."
+        ),
+        replacement_hint=(
+            "Submit the raster.histogram process directly via "
+            "honua_sdk.HonuaClient.geoprocessing().execute_raster_process("
+            "'raster.histogram', RasterReference.from_...(...)) and read the Scalar "
+            "JSON output with consume_result(...)."
+        ),
+        tracking="honua-server#arcpy-raster-histogram-name",
+    ),
+    "sa.SpectralIndex": FunctionEntry(
+        backend="not_implemented",
+        status="stub",
+        process_id="raster.spectral-index",
+        notes=(
+            "honua-server's raster.spectral-index (NDVI/NDWI/NDBI/SAVI/EVI from band-role "
+            "rasters) has no clean single arcpy Spatial Analyst GP tool name -- arcpy "
+            "computes these through per-index raster functions / the multidimensional "
+            "toolset, not one standalone tool. Left as an explicit stub instead of "
+            "guessing a fake arcpy tool name."
+        ),
+        replacement_hint=(
+            "Submit the raster.spectral-index process directly via "
+            "honua_sdk.HonuaClient.geoprocessing().execute_raster_process("
+            "'raster.spectral-index', RasterReference.from_...(band), parameters={"
+            "'index': 'NDVI', ...}), or compose the band math with sa.RasterCalculator."
+        ),
+        tracking="honua-server#arcpy-spectral-index-name",
     ),
 }
 

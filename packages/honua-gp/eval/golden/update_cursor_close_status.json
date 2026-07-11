@@ -1,5 +1,8 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "update_cursor_close_status ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "update_cursor_close_status ok"
+  },
+  "schema_version": 2
 }

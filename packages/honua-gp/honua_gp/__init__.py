@@ -14,8 +14,10 @@ from typing import Any
 from . import analysis as analysis  # re-export sub-package
 from . import da as da
 from . import management as management
+from . import sa as sa
 from ._audit import AuditWriter, default_writer, set_audit_writer
 from ._compat import COMPAT, FunctionEntry, anchor_for, entry_for
+from ._raster_tools import RasterResult
 from ._errors import (
     ExecuteError,
     ExecuteWarning,
@@ -27,8 +29,22 @@ from ._resolve import ResolvedSource, resolve
 from ._session import HonuaSession, LayerAlias, get_session
 from .env import env
 
-# Re-export Describe at the package level to mirror ``arcpy.Describe``.
-from .management import Describe, DescribeResult, FieldDescribe, Selection
+# Re-export Describe / ListFields at the package level to mirror real arcpy,
+# where both are top-level convenience functions rather than
+# ``arcpy.management.*``-only.
+from .management import (
+    Describe,
+    DescribeResult,
+    FieldDescribe,
+    ListFields,
+    Selection,
+    SpatialReferenceInfo,
+)
+
+# Re-export the raster input model from honua_sdk so callers can build raster
+# references (layer id / raster id / GeoTIFF bytes) without importing the SDK
+# module directly: ``honua_gp.RasterReference.from_layer_id(...)``.
+from honua_sdk.geoprocessing import LayerReference, RasterReference
 
 try:
     from importlib.metadata import version as _meta_version
@@ -116,6 +132,7 @@ __all__ = [
     "analysis",
     "da",
     "management",
+    "sa",
     "env",
     "configure",
     "configure_from_env",
@@ -142,7 +159,12 @@ __all__ = [
     "DescribeResult",
     "FieldDescribe",
     "GetCount",
+    "LayerReference",
+    "ListFields",
+    "RasterReference",
+    "RasterResult",
     "Selection",
+    "SpatialReferenceInfo",
     # Legacy suffix-form aliases (real arcpy exposes both)
     *_SUFFIX_ALIASES.keys(),
 ]

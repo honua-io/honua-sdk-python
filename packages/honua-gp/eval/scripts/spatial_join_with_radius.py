@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/1", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
 print(f"spatial_join_with_radius ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('spatial_join_with_radius', feature_layer_fingerprint(result))

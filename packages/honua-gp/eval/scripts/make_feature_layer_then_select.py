@@ -26,3 +26,5 @@ arcpy.env.overwriteOutput = True
 arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
 selection = arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
 print(f"make_feature_layer_then_select ok count={selection.count}")
+from eval._emit import emit_response
+emit_response('make_feature_layer_then_select', {'count': int(selection.count)})

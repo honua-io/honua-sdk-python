@@ -1,5 +1,26 @@
 {
-  "audit_lines": 1,
   "expected_failure": false,
-  "stdout_contains": "spatial_join_addresses_parcels ok"
+  "plumbing": {
+    "audit_lines": 1,
+    "stdout_contains": "spatial_join_addresses_parcels ok"
+  },
+  "request": [
+    {
+      "function": "analysis.SpatialJoin",
+      "inputs": {
+        "joinLayerId": 1,
+        "layerId": 0,
+        "predicate": "intersects"
+      },
+      "process_id": "analytics.spatial-join"
+    }
+  ],
+  "response": {
+    "feature_count": 14,
+    "geometry_type": "Point",
+    "output_keys": [
+      "outputFeatureLayer"
+    ]
+  },
+  "schema_version": 2
 }

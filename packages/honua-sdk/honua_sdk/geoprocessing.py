@@ -40,9 +40,12 @@ reuse the bound :class:`~honua_sdk.client.HonuaClient` /
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import time
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
@@ -59,6 +62,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 JsonObject = dict[str, Any]
 LayerReferenceKind = Literal["inlineGeoJson", "queryResult"]
+RasterReferenceKind = Literal["source", "layerId", "rasterId"]
 
 #: Canonical process id that accepts a multi-step analysis ``plan`` input.
 CANONICAL_PROCESS_ID = "honua-geoprocessing"
@@ -95,6 +99,41 @@ LAYER_SCOPE_PROCESS_IDS: frozenset[str] = frozenset(
         "conversion.feature-project",
         "generalization.simplify-layer",
         "generalization.dissolve",
+    }
+)
+
+#: Raster / surface process ids handled by the GDAL worker. Unlike the vector
+#: ids above, **none** of these are allow-listed for direct
+#: ``POST .../processes/{processId}/execution`` on the reconciled server
+#: (``ProcessMigrationEvidenceClassifier.FirstSliceAutomatedVectorProcessIds``
+#: only lists vector/geometry ids) — a direct call 404s with ``no-such-process``.
+#: The only way to invoke one is wrapped as a single ``geoprocess`` step inside
+#: the canonical ``honua-geoprocessing`` ``plan`` input; the
+#: :meth:`~HonuaGeoprocessing.submit_raster_process` /
+#: :meth:`~HonuaGeoprocessing.execute_raster_process` helpers do that wrapping
+#: transparently.
+RASTER_SCOPE_PROCESS_IDS: frozenset[str] = frozenset(
+    {
+        "surface.slope",
+        "surface.aspect",
+        "surface.hillshade",
+        "surface.contour",
+        "surface.viewshed",
+        "surface.roughness",
+        "surface.rugosity-tpi",
+        "surface.rugosity-tri",
+        "raster.clip",
+        "raster.mosaic",
+        "raster.reclassify",
+        "raster.reproject",
+        "raster.resample",
+        "raster.map-algebra",
+        "raster.spectral-index",
+        "raster.statistics",
+        "raster.histogram",
+        "raster.interpolate-idw",
+        "raster.interpolate-kriging",
+        "raster.zonal-statistics",
     }
 )
 
@@ -159,6 +198,87 @@ class LayerReference:
         if self.where:
             inputs["where"] = self.where
         return inputs
+
+
+@dataclass(frozen=True)
+class RasterReference:
+    """A reference to the raster a raster/surface GP process runs on.
+
+    A raster input reaches the GDAL worker as **one flat string parameter** in
+    the process ``inputs`` bag; exactly one carrier is populated according to
+    :attr:`kind`. Use the classmethod constructors rather than building this by
+    hand:
+
+    * :meth:`from_geotiff_bytes` -- inline GeoTIFF bytes, base64-encoded and
+      emitted as ``source`` (this is literally what the GDAL worker reads at
+      execution time).
+    * :meth:`from_layer_id` -- a catalog raster layer id, emitted as ``layerId``
+      (resolved server-side into a ``source`` before the job reaches the worker).
+    * :meth:`from_raster_id` -- a registered raster id, emitted as ``rasterId``
+      (same server-side pre-resolution as ``layerId``).
+
+    The three carriers are mutually exclusive; exactly one must be populated.
+    """
+
+    kind: RasterReferenceKind
+    source_base64: str | None = None
+    layer_id: str | None = None
+    raster_id: str | None = None
+
+    def __post_init__(self) -> None:
+        populated = [
+            name
+            for name, value in (
+                ("source_base64", self.source_base64),
+                ("layer_id", self.layer_id),
+                ("raster_id", self.raster_id),
+            )
+            if value is not None
+        ]
+        if len(populated) != 1:
+            raise ValueError(
+                "RasterReference requires exactly one of source_base64/layer_id/raster_id "
+                f"to be populated; got {populated!r}. Use the classmethod constructors."
+            )
+
+    @classmethod
+    def from_geotiff_bytes(cls, data: bytes) -> "RasterReference":
+        """Build a reference from inline GeoTIFF ``data`` (base64-encoded ``source``)."""
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("from_geotiff_bytes expects GeoTIFF bytes.")
+        encoded = base64.b64encode(bytes(data)).decode("ascii")
+        return cls(kind="source", source_base64=encoded)
+
+    @classmethod
+    def from_layer_id(cls, layer_id: str) -> "RasterReference":
+        """Build a reference to a catalog raster layer id (emitted as ``layerId``)."""
+        return cls(kind="layerId", layer_id=str(layer_id))
+
+    @classmethod
+    def from_raster_id(cls, raster_id: str) -> "RasterReference":
+        """Build a reference to a registered raster id (emitted as ``rasterId``)."""
+        return cls(kind="rasterId", raster_id=str(raster_id))
+
+    def to_inputs(self) -> JsonObject:
+        """Project this reference onto its single OGC Processes ``inputs`` key.
+
+        The GDAL worker reads ``source`` (inline base64 GeoTIFF); ``layerId`` /
+        ``rasterId`` are resolved into a ``source`` server-side before the job
+        reaches the worker.
+        """
+        if self.kind == "source":
+            if not self.source_base64:
+                raise ValueError("source raster reference requires base64-encoded GeoTIFF bytes.")
+            return {"source": self.source_base64}
+        if self.kind == "layerId":
+            if not self.layer_id:
+                raise ValueError("layerId raster reference requires a catalog raster layer id.")
+            return {"layerId": self.layer_id}
+        if self.kind == "rasterId":
+            if not self.raster_id:
+                raise ValueError("rasterId raster reference requires a registered raster id.")
+            return {"rasterId": self.raster_id}
+        raise ValueError(f"Unknown raster reference kind: {self.kind!r}")  # pragma: no cover
 
 
 @dataclass(frozen=True)
@@ -236,6 +356,180 @@ def _plan_inputs(plan: Mapping[str, Any]) -> JsonObject:
     return {"plan": dict(plan)}
 
 
+def _zone_inputs(zones: LayerReference) -> JsonObject:
+    """Project a zone-polygon layer onto the ``zones`` raster-process input.
+
+    ``raster.zonal-statistics`` reads its zone polygons as a **base64-encoded
+    GeoJSON ``FeatureCollection``** under the flat ``zones`` parameter (confirmed
+    via ``GdalRasterZonalStatisticsJobExecutor`` ->
+    ``GdalJobInputReader.TryGetBase64Input(parameters, "zones", ...)``). This is
+    a *different* wire shape from a vector process's ``inputGeoJson`` (raw JSON
+    string), so zones are encoded here rather than via ``LayerReference.to_inputs``.
+    Layer-resolved zones (``zonesLayerId``) are deferred server-side, so only an
+    inline-GeoJSON :class:`LayerReference` is accepted.
+    """
+    if zones.kind != "inlineGeoJson" or zones.inline_geojson is None:
+        raise ValueError(
+            "zones must be an inline-GeoJSON LayerReference "
+            "(LayerReference.from_geojson(...)); layer-resolved zones are deferred server-side."
+        )
+    payload = json.dumps(zones.inline_geojson, separators=(",", ":")).encode("utf-8")
+    return {"zones": base64.b64encode(payload).decode("ascii")}
+
+
+def _raster_process_inputs(
+    raster: RasterReference,
+    zones: LayerReference | None,
+    parameters: Mapping[str, Any] | None,
+) -> JsonObject:
+    """Build the flat raster-process ``inputs`` bag (raster + zones + parameters)."""
+    inputs: JsonObject = dict(raster.to_inputs())
+    if zones is not None:
+        inputs.update(_zone_inputs(zones))
+    if parameters:
+        for key, value in parameters.items():
+            inputs[key] = value if isinstance(value, str) else _stringify(value)
+    return inputs
+
+
+def _raster_plan(process_id: str, inputs: Mapping[str, Any], plan_id: str) -> JsonObject:
+    """Wrap a raster-process invocation as a single-step canonical plan.
+
+    Raster/surface process ids 404 on direct execution, so they are submitted as
+    one ``geoprocess`` step inside the ``honua-geoprocessing`` process's ``plan``
+    input (shape confirmed against
+    ``OgcProcessesExecutionSubmissionTests``).
+    """
+    return {
+        "planId": plan_id,
+        "steps": [
+            {
+                "stepId": "s1",
+                "kind": "geoprocess",
+                "processId": process_id,
+                "inputs": dict(inputs),
+            }
+        ],
+    }
+
+
+def _default_plan_id(process_id: str) -> str:
+    """Generate a reasonable, unique ``planId`` for an auto-wrapped raster step."""
+    return f"raster-{process_id}-{uuid.uuid4().hex[:12]}"
+
+
+def _data_uri_bytes(uri: str) -> bytes | None:
+    """Decode a ``data:`` URI to bytes, or ``None`` when ``uri`` is not a data URI.
+
+    Handles both ``;base64`` and plain (percent-encoded) payloads. Honua's GDAL
+    worker publishes scalar/table/vector artifacts as
+    ``data:<content-type>;base64,<payload>`` (see ``GdalDataUri.Build``).
+    """
+    if not uri.startswith("data:"):
+        return None
+    header, _, data = uri.partition(",")
+    if ";base64" in header:
+        try:
+            return base64.b64decode(data, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise HonuaError(f"Output data URI is not valid base64: {exc}") from exc
+    return unquote(data).encode("utf-8")
+
+
+def _output_json_bytes(member: Mapping[str, Any]) -> bytes | None:
+    """Return the JSON payload bytes carried inline by an output ``member``.
+
+    Reads an inline ``value`` (a ``data:`` URI or a raw JSON string) or a
+    ``data:`` ``href``. Returns ``None`` when the payload is only reachable via a
+    fetchable (``http(s)``) ``href`` -- the caller fetches that through the bound
+    client so base URL, auth, and retry policy apply -- or is carried as a raw
+    (non-string) ``value`` the caller can use as-is.
+    """
+    value = member.get("value")
+    if isinstance(value, str):
+        decoded = _data_uri_bytes(value)
+        if decoded is not None:
+            return decoded
+        stripped = value.strip()
+        if stripped[:1] in ("{", "["):
+            return value.encode("utf-8")
+        return None
+    href = member.get("href")
+    if isinstance(href, str) and href:
+        return _data_uri_bytes(href)
+    return None
+
+
+def _output_members(results: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    """Yield candidate output members from a results document.
+
+    Handles the same shape variability the other selectors do: the document may
+    itself be a member, an outputs map keyed by output id, or an outputs map
+    whose members wrap the real payload under a ``value`` key.
+    """
+    members: list[Mapping[str, Any]] = []
+    if _looks_output_member(results):
+        members.append(results)
+    for member in results.values():
+        if isinstance(member, Mapping):
+            if _looks_output_member(member):
+                members.append(member)
+            wrapped = member.get("value")
+            if isinstance(wrapped, Mapping) and _looks_output_member(wrapped):
+                members.append(wrapped)
+    return tuple(members)
+
+
+def _looks_output_member(value: Any) -> bool:
+    """Whether ``value`` looks like an OGC results output member (carries ``kind``)."""
+    return isinstance(value, Mapping) and "kind" in value
+
+
+def _primary_output_member(results: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Return the first output member carrying a ``kind`` field, if any."""
+    members = _output_members(results)
+    return members[0] if members else None
+
+
+def _sniff_output_member(results: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Best-effort member lookup for outputs that carry no Honua ``kind`` tag.
+
+    :func:`_primary_output_member` requires a declared ``kind`` (Honua's
+    ``ArtifactKind`` metadata) and is the authoritative selector when present.
+    Some Table/Scalar outputs carry no ``kind`` at all -- just a plain OGC
+    ``value``/``href`` in the normal outputs-map shape, e.g.
+    ``{"out": {"value": {...}}}`` -- and still need to be found. This mirrors
+    the same kind-agnostic document-shape tolerance
+    :func:`_feature_collection_from_results` / ``find_raster_output`` already
+    apply: the whole document (a bare member) or the first nested member
+    carrying ``value``/``href`` is used, without requiring ``kind``.
+    """
+    if "value" in results or "href" in results:
+        return results
+    for member in results.values():
+        if isinstance(member, Mapping) and ("value" in member or "href" in member):
+            return member
+    return None
+
+
+def results_kind(results: Mapping[str, Any]) -> str | None:
+    """Return the ``kind`` of a results document's primary output, if declared.
+
+    Reads ``outputs.*.kind`` (one of Honua's ``ArtifactKind`` values --
+    ``Raster``, ``FeatureLayer``, ``Table``, ``Scalar``) from the OGC Processes
+    results document returned by ``GET /ogc/processes/jobs/{id}/results``,
+    tolerating the same document-shape variability the raster/feature selectors
+    handle (bare member, outputs map, or ``value``-wrapped member). Returns
+    ``None`` when no output declares a ``kind`` (for example a bare pass-through
+    ``FeatureCollection``), in which case consumption falls back to sniffing.
+    """
+    member = _primary_output_member(results)
+    if member is None:
+        return None
+    kind = member.get("kind")
+    return kind if isinstance(kind, str) else None
+
+
 def _is_feature_collection(value: Any) -> TypeGuard[Mapping[str, Any]]:
     """Whether ``value`` looks like a GeoJSON ``FeatureCollection``."""
     return (
@@ -278,6 +572,31 @@ def _feature_collection_from_results(results: Mapping[str, Any]) -> JsonObject:
         f"got output keys {sorted(results)!r}. "
         "execute_dataframe requires a feature-collection-out process."
     )
+
+
+def _feature_collection_from_output(results: Mapping[str, Any]) -> JsonObject | None:
+    """Best-effort, pure attempt to find a FeatureCollection in a results document.
+
+    Tries the declared-kind output member's JSON payload first (the
+    ``FeatureLayer`` shape published as a base64/``data:`` URI -- see
+    :func:`_output_json_bytes` -- for example ``surface.contour``'s output),
+    then falls back to :func:`_feature_collection_from_results` (the plain
+    inline-FeatureCollection vector-process shape). Returns ``None`` rather than
+    raising when neither is found, so a caller can decide what to do next (fetch
+    a live href, fall back to another kind, ...) -- and, notably, without
+    needing geopandas: this is pure selection logic only, no conversion.
+    """
+    member = _primary_output_member(results)
+    if member is not None:
+        data = _output_json_bytes(member)
+        if data is not None:
+            parsed = json.loads(data)
+            if _is_feature_collection(parsed):
+                return cast(JsonObject, parsed)
+    try:
+        return _feature_collection_from_results(results)
+    except HonuaError:
+        return None
 
 
 def _async_prefer_header(respond_async: bool) -> dict[str, str] | None:
@@ -555,6 +874,11 @@ class HonuaGeoprocessing:
             return inline
         href = raster_href(member)
         if href:
+            # honua-server publishes rasters as a ``data:`` URI in ``href``
+            # (GdalDataUri.Build), so decode that inline rather than fetching.
+            data_uri = _data_uri_bytes(href)
+            if data_uri is not None:
+                return data_uri
             path, params = _href_path_and_params(href)
             return self.client._request("GET", path, params=params).content
         raise HonuaError("Raster output has neither an inline value nor an href to fetch.")
@@ -599,6 +923,152 @@ class HonuaGeoprocessing:
             timeout=timeout,
         )
         return self.result_to_xarray(result)
+
+    # -- raster-ref-in (surface/raster tools) -----------------------------
+
+    def submit_raster_process(
+        self,
+        process_id: str,
+        raster: RasterReference,
+        *,
+        zones: LayerReference | None = None,
+        parameters: Mapping[str, Any] | None = None,
+        plan_id: str | None = None,
+        respond_async: bool = True,
+    ) -> GeoprocessingJob:
+        """Submit a raster/surface process and return the (pending) job.
+
+        ``raster`` is a :class:`RasterReference` (inline GeoTIFF ``source`` or a
+        server-resolved ``layerId`` / ``rasterId``); ``zones`` is an optional
+        inline-GeoJSON :class:`LayerReference` of zone polygons for
+        ``raster.zonal-statistics``; ``parameters`` carries process options (for
+        example ``{"units": "degrees"}`` for ``surface.slope``).
+
+        Because every raster/surface process id 404s on direct execution, the
+        call is transparently auto-wrapped as a single ``geoprocess`` step inside
+        the canonical ``honua-geoprocessing`` ``plan`` and submitted through the
+        existing plan machinery. Pass ``plan_id`` to override the generated id.
+        """
+        inputs = _raster_process_inputs(raster, zones, parameters)
+        plan = _raster_plan(process_id, inputs, plan_id or _default_plan_id(process_id))
+        return self.submit_plan(plan, respond_async=respond_async)
+
+    def execute_raster_process(
+        self,
+        process_id: str,
+        raster: RasterReference,
+        *,
+        zones: LayerReference | None = None,
+        parameters: Mapping[str, Any] | None = None,
+        plan_id: str | None = None,
+        poll_interval: float = 0.5,
+        timeout: float | None = 120.0,
+        raise_on_failure: bool = True,
+    ) -> JsonObject:
+        """Run a raster/surface process to completion and return the results document.
+
+        Same ergonomics as :meth:`execute` for vector processes: submits (as an
+        auto-wrapped single-step plan), polls to a terminal state, and returns
+        the ``/results`` document. The output ``kind`` varies by tool (``Raster``
+        for most, ``FeatureLayer`` for ``surface.contour``, ``Table`` for
+        ``raster.zonal-statistics``, ``Scalar`` for
+        ``raster.statistics``/``raster.histogram``); pass the returned document to
+        :meth:`consume_result` to get the corresponding Python object without
+        knowing the kind in advance.
+        """
+        inputs = _raster_process_inputs(raster, zones, parameters)
+        plan = _raster_plan(process_id, inputs, plan_id or _default_plan_id(process_id))
+        return self.execute_plan(
+            plan,
+            poll_interval=poll_interval,
+            timeout=timeout,
+            raise_on_failure=raise_on_failure,
+        )
+
+    # -- kind-routed result consumption -----------------------------------
+
+    def _result_json_value(self, results: Mapping[str, Any]) -> Any:
+        """Parse a ``Table``/``Scalar`` output's JSON value from a results document."""
+        member = _primary_output_member(results) or _sniff_output_member(results) or results
+        data = _output_json_bytes(member)
+        if data is None:
+            href = member.get("href")
+            if isinstance(href, str) and href and not href.startswith("data:"):
+                path, params = _href_path_and_params(href)
+                data = self.client._request("GET", path, params=params).content
+        if data is None:
+            value = member.get("value")
+            if isinstance(value, (dict, list)):
+                return value
+            raise HonuaError("Table/Scalar output has no decodable JSON payload.")
+        return json.loads(data)
+
+    def _result_feature_collection(self, results: Mapping[str, Any]) -> JsonObject:
+        """Select a results document's FeatureCollection output.
+
+        Pure selection plus, only when the pure attempt comes up empty, a live
+        ``href`` fetch through the bound client -- no geopandas needed.
+        :meth:`_result_geodataframe` is the thin geopandas-dependent conversion
+        built on top of this.
+        """
+        found = _feature_collection_from_output(results)
+        if found is not None:
+            return found
+        member = _primary_output_member(results)
+        href = member.get("href") if member is not None else None
+        if isinstance(href, str) and href and not href.startswith("data:"):
+            path, params = _href_path_and_params(href)
+            parsed = json.loads(self.client._request("GET", path, params=params).content)
+            if _is_feature_collection(parsed):
+                return cast(JsonObject, parsed)
+        raise HonuaError(
+            "Geoprocessing results document does not contain a FeatureCollection output; "
+            f"got output keys {sorted(results)!r}."
+        )
+
+    def _result_geodataframe(self, results: Mapping[str, Any]) -> "gpd.GeoDataFrame":
+        """Parse a ``FeatureLayer`` output to a GeoDataFrame (requires geopandas)."""
+        from .geopandas import ogc_features_to_geodataframe
+
+        return ogc_features_to_geodataframe(self._result_feature_collection(results))
+
+    def consume_result(self, results: Mapping[str, Any]) -> Any:
+        """Route a results document to the Python object matching its output kind.
+
+        * ``Raster`` -> :class:`xarray.DataArray` (via :meth:`result_to_xarray`).
+        * ``FeatureLayer`` -> a :class:`geopandas.GeoDataFrame`.
+        * ``Table`` / ``Scalar`` -> the parsed JSON value (``dict`` / ``list``).
+        * undeclared kind -> sniffed, in priority order: raster, then feature
+          collection (via the pure :func:`_feature_collection_from_output`, so
+          geopandas is only touched once a FeatureCollection payload is actually
+          found), then a plain JSON value.
+
+        Lets a caller consume :meth:`execute_raster_process` output without
+        knowing in advance which kind a given ``process_id`` produces (xarray for
+        ``surface.slope``, a GeoDataFrame for ``surface.contour``, a list-of-dicts
+        for ``raster.zonal-statistics``). Raster/feature routing requires the
+        corresponding optional extra (``raster`` / ``geopandas``).
+        """
+        kind = results_kind(results)
+        if kind == "Raster":
+            return self.result_to_xarray(results)
+        if kind == "FeatureLayer":
+            return self._result_geodataframe(results)
+        if kind in ("Table", "Scalar"):
+            return self._result_json_value(results)
+        if kind is not None:
+            raise HonuaError(f"Unsupported results kind {kind!r}.")
+        from .raster import find_raster_output
+
+        try:
+            find_raster_output(results)
+        except HonuaError:
+            pass
+        else:
+            return self.result_to_xarray(results)
+        if _feature_collection_from_output(results) is not None:
+            return self._result_geodataframe(results)
+        return self._result_json_value(results)
 
     # -- canonical multi-step plan ----------------------------------------
 
@@ -845,6 +1315,11 @@ class AsyncHonuaGeoprocessing:
             return inline
         href = raster_href(member)
         if href:
+            # honua-server publishes rasters as a ``data:`` URI in ``href``
+            # (GdalDataUri.Build), so decode that inline rather than fetching.
+            data_uri = _data_uri_bytes(href)
+            if data_uri is not None:
+                return data_uri
             path, params = _href_path_and_params(href)
             response = await self.client._request("GET", path, params=params)
             return response.content
@@ -890,6 +1365,135 @@ class AsyncHonuaGeoprocessing:
             timeout=timeout,
         )
         return await self.result_to_xarray(result)
+
+    # -- raster-ref-in (surface/raster tools) -----------------------------
+
+    async def submit_raster_process(
+        self,
+        process_id: str,
+        raster: RasterReference,
+        *,
+        zones: LayerReference | None = None,
+        parameters: Mapping[str, Any] | None = None,
+        plan_id: str | None = None,
+        respond_async: bool = True,
+    ) -> GeoprocessingJob:
+        """Submit a raster/surface process and return the (pending) job.
+
+        Async twin of :meth:`HonuaGeoprocessing.submit_raster_process`; the call
+        is transparently auto-wrapped as a single ``geoprocess`` step inside the
+        canonical ``honua-geoprocessing`` ``plan`` (raster ids 404 on direct
+        execution).
+        """
+        inputs = _raster_process_inputs(raster, zones, parameters)
+        plan = _raster_plan(process_id, inputs, plan_id or _default_plan_id(process_id))
+        return await self.submit_plan(plan, respond_async=respond_async)
+
+    async def execute_raster_process(
+        self,
+        process_id: str,
+        raster: RasterReference,
+        *,
+        zones: LayerReference | None = None,
+        parameters: Mapping[str, Any] | None = None,
+        plan_id: str | None = None,
+        poll_interval: float = 0.5,
+        timeout: float | None = 120.0,
+        raise_on_failure: bool = True,
+    ) -> JsonObject:
+        """Run a raster/surface process to completion and return the results document.
+
+        Async twin of :meth:`HonuaGeoprocessing.execute_raster_process`. Pass the
+        returned document to :meth:`consume_result` to get the corresponding
+        Python object for whatever ``kind`` the tool produced.
+        """
+        inputs = _raster_process_inputs(raster, zones, parameters)
+        plan = _raster_plan(process_id, inputs, plan_id or _default_plan_id(process_id))
+        return await self.execute_plan(
+            plan,
+            poll_interval=poll_interval,
+            timeout=timeout,
+            raise_on_failure=raise_on_failure,
+        )
+
+    # -- kind-routed result consumption -----------------------------------
+
+    async def _result_json_value(self, results: Mapping[str, Any]) -> Any:
+        """Parse a ``Table``/``Scalar`` output's JSON value from a results document."""
+        member = _primary_output_member(results) or _sniff_output_member(results) or results
+        data = _output_json_bytes(member)
+        if data is None:
+            href = member.get("href")
+            if isinstance(href, str) and href and not href.startswith("data:"):
+                path, params = _href_path_and_params(href)
+                response = await self.client._request("GET", path, params=params)
+                data = response.content
+        if data is None:
+            value = member.get("value")
+            if isinstance(value, (dict, list)):
+                return value
+            raise HonuaError("Table/Scalar output has no decodable JSON payload.")
+        return json.loads(data)
+
+    async def _result_feature_collection(self, results: Mapping[str, Any]) -> JsonObject:
+        """Select a results document's FeatureCollection output.
+
+        Pure selection plus, only when the pure attempt comes up empty, a live
+        ``href`` fetch through the bound client -- no geopandas needed.
+        :meth:`_result_geodataframe` is the thin geopandas-dependent conversion
+        built on top of this.
+        """
+        found = _feature_collection_from_output(results)
+        if found is not None:
+            return found
+        member = _primary_output_member(results)
+        href = member.get("href") if member is not None else None
+        if isinstance(href, str) and href and not href.startswith("data:"):
+            path, params = _href_path_and_params(href)
+            response = await self.client._request("GET", path, params=params)
+            parsed = json.loads(response.content)
+            if _is_feature_collection(parsed):
+                return cast(JsonObject, parsed)
+        raise HonuaError(
+            "Geoprocessing results document does not contain a FeatureCollection output; "
+            f"got output keys {sorted(results)!r}."
+        )
+
+    async def _result_geodataframe(self, results: Mapping[str, Any]) -> "gpd.GeoDataFrame":
+        """Parse a ``FeatureLayer`` output to a GeoDataFrame (requires geopandas)."""
+        from .geopandas import ogc_features_to_geodataframe
+
+        return ogc_features_to_geodataframe(await self._result_feature_collection(results))
+
+    async def consume_result(self, results: Mapping[str, Any]) -> Any:
+        """Route a results document to the Python object matching its output kind.
+
+        Async twin of :meth:`HonuaGeoprocessing.consume_result`: ``Raster`` ->
+        :class:`xarray.DataArray`, ``FeatureLayer`` -> GeoDataFrame,
+        ``Table``/``Scalar`` -> parsed JSON, undeclared kind -> sniffed (raster,
+        then feature collection via the pure :func:`_feature_collection_from_output`,
+        then a plain JSON value).
+        """
+        kind = results_kind(results)
+        if kind == "Raster":
+            return await self.result_to_xarray(results)
+        if kind == "FeatureLayer":
+            return await self._result_geodataframe(results)
+        if kind in ("Table", "Scalar"):
+            return await self._result_json_value(results)
+        if kind is not None:
+            raise HonuaError(f"Unsupported results kind {kind!r}.")
+        from .raster import find_raster_output
+
+        try:
+            find_raster_output(results)
+        except HonuaError:
+            pass
+        else:
+            return await self.result_to_xarray(results)
+        if _feature_collection_from_output(results) is not None:
+            return await self._result_geodataframe(results)
+        return await self._result_json_value(results)
 
     # -- canonical multi-step plan ----------------------------------------
 

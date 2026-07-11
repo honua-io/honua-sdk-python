@@ -184,19 +184,43 @@ pyproject.toml                   # shared tool config ONLY (not installable)
   case**. The seeded server must run with
   `ASPNETCORE_ENVIRONMENT=Development` (the client-compat seed activates the
   metadata-v2 snapshot for `default`/`Development`/`Test`, not `Production`).
-  Known, already-tracked nightly server gaps are marked `xfail` (strict=False)
-  with explicit issue references in `scripts/_conformance.py::KNOWN_SERVER_GAPS`
-  (honua-server#1238 JSONB-attribute projection is the live-checked one today;
-  #1166 temporal, #1167 replica, #1237 analysis list/estimate are reserved);
-  when a fix lands, clear the case's `known_gap_issue` to make it required.
-  **Caveat:** an `xfail`ed case is non-enforcing for its *whole* assertion body,
-  not just the tracked-gap line — so the `feature_query_envelope` case's core
-  feature-read assertions (a `features[]` array, `exceededTransferLimit`, etc.)
-  are currently **advisory**, not blocking, while it carries the
-  honua-server#1238 `known_gap_issue`. Splitting the JSONB-projection assertion
-  into its own `known_gap` case so the core read contract is enforced
-  unconditionally is tracked follow-up work. New/untracked drift in a required
-  case still fails the lane — never blanket `continue-on-error`.
+  10 cases total (plus a registry self-check); 8 are unconditionally required,
+  2 are known gaps. Known, already-tracked nightly server gaps are marked
+  `xfail` (strict=False) with explicit issue references in
+  `scripts/_conformance.py::KNOWN_SERVER_GAPS`:
+  - `temporal_query` → honua-server#2643 (client-compat-v1.sql doesn't set
+    `timeInfo` on `test_service` layer 0, so `time=` queries 400 as
+    non-time-aware by design (honua-server#1444) instead of filtering — a seed
+    gap, not a query-engine bug).
+  - `replica_sync_surface` → honua-server#2645 (client-compat-v1.sql hardcodes
+    an empty Metadata-V2 `options` object for `test_service`, so the
+    already-implemented Sync-capability advertisement can never surface a
+    `Sync` token/`syncEnabled` field for the seeded layer — also a seed gap).
+
+  When a fix lands, clear the case's `known_gap_issue` to make it required.
+  As of 2026-07-10, honua-server#1238 (JSONB-attribute projection) and
+  honua-server#1237 (analysis process list/estimate) — both closed 2026-05-31
+  — were re-verified live and now pass genuinely; no case references either
+  any more. honua-server#1166 and #1167 were also re-verified: both are
+  closed, but on inspection neither was ever the actual cause of the
+  `temporal_query`/`replica_sync_surface` failures (#1166 ships an unrelated
+  as-of/diff/rollback temporal-history API; #1167 ships an unrelated admin
+  conflict-review/named-replica API) — the *real* blockers are the two seed
+  gaps above, tracked under the newly-filed #2643/#2645 instead of the stale
+  numbers.
+
+  **Structural fix landed 2026-07-10:** an `xfail`ed case is non-enforcing for
+  its *whole* assertion body, not just the tracked-gap line, so a
+  `known_gap`-tagged case must never also carry unrelated required assertions.
+  `feature_query_envelope` and `ogc_features_items` now hold only the core
+  read-contract assertions (a `features[]` array, `exceededTransferLimit`,
+  attributes/geometry presence, `FeatureCollection` shape, etc.) and are
+  **unconditionally required** — no `known_gap_issue`, ever. The
+  JSONB-typed-attribute-projection assertion (the honua-server#1238 class of
+  regression) lives in its own separate cases, `feature_query_jsonb_projection`
+  and `ogc_features_items_jsonb_projection`, so a future regression there is
+  attributable without re-gating the core contract behind an xfail. New/untracked
+  drift in a required case still fails the lane — never blanket `continue-on-error`.
 - CI runs on the `trunk` branch (lint, typecheck, test matrix, compatibility,
   security-audit, package smoke-install of built wheels, and the live-server
   conformance lane).

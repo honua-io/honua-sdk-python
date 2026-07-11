@@ -13,9 +13,12 @@ honua-server's ``ImageServerMultidimensionalInfoBuilder`` /
   no ``unit`` -- the server omits those keys entirely (``JsonIgnoreCondition
   .WhenWritingNull``) rather than emitting JSON ``null``.
 
-This is metadata-only: dimension/variable discovery, never pixel data (see
-``honua_sdk.raster.parse_multidimensional_info``'s docstring and
-honua-server#1869).
+This is metadata-only: dimension/variable discovery. It is a separate concern
+from pixel sampling (``getSamples``), which -- since honua-server#1869 closed
+via honua-server#1939 -- can now return a real sampled value for a pinned
+slice when the layer has a servable Zarr store; see
+``honua_sdk.raster.parse_multidimensional_info``'s docstring for the current,
+accurate scope split.
 """
 
 from __future__ import annotations

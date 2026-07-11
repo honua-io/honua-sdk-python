@@ -191,6 +191,15 @@ class MultidimensionalDimension:
     describes the *shape* of the axis only -- how many coordinates it has and,
     when enumerable, what they are -- not pixel data (see
     :func:`parse_multidimensional_info`).
+
+    .. note::
+
+       ``has_regular_intervals`` is computed server-side as "were ``values``
+       enumerated" (``EnumerateRegularValues(...) is not None``), which also
+       requires ``dimension_size <= 10,000``. A genuinely regular axis with
+       more than 10,000 steps therefore reports ``has_regular_intervals=False``
+       -- the field conflates "values were enumerable" with "the spacing is
+       regular"; don't read a ``False`` here as proof the axis is irregular.
     """
 
     name: str
@@ -283,15 +292,21 @@ def parse_multidimensional_info(payload: Mapping[str, Any]) -> tuple[Multidimens
     <= 10,000; larger or irregular axes carry ``extent`` only.
 
     This describes the coverage's **dimensions and variables** -- discovery /
-    introspection metadata for driving a time slider or variable picker -- and
-    nothing else. It is **not** a way to fetch actual pixel data for a
-    specific time/depth slice: honua-server has no reader wired up that can
-    resolve a parsed dimension constraint to pixels today (tracked as
-    honua-server#1869 -- see ``ImageServerMultidimensionalDefinition.cs``,
-    whose ``getSamples``/``slices`` paths return an honest 501 for any
-    supplied ``multidimensionalDefinition`` rather than sampling from the
-    wrong raster). This helper does not attempt that and never will until
-    #1869 lands server-side.
+    introspection metadata for driving a time slider or variable picker --
+    and nothing else. It does **not** fetch pixel data, and is not a
+    replacement for one: honua-server#1869 ("per-slice multidimensional pixel
+    subsetting") closed via honua-server#1939, which wired the ImageServer
+    ``getSamples`` ``multidimensionalDefinition`` path to a real
+    ``ZarrPointSampler`` point read for layers backed by a servable Zarr
+    store -- ``getSamples`` now returns an actual sampled value for those,
+    not a 501. Layers with no readable Zarr store registered still get a 501
+    from ``getSamples`` (metadata-only, same as before #1939), and even where
+    sampling works it is a single-point value read, not an array/slice
+    fetch -- there is still no operation that returns a whole pixel array for
+    a time/depth slice. This helper only parses the *metadata* document
+    above; a follow-up client wrapper around ``getSamples``/``ZarrPointSampler``
+    point reads is a legitimately separate, more complex piece of work and is
+    not attempted here.
     """
     document: Mapping[str, Any] = payload
     inner = payload.get("multidimensionalInfo")

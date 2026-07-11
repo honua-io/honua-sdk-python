@@ -26,3 +26,5 @@ arcpy.env.overwriteOutput = True
 with arcpy.da.SearchCursor("roads", ["OID@", "STATUS"], where_clause="STATUS = 'OPEN'") as cursor:
     rows = list(cursor)
 print(f"search_cursor_filter ok rows={len(rows)}")
+from eval._emit import emit_response
+emit_response('search_cursor_filter', {'rows': len(rows)})

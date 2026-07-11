@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 count = arcpy.management.GetCount("roads")
 print(f"get_count_roads ok count={count}")
+from eval._emit import emit_response
+emit_response('get_count_roads', {'count': int(count)})

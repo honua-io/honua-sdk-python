@@ -25,3 +25,5 @@ arcpy.env.overwriteOutput = True
 
 result = arcpy.management.Dissolve("honua://services/parcels/0", "parcels_by_zoning", dissolve_field=["zoning_code"])
 print(f"dissolve_parcels_by_zoning ok output={result[0]}")
+from eval._emit import emit_response, feature_layer_fingerprint
+emit_response('dissolve_parcels_by_zoning', feature_layer_fingerprint(result))

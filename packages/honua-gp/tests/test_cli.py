@@ -24,7 +24,7 @@ SAMPLE_INVENTORY = {
         {"call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis"},
         {"call": "arcpy.management.SelectLayerByLocation", "tool": "SelectLayerByLocation", "toolbox": "management"},
         {"call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management"},
-        {"call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa"},
+        {"call": "arcpy.sa.Fill", "tool": "Fill", "toolbox": "sa"},
         {"call": "arcpy.da.SearchCursor", "tool": "SearchCursor", "toolbox": "da"},
     ]
 }
@@ -41,7 +41,9 @@ def test_assess_inventory_buckets_supported_stub_and_out_of_scope() -> None:
     assert statuses["analysis.Buffer"] == ("supported", 1)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
     assert statuses["management.MakeFeatureLayer"] == ("supported", 1)
-    assert statuses["sa.Slope"] == ("out-of-scope", 1)
+    # sa.Fill is a real Spatial Analyst tool the shim does not wrap, so it lands
+    # in the out-of-scope bucket (sa.Slope / sa.Contour / ... are now in scope).
+    assert statuses["sa.Fill"] == ("out-of-scope", 1)
     assert statuses["da.SearchCursor"] == ("partial", 1)
 
 
@@ -68,7 +70,7 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
     machine = json.loads((tmp_path / "honua-gp-assessment.json").read_text(encoding="utf-8"))
     summary = machine["summary"]
     # MakeFeatureLayer + Buffer are supported, SearchCursor is partial, Clip +
-    # SelectLayerByLocation are stubs, and Slope is out-of-scope.
+    # SelectLayerByLocation are stubs, and sa.Fill is out-of-scope.
     assert summary["supported"] >= 1
     assert summary["partial"] >= 1
     assert summary["stub"] >= 2
@@ -215,6 +217,29 @@ def test_assess_inventory_canonicalizes_copy_features_to_manifest_row() -> None:
     assert len(rows) == 1
     assert rows[0].qualified_name == "management.Copy"
     assert rows[0].status == "stub"
+
+
+def test_assess_canonicalizes_management_raster_tools_to_sa_rows() -> None:
+    """Raster tools scanned under the arcpy management toolbox
+    (``arcpy.management.ProjectRaster`` / ``Resample`` / ``Clip`` / ``Mosaic``)
+    must map onto their supported ``sa.*`` manifest rows rather than dropping
+    into the out-of-scope bucket, mirroring the CopyFeatures->Copy alias."""
+
+    rows = assess_inventory(
+        {
+            "toolCalls": [
+                {"call": "arcpy.management.ProjectRaster", "tool": "ProjectRaster", "toolbox": "management"},
+                {"call": "arcpy.management.Resample", "tool": "Resample", "toolbox": "management"},
+                {"call": "arcpy.management.MosaicToNewRaster", "tool": "MosaicToNewRaster", "toolbox": "management"},
+            ]
+        }
+    )
+    statuses = {row.qualified_name: row.status for row in rows}
+    assert statuses["sa.ProjectRaster"] == "supported"
+    assert statuses["sa.Resample"] == "supported"
+    assert statuses["sa.Mosaic"] == "partial"
+    # None of them should have landed in the out-of-scope bucket.
+    assert all(row.status != "out-of-scope" for row in rows)
 
 
 def test_assess_inventory_combines_copy_and_copy_features_occurrences() -> None:

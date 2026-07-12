@@ -20,6 +20,8 @@ the full documentation index, install matrix, and release notes.
   call via `honua_sdk.geopandas`.
 - Optional `grpc` extra unlocks streaming feature queries through
   `honua_sdk.grpc.HonuaGrpcClient` / `HonuaGrpcAsyncClient`.
+- `honua doctor` emits a schema-pinned, sanitized local diagnostic bundle for
+  support review without uploading raw traffic or credentials.
 
 ## Install
 
@@ -88,6 +90,7 @@ accepted and normalized through `honua_sdk.normalize_protocol(...)`.
 - [Authentication](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/auth.md)
 - [Geospatial ETL demo](https://github.com/honua-io/honua-sdk-python/blob/trunk/examples/geospatial_etl/README.md)
 - [Troubleshooting](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/troubleshooting.md)
+- [Sanitized diagnostic bundles](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/diagnostic-bundles.md)
 - [Monorepo README](https://github.com/honua-io/honua-sdk-python) -- install matrix, package overview, and release notes
 
 ## License

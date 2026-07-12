@@ -1,0 +1,3 @@
+# Canonical public contract bytes are SHA-pinned and must never be rewritten by
+# platform checkout defaults.
+packages/honua-sdk/honua_sdk/schemas/** text eol=lf

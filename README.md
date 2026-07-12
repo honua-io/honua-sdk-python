@@ -3,6 +3,7 @@
 [![CI](https://github.com/honua-io/honua-sdk-python/actions/workflows/ci.yml/badge.svg?branch=trunk)](https://github.com/honua-io/honua-sdk-python/actions/workflows/ci.yml)
 [![Conformance](https://github.com/honua-io/honua-sdk-python/actions/workflows/conformance.yml/badge.svg?branch=trunk)](https://github.com/honua-io/honua-sdk-python/actions/workflows/conformance.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/honua-io/honua-sdk-python/badge)](https://scorecard.dev/viewer/?uri=github.com/honua-io/honua-sdk-python)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Python client libraries for [Honua](https://honua.io), the cloud-native
 geospatial platform built around

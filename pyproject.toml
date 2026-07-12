@@ -80,6 +80,7 @@ ignore = []
 # (PLC0415): the pure-dict ``__geo_interface__`` path needs no third-party dep.
 "packages/honua-sdk/honua_sdk/models/_geometry.py" = ["PLC0415"]
 "packages/honua-sdk/honua_sdk/_http.py" = ["PLR2004"]
+"packages/honua-sdk/honua_sdk/diagnostics.py" = ["PLR0912", "PLR0913"]
 "packages/honua-sdk/honua_sdk/_query.py" = ["PLR0913", "PLR2004"]
 # models/_query.py: Result.to_geodataframe lazily imports the geopandas bridge
 # so geopandas stays an optional dependency (PLC0415).

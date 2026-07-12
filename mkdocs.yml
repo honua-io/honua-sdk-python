@@ -42,6 +42,7 @@ nav:
       - Authentication: auth.md
       - Compatibility: compatibility.md
       - Troubleshooting: troubleshooting.md
+      - Diagnostic bundles: diagnostic-bundles.md
   - Examples: examples.md
   - Deep dives:
       - Retries and timeouts: retries-and-timeouts.md

@@ -17,11 +17,13 @@ SCHEMA_DIRECTORY = Path(diagnostics.__file__).parent / "schemas"
 def test_canonical_schema_and_provenance_are_byte_pinned() -> None:
     schema = (SCHEMA_DIRECTORY / "diagnostic-bundle.v1.json").read_bytes()
     provenance = json.loads((SCHEMA_DIRECTORY / "diagnostic-bundle.v1.provenance.json").read_text())
+    attributes = (Path(__file__).parents[1] / ".gitattributes").read_text()
 
     assert len(schema) == diagnostics.DIAGNOSTIC_SCHEMA_BYTES == provenance["bytes"]
     assert hashlib.sha256(schema).hexdigest() == diagnostics.DIAGNOSTIC_SCHEMA_SHA256 == provenance["sha256"]
     assert provenance["canonicalUrl"] == diagnostics.DIAGNOSTIC_SCHEMA_URL
     assert provenance["sourceCommit"] == "0c990fbe8f519a00a57e26dab21cbb8f80d559ea"
+    assert "packages/honua-sdk/honua_sdk/schemas/** text eol=lf" in attributes
 
 
 def test_merged_conformance_corpus_matches_validator() -> None:

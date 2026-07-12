@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import os
 import stat
 from pathlib import Path
 import pytest
@@ -62,7 +63,8 @@ def test_doctor_emits_valid_sanitized_bundle_and_machine_summary(
     assert summary["schemaSha256"] == diagnostics.DIAGNOSTIC_SCHEMA_SHA256
     assert summary["uploaded"] is False
     assert str(output) not in json.dumps(summary)
-    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+    if os.name != "nt":
+        assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
 
 def test_doctor_probe_failure_keeps_supplied_failure_last(

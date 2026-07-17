@@ -70,3 +70,11 @@ compatibility changes and covered by targeted admin tests.
 Pull request CI runs the compatibility gate as its own job. The publish workflow
 also runs the same gate before package build/upload steps, so a failed server
 matrix or public API drift blocks release tags and manual publish runs.
+
+## Capability Coverage Snapshot
+
+A separate artifact, [`compatibility/sdk-coverage.v1.json`](https://github.com/honua-io/honua-sdk-python/blob/trunk/compatibility/sdk-coverage.v1.json),
+tracks this SDK's per-capability coverage against honua-server's canonical
+capability key vocabulary for the cross-product capability matrix. See
+[SDK Capability Coverage](sdk-coverage.md) for its schema, the honesty
+rules it enforces, and how the drift gate works.

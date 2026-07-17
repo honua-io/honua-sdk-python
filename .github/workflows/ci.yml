@@ -170,6 +170,28 @@ jobs:
       - name: Run compatibility gate
         run: python scripts/compatibility_gate.py
 
+      - name: Run SDK coverage gate
+        # Validates compatibility/sdk-coverage.v1.json: every capability key
+        # is checked against honua-server's *live* published key list (not
+        # the offline compatibility/capability-keys.fixture.json fallback
+        # gen_sdk_coverage.py uses locally), every entrypoint is resolved
+        # against the installed packages (renamed/removed symbol -> fail),
+        # and the committed snapshot must match a fresh generation exactly.
+        env:
+          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
+        run: python scripts/gen_sdk_coverage.py
+
+      - name: Upload SDK coverage snapshot artifact
+        # Published on trunk builds only (per honua-sdk-python#182), for
+        # honua-evidence's aggregate capability-matrix run to consume.
+        if: github.ref == 'refs/heads/trunk' && github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdk-coverage-v1
+          path: compatibility/sdk-coverage.v1.json
+          if-no-files-found: error
+          retention-days: 90
+
   security-audit:
     runs-on: ubuntu-latest
     steps:

@@ -113,6 +113,16 @@ jobs:
         run: python scripts/compatibility_gate.py
         working-directory: ${{ github.workspace }}
 
+      - name: Run SDK coverage gate
+        # A release must not ship a stale coverage claim (honua-sdk-python#182):
+        # fail the publish if compatibility/sdk-coverage.v1.json drifts from
+        # the SDK source, references a renamed/removed entrypoint, or uses a
+        # capability key honua-server no longer publishes.
+        env:
+          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
+        run: python scripts/gen_sdk_coverage.py
+        working-directory: ${{ github.workspace }}
+
       - name: Install honua-admin (for full smoke coverage)
         run: pip install -e "${{ github.workspace }}/packages/honua-admin"
 
@@ -190,6 +200,16 @@ jobs:
 
       - name: Run compatibility gate
         run: python scripts/compatibility_gate.py
+        working-directory: ${{ github.workspace }}
+
+      - name: Run SDK coverage gate
+        # A release must not ship a stale coverage claim (honua-sdk-python#182):
+        # fail the publish if compatibility/sdk-coverage.v1.json drifts from
+        # the SDK source, references a renamed/removed entrypoint, or uses a
+        # capability key honua-server no longer publishes.
+        env:
+          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
+        run: python scripts/gen_sdk_coverage.py
         working-directory: ${{ github.workspace }}
 
       - name: Run tests

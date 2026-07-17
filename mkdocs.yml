@@ -41,6 +41,7 @@ nav:
       - Protocol parity: protocol-parity.md
       - Authentication: auth.md
       - Compatibility: compatibility.md
+      - SDK capability coverage: sdk-coverage.md
       - Troubleshooting: troubleshooting.md
       - Diagnostic bundles: diagnostic-bundles.md
   - Examples: examples.md

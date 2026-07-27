@@ -12,27 +12,44 @@
 - Python 3.11 or later
 - A running Honua Server instance
 
-## Install via pip
+## Install
+
+**Not yet published to PyPI** -- `pip install honua-sdk` will not resolve
+until the first public release lands. Until then, install from a clone:
 
 ```bash
+git clone https://github.com/honua-io/honua-sdk-python.git
+cd honua-sdk-python
+
 # Core data client (REST/HTTP, sync + async)
-pip install honua-sdk
+pip install ./packages/honua-sdk
 
 # With gRPC support
-pip install honua-sdk[grpc]
+pip install "./packages/honua-sdk[grpc]"
 
 # With GeoPandas integration (vector result interop)
-pip install honua-sdk[geopandas]
+pip install "./packages/honua-sdk[geopandas]"
 
 # With raster result interop (rasterio / rioxarray / xarray)
-pip install honua-sdk[raster]
+pip install "./packages/honua-sdk[raster]"
 
-# Admin / control-plane client
-pip install honua-admin
+# Admin / control-plane client (installs honua-sdk alongside it)
+pip install ./packages/honua-sdk ./packages/honua-admin
 
 # Everything
-pip install honua-sdk[grpc,geopandas,raster] honua-admin
+pip install "./packages/honua-sdk[grpc,geopandas,raster]" ./packages/honua-admin
 ```
+
+Or straight from GitHub without cloning:
+
+```bash
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.9#subdirectory=packages/honua-sdk"
+```
+
+The repo-root `pyproject.toml` is intentionally **not** installable (it
+holds shared tool config only) -- install the per-package directories,
+not `.`. Once the packages are published, the commands above collapse to
+`pip install honua-sdk[...]` / `pip install honua-admin`.
 
 ## Quick Start
 

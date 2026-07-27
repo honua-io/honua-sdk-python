@@ -1120,6 +1120,7 @@ def _elevation_value_params(
 
 def _elevation_profile_params(
     line: str,
+    *,
     sample_count: int | None,
     interval: float | None,
     srid: str | int | None,
@@ -2110,7 +2111,14 @@ class ElevationClient(_SyncProtocol):
     ) -> ElevationProfile:
         resolved = _require_dataset_id(dataset_id)
         path = f"{self.root}/{_encode_path_segment(resolved)}/profile"
-        params = _elevation_profile_params(line, sample_count, interval, srid, mosaic_rule, extra_params)
+        params = _elevation_profile_params(
+            line,
+            sample_count=sample_count,
+            interval=interval,
+            srid=srid,
+            mosaic_rule=mosaic_rule,
+            extra_params=extra_params,
+        )
         response = self._json("GET", path, params=params, timeout=timeout, extra_headers=extra_headers)
         return parse_elevation_profile(response)
 
@@ -2310,6 +2318,13 @@ class AsyncElevationClient(_AsyncProtocol):
     ) -> ElevationProfile:
         resolved = _require_dataset_id(dataset_id)
         path = f"{self.root}/{_encode_path_segment(resolved)}/profile"
-        params = _elevation_profile_params(line, sample_count, interval, srid, mosaic_rule, extra_params)
+        params = _elevation_profile_params(
+            line,
+            sample_count=sample_count,
+            interval=interval,
+            srid=srid,
+            mosaic_rule=mosaic_rule,
+            extra_params=extra_params,
+        )
         response = await self._json("GET", path, params=params, timeout=timeout, extra_headers=extra_headers)
         return parse_elevation_profile(response)

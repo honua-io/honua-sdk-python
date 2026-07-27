@@ -68,8 +68,7 @@ pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-py
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it holds
 shared tool config only) — install the per-package directories, not `.`.
-[INSTALL.md](INSTALL.md) has extras details and install-time troubleshooting;
-its `pip install honua-sdk` commands apply once the packages are published.
+[INSTALL.md](INSTALL.md) has extras details and install-time troubleshooting.
 
 ## I want to...
 

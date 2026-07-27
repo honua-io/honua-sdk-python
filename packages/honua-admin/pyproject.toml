@@ -13,7 +13,7 @@ requires-python = ">=3.11"
 authors = [{ name = "Honua" }]
 keywords = ["geospatial", "admin", "gis", "honua", "control-plane"]
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",

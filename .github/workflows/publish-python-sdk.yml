@@ -129,7 +129,7 @@ jobs:
       - name: Run SDK tests
         # Exercise both packages so the publish smoke test mirrors CI; the prior
         # `-k "not admin"` filter let admin regressions slip past sdk releases.
-        run: python -m pytest ../../tests/ -q --tb=short
+        run: python -m pytest tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk
@@ -217,7 +217,7 @@ jobs:
         # publish smoke mirrors the sdk job and CI; an sdk-side regression
         # should block an admin release just as it blocks an sdk one, since
         # honua-admin depends on honua-sdk. Both packages are installed above.
-        run: python -m pytest ../../tests/ -q --tb=short
+        run: python -m pytest tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk

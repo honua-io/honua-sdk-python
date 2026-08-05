@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.7](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.6...python-admin-v0.1.7) (2026-08-05)
+
+
+### Bug Fixes
+
+* address SDK quality audit backlog ([#165](https://github.com/honua-io/honua-sdk-python/issues/165)) ([9993c62](https://github.com/honua-io/honua-sdk-python/commit/9993c62fbe6bbd69627b47a8c5274d10099cb007))
+* **admin:** await async auth applier in async admin client ([#150](https://github.com/honua-io/honua-sdk-python/issues/150)) ([47fbbbf](https://github.com/honua-io/honua-sdk-python/commit/47fbbbf8b4e93fd9b47997d862f85dbdd06cf8e6))
+
+
+### Documentation
+
+* pre-PyPI README refresh for release-frozen long_descriptions ([#190](https://github.com/honua-io/honua-sdk-python/issues/190)) ([217dbb3](https://github.com/honua-io/honua-sdk-python/commit/217dbb38cc051e3fcbfd44cf9712e7826d96160c))
+* README refresh follow-ups - honest install docs and Alpha classifiers ([#187](https://github.com/honua-io/honua-sdk-python/issues/187)) ([af82420](https://github.com/honua-io/honua-sdk-python/commit/af82420932564eb14cb26d5de856b0571b97ce01))
+
 ## [0.1.6](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.5...python-admin-v0.1.6) (2026-06-28)
 
 

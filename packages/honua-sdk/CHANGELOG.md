@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.1.10](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.9...python-sdk-v0.1.10) (2026-08-05)
+
+
+### Features
+
+* add sanitized doctor diagnostics ([#171](https://github.com/honua-io/honua-sdk-python/issues/171)) ([#179](https://github.com/honua-io/honua-sdk-python/issues/179)) ([980097b](https://github.com/honua-io/honua-sdk-python/commit/980097b0f242193559bc2b464b9f4be60f3a129c))
+* **geoprocessing:** wire raster/surface process inputs ([#173](https://github.com/honua-io/honua-sdk-python/issues/173)) ([772dd82](https://github.com/honua-io/honua-sdk-python/commit/772dd82457b0de1ac0053a671727460ef8bbb8ed))
+* **migration:** codemod rules for honua_gp.sa raster/Spatial Analyst tools ([#176](https://github.com/honua-io/honua-sdk-python/issues/176)) ([2110537](https://github.com/honua-io/honua-sdk-python/commit/21105376373b3c7171b5b5f7b14af67a9e0f0b1a))
+* **raster:** typed parser for ImageServer multidimensionalInfo ([#172](https://github.com/honua-io/honua-sdk-python/issues/172)) ([ad93983](https://github.com/honua-io/honua-sdk-python/commit/ad93983def926dd50bbafa5d7846df18bfec0f2f))
+* **sdk:** raster result interop + typed transport protocol + retry codegen ([#155](https://github.com/honua-io/honua-sdk-python/issues/155)) ([a175423](https://github.com/honua-io/honua-sdk-python/commit/a175423f0f82bf9dd877488035969649d1f68cec)), closes [#124](https://github.com/honua-io/honua-sdk-python/issues/124)
+
+
+### Bug Fixes
+
+* address SDK quality audit backlog ([#165](https://github.com/honua-io/honua-sdk-python/issues/165)) ([9993c62](https://github.com/honua-io/honua-sdk-python/commit/9993c62fbe6bbd69627b47a8c5274d10099cb007))
+* **admin:** await async auth applier in async admin client ([#150](https://github.com/honua-io/honua-sdk-python/issues/150)) ([47fbbbf](https://github.com/honua-io/honua-sdk-python/commit/47fbbbf8b4e93fd9b47997d862f85dbdd06cf8e6))
+* **grpc:** emit envelope spatial filter ring clockwise ([#154](https://github.com/honua-io/honua-sdk-python/issues/154)) ([fbe70eb](https://github.com/honua-io/honua-sdk-python/commit/fbe70eb5d4db49ed4984b2e297a65e9ed5152ed6))
+* **ogc:** guard OGC Features paging against a non-advancing next link ([#151](https://github.com/honua-io/honua-sdk-python/issues/151)) ([dec88bd](https://github.com/honua-io/honua-sdk-python/commit/dec88bdc7231bba41979bdcb363fb419599cb56b))
+* **sdk:** honour with_options on protocol _text path; type protocol facades ([#156](https://github.com/honua-io/honua-sdk-python/issues/156)) ([89c48da](https://github.com/honua-io/honua-sdk-python/commit/89c48da2aaab2a6b567a12a191dff2fab2a81339))
+
+
+### Documentation
+
+* **migration:** SDK exposes no custom-code/local-execution path (ADR-0063) ([#177](https://github.com/honua-io/honua-sdk-python/issues/177)) ([1187116](https://github.com/honua-io/honua-sdk-python/commit/1187116be2a48b71b7df76f9ad81ad3b3286caae))
+* pre-PyPI README refresh for release-frozen long_descriptions ([#190](https://github.com/honua-io/honua-sdk-python/issues/190)) ([217dbb3](https://github.com/honua-io/honua-sdk-python/commit/217dbb38cc051e3fcbfd44cf9712e7826d96160c))
+* README refresh follow-ups - honest install docs and Alpha classifiers ([#187](https://github.com/honua-io/honua-sdk-python/issues/187)) ([af82420](https://github.com/honua-io/honua-sdk-python/commit/af82420932564eb14cb26d5de856b0571b97ce01))
+
 ## [0.1.9](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.8...python-sdk-v0.1.9) (2026-06-28)
 
 

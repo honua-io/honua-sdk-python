@@ -33,7 +33,8 @@ honua = "honua_sdk.cli:main"
 honua-migrate = "honua_sdk.migration._cli:main"
 
 [project.urls]
-Homepage = "https://github.com/honua-io"
+Homepage = "https://honua.io"
+Documentation = "https://honua-io.github.io/honua-sdk-python/latest/"
 Repository = "https://github.com/honua-io/honua-sdk-python"
 Issues = "https://github.com/honua-io/honua-sdk-python/issues"
 

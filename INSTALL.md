@@ -14,8 +14,23 @@
 
 ## Install
 
-**Not yet published to PyPI** -- `pip install honua-sdk` will not resolve
-until the first public release lands. Until then, install from a clone:
+The canonical install path is PyPI:
+
+```bash
+# Core data client (REST/HTTP, sync + async)
+pip install honua-sdk
+
+# With extras: gRPC, GeoPandas vector interop, raster interop
+pip install "honua-sdk[grpc,geopandas,raster]"
+
+# Admin / control-plane client (installs honua-sdk alongside it)
+pip install honua-admin
+```
+
+If those commands do not resolve yet — the first public release is staged on
+the release automation (release-please + PyPI Trusted Publishing) but may not
+have landed — install from a clone instead; this path always works and is
+also the development path:
 
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git
@@ -40,7 +55,8 @@ pip install ./packages/honua-sdk ./packages/honua-admin
 pip install "./packages/honua-sdk[grpc,geopandas,raster]" ./packages/honua-admin
 ```
 
-Or straight from GitHub without cloning:
+Or straight from GitHub without cloning, pinned to a release tag (replace
+with the newest `python-sdk-v*` tag):
 
 ```bash
 pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.9#subdirectory=packages/honua-sdk"
@@ -48,8 +64,7 @@ pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-py
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it
 holds shared tool config only) -- install the per-package directories,
-not `.`. Once the packages are published, the commands above collapse to
-`pip install honua-sdk[...]` / `pip install honua-admin`.
+not `.`.
 
 ## Quick Start
 
@@ -60,9 +75,9 @@ with HonuaClient(base_url="https://your-honua-server.com") as client:
     # Query features through the shared Source/Query/Result API
     source = client.source(
         SourceDescriptor(
-            id="test_service",
+            id="parcels",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="test_service", layer_id=0),
+            locator=SourceLocator(service_id="parcels", layer_id=0),
         )
     )
     result = source.query(
@@ -83,7 +98,7 @@ import grpc
 
 from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
 
-request = QueryFeaturesRequest(service_id="test_service", layer_id=0)
+request = QueryFeaturesRequest(service_id="parcels", layer_id=0)
 
 # Production: TLS via channel credentials
 with HonuaGrpcClient(
@@ -154,9 +169,9 @@ from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 with HonuaClient(base_url="https://your-honua-server.com") as client:
     source = client.source(
         SourceDescriptor(
-            id="test_service",
+            id="parcels",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="test_service", layer_id=0),
+            locator=SourceLocator(service_id="parcels", layer_id=0),
         )
     )
     result = source.query(Query(where="status = 'active'", out_fields=["*"]))

@@ -3,6 +3,7 @@
 [![CI](https://github.com/honua-io/honua-sdk-python/actions/workflows/ci.yml/badge.svg?branch=trunk)](https://github.com/honua-io/honua-sdk-python/actions/workflows/ci.yml)
 [![Conformance](https://github.com/honua-io/honua-sdk-python/actions/workflows/conformance.yml/badge.svg?branch=trunk)](https://github.com/honua-io/honua-sdk-python/actions/workflows/conformance.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/honua-io/honua-sdk-python/badge)](https://scorecard.dev/viewer/?uri=github.com/honua-io/honua-sdk-python)
+[![Docs](https://img.shields.io/badge/docs-latest-blue)](https://honua-io.github.io/honua-sdk-python/latest/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Python client libraries for [Honua](https://honua.io), the cloud-native
@@ -31,19 +32,27 @@ re-exports it.
 
 ## Status
 
-Alpha (`0.x`): `honua-sdk` 0.1.9, `honua-admin` 0.1.6. APIs may change before
-1.0; breaking changes to the public API are gated by a
-[compatibility snapshot](docs/compatibility.md).
+Alpha (`0.x`). APIs may change before 1.0; breaking changes to the public API
+are gated by a [compatibility snapshot](docs/compatibility.md) and a
+per-capability [SDK coverage snapshot](docs/sdk-coverage.md).
 
-**Not yet published to PyPI** — install from source (below). Release
-automation is in place (release-please + a tag-triggered publish workflow
-using PyPI Trusted Publishing), so `pip install honua-sdk` becomes the install
-path once the first publish lands.
+Releases are automated (release-please + a tag-triggered publish workflow
+using PyPI Trusted Publishing) and ship to PyPI as `honua-sdk` and
+`honua-admin`. If `pip install honua-sdk` does not resolve yet — the first
+public release is staged but may not have landed — install from source
+(below); the from-source path always works.
 
 ## Install
 
-Requires Python 3.11+ (CI tests 3.11, 3.12, 3.13). Until the packages are on
-PyPI, install from a clone:
+Requires Python 3.11+ (CI tests 3.11, 3.12, 3.13). From PyPI:
+
+```bash
+pip install honua-sdk                             # data-plane client
+pip install "honua-sdk[grpc,geopandas,raster]"    # + optional extras
+pip install honua-admin                           # control-plane (admin) client
+```
+
+From source (always works, and the path for development):
 
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git
@@ -60,7 +69,8 @@ pip install "./packages/honua-sdk[grpc,geopandas,raster]"
 pip install ./packages/honua-sdk ./packages/honua-admin
 ```
 
-Or straight from GitHub without cloning:
+Or straight from GitHub without cloning, pinned to a release tag (replace
+with the newest `python-sdk-v*` tag):
 
 ```bash
 pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.9#subdirectory=packages/honua-sdk"
@@ -105,7 +115,7 @@ with HonuaClient("https://your-honua-server.com") as client:
     for feature in result.features[:3]:
         print(feature.id, feature.properties)
 
-    # Requires: pip install "./packages/honua-sdk[geopandas]"
+    # Requires the [geopandas] extra
     gdf = result.to_geodataframe()  # GeoDataFrame with geometry column + CRS set
     print(gdf.head(), gdf.crs)
 ```
@@ -192,27 +202,32 @@ with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") 
 | | |
 |---|---|
 | Typed, canonical query surface | `Source` / `Query` / `Result` with normalized `QueryFeature` across FeatureServer, OGC Features, STAC, OData |
-| Protocol clients | GeoServices (Feature/Map/Image/Geocode/Geometry servers), OGC API Features, STAC, OData, WFS, WMS, WMTS — see [protocol parity](docs/protocol-parity.md) |
+| Protocol clients | GeoServices (Feature/Map/Image/Geocode/Geometry/Scene/Elevation servers), OGC API Features/Maps/Tiles/Coverages/Processes/Records, STAC, OData, WFS, WMS, WMTS, geoprocessing + workflow wrappers — see [protocol parity](docs/protocol-parity.md) |
 | GIS interop | `Result.to_geodataframe()`, `features_to_geodataframe` (Esri JSON aware), raster results via `rasterio`/`rioxarray` (`[raster]` extra) |
 | gRPC streaming | `honua_sdk.grpc.HonuaGrpcClient` / `HonuaGrpcAsyncClient` for unary + streaming feature queries (`[grpc]` extra) |
 | Sync + async | `HonuaClient` / `AsyncHonuaClient` in lockstep (sync clients generated from the async source of truth) |
 | Automatic retry | 429/502/503 with exponential backoff and `Retry-After` support; configurable via `max_retries`, `retry_methods` |
 | Typed errors | `HonuaAuthError`, `HonuaRateLimitError`, `HonuaHttpError`, `HonuaTimeoutError`, `HonuaTransportError` — see [common errors](docs/quickstart.md#common-errors) |
-| CLI | `honua` (services / layers / style apply / sanitized `doctor` diagnostics) and `honua-migrate` (offline ArcPy script scan / translate / `.pyt` classify) |
-| Quality gates | mypy `strict` workspace-wide, 94% coverage gate, public-API [compatibility snapshot](docs/compatibility.md), live-server [conformance lane](.github/workflows/conformance.yml) against shared [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) fixtures |
+| CLI | `honua` (services / layers / style apply / sanitized `doctor` diagnostics) and `honua-migrate` (offline ArcPy script scan / translate / run, plus `.pyt` / `.atbx` toolbox and GP-service classification) |
+| Quality gates | mypy `strict` workspace-wide, 94% coverage gate, public-API [compatibility snapshot](docs/compatibility.md), per-capability [SDK coverage snapshot](docs/sdk-coverage.md), live-server [conformance lane](.github/workflows/conformance.yml) against shared [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) fixtures |
 
 ## Documentation
 
-Repo docs live under [docs/](docs/README.md) (MkDocs sources; browsable on
-GitHub). Platform-level docs are at
+The rendered docs site lives at
+[honua-io.github.io/honua-sdk-python](https://honua-io.github.io/honua-sdk-python/latest/)
+(versioned MkDocs build of [docs/](docs/README.md)). Platform-level docs are
+at [honua.io](https://honua.io) and
 [honua.gitbook.io/honuaio](https://honua.gitbook.io/honuaio/).
 
 - [5-Minute Quickstart](docs/quickstart.md) — query, GeoDataFrame, plot, common errors
 - [Core Client](docs/core-client.md) — typed service, FeatureServer, applyEdits, pagination, error handling
 - [Protocol Examples](docs/protocol-examples.md) — OGC, STAC, WFS, WMS, WMTS, OData, geocoding, gRPC with response shapes
 - [Authentication](docs/auth.md) — refreshable bearer tokens, storage, rotation, failure modes
+- [Pagination](docs/pagination.md) and [retries & timeouts](docs/retries-and-timeouts.md)
+- [Sanitized diagnostic bundles](docs/diagnostic-bundles.md) — the `honua doctor` bundle format
 - [Geospatial ETL demo](examples/geospatial_etl/README.md) — script-first ETL flow with notebook companion
 - [Compatibility](docs/compatibility.md) — supported server matrix and public-API snapshot gate
+- [SDK coverage](docs/sdk-coverage.md) — per-capability coverage snapshot gate
 - [Troubleshooting](docs/troubleshooting.md) — base URL, auth, staging smoke env vars, cleanup
 
 ## Related Honua repos
@@ -223,7 +238,7 @@ GitHub). Platform-level docs are at
 | [honua-sdk-js](https://github.com/honua-io/honua-sdk-js) | JavaScript/TypeScript SDKs + MCP server |
 | [honua-sdk-dotnet](https://github.com/honua-io/honua-sdk-dotnet) | .NET SDKs |
 | [honua-console](https://github.com/honua-io/honua-console) | Unified web console (Studio, Catalog, Operate, Share) |
-| [honua-qgis-plugin](https://github.com/honua-io/honua-qgis-plugin) | QGIS plugin |
+| honua-qgis-plugin | QGIS plugin (private preview; repo not yet public) |
 | [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) | Vendor-neutral gRPC protocol standard; source of this repo's conformance fixtures |
 
 ## Development

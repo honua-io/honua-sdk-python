@@ -26,6 +26,7 @@ The checked-in examples target the seeded `test_service` layer used by local Hon
 | FastAPI spatial service | App developer exposing async Honua-backed API routes | `fastapi`, `uvicorn` | `uvicorn examples.fastapi_spatial_service:create_app --factory --reload` | local `/features` and `/summary` routes |
 | Async feature service | App developer fronting Honua with a pooled async client | `fastapi`, `uvicorn` | `uvicorn examples.async_feature_service.service:create_app --factory --reload` | local `/services` and `/features` routes |
 | Protocol clients | SDK developer checking protocol wrappers | core SDK, optional `honua-sdk[grpc]` and `honua-sdk[geopandas]` | `python examples/protocol_clients.py` | printed protocol response examples |
+| Geoprocessing job lifecycle | Developer submitting one registered OGC process and collecting its result | core SDK | `python examples/geoprocessing_job_lifecycle.py --process-id <id> --inputs-json <json>` | job receipt and result JSON |
 
 ## Validation
 

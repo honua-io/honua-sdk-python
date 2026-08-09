@@ -31,3 +31,11 @@ and [Retries and timeouts](../../retries-and-timeouts.md) for the retry policy,
 ::: honua_sdk.AsyncHonuaClient
 ::: honua_sdk.HonuaGeocodingClient
 ::: honua_sdk.AsyncHonuaGeocodingClient
+
+## OGC API Processes
+
+The process clients operate process definitions already registered on Honua.
+They do not provide a custom-code upload, packaging, or local execution API.
+
+::: honua_sdk.geoprocessing.HonuaGeoprocessing
+::: honua_sdk.geoprocessing.AsyncHonuaGeoprocessing

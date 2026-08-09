@@ -260,3 +260,322 @@ def test_cli_translate_reports_syntax_error_and_emits_no_plan(tmp_path: Path, ca
     assert not evidence_out.exists()
     assert "coverage:" not in captured.err
     assert captured.out == ""
+
+
+# ---------------------------------------------------------------------------
+# Server attestation (honua-sdk-python#188)
+# ---------------------------------------------------------------------------
+
+
+def _attesting_admin_client(monkeypatch, handler):
+    """Point the CLI's lazily-imported admin client at a MockTransport."""
+
+    import httpx
+
+    import honua_admin
+    from honua_admin import HonuaAdminClient
+
+    seen: dict = {}
+
+    def fake_client(base_url, **kwargs):
+        seen["base_url"] = base_url
+        seen["api_key"] = kwargs.get("api_key")
+        seen["timeout"] = kwargs.get("timeout")
+        return HonuaAdminClient(base_url, transport=httpx.MockTransport(handler), **kwargs)
+
+    monkeypatch.setattr(honua_admin, "HonuaAdminClient", fake_client)
+    return seen
+
+
+def _report_for(request, classifications: dict[str, str] | None = None) -> dict:
+    """Echo back a server report classifying every tool in the posted manifest."""
+
+    manifest = json.loads(request.content.decode("utf-8"))
+    overrides = classifications or {}
+    return {
+        "artifactKind": "honua.migration.toolbox-translation-report",
+        "artifactVersion": "1.0",
+        "toolboxName": manifest["toolboxName"],
+        "sourceFormat": manifest["sourceFormat"],
+        "summary": {},
+        "tools": [
+            {
+                "toolName": tool["toolName"],
+                "classification": overrides.get(tool["toolName"], "translated"),
+                "processId": tool.get("targetProcessId"),
+                "parameterBindings": [],
+                "issues": [],
+            }
+            for tool in manifest["tools"]
+        ],
+    }
+
+
+def test_cli_pyt_without_server_marks_the_report_local_only(tmp_path: Path, capsys) -> None:
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+
+    rc = main(["pyt", str(toolbox), "--output", str(out)])
+
+    assert rc == 0
+    attestation = json.loads(out.read_text())["attestation"]
+    assert attestation["verdictSource"] == "local-only"
+    assert attestation["attested"] is False
+    assert attestation["fallbackReason"]
+    assert "local-only (NOT server-attested)" in capsys.readouterr().err
+
+
+def test_cli_pyt_with_server_emits_a_server_attested_report(tmp_path: Path, monkeypatch, capsys) -> None:
+    import httpx
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+    attested_out = tmp_path / "attestation.json"
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(200, json=_report_for(request))
+
+    seen = _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(
+        [
+            "pyt",
+            str(toolbox),
+            "--output",
+            str(out),
+            "--server",
+            "http://honua.test",
+            "--api-key",
+            "admin-secret",
+            "--attestation",
+            str(attested_out),
+        ]
+    )
+
+    assert rc == 0
+    assert paths == ["/api/v1/admin/import/toolbox/translation/validate"]
+    assert seen["base_url"] == "http://honua.test"
+    assert seen["api_key"] == "admin-secret"
+
+    attestation = json.loads(out.read_text())["attestation"]
+    assert attestation["verdictSource"] == "server-attested"
+    assert attestation["attested"] is True
+    assert attestation["server"] == "http://honua.test"
+    assert attestation["fallbackReason"] is None
+    # The standalone attestation artifact matches the embedded one.
+    assert json.loads(attested_out.read_text()) == attestation
+    assert "server-attested by http://honua.test" in capsys.readouterr().err
+
+
+def test_cli_api_key_falls_back_to_the_environment(tmp_path: Path, monkeypatch) -> None:
+    import httpx
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_report_for(request))
+
+    seen = _attesting_admin_client(monkeypatch, handler)
+    monkeypatch.setenv("HONUA_ADMIN_API_KEY", "from-env")
+
+    rc = main(["pyt", str(toolbox), "--output", str(tmp_path / "tb.json"), "--server", "http://honua.test"])
+
+    assert rc == 0
+    assert seen["api_key"] == "from-env"
+
+
+def test_cli_surfaces_a_server_vs_local_disagreement(tmp_path: Path, monkeypatch, capsys) -> None:
+    import httpx
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # The SDK classified tool A as translatable; the catalog disagrees.
+        return httpx.Response(200, json=_report_for(request, {"A": "unsupported"}))
+
+    _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(["pyt", str(toolbox), "--output", str(out), "--server", "http://honua.test"])
+
+    assert rc == 0
+    attestation = json.loads(out.read_text())["attestation"]
+    assert attestation["summary"]["disagreementCount"] == 1
+    assert attestation["disagreements"] == [{"toolName": "A", "local": "translated", "server": "unsupported"}]
+    # The server's verdict is the effective one.
+    assert attestation["tools"][0]["classification"] == "unsupported"
+    assert attestation["tools"][0]["localClassification"] == "translated"
+    assert "disagreement: A local=translated server=unsupported (server wins)" in capsys.readouterr().err
+
+
+def test_cli_unreachable_server_degrades_to_local_only(tmp_path: Path, monkeypatch, capsys) -> None:
+    import httpx
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(["pyt", str(toolbox), "--output", str(out), "--server", "http://offline.test"])
+
+    # An unreachable server is not a hard failure: the local report still emits.
+    assert rc == 0
+    attestation = json.loads(out.read_text())["attestation"]
+    assert attestation["attested"] is False
+    assert attestation["verdictSource"] == "local-only"
+    assert "connection refused" in attestation["fallbackReason"]
+    assert attestation["tools"][0]["classification"] == "translated"
+    assert "local-only (NOT server-attested)" in capsys.readouterr().err
+
+
+def test_cli_unauthorized_call_never_claims_attestation(tmp_path: Path, monkeypatch, capsys) -> None:
+    import httpx
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": "Unauthorized"})
+
+    _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(["pyt", str(toolbox), "--output", str(out), "--server", "http://honua.test"])
+
+    assert rc == 0
+    attestation = json.loads(out.read_text())["attestation"]
+    assert attestation["attested"] is False
+    assert attestation["verdictSource"] == "local-only"
+    assert attestation["fallbackReason"]
+    assert all(tool["serverClassification"] is None for tool in attestation["tools"])
+    assert "local-only (NOT server-attested)" in capsys.readouterr().err
+
+
+def test_cli_require_attested_fails_when_the_call_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
+    import httpx
+
+    from honua_sdk.migration._cli import EXIT_NOT_ATTESTED
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"error": "Forbidden"})
+
+    _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(
+        ["pyt", str(toolbox), "--output", str(out), "--server", "http://honua.test", "--require-attested"]
+    )
+
+    assert rc == EXIT_NOT_ATTESTED
+    assert "--require-attested" in capsys.readouterr().err
+    # The report is still written, marked local-only, so the failure is diagnosable.
+    assert json.loads(out.read_text())["attestation"]["attested"] is False
+
+
+def test_cli_require_attested_offline_fails_without_contacting_a_server(tmp_path: Path) -> None:
+    from honua_sdk.migration._cli import EXIT_NOT_ATTESTED
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+
+    rc = main(["pyt", str(toolbox), "--output", str(tmp_path / "tb.json"), "--require-attested"])
+
+    assert rc == EXIT_NOT_ATTESTED
+
+
+def test_cli_attestation_degrades_when_honua_admin_is_not_installed(tmp_path: Path, monkeypatch, capsys) -> None:
+    import builtins
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name == "honua_admin":
+            raise ImportError("No module named 'honua_admin'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+
+    rc = main(["pyt", str(toolbox), "--output", str(out), "--server", "http://honua.test"])
+
+    # honua-admin is an optional dependency: without it the toolbox still
+    # translates, it just cannot be attested.
+    assert rc == 0
+    attestation = json.loads(out.read_text())["attestation"]
+    assert attestation["attested"] is False
+    assert "honua_admin" in attestation["fallbackReason"]
+
+
+def test_cli_atbx_with_server_attests_model_steps(tmp_path: Path, monkeypatch) -> None:
+    import httpx
+
+    atbx = _write_atbx(tmp_path / "wf.atbx")
+    out = tmp_path / "wf.json"
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(200, json=_report_for(request))
+
+    _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(["atbx", str(atbx), "--output", str(out), "--server", "http://honua.test"])
+
+    assert rc == 0
+    assert bodies[0]["sourceFormat"] == "atbx"
+    assert [tool["toolName"] for tool in bodies[0]["tools"]] == ["BufferModel"]
+    assert bodies[0]["tools"][0]["targetProcessId"] == "geometry.buffer"
+    assert json.loads(out.read_text())["attestation"]["verdictSource"] == "server-attested"
+
+
+def test_cli_translate_routes_a_pyt_toolbox_through_attestation(tmp_path: Path, monkeypatch) -> None:
+    import httpx
+
+    toolbox = _write(tmp_path, "tb.pyt", PYT)
+    out = tmp_path / "tb.json"
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(200, json=_report_for(request))
+
+    _attesting_admin_client(monkeypatch, handler)
+
+    rc = main(["translate", str(toolbox), "--output", str(out), "--server", "http://honua.test"])
+
+    assert rc == 0
+    assert bodies[0]["sourceFormat"] == "pyt"
+    document = json.loads(out.read_text())
+    assert document["attestation"]["verdictSource"] == "server-attested"
+    # The submitted manifest travels with the plan so the report is reproducible.
+    assert document["translationManifest"]["artifactKind"] == "honua.migration.toolbox-translation"
+
+
+def test_cli_translate_rejects_attesting_a_bare_arcpy_script(tmp_path: Path, capsys) -> None:
+    script = _write(tmp_path, "wf.py", SCRIPT)
+
+    rc = main(["translate", str(script), "--server", "http://honua.test"])
+
+    # Refusing beats inventing a toolbox source format the server would reject.
+    assert rc == 2
+    assert "is a script rather than a toolbox" in capsys.readouterr().err
+
+
+def test_cli_translate_of_a_binary_tbx_gives_export_instructions(tmp_path: Path, capsys) -> None:
+    binary = tmp_path / "legacy.tbx"
+    binary.write_bytes(b"\x00binary\x00")
+
+    rc = main(["translate", str(binary)])
+
+    assert rc == 3
+    err = capsys.readouterr().err
+    # The refusal is policy, so it has to read as a migration instruction.
+    assert "Export the toolbox to an open format first" in err
+    assert "New ArcGIS Toolbox (.atbx)" in err
+    assert "deliberately never parsed" in err

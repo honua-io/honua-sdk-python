@@ -363,6 +363,24 @@ class ArcPyJobTimeoutError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class ArcPyArgumentBinding:
+    """One supplied ArcPy argument paired with the canonical parameter it feeds.
+
+    ``declared`` is ``False`` for an argument the registered tool signature does
+    not know about -- a positional beyond the signature, or an unrecognized
+    keyword. Those still carry their value into the translated payload (nothing
+    is silently dropped) but the translator makes no claim that the target name
+    is a real canonical parameter, so a report must not present them as mapped.
+    """
+
+    source_name: str
+    target_parameter: str
+    kind: InputKind
+    value: JsonValue
+    declared: bool
+
+
+@dataclass(frozen=True)
 class _ArgSpec:
     arcpy_name: str
     process_name: str
@@ -1768,6 +1786,97 @@ def _lookup_spec(family: str, tool: str) -> _ToolSpec | None:
     return spec
 
 
+def resolve_argument_bindings(call: ArcPyCall) -> tuple[ArcPyArgumentBinding, ...]:
+    """Resolve one call's arguments to canonical process parameter names.
+
+    This is the same resolution :func:`translate_arcpy_report` performs when it
+    builds an OGC Processes payload, exposed so a caller can see *which* source
+    argument produced *which* canonical parameter -- a pairing the flattened
+    payload dict no longer carries. :mod:`honua_sdk.migration.attestation` uses
+    it to build the per-tool parameter mappings the server validation endpoint
+    checks against the canonical process catalog.
+
+    Returns an empty tuple when the call has no registered Honua mapping.
+    """
+
+    spec = _lookup_spec(call.family, call.tool)
+    if spec is None:
+        return ()
+    return tuple(_resolve_bindings(call, spec))
+
+
+def _resolve_bindings(call: ArcPyCall, spec: _ToolSpec) -> list[ArcPyArgumentBinding]:
+    """Pair every supplied call argument with the canonical parameter it feeds."""
+
+    bindings: list[ArcPyArgumentBinding] = []
+
+    for index, value in enumerate(call.args):
+        if index >= len(spec.args):
+            # Positional beyond the registered signature: the translator keeps the
+            # value under a synthetic name, but no canonical parameter is known.
+            bindings.append(
+                ArcPyArgumentBinding(
+                    source_name=f"arg_{index + 1}",
+                    target_parameter=f"arg_{index + 1}",
+                    kind="parameter",
+                    value=value,
+                    declared=False,
+                )
+            )
+            continue
+        arg_spec = spec.args[index]
+        bindings.append(
+            ArcPyArgumentBinding(
+                source_name=arg_spec.arcpy_name,
+                target_parameter=arg_spec.process_name,
+                kind=arg_spec.kind,
+                value=value,
+                declared=True,
+            )
+        )
+
+    spec_by_keyword = {_normalize_keyword(arg.arcpy_name): arg for arg in spec.args}
+    for raw_name, value in call.kwargs.items():
+        normalized = _normalize_keyword(raw_name)
+        process_name = spec.aliases.get(normalized)
+        keyword_spec = spec_by_keyword.get(normalized)
+        if process_name is not None:
+            bindings.append(
+                ArcPyArgumentBinding(
+                    source_name=raw_name,
+                    target_parameter=process_name,
+                    kind=_kind_for_process_name(process_name, spec),
+                    value=value,
+                    declared=True,
+                )
+            )
+        elif keyword_spec is not None:
+            bindings.append(
+                ArcPyArgumentBinding(
+                    source_name=raw_name,
+                    target_parameter=keyword_spec.process_name,
+                    kind=keyword_spec.kind,
+                    value=value,
+                    declared=True,
+                )
+            )
+        else:
+            # Unrecognized keyword: passed through under a snake_cased name so the
+            # value is not silently dropped, but the translator does not claim it
+            # is a canonical parameter.
+            bindings.append(
+                ArcPyArgumentBinding(
+                    source_name=raw_name,
+                    target_parameter=_camel_to_snake(raw_name),
+                    kind="parameter",
+                    value=value,
+                    declared=False,
+                )
+            )
+
+    return bindings
+
+
 def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> ArcPyProcessTranslation:
     spec = _lookup_spec(call.family, call.tool)
     if spec is None:
@@ -1777,26 +1886,12 @@ def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> Ar
     outputs: JsonObject = {}
     consumed_keywords: set[str] = set()
 
-    for index, value in enumerate(call.args):
-        if index >= len(spec.args):
-            inputs[f"arg_{index + 1}"] = value
-            continue
-        _assign_process_value(spec.args[index], value, inputs=inputs, outputs=outputs)
-
-    spec_by_keyword = {_normalize_keyword(arg.arcpy_name): arg for arg in spec.args}
-    for raw_name, value in call.kwargs.items():
-        normalized = _normalize_keyword(raw_name)
-        process_name = spec.aliases.get(normalized)
-        arg_spec = spec_by_keyword.get(normalized)
-        if process_name is not None:
-            kind = _kind_for_process_name(process_name, spec)
-            _assign_process_value(_ArgSpec(raw_name, process_name, kind), value, inputs=inputs, outputs=outputs)
-            consumed_keywords.add(raw_name)
-        elif arg_spec is not None:
-            _assign_process_value(arg_spec, value, inputs=inputs, outputs=outputs)
-            consumed_keywords.add(raw_name)
-        else:
-            inputs[_camel_to_snake(raw_name)] = value
+    positional_count = len(call.args)
+    for index, binding in enumerate(_resolve_bindings(call, spec)):
+        target = outputs if binding.kind == "output" else inputs
+        target[binding.target_parameter] = binding.value
+        if index >= positional_count and binding.declared:
+            consumed_keywords.add(binding.source_name)
 
     metadata: JsonObject = {
         "source": "arcpy",
@@ -1833,11 +1928,6 @@ def _translate_call(call: ArcPyCall, *, process_id_map: Mapping[str, str]) -> Ar
         notes=spec.notes,
         job_process_id=job_process_id,
     )
-
-
-def _assign_process_value(arg_spec: _ArgSpec, value: JsonValue, *, inputs: JsonObject, outputs: JsonObject) -> None:
-    target = outputs if arg_spec.kind == "output" else inputs
-    target[arg_spec.process_name] = value
 
 
 def _kind_for_process_name(process_name: str, spec: _ToolSpec) -> InputKind:

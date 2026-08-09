@@ -53,6 +53,7 @@ from .arcpy import (
     _translate_call,
     build_parity_evidence,
 )
+from .pyt import BINARY_TOOLBOX_EXPORT_GUIDANCE
 
 _BINARY_TOOLBOX_SUFFIXES = frozenset({".tbx"})
 _ATBX_SUFFIX = ".atbx"
@@ -388,8 +389,8 @@ def parse_atbx_toolbox(path: str | Path) -> ModelBuilderToolbox:
     if file_path.suffix.lower() in _BINARY_TOOLBOX_SUFFIXES:
         raise UnsupportedModelFormatError(
             f"Binary toolbox parsing for {file_path.suffix!r} is not supported "
-            "(proprietary format -- not clean-room parseable). Export to .atbx "
-            "and re-run."
+            "(proprietary format -- not clean-room parseable). "
+            f"{BINARY_TOOLBOX_EXPORT_GUIDANCE}"
         )
 
     try:

@@ -13,8 +13,8 @@ licensed Esri software.
 | Input | Reader | CLI | Output |
 | --- | --- | --- | --- |
 | `.py` ArcPy script | `scan_arcpy_source` / `translate_arcpy_source` | `honua-migrate scan` / `translate` | `ArcPyScanReport` / `ArcPyMigrationPlan` |
-| `.pyt` Python toolbox | `parse_pyt_file` | `honua-migrate pyt` | `PytToolbox` (per-tool `execute` body classified) |
-| `.atbx` ModelBuilder toolbox | `parse_atbx_toolbox` | `honua-migrate atbx` | `ModelBuilderToolbox` (models + script-tool names) |
+| `.pyt` Python toolbox | `parse_pyt_file` | `honua-migrate pyt` / `translate` | `PytToolbox` (per-tool `execute` body classified) |
+| `.atbx` ModelBuilder toolbox | `parse_atbx_toolbox` | `honua-migrate atbx` / `translate` | `ModelBuilderToolbox` (models + script-tool names) |
 | ArcGIS REST GPServer task defs | `parse_gp_service_definition` / `parse_gp_task_definition` | `honua-migrate gpservice` | `GpService` / `GpTask` |
 
 All four share the same registry-driven classification, so a `Buffer` maps to
@@ -30,7 +30,12 @@ step, or a GPServer task.
   external `.py`) are surfaced by name for the caller to scan via the `.py`
   path. The proprietary binary **`.tbx`** format is **not** parsed (it is not
   clean-room readable) -- `parse_binary_toolbox`/`parse_atbx_toolbox` raise a
-  clear redirect. Export `.tbx` to `.atbx` or `.pyt` first.
+  clear redirect carrying the concrete ArcGIS Pro export steps
+  (`BINARY_TOOLBOX_EXPORT_GUIDANCE`). This is a standing policy decision, not an
+  unimplemented stub: Honua never reverse-engineers a proprietary Esri
+  container, and the migration path is always export-to-open-format -- the same
+  rule that governs `.loc`/`.lox` locator files. Export `.tbx` to `.atbx` or
+  `.pyt` first.
 * **GP-service** definitions are public ArcGIS REST API JSON
   (`.../GPServer?f=json` and per-task `.../GPServer/<task>?f=json`).
 
@@ -48,6 +53,51 @@ Each call resolves to one of:
 Coverage percentage in the parity-evidence report is gated on
 *job-executability*, not on how many tools the codemod can parse -- so growing
 the registry never inflates the runnable-coverage number.
+
+## Server-attested verdicts
+
+The statuses above are the SDK's **own** view of the Honua process catalog, and
+that view can drift from the server that would actually run the job. For a
+toolbox, `honua-migrate` can have the server settle it instead:
+
+```bash
+honua-migrate translate roads.pyt --server https://honua.example --api-key "$HONUA_ADMIN_API_KEY"
+honua-migrate pyt   roads.pyt  --server https://honua.example --attestation attest.json
+honua-migrate atbx  models.atbx --server https://honua.example --require-attested
+```
+
+Each command builds a translation manifest and posts it to
+`POST /api/v1/admin/import/toolbox/translation/validate` (honua-server#2145),
+which validates every proposed mapping against the canonical process catalog and
+returns a per-tool `translated` / `partially-translated` / `unsupported`
+classification with the specific reasons a tool cannot be fully translated.
+
+The emitted report carries an `attestation` block whose `verdictSource` is
+either `server-attested` or `local-only`:
+
+* **The server wins.** Where the server contradicts the SDK, its verdict is the
+  effective one; the local verdict is kept beside it and the disagreement is
+  listed under `disagreements`. A disagreement means the SDK's registry has
+  drifted from the catalog.
+* **A local verdict is never labelled attested.** Running without `--server`, an
+  unreachable server, refused credentials, or a malformed response all produce a
+  complete `local-only` report with an explicit `fallbackReason`. There is no
+  partial attestation -- one failed batch un-attests the whole toolbox. Pass
+  `--require-attested` to make a local-only verdict a non-zero exit instead.
+
+Attestation is toolbox-scoped, because the endpoint's manifest declares a
+toolbox `sourceFormat` (`pyt` / `atbx` / `tbx`). `translate` on a bare arcpy
+`.py` script therefore refuses `--server` rather than inventing a format.
+
+Auth reuses the existing admin credential path (`--api-key`, or
+`$HONUA_ADMIN_API_KEY`), since the endpoint is in the admin import group.
+Attestation needs the `honua-admin` package installed; without it, the toolbox
+still translates and the report is simply marked `local-only`.
+
+Library entry points: `honua_sdk.migration.build_pyt_translation_manifest` /
+`build_atbx_translation_manifest` build the manifest, and
+`attest_translation(manifest, validator=...)` merges a server verdict over it.
+The validator is injected, so the merge logic itself stays offline and pure.
 
 ## Registered tools
 
@@ -83,7 +133,8 @@ single source of truth; this table is a human-readable projection of it.
 
 ## Deferred
 
-* Binary `.tbx` parsing (proprietary, not clean-room readable).
+* Binary `.tbx` parsing -- **will not be implemented** (proprietary container;
+  export-to-open-format is the migration path).
 * Resolving an `.atbx` script tool's referenced `.py` body automatically
   (today its name is surfaced; point the `.py` scanner at it).
 * Compiled .NET / ArcObjects custom tools (separate track).

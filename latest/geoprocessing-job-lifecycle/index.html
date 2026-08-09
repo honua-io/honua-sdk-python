@@ -11,10 +11,10 @@
       
       
       
-        <link rel="prev" href="../protocol-parity/">
+        <link rel="prev" href="../auth/">
       
       
-        <link rel="next" href="../geoprocessing-job-lifecycle/">
+        <link rel="next" href="../compatibility/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Authentication - Honua Python SDK</title>
+        <title>Geoprocessing job lifecycle - Honua Python SDK</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#authentication" class="md-skip">
+        <a href="#geoprocessing-job-lifecycle" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Authentication
+              Geoprocessing job lifecycle
             
           </span>
         </div>
@@ -600,6 +600,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -619,7 +647,7 @@
   <span class="md-ellipsis">
     
   
-    Authentication
+    Geoprocessing job lifecycle
   
 
     
@@ -637,7 +665,7 @@
   <span class="md-ellipsis">
     
   
-    Authentication
+    Geoprocessing job lifecycle
   
 
     
@@ -663,10 +691,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#rotation" class="md-nav__link">
+  <a href="#server-contract-first" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rotation
+        Server contract first
       
     </span>
   </a>
@@ -674,32 +702,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#revocation" class="md-nav__link">
+  <a href="#custom-python-batch-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Revocation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#storage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Storage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#failure-modes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Failure Modes
+        Custom Python batch jobs
       
     </span>
   </a>
@@ -710,34 +716,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../geoprocessing-job-lifecycle/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Geoprocessing job lifecycle
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1493,10 +1471,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#rotation" class="md-nav__link">
+  <a href="#server-contract-first" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rotation
+        Server contract first
       
     </span>
   </a>
@@ -1504,32 +1482,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#revocation" class="md-nav__link">
+  <a href="#custom-python-batch-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Revocation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#storage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Storage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#failure-modes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Failure Modes
+        Custom Python batch jobs
       
     </span>
   </a>
@@ -1556,103 +1512,77 @@
   
 
 
-<h1 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h1>
-<p>Honua SDK clients support static API keys, static bearer tokens, and refreshable
-auth providers.</p>
-<p>Static credentials are still available for simple service accounts:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
-
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;honua-api-key&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-    <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
+<h1 id="geoprocessing-job-lifecycle">Geoprocessing job lifecycle<a class="headerlink" href="#geoprocessing-job-lifecycle" title="Permanent link">&para;</a></h1>
+<h2 id="server-contract-first">Server contract first<a class="headerlink" href="#server-contract-first" title="Permanent link">&para;</a></h2>
+<p><code>HonuaGeoprocessing</code> operates registered OGC API Processes. It does not upload
+or execute arbitrary Python code.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Capability</td>
+<td><code>process.ogc-api-processes</code></td>
+</tr>
+<tr>
+<td>Submit</td>
+<td><code>POST /ogc/processes/processes/{processId}/execution</code></td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>GET /ogc/processes/jobs/{jobId}</code></td>
+</tr>
+<tr>
+<td>Results</td>
+<td><code>GET /ogc/processes/jobs/{jobId}/results</code></td>
+</tr>
+<tr>
+<td>Cancel</td>
+<td><code>DELETE /ogc/processes/jobs/{jobId}</code> (best effort)</td>
+</tr>
+<tr>
+<td>Auth</td>
+<td><code>HonuaClient</code> API key, bearer token, or refreshable auth provider</td>
+</tr>
+<tr>
+<td>Fixture</td>
+<td><code>honua-samples/jobs/geoprocessing-job-lifecycle.json#job-page-fixture:geometry-buffer-v1</code></td>
+</tr>
+<tr>
+<td>Maturity</td>
+<td>Source preview; not yet published to PyPI</td>
+</tr>
+</tbody>
+</table>
+<p>Inspect the process description before constructing <code>inputs</code>; those schemas are
+defined by the registered server process. The focused example therefore takes
+an explicit process id and JSON input object rather than embedding a payload
+that only works for one deployment:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>examples/geoprocessing_job_lifecycle.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--process-id<span class="w"> </span>geometry.buffer<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--inputs-json<span class="w"> </span><span class="s1">&#39;{&quot;inputGeoJson&quot;:&quot;{}&quot;,&quot;distance&quot;:100}&#39;</span>
 </code></pre></div>
-<p>For user or workload tokens that expire, use
-<code>RefreshableBearerTokenProvider</code>. The SDK calls the provider before each request
-and refreshes when the cached token is missing or within the configured refresh
-window.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">BearerToken</span><span class="p">,</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">RefreshableBearerTokenProvider</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">refresh_token</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">BearerToken</span><span class="p">:</span>
-    <span class="c1"># Call your identity provider here.</span>
-    <span class="n">payload</span> <span class="o">=</span> <span class="n">issue_token</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">BearerToken</span><span class="o">.</span><span class="n">from_expires_in</span><span class="p">(</span>
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;access_token&quot;</span><span class="p">],</span>
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;expires_in&quot;</span><span class="p">],</span>
-    <span class="p">)</span>
-
-
-<span class="n">auth</span> <span class="o">=</span> <span class="n">RefreshableBearerTokenProvider</span><span class="p">(</span>
-    <span class="n">refresh_token</span><span class="p">,</span>
-    <span class="n">refresh_window_seconds</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-    <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
-</code></pre></div>
-<p>The same <code>auth_provider</code> argument is accepted by:</p>
-<ul>
-<li><code>HonuaClient</code></li>
-<li><code>AsyncHonuaClient</code></li>
-<li><code>HonuaGeocodingClient</code></li>
-<li><code>AsyncHonuaGeocodingClient</code></li>
-<li><code>HonuaAdminClient</code></li>
-<li><code>AsyncHonuaAdminClient</code></li>
-</ul>
-<p>Do not pass both <code>bearer_token</code> and <code>auth_provider</code>; the SDK rejects that
-combination so the source of the <code>Authorization</code> header stays unambiguous. A
-static <code>api_key</code> can be combined with a bearer-token provider only when the
-server expects both headers.</p>
-<h2 id="rotation">Rotation<a class="headerlink" href="#rotation" title="Permanent link">&para;</a></h2>
-<p><code>auth_provider</code> is resolved per request. This lets applications rotate API keys
-or bearer tokens without reconstructing the SDK client:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallableAuthProvider</span><span class="p">,</span> <span class="n">HonuaClient</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">current_headers</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;X-API-Key&quot;</span><span class="p">:</span> <span class="n">current_key_from_secret_manager</span><span class="p">()}</span>
-
-
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="n">CallableAuthProvider</span><span class="p">(</span><span class="n">current_headers</span><span class="p">))</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-    <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
-</code></pre></div>
-<p>Auth headers are attached only to the configured base URL authority. When
-redirects are enabled, <code>Authorization</code> and <code>X-API-Key</code> are stripped from
-cross-host redirects.</p>
-<h2 id="revocation">Revocation<a class="headerlink" href="#revocation" title="Permanent link">&para;</a></h2>
-<p>Use <code>RefreshableBearerTokenProvider.revoke()</code> when a logout, token revocation,
-or incident response flow invalidates the current token. The provider calls the
-optional revocation hook with the cached token and clears the token store.</p>
-<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">revoke_token</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="n">BearerToken</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">revoke_with_identity_provider</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">access_token</span><span class="p">)</span>
-
-
-<span class="n">auth</span> <span class="o">=</span> <span class="n">RefreshableBearerTokenProvider</span><span class="p">(</span><span class="n">refresh_token</span><span class="p">,</span> <span class="n">revoke</span><span class="o">=</span><span class="n">revoke_token</span><span class="p">)</span>
-<span class="n">auth</span><span class="o">.</span><span class="n">revoke</span><span class="p">()</span>
-</code></pre></div>
-<p>The next request refreshes a new token through the configured refresh callback.</p>
-<h2 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h2>
-<p>The SDK default token store is in memory only. This avoids writing bearer tokens
-to plaintext files and keeps process lifetime explicit.</p>
-<p>For persistent tokens, adapt a secure system to the <code>TokenStore</code> protocol:</p>
-<ul>
-<li>macOS Keychain, Windows Credential Manager, or libsecret through a package
-  such as <code>keyring</code></li>
-<li>a cloud secret manager</li>
-<li>a workload identity cache owned by the deployment platform</li>
-</ul>
-<p>Do not store long-lived bearer tokens in source-controlled files, shell history,
-or unencrypted dotfiles. Prefer short-lived access tokens plus refresh or
-workload identity credentials.</p>
-<h2 id="failure-modes">Failure Modes<a class="headerlink" href="#failure-modes" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Refresh callback failures propagate before the request is sent. Handle those
-  exceptions around SDK calls when the identity provider may be unavailable.</li>
-<li>HTTP <code>401</code> or <code>403</code> responses are returned as <code>HonuaHttpError</code> and are not
-  retried by the SDK retry transport.</li>
-<li>Retry remains limited to transient statuses such as <code>429</code>, <code>502</code>, and <code>503</code>.</li>
-<li>If a token is revoked server-side, call <code>auth.revoke()</code> or
-  <code>auth.refresh()</code> before retrying with new credentials.</li>
-</ul>
+<p>That command belongs to the example script. The product <code>honua</code> CLI currently
+has no process/job subcommands.</p>
+<p>The example calls the real
+<a href="../reference/honua-sdk/clients/#honua_sdk.geoprocessing.HonuaGeoprocessing.submit_inputs"><code>HonuaGeoprocessing.submit_inputs</code></a>,
+<a href="../reference/honua-sdk/clients/#honua_sdk.geoprocessing.HonuaGeoprocessing.wait"><code>wait</code></a>, and
+<a href="../reference/honua-sdk/clients/#honua_sdk.geoprocessing.HonuaGeoprocessing.results"><code>results</code></a>
+methods. The wait has a deadline and performs a best-effort dismiss on timeout.
+Use <code>dismiss(job_id)</code> only from an explicit operator cancellation action.</p>
+<p>The shared, server-first JS/Python/.NET task contract, expected status sequence,
+and semantic assertion live in <code>honua-samples/jobs/geoprocessing-job-lifecycle.json</code>.</p>
+<h2 id="custom-python-batch-jobs">Custom Python batch jobs<a class="headerlink" href="#custom-python-batch-jobs" title="Permanent link">&para;</a></h2>
+<p>Custom-code authoring is a separate production project. The current server
+contract is AWS-Batch-only and pins runtime, allowlisted repository, full commit
+SHA, <code>module:function</code> entrypoint, dependency manifest, declared scope, and a
+server-assigned output prefix. The Python SDK has no custom-code authoring or
+submission API, and no current Studio Python editor/publish flow is admitted.
+Do not substitute <code>submit_inputs()</code> for that missing product surface.</p>
 
 
 

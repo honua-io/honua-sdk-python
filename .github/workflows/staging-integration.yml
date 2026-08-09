@@ -47,6 +47,7 @@ jobs:
       HONUA_OGC_PROCESS_PAYLOAD_JSON: ${{ vars.HONUA_OGC_PROCESS_PAYLOAD_JSON }}
       HONUA_PROTOCOL_BBOX: ${{ vars.HONUA_PROTOCOL_BBOX }}
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
+      HONUA_CLIENT_COMPAT_BINDING_JSON: ${{ vars.HONUA_CLIENT_COMPAT_BINDING_JSON }}
       HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:latest-aot' }}
     steps:
       - uses: actions/checkout@v7
@@ -70,6 +71,7 @@ jobs:
           if [[ -n "${HONUA_BASE_URL}" ]]; then
             echo "configured=true" >> "${GITHUB_OUTPUT}"
             echo "local_stack=false" >> "${GITHUB_OUTPUT}"
+            echo "HONUA_LOCAL_STACK=false" >> "${GITHUB_ENV}"
             exit 0
           fi
 
@@ -82,6 +84,7 @@ jobs:
 
           echo "configured=true" >> "${GITHUB_OUTPUT}"
           echo "local_stack=true" >> "${GITHUB_OUTPUT}"
+          echo "HONUA_LOCAL_STACK=true" >> "${GITHUB_ENV}"
 
       - name: Checkout Honua Server seed fixtures
         if: ${{ steps.smoke-config.outputs.local_stack == 'true' }}

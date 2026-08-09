@@ -358,8 +358,11 @@ def _parse_binding_timestamp(value: Any, field_name: str) -> datetime:
 
 
 def _fetch_descriptor_bytes(url: str) -> bytes:
-    request = Request(url, headers={"Accept": "application/json", "User-Agent": "honua-sdk-python-staging-smoke"})
-    with urlopen(request, timeout=10) as response:  # noqa: S310 - URL is restricted by a full-match allowlist above.
+    request = Request(  # noqa: S310 - URL is restricted by a full-match allowlist above.
+        url,
+        headers={"Accept": "application/json", "User-Agent": "honua-sdk-python-staging-smoke"},
+    )
+    with urlopen(request, timeout=10) as response:
         body = response.read(MAX_DESCRIPTOR_BYTES + 1)
     return body
 

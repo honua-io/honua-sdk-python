@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 import json
 from math import isclose
 import os
 from pathlib import Path
+import re
 from typing import Any, Literal
 from urllib.parse import quote
+from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from honua_sdk import HonuaClient, HonuaHttpError, __version__ as HONUA_SDK_VERSION
@@ -30,6 +33,18 @@ UPDATED_GEOMETRY = {"x": -122.4008, "y": 37.7931}
 POINT_GEOMETRY_ABS_TOLERANCE = 1e-6
 OPTIONAL_PROTOCOL_SKIP_HTTP_STATUSES = frozenset({400, 404, 405, 501})
 MAX_BODY_SUMMARY_LENGTH = 1200
+MAX_DESCRIPTOR_BYTES = 1_048_576
+CLIENT_COMPAT_BINDING_FORMAT = "honua.demo.client-compat-deployment.v1"
+CLIENT_COMPAT_DESCRIPTOR_FORMAT = "honua.demo.client-compat.v1"
+CLIENT_COMPAT_BINDING_ENV = "HONUA_CLIENT_COMPAT_BINDING_JSON"
+CLIENT_COMPAT_OWNER_REPOSITORY = "honua-io/honua-demo-infra"
+CLIENT_COMPAT_DESCRIPTOR_URL_PATTERN = re.compile(
+    r"^https://raw\.githubusercontent\.com/honua-io/honua-demo-infra/"
+    r"[0-9a-f]{40}/manifest/client-compat\.v1\.json$"
+)
+FULL_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+IMMUTABLE_IMAGE_PATTERN = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class SmokeConfigError(ValueError):
@@ -52,6 +67,8 @@ class SmokeConfig:
     server_commit: str | None = None
     server_image: str | None = None
     seed_profile: str | None = None
+    local_stack: bool | None = None
+    governed_binding: Mapping[str, Any] | None = None
     ogc_collection_id: str | None = None
     stac_collection_id: str | None = None
     ogc_process_id: str | None = None
@@ -67,6 +84,8 @@ class SmokeConfig:
             "server_commit": self.server_commit,
             "server_image": self.server_image,
             "seed_profile": self.seed_profile,
+            "local_stack": self.local_stack,
+            "governed_binding": dict(self.governed_binding) if self.governed_binding else None,
             "write_smoke_enabled": self.enable_write_smoke,
             "uid_prefix": self.uid_prefix,
             "ogc_collection_id": self.ogc_collection_id,
@@ -170,23 +189,182 @@ def load_smoke_config_from_env(*, require_base_url: bool = True) -> SmokeConfig:
     except ValueError as exc:
         raise SmokeConfigError("HONUA_LAYER_ID must be an integer.") from exc
 
+    service_id = _read_env("HONUA_SERVICE_ID") or DEFAULT_SERVICE_ID
+    server_commit = _read_env("HONUA_SERVER_COMMIT")
+    server_image = _read_env("HONUA_SERVER_IMAGE")
+    seed_profile = _read_env("HONUA_SEED_PROFILE")
+    local_stack_text = _read_env("HONUA_LOCAL_STACK")
+    local_stack: bool | None = None
+    if local_stack_text:
+        normalized = local_stack_text.lower()
+        if normalized not in {"true", "false"}:
+            raise SmokeConfigError("HONUA_LOCAL_STACK must be true or false when set.")
+        local_stack = normalized == "true"
+
+    governed_binding = None
+    binding_json = _read_env(CLIENT_COMPAT_BINDING_ENV)
+    if local_stack is False:
+        if not binding_json:
+            raise SmokeConfigError(
+                f"{CLIENT_COMPAT_BINDING_ENV} is required when HONUA_LOCAL_STACK=false."
+            )
+        governed_binding = validate_client_compat_binding(
+            binding_json,
+            base_url=base_url,
+            service_id=service_id,
+            layer_id=layer_id,
+            server_commit=server_commit,
+            server_image=server_image,
+            seed_profile=seed_profile,
+        )
+
     return SmokeConfig(
         base_url=base_url,
-        service_id=_read_env("HONUA_SERVICE_ID") or DEFAULT_SERVICE_ID,
+        service_id=service_id,
         layer_id=layer_id,
         api_key=_read_env("HONUA_API_KEY"),
         enable_write_smoke=_read_bool_env("HONUA_ENABLE_WRITE_SMOKE", default=False),
         uid_prefix=_read_env("HONUA_SMOKE_UID_PREFIX") or DEFAULT_UID_PREFIX,
         results_path=Path(_read_env("HONUA_SMOKE_RESULTS_PATH") or DEFAULT_RESULTS_PATH),
-        server_commit=_read_env("HONUA_SERVER_COMMIT"),
-        server_image=_read_env("HONUA_SERVER_IMAGE"),
-        seed_profile=_read_env("HONUA_SEED_PROFILE"),
+        server_commit=server_commit,
+        server_image=server_image,
+        seed_profile=seed_profile,
+        local_stack=local_stack,
+        governed_binding=governed_binding,
         ogc_collection_id=_read_env("HONUA_OGC_COLLECTION_ID"),
         stac_collection_id=_read_env("HONUA_STAC_COLLECTION_ID"),
         ogc_process_id=_read_env("HONUA_OGC_PROCESS_ID"),
         ogc_process_payload=_read_json_object_env("HONUA_OGC_PROCESS_PAYLOAD_JSON"),
         protocol_bbox=_read_bbox_env("HONUA_PROTOCOL_BBOX", default=DEFAULT_PROTOCOL_BBOX),
     )
+
+
+def validate_client_compat_binding(
+    binding_json: str,
+    *,
+    base_url: str,
+    service_id: str,
+    layer_id: int,
+    server_commit: str | None,
+    server_image: str | None,
+    seed_profile: str | None,
+    fetch_descriptor: Callable[[str], bytes] | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Validate one atomic, non-secret remote deployment binding."""
+
+    try:
+        binding = json.loads(binding_json)
+    except json.JSONDecodeError as exc:
+        raise SmokeConfigError(f"{CLIENT_COMPAT_BINDING_ENV} must contain valid JSON.") from exc
+    if not isinstance(binding, dict):
+        raise SmokeConfigError(f"{CLIENT_COMPAT_BINDING_ENV} must contain a JSON object.")
+    if binding.get("format") != CLIENT_COMPAT_BINDING_FORMAT or binding.get("schemaVersion") != "1.0.0":
+        raise SmokeConfigError("Client-compat binding format/schemaVersion is unsupported.")
+
+    generated_at = _parse_binding_timestamp(binding.get("generatedAt"), "generatedAt")
+    expires_at = _parse_binding_timestamp(binding.get("expiresAt"), "expiresAt")
+    checked_at = now or datetime.now(timezone.utc)
+    if generated_at > checked_at + timedelta(minutes=5):
+        raise SmokeConfigError("Client-compat binding generatedAt is in the future.")
+    if expires_at <= checked_at:
+        raise SmokeConfigError("Client-compat binding is stale: expiresAt has passed.")
+    if expires_at <= generated_at or expires_at - generated_at > timedelta(days=30):
+        raise SmokeConfigError("Client-compat binding expiry window must be positive and at most 30 days.")
+
+    owner = binding.get("owner")
+    descriptor_ref = binding.get("descriptor")
+    target = binding.get("target")
+    access = binding.get("access")
+    if not all(isinstance(value, dict) for value in (owner, descriptor_ref, target, access)):
+        raise SmokeConfigError("Client-compat binding owner/descriptor/target/access must be objects.")
+    if owner.get("repository") != CLIENT_COMPAT_OWNER_REPOSITORY:
+        raise SmokeConfigError("Client-compat binding owner repository is not governed.")
+    if access.get("allowAnonymous") is not False or access.get("credentialRecorded") is not False:
+        raise SmokeConfigError("Client-compat binding must prove protected, credential-free evidence.")
+
+    descriptor_url = descriptor_ref.get("url")
+    descriptor_digest = descriptor_ref.get("sha256")
+    if not isinstance(descriptor_url, str) or not CLIENT_COMPAT_DESCRIPTOR_URL_PATTERN.fullmatch(descriptor_url):
+        raise SmokeConfigError("Client-compat descriptor URL must be commit-pinned to honua-demo-infra.")
+    if not isinstance(descriptor_digest, str) or not SHA256_PATTERN.fullmatch(descriptor_digest):
+        raise SmokeConfigError("Client-compat descriptor SHA-256 is invalid.")
+
+    if not server_commit or not FULL_COMMIT_PATTERN.fullmatch(server_commit):
+        raise SmokeConfigError("HONUA_SERVER_COMMIT must be a full commit for remote certification.")
+    if not server_image or not IMMUTABLE_IMAGE_PATTERN.fullmatch(server_image):
+        raise SmokeConfigError("HONUA_SERVER_IMAGE must be pinned by @sha256 for remote certification.")
+    expected_target = {
+        "baseUrl": base_url.rstrip("/"),
+        "serviceName": service_id,
+        "layerId": layer_id,
+        "seedProfile": seed_profile,
+        "server": {"commit": server_commit, "image": server_image},
+    }
+    if target != expected_target:
+        raise SmokeConfigError("Client-compat binding target disagrees with staging variables.")
+
+    descriptor_bytes = (fetch_descriptor or _fetch_descriptor_bytes)(descriptor_url)
+    if len(descriptor_bytes) > MAX_DESCRIPTOR_BYTES:
+        raise SmokeConfigError("Client-compat descriptor exceeds the maximum governed size.")
+    actual_descriptor_digest = sha256(descriptor_bytes).hexdigest()
+    if actual_descriptor_digest != descriptor_digest:
+        raise SmokeConfigError("Client-compat descriptor digest mismatch.")
+    try:
+        descriptor = json.loads(descriptor_bytes)
+    except json.JSONDecodeError as exc:
+        raise SmokeConfigError("Client-compat descriptor is not valid JSON.") from exc
+    if descriptor.get("format") != CLIENT_COMPAT_DESCRIPTOR_FORMAT or descriptor.get("schemaVersion") != "1.0.0":
+        raise SmokeConfigError("Client-compat descriptor format/schemaVersion is unsupported.")
+    descriptor_target = {
+        "baseUrl": str(descriptor.get("baseUrl", "")).rstrip("/"),
+        "serviceName": descriptor.get("service", {}).get("name"),
+        "layerId": descriptor.get("service", {}).get("layerId"),
+        "seedProfile": descriptor.get("fixture", {}).get("profile"),
+    }
+    if descriptor_target != {key: value for key, value in expected_target.items() if key != "server"}:
+        raise SmokeConfigError("Client-compat descriptor target disagrees with staging variables.")
+    if descriptor.get("access", {}).get("allowAnonymous") is not False:
+        raise SmokeConfigError("Client-compat descriptor does not require protected access.")
+
+    canonical_binding = json.dumps(
+        binding,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8") + b"\n"
+    return {
+        "format": binding["format"],
+        "schema_version": binding["schemaVersion"],
+        "generated_at": binding["generatedAt"],
+        "expires_at": binding["expiresAt"],
+        "owner": owner,
+        "descriptor_url": descriptor_url,
+        "descriptor_sha256": descriptor_digest,
+        "deployment_evidence_sha256": sha256(canonical_binding).hexdigest(),
+    }
+
+
+def _parse_binding_timestamp(value: Any, field_name: str) -> datetime:
+    if not isinstance(value, str):
+        raise SmokeConfigError(f"Client-compat binding {field_name} must be an ISO-8601 timestamp.")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise SmokeConfigError(f"Client-compat binding {field_name} must be an ISO-8601 timestamp.") from exc
+    if parsed.tzinfo is None:
+        raise SmokeConfigError(f"Client-compat binding {field_name} must include a UTC offset.")
+    return parsed.astimezone(timezone.utc)
+
+
+def _fetch_descriptor_bytes(url: str) -> bytes:
+    request = Request(  # noqa: S310 - URL is restricted by a full-match allowlist above.
+        url,
+        headers={"Accept": "application/json", "User-Agent": "honua-sdk-python-staging-smoke"},
+    )
+    with urlopen(request, timeout=10) as response:  # noqa: S310 - Request URL is allowlisted above.
+        body = response.read(MAX_DESCRIPTOR_BYTES + 1)
+    return body
 
 
 def _serialize_probe_exception(exc: Exception) -> dict[str, Any]:

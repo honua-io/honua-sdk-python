@@ -400,3 +400,6 @@ def test_atbx_model_detected_by_tool_type(tmp_path) -> None:
     toolbox = parse_atbx_toolbox(atbx)
     assert toolbox.models == ()
     assert toolbox.parse_error is None
+    # Excluded from models (nothing to translate) but still discoverable, so a
+    # consumer cannot under-count the toolbox (honua-sdk-python#188).
+    assert toolbox.unresolved_tool_names == ("EmptyModel",)

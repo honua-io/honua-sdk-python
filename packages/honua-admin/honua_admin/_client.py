@@ -64,6 +64,8 @@ from ._models import (
     ServiceSummary,
     StyleEncoding,
     TableDiscoveryResponse,
+    ToolboxTranslationManifest,
+    ToolboxTranslationReport,
     UpdateSecureConnectionRequest,
     evaluate_admin_compatibility,
     style_encoding_media_type,
@@ -1093,6 +1095,56 @@ class HonuaAdminClient:
             extra_headers=extra_headers,
         )
         return MigrationSourceInventoryArtifact.from_dict(data)
+
+    def validate_toolbox_translation(
+        self,
+        manifest: ToolboxTranslationManifest,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> ToolboxTranslationReport:
+        """POST /api/v1/admin/import/toolbox/translation/validate
+
+        Validate an SDK-translated ArcGIS toolbox manifest against the server's
+        canonical geoprocessing process catalog, and return the
+        server-authoritative per-tool classification.
+
+        The server owns the round-trip proof: it never parses toolbox sources
+        and never emulates ``arcpy``. The SDK proposes a mapping; the catalog
+        decides whether that mapping is ``translated``,
+        ``partially-translated``, or ``unsupported``, and returns the specific
+        reasons a tool cannot be fully translated.
+
+        A verdict derived from this call may be presented as *server-attested*.
+        A verdict the SDK computed on its own may not — see
+        :func:`honua_sdk.migration.attest_translation`, which builds an
+        attestation report around this method and degrades explicitly (never
+        silently) when the server cannot be reached.
+
+        Args:
+            manifest: The translated toolbox manifest to validate.
+
+        Returns:
+            The server's :class:`ToolboxTranslationReport`.
+
+        Per-request options (``timeout`` / ``extra_headers`` /
+        ``idempotency_key``) are forwarded to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server rejected the manifest (for example an
+                unsupported ``sourceFormat``) or refused the credentials.
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        data = self._request_json(
+            "POST",
+            "/api/v1/admin/import/toolbox/translation/validate",
+            json_body=manifest.to_dict(),
+            headers=self._idempotency_headers(idempotency_key),
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        return ToolboxTranslationReport.from_dict(data)
 
     # ======================================================================
     # Connections

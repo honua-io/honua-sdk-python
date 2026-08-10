@@ -32,9 +32,36 @@ from .arcpy import (
     translate_arcpy_source,
 )
 
+#: Concrete migration instruction attached to every binary-``.tbx`` refusal.
+#:
+#: The refusal is a standing policy decision, not an unfinished stub: Honua does
+#: not reverse-engineer proprietary Esri containers (the same rule that governs
+#: ``.loc``/``.lox`` locator files), and the migration path is always
+#: export-to-open-format. Because the answer will never be "we added a parser",
+#: the error has to carry the steps that actually unblock the migration instead
+#: of reading as a dead end.
+BINARY_TOOLBOX_EXPORT_GUIDANCE = (
+    "Export the toolbox to an open format first, then re-run against that file:\n"
+    "  1. Open the .tbx in ArcGIS Pro (Catalog pane > Toolboxes).\n"
+    "  2. Right-click the toolbox > Save As > New ArcGIS Toolbox (.atbx). "
+    "ModelBuilder models and their tool/parameter metadata come across, and "
+    ".atbx is a published zip-of-JSON container this SDK reads with "
+    "honua_sdk.migration.parse_atbx_toolbox.\n"
+    "  3. For a script tool whose logic must migrate too, open its Properties > "
+    "Execution, copy the Python body into a .pyt Python toolbox (or export the "
+    "script), and run honua_sdk.migration.parse_pyt_file against that .pyt.\n"
+    "Both .atbx and .pyt are open formats and are fully supported here; the "
+    "binary .tbx container is deliberately never parsed."
+)
+
 
 class UnsupportedToolboxError(NotImplementedError):
-    """Raised when a binary toolbox format is not parseable as source."""
+    """Raised when a binary toolbox format is not parseable as source.
+
+    For a proprietary binary ``.tbx`` this is a policy refusal, not a missing
+    feature -- the message carries :data:`BINARY_TOOLBOX_EXPORT_GUIDANCE`, the
+    concrete ArcGIS Pro export steps that produce a readable ``.atbx``/``.pyt``.
+    """
 
 
 @dataclass(frozen=True)
@@ -196,9 +223,8 @@ def parse_binary_toolbox(path: str | Path) -> PytToolbox:
         )
     raise UnsupportedToolboxError(
         f"Binary toolbox parsing for {suffix!r} is not supported "
-        "(proprietary binary format -- not clean-room parseable). Export to a "
-        ".atbx ModelBuilder toolbox (parse_atbx_toolbox) or a .pyt Python "
-        "toolbox (parse_pyt_file)."
+        "(proprietary binary format -- not clean-room parseable). "
+        f"{BINARY_TOOLBOX_EXPORT_GUIDANCE}"
     )
 
 

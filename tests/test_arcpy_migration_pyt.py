@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from honua_sdk.migration import (
+    BINARY_TOOLBOX_EXPORT_GUIDANCE,
     UnsupportedToolboxError,
     build_pyt_parity_evidence,
     parse_binary_toolbox,
@@ -239,3 +240,27 @@ def test_parse_binary_toolbox_still_stubs_binary_tbx(tmp_path) -> None:
     with pytest.raises(UnsupportedToolboxError) as excinfo:
         parse_binary_toolbox(tmp_path / "legacy.tbx")
     assert ".tbx" in str(excinfo.value)
+
+
+def test_binary_tbx_refusal_carries_concrete_export_steps(tmp_path) -> None:
+    # Refusing to parse the proprietary container is a standing policy decision,
+    # not an unfinished stub, so the error has to read as a migration
+    # instruction rather than a dead end (honua-sdk-python#188).
+    with pytest.raises(UnsupportedToolboxError) as excinfo:
+        parse_binary_toolbox(tmp_path / "legacy.tbx")
+
+    message = str(excinfo.value)
+    assert BINARY_TOOLBOX_EXPORT_GUIDANCE in message
+    assert "ArcGIS Pro" in message
+    assert "New ArcGIS Toolbox (.atbx)" in message
+    assert "parse_pyt_file" in message
+    assert "deliberately never parsed" in message
+
+
+def test_atbx_reader_shares_the_same_binary_tbx_guidance(tmp_path) -> None:
+    from honua_sdk.migration import UnsupportedModelFormatError, parse_atbx_toolbox
+
+    with pytest.raises(UnsupportedModelFormatError) as excinfo:
+        parse_atbx_toolbox(tmp_path / "legacy.tbx")
+
+    assert BINARY_TOOLBOX_EXPORT_GUIDANCE in str(excinfo.value)

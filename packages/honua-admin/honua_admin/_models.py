@@ -1622,9 +1622,205 @@ class MigrationParityEvidenceArtifact:
         }
 
 
+#: ``artifactKind`` the server requires on an inbound toolbox translation manifest.
+TOOLBOX_TRANSLATION_MANIFEST_KIND = "honua.migration.toolbox-translation"
+
+#: ``artifactKind`` the server stamps on the validation report it returns.
+TOOLBOX_TRANSLATION_REPORT_KIND = "honua.migration.toolbox-translation-report"
+
+#: Manifest schema version this client speaks. The server rejects an
+#: unrecognised version rather than reinterpreting the payload under v1.
+TOOLBOX_TRANSLATION_ARTIFACT_VERSION = "1.0"
+
+
+@dataclass(frozen=True, slots=True)
+class ToolboxParameterBinding:
+    """Canonical parameter signature the server round-tripped for one mapping."""
+
+    source_name: str
+    target_parameter: str
+    value_type: str
+    required: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToolboxParameterBinding:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolboxTranslationIssue:
+    """One explicit unsupported-report entry the server attached to a tool.
+
+    ``code`` is a stable machine-readable identifier (for example
+    ``no-native-executor``, ``unknown-process``, ``missing-required-parameter``);
+    treat unknown codes as opaque rather than switching on the message text.
+    """
+
+    code: str
+    message: str
+    parameter_name: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToolboxTranslationIssue:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolboxToolTranslation:
+    """Server verdict for a single toolbox tool.
+
+    ``classification`` is one of ``translated`` / ``partially-translated`` /
+    ``unsupported``.
+    """
+
+    tool_name: str
+    classification: str
+    process_id: str | None = None
+    parameter_bindings: list[ToolboxParameterBinding] = field(default_factory=list)
+    issues: list[ToolboxTranslationIssue] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToolboxToolTranslation:
+        d = _snake_keys(data)
+        d["parameter_bindings"] = _model_list(ToolboxParameterBinding, d.get("parameter_bindings", []))
+        d["issues"] = _model_list(ToolboxTranslationIssue, d.get("issues", []))
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolboxTranslationSummary:
+    """Per-classification tool counts for a translation report."""
+
+    tool_count: int = 0
+    translated_count: int = 0
+    partially_translated_count: int = 0
+    unsupported_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToolboxTranslationSummary:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolboxTranslationReport:
+    """Server-authoritative validation report for a translated toolbox.
+
+    Returned by
+    :meth:`~honua_admin.HonuaAdminClient.validate_toolbox_translation`. The
+    canonical process catalog — not the SDK's local view of it — decides every
+    ``classification`` here, which is what makes a report built from this
+    *server-attested* rather than a local assertion.
+
+    ``artifact_kind`` / ``artifact_version`` are deliberately **not** defaulted
+    to the expected identity: they stay ``None`` when the response omitted them.
+    The genuine endpoint always stamps both, so their absence is evidence that
+    the payload is not a translation report — and stamping a plausible identity
+    here would erase exactly the evidence a caller needs to refuse the response.
+    :func:`honua_sdk.migration.attest_translation` requires both fields before it
+    will call a verdict attested, and this round-trips their absence to it.
+    """
+
+    toolbox_name: str
+    source_format: str
+    summary: ToolboxTranslationSummary = field(default_factory=ToolboxTranslationSummary)
+    tools: list[ToolboxToolTranslation] = field(default_factory=list)
+    artifact_kind: str | None = None
+    artifact_version: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToolboxTranslationReport:
+        d = _snake_keys(data)
+        summary = d.get("summary")
+        d["summary"] = (
+            ToolboxTranslationSummary.from_dict(summary)
+            if isinstance(summary, dict)
+            else ToolboxTranslationSummary()
+        )
+        d["tools"] = _model_list(ToolboxToolTranslation, d.get("tools", []))
+        return cls(**_extract_fields(cls, d))
+
+    def to_dict(self) -> dict[str, Any]:
+        # An omitted identity stays omitted, so a consumer of this dict sees the
+        # response the server actually sent.
+        d = _dataclass_to_camel_dict(self)
+        identity: dict[str, Any] = {
+            key: d.pop(key) for key in ("artifactKind", "artifactVersion") if key in d
+        }
+        return {**identity, **d}
+
+
 # ---------------------------------------------------------------------------
 # Request models (mutable)
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class ToolboxParameterMapping:
+    """Proposed mapping of one source toolbox parameter onto a process parameter."""
+
+    source_name: str
+    target_parameter: str
+    source_data_type: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass
+class ToolboxToolDescriptor:
+    """One toolbox tool as translated by the SDK scanner.
+
+    ``target_process_id`` is the canonical Honua process the scanner proposes as
+    the native executor (for example ``geometry.buffer``). Leave it ``None`` when
+    no native mapping was found — the server then reports the tool unsupported
+    rather than stubbing it as executable.
+    """
+
+    tool_name: str
+    display_name: str | None = None
+    target_process_id: str | None = None
+    parameter_mappings: list[ToolboxParameterMapping] = field(default_factory=list)
+    unsupported_constructs: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return _dataclass_to_camel_dict(self)
+
+
+@dataclass
+class ToolboxTranslationManifest:
+    """SDK-emitted translation manifest for one ArcGIS toolbox.
+
+    ``source_format`` is the source toolbox format: ``pyt``, ``atbx``, or
+    ``tbx``. Redact local paths and credentials out of ``source_label`` before
+    submitting — the server echoes it into operator-visible output.
+    """
+
+    toolbox_name: str
+    source_format: str
+    source_label: str | None = None
+    tools: list[ToolboxToolDescriptor] = field(default_factory=list)
+    artifact_kind: str = TOOLBOX_TRANSLATION_MANIFEST_KIND
+    artifact_version: str = TOOLBOX_TRANSLATION_ARTIFACT_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        d = _dataclass_to_camel_dict(self)
+        return {
+            "artifactKind": d.pop("artifactKind"),
+            "artifactVersion": d.pop("artifactVersion"),
+            **d,
+        }
 
 
 @dataclass

@@ -534,19 +534,52 @@ def build_pyt_translation_manifest(
     *,
     source_format: str = SOURCE_FORMAT_PYT,
 ) -> TranslationManifest:
-    """Build the validation manifest for a parsed ``.pyt`` Python toolbox."""
+    """Build the validation manifest for a parsed ``.pyt`` Python toolbox.
 
+    A ``.pyt`` declares its tools as ``self.tools = [A, B]``. A name listed there
+    whose class is *not* defined in the same file -- imported from another module,
+    or simply absent -- is recorded in
+    :attr:`~honua_sdk.migration.PytToolbox.declared_tool_names` but never
+    materialises into :attr:`~honua_sdk.migration.PytToolbox.tools`, because the
+    reader has no ``execute`` body to classify.
+
+    Those names still go into the manifest, with no proposed target. Submitting
+    only the materialised tools would let the server return a clean report for a
+    toolbox whose imported tools were never classified, and the attestation would
+    then cover a strict subset while claiming to cover all of it -- the same hole
+    ``.atbx`` script tools opened (honua-sdk-python#188 review).
+    """
+
+    materialised = {tool.class_name for tool in toolbox.tools}
     return TranslationManifest(
         toolbox_name=_toolbox_name(toolbox.label or toolbox.alias, toolbox.filename),
         source_format=source_format,
         source_label=_source_label(toolbox.filename),
         tools=tuple(
             _flatten(
-                # Every discovered call, not just the translatable ones: a tool the
-                # SDK cannot map still belongs in the report as explicitly
-                # unsupported rather than missing from the tool count.
-                _proposals_for_tool(tool.class_name, tool.label, tool.report.calls)
-                for tool in toolbox.tools
+                [
+                    *(
+                        # Every discovered call, not just the translatable ones: a tool the
+                        # SDK cannot map still belongs in the report as explicitly
+                        # unsupported rather than missing from the tool count.
+                        _proposals_for_tool(tool.class_name, tool.label, tool.report.calls)
+                        for tool in toolbox.tools
+                    ),
+                    _unresolved_tool_proposals(
+                        (
+                            name
+                            for name in toolbox.declared_tool_names
+                            if name.strip() not in materialised
+                        ),
+                        reason=(
+                            "is declared in the toolbox's self.tools but its class is not defined "
+                            "in this .pyt (typically imported from another module), so the reader "
+                            "found no execute() body to classify and no native process mapping has "
+                            "been established. Scan the module that defines it with the arcpy .py "
+                            "scanner."
+                        ),
+                    ),
+                ]
             )
         ),
     )
@@ -587,33 +620,44 @@ def build_atbx_translation_manifest(
                     ),
                     # One more group, so a script tool sharing a model's name is
                     # disambiguated by _flatten rather than rejected by the server.
-                    _script_tool_proposals(toolbox.script_tool_names),
+                    _unresolved_tool_proposals(
+                        toolbox.script_tool_names,
+                        reason=(
+                            "is a script tool: its geoprocessing logic lives in an external Python "
+                            "script the .atbx reader does not follow, so no native process mapping "
+                            "has been established. Scan that script with the arcpy .py scanner."
+                        ),
+                    ),
                 ]
             )
         ),
     )
 
 
-def _script_tool_proposals(script_tool_names: Sequence[str]) -> tuple[TranslationToolProposal, ...]:
-    """Propose each ``.atbx`` script tool as explicitly unclassified-by-the-SDK.
+def _unresolved_tool_proposals(
+    names: Iterable[str],
+    *,
+    reason: str,
+) -> tuple[TranslationToolProposal, ...]:
+    """Propose tools the reader discovered by name but could not read a body for.
 
-    The referenced ``.py`` body is not read here (point the arcpy script scanner
-    at it separately), so no native target can be proposed and no coverage may
-    be claimed. The tool still has to appear in the manifest so the report's
-    tool count matches the toolbox.
+    Both toolbox formats have this shape: a ``.atbx`` script tool points at an
+    external Python script the reader does not follow, and a ``.pyt`` may list a
+    tool class that is imported rather than defined in the file. Either way the
+    translator has established nothing, so no target is proposed and no coverage
+    is claimed -- guessing one would reintroduce the same false confidence
+    through a different door. The tool still has to appear in the manifest so
+    the report's tool count matches the toolbox and the server marks it
+    ``unsupported``.
     """
 
     return tuple(
         TranslationToolProposal(
             tool_name=name.strip(),
             local_classification=CLASSIFICATION_UNSUPPORTED,
-            unsupported_constructs=(
-                f"'{name.strip()}' is a script tool: its geoprocessing logic lives in an external "
-                "Python script the .atbx reader does not follow, so no native process mapping has "
-                "been established. Scan that script with the arcpy .py scanner to classify it.",
-            ),
+            unsupported_constructs=(f"'{name.strip()}' {reason}",),
         )
-        for name in script_tool_names
+        for name in names
         if name and name.strip()
     )
 

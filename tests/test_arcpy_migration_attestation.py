@@ -709,3 +709,103 @@ def test_atbx_attestation_covers_every_discovered_tool(tmp_path) -> None:
     # The attestation covers the whole toolbox, not just its models.
     assert {verdict.tool_name for verdict in report.tools} == {"BufferModel", "LegacyScriptTool"}
     assert report.to_dict()["summary"]["toolCount"] == 2
+
+
+def test_pyt_manifest_includes_declared_tools_whose_class_is_not_in_the_file() -> None:
+    """A declared-but-unmaterialised tool must be submitted, not silently omitted.
+
+    ``self.tools = [Present, ImportedTool]`` keeps both names in
+    ``declared_tool_names``, but only classes defined in the same file become
+    ``toolbox.tools`` -- there is no ``execute`` body to read for an imported
+    one. Building the manifest from ``toolbox.tools`` alone let the server
+    return a clean report covering only ``Present`` while the CLI presented it
+    as whole-toolbox attestation (honua-sdk-python#188 review).
+    """
+
+    source = '''
+import arcpy
+from other_module import ImportedTool
+
+
+class Toolbox(object):
+    def __init__(self):
+        self.label = "T"
+        self.tools = [Present, ImportedTool]
+
+
+class Present(object):
+    def execute(self, parameters, messages):
+        arcpy.analysis.Buffer("a", "b", "1 Meter")
+'''
+    toolbox = parse_pyt_source(source, filename="t.pyt")
+    # Precondition: the reader really does drop the imported name.
+    assert toolbox.declared_tool_names == ("Present", "ImportedTool")
+    assert [tool.class_name for tool in toolbox.tools] == ["Present"]
+
+    manifest = build_pyt_translation_manifest(toolbox)
+
+    assert [tool.tool_name for tool in manifest.tools] == ["Present", "ImportedTool"]
+    imported = manifest.tools[1]
+    # Nothing was read, so nothing may be proposed.
+    assert imported.target_process_id is None
+    assert imported.local_classification == CLASSIFICATION_UNSUPPORTED
+    assert any("not defined in this .pyt" in c for c in imported.unsupported_constructs)
+    assert any("arcpy .py scanner" in c for c in imported.unsupported_constructs)
+
+
+def test_pyt_attestation_covers_declared_tools_the_reader_could_not_materialise() -> None:
+    """End-to-end: attestation must not certify a strict subset of the toolbox."""
+
+    source = '''
+import arcpy
+from vendor.tools import VendorTool
+
+
+class Toolbox(object):
+    def __init__(self):
+        self.label = "Mixed"
+        self.tools = [Local, VendorTool]
+
+
+class Local(object):
+    def execute(self, parameters, messages):
+        arcpy.analysis.Buffer("a", "b", "1 Meter")
+'''
+    manifest = build_pyt_translation_manifest(parse_pyt_source(source, filename="mixed.pyt"))
+    submitted = [tool.tool_name for tool in manifest.tools]
+    assert submitted == ["Local", "VendorTool"]
+
+    report = attest_translation(manifest, validator=lambda batch: _server_report(batch))
+
+    assert report.attested is True
+    assert {verdict.tool_name for verdict in report.tools} == {"Local", "VendorTool"}
+    summary = report.to_dict()["summary"]
+    assert summary["toolCount"] == 2
+    assert (
+        summary["translatedCount"] + summary["partiallyTranslatedCount"] + summary["unsupportedCount"]
+        == 2
+    )
+
+
+def test_a_pyt_toolbox_whose_tools_are_all_imported_still_submits_them() -> None:
+    """The degenerate case: nothing materialises, so nothing would be submitted.
+
+    Before the fix this produced an empty manifest, which the endpoint rejects
+    ("tools is required") -- turning a real coverage gap into an unexplained
+    attestation failure instead of an honest unsupported report.
+    """
+
+    source = '''
+from vendor.tools import AlphaTool, BetaTool
+
+
+class Toolbox(object):
+    def __init__(self):
+        self.label = "All imported"
+        self.tools = [AlphaTool, BetaTool]
+'''
+    manifest = build_pyt_translation_manifest(parse_pyt_source(source, filename="vendor.pyt"))
+
+    assert [tool.tool_name for tool in manifest.tools] == ["AlphaTool", "BetaTool"]
+    assert all(tool.target_process_id is None for tool in manifest.tools)
+    assert all(tool.local_classification == CLASSIFICATION_UNSUPPORTED for tool in manifest.tools)

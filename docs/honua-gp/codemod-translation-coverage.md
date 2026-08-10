@@ -92,13 +92,18 @@ either `server-attested` or `local-only`:
   `local-only`, because an accepted-but-unrecognized classification would show as
   a tool's effective verdict while no summary counter tallied it.
 * **Every discovered toolbox tool is submitted**, including the ones the reader
-  could only learn the *name* of: `.atbx` script tools (their logic lives in an
-  external `.py` the reader does not follow) and `.pyt` tools listed in
-  `self.tools` whose class is imported rather than defined in the file. Those go
-  in with no proposed target -- nothing was read, so nothing is claimed -- and
-  come back `unsupported`. An attestation can therefore never cover a strict
-  subset of the toolbox while claiming to cover all of it. Scan the referenced
-  script/module with the arcpy `.py` path to classify those tools properly.
+  could only learn the *name* of:
+  * `.atbx` script tools -- their logic lives in an external `.py` the reader
+    does not follow (`script_tool_names`);
+  * `.atbx` models whose definition yielded no recognizable step
+    (`unresolved_tool_names`);
+  * `.pyt` tools listed in `self.tools` whose class is imported rather than
+    defined in the file (`declared_tool_names` minus the materialised tools).
+
+  Those go in with no proposed target -- nothing was read, so nothing is claimed
+  -- and come back `unsupported`. An attestation can therefore never cover a
+  strict subset of the toolbox while claiming to cover all of it. Scan the
+  referenced script/module with the arcpy `.py` path to classify them properly.
 
 Attestation is toolbox-scoped, because the endpoint's manifest declares a
 toolbox `sourceFormat` (`pyt` / `atbx` / `tbx`). `translate` on a bare arcpy

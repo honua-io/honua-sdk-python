@@ -235,12 +235,20 @@ class ModelBuilderToolbox:
     models: tuple[ModelBuilderModel, ...]
     script_tool_names: tuple[str, ...] = field(default_factory=tuple)
     parse_error: str | None = None
+    #: Tools the archive declares that did not become entries in
+    #: :attr:`models` -- a model whose definition yielded no recognizable
+    #: geoprocessing step. They are excluded from ``models`` (there is nothing
+    #: to translate) but must stay *discoverable*, because a consumer that only
+    #: sees ``models`` would under-count the toolbox and could certify coverage
+    #: it does not have. See ``honua_sdk.migration.attestation``.
+    unresolved_tool_names: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> JsonObject:
         result: JsonObject = {
             "schema": "honua.migration.arcpy.modelbuilder-toolbox/v1",
             "filename": self.filename,
             "scriptToolNames": list(self.script_tool_names),
+            "unresolvedToolNames": list(self.unresolved_tool_names),
             "models": [model.to_dict() for model in self.models],
         }
         if self.parse_error is not None:
@@ -404,6 +412,7 @@ def parse_atbx_toolbox(path: str | Path) -> ModelBuilderToolbox:
 
     models: list[ModelBuilderModel] = []
     script_tool_names: list[str] = []
+    unresolved_tool_names: list[str] = []
     with archive:
         for info in archive.infolist():
             if info.is_dir():
@@ -439,11 +448,18 @@ def parse_atbx_toolbox(path: str | Path) -> ModelBuilderToolbox:
             )
             if model.steps:
                 models.append(model)
+            elif model.name and model.name not in unresolved_tool_names:
+                # A model with no recognizable step has nothing to translate, so
+                # it stays out of `models` -- but it is still a tool the toolbox
+                # declares, and dropping the name entirely would let a caller
+                # under-count the toolbox and certify coverage it does not have.
+                unresolved_tool_names.append(model.name)
 
     return ModelBuilderToolbox(
         filename=str(file_path),
         models=tuple(models),
         script_tool_names=tuple(sorted(script_tool_names)),
+        unresolved_tool_names=tuple(sorted(unresolved_tool_names)),
     )
 
 

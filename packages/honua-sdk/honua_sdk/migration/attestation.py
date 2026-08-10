@@ -592,19 +592,23 @@ def build_atbx_translation_manifest(
 ) -> TranslationManifest:
     """Build the validation manifest for a parsed ``.atbx`` ModelBuilder toolbox.
 
-    A ``.atbx`` holds two kinds of tool. ModelBuilder **models** carry their
-    geoprocessing steps inline and are translated. **Script tools** only
-    reference an external Python body the reader deliberately does not follow,
-    so `parse_atbx_toolbox` surfaces them by name in
-    :attr:`~honua_sdk.migration.ModelBuilderToolbox.script_tool_names`.
+    A ``.atbx`` yields three kinds of tool, and all three go into the manifest:
 
-    Both go into the manifest. Submitting only the models would let the server
-    return a clean report for a toolbox whose script tools were never
-    classified, and the attestation would then cover a strict subset of the
-    toolbox while claiming to cover all of it. Script tools are therefore
-    submitted with no proposed target, which is the honest statement -- the
-    translator has not established that they map to anything -- and the server
-    reports them ``unsupported``.
+    * ModelBuilder **models** carry their geoprocessing steps inline and are
+      translated normally.
+    * **Script tools** only reference an external Python body the reader
+      deliberately does not follow, so they arrive as names in
+      :attr:`~honua_sdk.migration.ModelBuilderToolbox.script_tool_names`.
+    * **Unresolved tools** are declared models whose definition yielded no
+      recognizable step, surfaced in
+      :attr:`~honua_sdk.migration.ModelBuilderToolbox.unresolved_tool_names`.
+
+    Submitting only the models would let the server return a clean report for a
+    toolbox whose other tools were never classified, and the attestation would
+    then cover a strict subset while claiming to cover all of it. The two
+    name-only kinds are therefore submitted with no proposed target -- the
+    honest statement, since the translator has established nothing about them --
+    and the server reports them ``unsupported``.
     """
 
     return TranslationManifest(
@@ -618,7 +622,7 @@ def build_atbx_translation_manifest(
                         _proposals_for_tool(model.name, model.label, [step.call for step in model.steps])
                         for model in toolbox.models
                     ),
-                    # One more group, so a script tool sharing a model's name is
+                    # Further groups, so a script tool sharing a model's name is
                     # disambiguated by _flatten rather than rejected by the server.
                     _unresolved_tool_proposals(
                         toolbox.script_tool_names,
@@ -626,6 +630,14 @@ def build_atbx_translation_manifest(
                             "is a script tool: its geoprocessing logic lives in an external Python "
                             "script the .atbx reader does not follow, so no native process mapping "
                             "has been established. Scan that script with the arcpy .py scanner."
+                        ),
+                    ),
+                    _unresolved_tool_proposals(
+                        toolbox.unresolved_tool_names,
+                        reason=(
+                            "is declared by the toolbox but its definition yielded no recognizable "
+                            "geoprocessing step, so there is nothing to map onto a native process. "
+                            "Review the model in ArcGIS Pro to confirm what it does."
                         ),
                     ),
                 ]

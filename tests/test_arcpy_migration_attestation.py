@@ -809,3 +809,119 @@ class Toolbox(object):
     assert [tool.tool_name for tool in manifest.tools] == ["AlphaTool", "BetaTool"]
     assert all(tool.target_process_id is None for tool in manifest.tools)
     assert all(tool.local_classification == CLASSIFICATION_UNSUPPORTED for tool in manifest.tools)
+
+
+def _atbx_with(tmp_path, entries: dict) -> object:
+    import io
+    import json as _json
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, payload in entries.items():
+            archive.writestr(name, _json.dumps(payload))
+    path = tmp_path / "wf.atbx"
+    path.write_bytes(buffer.getvalue())
+    return path
+
+
+def test_atbx_manifest_includes_models_that_yielded_no_steps(tmp_path) -> None:
+    """A declared model with no recognizable step must still be submitted.
+
+    ``parse_atbx_toolbox`` deliberately keeps a stepless model out of ``models``
+    -- there is nothing to translate -- but the name is still a tool the toolbox
+    declares. Dropping it entirely let the manifest under-count the toolbox and
+    certify coverage it did not have (honua-sdk-python#188 review follow-up).
+    """
+
+    from honua_sdk.migration import parse_atbx_toolbox
+
+    path = _atbx_with(
+        tmp_path,
+        {
+            "BufferModel.tool/tool.content": {
+                "name": "BufferModel",
+                "processes": [
+                    {
+                        "toolName": "Buffer",
+                        "toolbox": "analysis",
+                        "parameters": {
+                            "in_features": "a",
+                            "out_feature_class": "b",
+                            "buffer_distance_or_field": "5 Meters",
+                        },
+                    }
+                ],
+            },
+            "EmptyModel.tool/tool.content": {"type": "ModelTool", "processes": []},
+        },
+    )
+
+    toolbox = parse_atbx_toolbox(path)
+    # The reader's existing contract is unchanged: a stepless model is not a model.
+    assert [model.name for model in toolbox.models] == ["BufferModel"]
+    # ...but it is now discoverable rather than lost.
+    assert toolbox.unresolved_tool_names == ("EmptyModel",)
+    assert toolbox.to_dict()["unresolvedToolNames"] == ["EmptyModel"]
+
+    manifest = build_atbx_translation_manifest(toolbox)
+
+    assert [tool.tool_name for tool in manifest.tools] == ["BufferModel", "EmptyModel"]
+    empty = manifest.tools[1]
+    assert empty.target_process_id is None
+    assert empty.local_classification == CLASSIFICATION_UNSUPPORTED
+    assert any("no recognizable" in construct for construct in empty.unsupported_constructs)
+
+    report = attest_translation(manifest, validator=lambda batch: _server_report(batch))
+
+    assert report.attested is True
+    assert {verdict.tool_name for verdict in report.tools} == {"BufferModel", "EmptyModel"}
+    assert report.to_dict()["summary"]["toolCount"] == 2
+
+
+def test_atbx_manifest_covers_models_script_tools_and_unresolved_together(tmp_path) -> None:
+    """All three .atbx tool kinds land in one manifest."""
+
+    from honua_sdk.migration import parse_atbx_toolbox
+
+    path = _atbx_with(
+        tmp_path,
+        {
+            "BufferModel.tool/tool.content": {
+                "name": "BufferModel",
+                "processes": [
+                    {
+                        "toolName": "Buffer",
+                        "toolbox": "analysis",
+                        "parameters": {
+                            "in_features": "a",
+                            "out_feature_class": "b",
+                            "buffer_distance_or_field": "5 Meters",
+                        },
+                    }
+                ],
+            },
+            "LegacyScriptTool.tool/tool.content": {
+                "name": "LegacyScriptTool",
+                "type": "script",
+                "script": "legacy.py",
+            },
+            "EmptyModel.tool/tool.content": {"type": "ModelTool", "processes": []},
+        },
+    )
+
+    toolbox = parse_atbx_toolbox(path)
+    manifest = build_atbx_translation_manifest(toolbox)
+    submitted = {tool.tool_name for tool in manifest.tools}
+
+    assert submitted == {"BufferModel", "LegacyScriptTool", "EmptyModel"}
+
+    report = attest_translation(manifest, validator=lambda batch: _server_report(batch))
+    summary = report.to_dict()["summary"]
+
+    assert report.attested is True
+    assert summary["toolCount"] == 3
+    assert (
+        summary["translatedCount"] + summary["partiallyTranslatedCount"] + summary["unsupportedCount"]
+        == 3
+    )

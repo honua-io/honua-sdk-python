@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.7...python-admin-v0.1.8) (2026-08-10)
+
+
+### Features
+
+* **migration:** server-attested toolbox translation verdicts ([#194](https://github.com/honua-io/honua-sdk-python/issues/194)) ([d9e8058](https://github.com/honua-io/honua-sdk-python/commit/d9e805810b9caace799254eff138dca36244f188))
+
 ## [0.1.7](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.6...python-admin-v0.1.7) (2026-08-05)
 
 

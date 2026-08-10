@@ -1498,6 +1498,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.validate_toolbox_translation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        validate_toolbox_translation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.list_connections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1959,6 +1970,17 @@
     <span class="md-ellipsis">
       
         scan_migration_source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.validate_toolbox_translation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        validate_toolbox_translation
       
     </span>
   </a>
@@ -2627,6 +2649,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.validate_toolbox_translation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        validate_toolbox_translation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.list_connections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3088,6 +3121,17 @@
     <span class="md-ellipsis">
       
         scan_migration_source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.validate_toolbox_translation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        validate_toolbox_translation
       
     </span>
   </a>
@@ -5819,6 +5863,127 @@ that retries are de-duplicated server-side.</p>
     <div class="doc doc-contents ">
 
         <p>POST /api/v1/admin/import/scan</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="honua_admin.HonuaAdminClient.validate_toolbox_translation" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">validate_toolbox_translation</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.HonuaAdminClient.validate_toolbox_translation" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>POST /api/v1/admin/import/toolbox/translation/validate</p>
+<p>Validate an SDK-translated ArcGIS toolbox manifest against the server's
+canonical geoprocessing process catalog, and return the
+server-authoritative per-tool classification.</p>
+<p>The server owns the round-trip proof: it never parses toolbox sources
+and never emulates <code>arcpy</code>. The SDK proposes a mapping; the catalog
+decides whether that mapping is <code>translated</code>,
+<code>partially-translated</code>, or <code>unsupported</code>, and returns the specific
+reasons a tool cannot be fully translated.</p>
+<p>A verdict derived from this call may be presented as <em>server-attested</em>.
+A verdict the SDK computed on its own may not — see
+:func:<code>honua_sdk.migration.attest_translation</code>, which builds an
+attestation report around this method and degrades explicitly (never
+silently) when the server cannot be reached.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>manifest</code>
+            </td>
+            <td>
+                  <code><span title="honua_admin._models.ToolboxTranslationManifest">ToolboxTranslationManifest</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The translated toolbox manifest to validate.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="honua_admin._models.ToolboxTranslationReport">ToolboxTranslationReport</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The server's :class:<code>ToolboxTranslationReport</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Per-request options (<code>timeout</code> / <code>extra_headers</code> /
+<code>idempotency_key</code>) are forwarded to :meth:<code>_request</code>.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError (honua_sdk.http.HonuaHttpError)" href="../../honua-sdk/errors/#honua_sdk.errors.HonuaHttpError">HonuaHttpError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The server rejected the manifest (for example an
+unsupported <code>sourceFormat</code>) or refused the credentials.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="HonuaTransportError">HonuaTransportError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The request failed at the transport layer.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -10822,6 +10987,131 @@ that retries are de-duplicated server-side.</p>
     <div class="doc doc-contents ">
 
         <p>POST /api/v1/admin/import/scan</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="honua_admin.AsyncHonuaAdminClient.validate_toolbox_translation" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">validate_toolbox_translation</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#honua_admin.AsyncHonuaAdminClient.validate_toolbox_translation" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>POST /api/v1/admin/import/toolbox/translation/validate</p>
+<p>Validate an SDK-translated ArcGIS toolbox manifest against the server's
+canonical geoprocessing process catalog, and return the
+server-authoritative per-tool classification.</p>
+<p>The server owns the round-trip proof: it never parses toolbox sources
+and never emulates <code>arcpy</code>. The SDK proposes a mapping; the catalog
+decides whether that mapping is <code>translated</code>,
+<code>partially-translated</code>, or <code>unsupported</code>, and returns the specific
+reasons a tool cannot be fully translated.</p>
+<p>A verdict derived from this call may be presented as <em>server-attested</em>.
+A verdict the SDK computed on its own may not — see
+:func:<code>honua_sdk.migration.attest_translation</code>, which builds an
+attestation report around this method and degrades explicitly (never
+silently) when the server cannot be reached.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>manifest</code>
+            </td>
+            <td>
+                  <code><span title="honua_admin._models.ToolboxTranslationManifest">ToolboxTranslationManifest</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The translated toolbox manifest to validate.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="honua_admin._models.ToolboxTranslationReport">ToolboxTranslationReport</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The server's :class:<code>ToolboxTranslationReport</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Per-request options (<code>timeout</code> / <code>extra_headers</code> /
+<code>idempotency_key</code>) are forwarded to :meth:<code>_request</code>.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError (honua_sdk.http.HonuaHttpError)" href="../../honua-sdk/errors/#honua_sdk.errors.HonuaHttpError">HonuaHttpError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The server rejected the manifest (for example an
+unsupported <code>sourceFormat</code>) or refused the credentials.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="HonuaTransportError">HonuaTransportError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The request failed at the transport layer.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>

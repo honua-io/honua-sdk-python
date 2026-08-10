@@ -1430,6 +1430,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#server-attested-verdicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-attested verdicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#registered-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1499,13 +1510,13 @@ licensed Esri software.</p>
 <tr>
 <td><code>.pyt</code> Python toolbox</td>
 <td><code>parse_pyt_file</code></td>
-<td><code>honua-migrate pyt</code></td>
+<td><code>honua-migrate pyt</code> / <code>translate</code></td>
 <td><code>PytToolbox</code> (per-tool <code>execute</code> body classified)</td>
 </tr>
 <tr>
 <td><code>.atbx</code> ModelBuilder toolbox</td>
 <td><code>parse_atbx_toolbox</code></td>
-<td><code>honua-migrate atbx</code></td>
+<td><code>honua-migrate atbx</code> / <code>translate</code></td>
 <td><code>ModelBuilderToolbox</code> (models + script-tool names)</td>
 </tr>
 <tr>
@@ -1528,7 +1539,12 @@ step, or a GPServer task.</p>
   external <code>.py</code>) are surfaced by name for the caller to scan via the <code>.py</code>
   path. The proprietary binary <strong><code>.tbx</code></strong> format is <strong>not</strong> parsed (it is not
   clean-room readable) -- <code>parse_binary_toolbox</code>/<code>parse_atbx_toolbox</code> raise a
-  clear redirect. Export <code>.tbx</code> to <code>.atbx</code> or <code>.pyt</code> first.</li>
+  clear redirect carrying the concrete ArcGIS Pro export steps
+  (<code>BINARY_TOOLBOX_EXPORT_GUIDANCE</code>). This is a standing policy decision, not an
+  unimplemented stub: Honua never reverse-engineers a proprietary Esri
+  container, and the migration path is always export-to-open-format -- the same
+  rule that governs <code>.loc</code>/<code>.lox</code> locator files. Export <code>.tbx</code> to <code>.atbx</code> or
+  <code>.pyt</code> first.</li>
 <li><strong>GP-service</strong> definitions are public ArcGIS REST API JSON
   (<code>.../GPServer?f=json</code> and per-task <code>.../GPServer/&lt;task&gt;?f=json</code>).</li>
 </ul>
@@ -1545,6 +1561,65 @@ step, or a GPServer task.</p>
 <p>Coverage percentage in the parity-evidence report is gated on
 <em>job-executability</em>, not on how many tools the codemod can parse -- so growing
 the registry never inflates the runnable-coverage number.</p>
+<h2 id="server-attested-verdicts">Server-attested verdicts<a class="headerlink" href="#server-attested-verdicts" title="Permanent link">&para;</a></h2>
+<p>The statuses above are the SDK's <strong>own</strong> view of the Honua process catalog, and
+that view can drift from the server that would actually run the job. For a
+toolbox, <code>honua-migrate</code> can have the server settle it instead:</p>
+<div class="highlight"><pre><span></span><code>honua-migrate<span class="w"> </span>translate<span class="w"> </span>roads.pyt<span class="w"> </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--api-key<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HONUA_ADMIN_API_KEY</span><span class="s2">&quot;</span>
+honua-migrate<span class="w"> </span>pyt<span class="w">   </span>roads.pyt<span class="w">  </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--attestation<span class="w"> </span>attest.json
+honua-migrate<span class="w"> </span>atbx<span class="w">  </span>models.atbx<span class="w"> </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--require-attested
+</code></pre></div>
+<p>Each command builds a translation manifest and posts it to
+<code>POST /api/v1/admin/import/toolbox/translation/validate</code> (honua-server#2145),
+which validates every proposed mapping against the canonical process catalog and
+returns a per-tool <code>translated</code> / <code>partially-translated</code> / <code>unsupported</code>
+classification with the specific reasons a tool cannot be fully translated.</p>
+<p>The emitted report carries an <code>attestation</code> block whose <code>verdictSource</code> is
+either <code>server-attested</code> or <code>local-only</code>:</p>
+<ul>
+<li><strong>The server wins.</strong> Where the server contradicts the SDK, its verdict is the
+  effective one; the local verdict is kept beside it and the disagreement is
+  listed under <code>disagreements</code>. A disagreement means the SDK's registry has
+  drifted from the catalog.</li>
+<li><strong>A local verdict is never labelled attested.</strong> Running without <code>--server</code>, an
+  unreachable server, refused credentials, or a malformed response all produce a
+  complete <code>local-only</code> report with an explicit <code>fallbackReason</code>. There is no
+  partial attestation -- one failed batch un-attests the whole toolbox. Pass
+  <code>--require-attested</code> to make a local-only verdict a non-zero exit instead.</li>
+<li><strong>A response only counts as attestation if it is unambiguously one, and is
+  about the artifact that was submitted.</strong> The report must carry the expected
+  <code>artifactKind</code> and a readable <code>artifactVersion</code> (never defaulted in
+  client-side), its <code>toolboxName</code>/<code>sourceFormat</code> must match what was sent (so a
+  stale or misrouted report cannot attest the wrong toolbox just because tool
+  names happen to collide), and every tool's <code>classification</code> must be one of the
+  three declared values. A 200 that misses either bar -- an error
+  envelope, a proxy page, a newer server's vocabulary -- degrades to
+  <code>local-only</code>, because an accepted-but-unrecognized classification would show as
+  a tool's effective verdict while no summary counter tallied it.</li>
+<li><strong>Every discovered toolbox tool is submitted</strong>, including the ones the reader
+  could only learn the <em>name</em> of:</li>
+<li><code>.atbx</code> script tools -- their logic lives in an external <code>.py</code> the reader
+    does not follow (<code>script_tool_names</code>);</li>
+<li><code>.atbx</code> models whose definition yielded no recognizable step
+    (<code>unresolved_tool_names</code>);</li>
+<li><code>.pyt</code> tools listed in <code>self.tools</code> whose class is imported rather than
+    defined in the file (<code>declared_tool_names</code> minus the materialised tools).</li>
+</ul>
+<p>Those go in with no proposed target -- nothing was read, so nothing is claimed
+  -- and come back <code>unsupported</code>. An attestation can therefore never cover a
+  strict subset of the toolbox while claiming to cover all of it. Scan the
+  referenced script/module with the arcpy <code>.py</code> path to classify them properly.</p>
+<p>Attestation is toolbox-scoped, because the endpoint's manifest declares a
+toolbox <code>sourceFormat</code> (<code>pyt</code> / <code>atbx</code> / <code>tbx</code>). <code>translate</code> on a bare arcpy
+<code>.py</code> script therefore refuses <code>--server</code> rather than inventing a format.</p>
+<p>Auth reuses the existing admin credential path (<code>--api-key</code>, or
+<code>$HONUA_ADMIN_API_KEY</code>), since the endpoint is in the admin import group.
+Attestation needs the <code>honua-admin</code> package installed; without it, the toolbox
+still translates and the report is simply marked <code>local-only</code>.</p>
+<p>Library entry points: <code>honua_sdk.migration.build_pyt_translation_manifest</code> /
+<code>build_atbx_translation_manifest</code> build the manifest, and
+<code>attest_translation(manifest, validator=...)</code> merges a server verdict over it.
+The validator is injected, so the merge logic itself stays offline and pure.</p>
 <h2 id="registered-tools">Registered tools<a class="headerlink" href="#registered-tools" title="Permanent link">&para;</a></h2>
 <p>Job-executable (<code>translatable</code>) targets, gated by <code>EXECUTABLE_PROCESS_IDS</code>:</p>
 <table>
@@ -1618,7 +1693,8 @@ The registry (<code>_SUPPORTED_TOOL_SPECS</code> in <code>honua_sdk/migration/ar
 single source of truth; this table is a human-readable projection of it.</p>
 <h2 id="deferred">Deferred<a class="headerlink" href="#deferred" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Binary <code>.tbx</code> parsing (proprietary, not clean-room readable).</li>
+<li>Binary <code>.tbx</code> parsing -- <strong>will not be implemented</strong> (proprietary container;
+  export-to-open-format is the migration path).</li>
 <li>Resolving an <code>.atbx</code> script tool's referenced <code>.py</code> body automatically
   (today its name is surfaced; point the <code>.py</code> scanner at it).</li>
 <li>Compiled .NET / ArcObjects custom tools (separate track).</li>

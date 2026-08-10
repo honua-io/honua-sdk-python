@@ -25,9 +25,11 @@ from honua_sdk.migration import (
     SOURCE_FORMAT_ATBX,
     SOURCE_FORMAT_PYT,
     SOURCE_FORMAT_TBX,
+    ModelBuilderToolbox,
     TranslationManifest,
     TranslationToolProposal,
     attest_translation,
+    build_atbx_translation_manifest,
     build_pyt_translation_manifest,
     parse_pyt_source,
     resolve_argument_bindings,
@@ -420,18 +422,28 @@ def test_a_failure_with_no_message_still_names_the_failure_type() -> None:
     assert report.fallback_reason == "TimeoutError"
 
 
+_VALID_IDENTITY = {
+    "artifactKind": "honua.migration.toolbox-translation-report",
+    "artifactVersion": "1.0",
+}
+
+
 @pytest.mark.parametrize(
     ("payload", "expected"),
     [
         pytest.param([], "list where a translation report object", id="not-an-object"),
         pytest.param(
-            {"artifactKind": "honua.migration.source-inventory", "tools": []},
+            {"artifactKind": "honua.migration.source-inventory", "artifactVersion": "1.0", "tools": []},
             "artifactKind",
             id="wrong-artifact",
         ),
-        pytest.param({"summary": {}}, "no 'tools' array", id="no-tools"),
-        pytest.param({"tools": ["nope"]}, "non-object tool entry", id="non-object-entry"),
-        pytest.param({"tools": [{"toolName": "BufferRoads"}]}, "toolName/classification", id="no-classification"),
+        pytest.param({**_VALID_IDENTITY, "summary": {}}, "no 'tools' array", id="no-tools"),
+        pytest.param({**_VALID_IDENTITY, "tools": ["nope"]}, "non-object tool entry", id="non-object-entry"),
+        pytest.param(
+            {**_VALID_IDENTITY, "tools": [{"toolName": "BufferRoads"}]},
+            "toolName/classification",
+            id="no-classification",
+        ),
     ],
 )
 def test_a_malformed_server_report_degrades_to_local_only(payload: object, expected: str) -> None:
@@ -497,3 +509,203 @@ def test_a_batch_failing_after_a_successful_one_degrades_the_whole_report() -> N
     assert report.attested is False
     assert report.verdict_source == LOCAL_ONLY
     assert all(verdict.agreement == AGREEMENT_NOT_ATTESTED for verdict in report.tools)
+
+
+# ---------------------------------------------------------------------------
+# Review regressions (honua-sdk-python#188): three ways a report could have
+# claimed `attested: true` while not actually being fully attested.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        pytest.param(
+            {"artifactVersion": "1.0", "toolboxName": "T", "sourceFormat": "pyt", "tools": []},
+            "artifactKind None",
+            id="missing-artifact-kind",
+        ),
+        pytest.param(
+            {
+                "artifactKind": "honua.migration.toolbox-translation-report",
+                "toolboxName": "T",
+                "sourceFormat": "pyt",
+                "tools": [],
+            },
+            "artifactVersion None",
+            id="missing-artifact-version",
+        ),
+        pytest.param(
+            {**_VALID_IDENTITY, "artifactVersion": "2.0", "tools": []},
+            "artifactVersion '2.0'",
+            id="unreadable-artifact-version",
+        ),
+    ],
+)
+def test_a_report_without_a_usable_artifact_identity_is_not_attested(payload: dict, expected: str) -> None:
+    """A 200 that does not identify itself as a v1 report cannot back attestation.
+
+    The genuine endpoint always stamps both identity fields. Treating them as
+    optional -- or letting the response model default them in -- would make an
+    error envelope, a proxy page, or a different API's payload indistinguishable
+    from a real report.
+    """
+
+    report = attest_translation(_manifest(), validator=lambda batch: payload)
+
+    assert report.attested is False
+    assert report.verdict_source == LOCAL_ONLY
+    assert report.fallback_reason is not None
+    assert expected in report.fallback_reason
+    assert all(verdict.server_classification is None for verdict in report.tools)
+
+
+def test_an_admin_report_missing_its_identity_is_not_attested_end_to_end() -> None:
+    """The admin response model must not paper over a missing identity.
+
+    This is the real CLI path: the admin client parses the response into
+    ``ToolboxTranslationReport`` and hands ``to_dict()`` to the attestation
+    layer. If the model defaulted the identity fields, that layer would receive
+    a perfectly-formed v1 report and mark a malformed response attested.
+    """
+
+    from honua_admin import ToolboxTranslationReport
+
+    manifest = _manifest()
+
+    def validator(batch: TranslationManifest) -> dict[str, object]:
+        # A 200 body with no artifactKind/artifactVersion at all.
+        body = {
+            "toolboxName": batch.toolbox_name,
+            "sourceFormat": batch.source_format,
+            "summary": {},
+            "tools": [
+                {"toolName": tool.tool_name, "classification": CLASSIFICATION_TRANSLATED}
+                for tool in batch.tools
+            ],
+        }
+        return ToolboxTranslationReport.from_dict(body).to_dict()
+
+    report = attest_translation(manifest, validator=validator, server="https://honua.test")
+
+    assert report.attested is False
+    assert report.verdict_source == LOCAL_ONLY
+    assert "artifactKind" in str(report.fallback_reason)
+
+
+@pytest.mark.parametrize("classification", ["manual-review", "translated-v2", "TRANSLATED", ""])
+def test_a_classification_outside_the_vocabulary_is_not_attested(classification: str) -> None:
+    """An unknown classification would produce an attestation that does not add up.
+
+    The summary counts tools by exactly the three declared values, so a fourth
+    value would appear as a tool's effective classification while no counter
+    included it. Refuse the report instead of emitting an inconsistent one.
+    """
+
+    manifest = _manifest()
+
+    def validator(batch: TranslationManifest) -> dict[str, object]:
+        payload = _server_report(batch)
+        tools = payload["tools"]
+        assert isinstance(tools, list)
+        tools[0]["classification"] = classification
+        return payload
+
+    report = attest_translation(manifest, validator=validator, server="https://honua.test")
+
+    assert report.attested is False
+    assert report.verdict_source == LOCAL_ONLY
+    assert report.fallback_reason is not None
+    assert "outside this report format's vocabulary" in report.fallback_reason
+    # Nothing from the refused response leaks into the local-only report.
+    assert all(verdict.server_classification is None for verdict in report.tools)
+    assert all(verdict.agreement == AGREEMENT_NOT_ATTESTED for verdict in report.tools)
+
+
+def test_an_attested_report_summary_accounts_for_every_tool() -> None:
+    """The invariant the vocabulary check exists to protect."""
+
+    manifest = _manifest()
+    report = attest_translation(manifest, validator=lambda batch: _server_report(batch))
+    summary = report.to_dict()["summary"]
+
+    assert report.attested is True
+    counted = (
+        summary["translatedCount"] + summary["partiallyTranslatedCount"] + summary["unsupportedCount"]
+    )
+    assert counted == summary["toolCount"] == len(manifest.tools)
+
+
+def test_atbx_manifest_includes_script_tools_alongside_models() -> None:
+    """Script tools must be submitted, not silently omitted.
+
+    ``parse_atbx_toolbox`` records a script tool by name only (its logic lives
+    in an external .py the reader does not follow). Building the manifest from
+    ``models`` alone let the server return a clean report for a strict subset of
+    the toolbox, which the CLI then presented as a whole-toolbox attestation
+    (honua-sdk-python#188 review).
+    """
+
+    toolbox = ModelBuilderToolbox(
+        filename="/home/operator/private/wf.atbx",
+        models=(),
+        script_tool_names=("LegacyScriptTool", "AnotherScript"),
+    )
+
+    manifest = build_atbx_translation_manifest(toolbox)
+
+    assert [tool.tool_name for tool in manifest.tools] == ["LegacyScriptTool", "AnotherScript"]
+    for tool in manifest.tools:
+        # No native target may be proposed: the translator never read the body.
+        assert tool.target_process_id is None
+        assert tool.local_classification == CLASSIFICATION_UNSUPPORTED
+        assert any("script tool" in construct for construct in tool.unsupported_constructs)
+        assert any("arcpy .py scanner" in construct for construct in tool.unsupported_constructs)
+
+
+def test_atbx_attestation_covers_every_discovered_tool(tmp_path) -> None:
+    """End-to-end: an .atbx holding both a model and a script tool."""
+
+    import io
+    import json as _json
+    import zipfile
+
+    from honua_sdk.migration import parse_atbx_toolbox
+
+    model = {
+        "name": "BufferModel",
+        "processes": [
+            {
+                "toolName": "Buffer",
+                "toolbox": "analysis",
+                "parameters": {
+                    "in_features": "a",
+                    "out_feature_class": "b",
+                    "buffer_distance_or_field": "5 Meters",
+                },
+            }
+        ],
+    }
+    script_tool = {"name": "LegacyScriptTool", "type": "script", "script": "legacy.py"}
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("BufferModel.tool/tool.content", _json.dumps(model))
+        archive.writestr("LegacyScriptTool.tool/tool.content", _json.dumps(script_tool))
+    path = tmp_path / "wf.atbx"
+    path.write_bytes(buffer.getvalue())
+
+    toolbox = parse_atbx_toolbox(path)
+    assert toolbox.models, "fixture should parse one model"
+    assert toolbox.script_tool_names == ("LegacyScriptTool",), "fixture should record one script tool"
+
+    manifest = build_atbx_translation_manifest(toolbox)
+    submitted = [tool.tool_name for tool in manifest.tools]
+    assert "BufferModel" in submitted
+    assert "LegacyScriptTool" in submitted
+
+    report = attest_translation(manifest, validator=lambda batch: _server_report(batch))
+
+    assert report.attested is True
+    # The attestation covers the whole toolbox, not just its models.
+    assert {verdict.tool_name for verdict in report.tools} == {"BufferModel", "LegacyScriptTool"}
+    assert report.to_dict()["summary"]["toolCount"] == 2

@@ -3850,13 +3850,13 @@
               "name": "tools"
             },
             {
-              "annotation": "str",
-              "default": "'honua.migration.toolbox-translation-report'",
+              "annotation": "str | None",
+              "default": "None",
               "name": "artifact_kind"
             },
             {
-              "annotation": "str",
-              "default": "'1.0'",
+              "annotation": "str | None",
+              "default": "None",
               "name": "artifact_version"
             }
           ],
@@ -3873,7 +3873,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "ToolboxTranslationReport",
-          "signature": "(toolbox_name: 'str', source_format: 'str', summary: 'ToolboxTranslationSummary' = <factory>, tools: 'list[ToolboxToolTranslation]' = <factory>, artifact_kind: 'str' = 'honua.migration.toolbox-translation-report', artifact_version: 'str' = '1.0') -> None"
+          "signature": "(toolbox_name: 'str', source_format: 'str', summary: 'ToolboxTranslationSummary' = <factory>, tools: 'list[ToolboxToolTranslation]' = <factory>, artifact_kind: 'str | None' = None, artifact_version: 'str | None' = None) -> None"
         },
         "ToolboxTranslationSummary": {
           "fields": [

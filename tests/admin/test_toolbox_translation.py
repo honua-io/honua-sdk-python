@@ -199,8 +199,38 @@ def test_report_from_dict_tolerates_a_sparse_payload() -> None:
 
     assert report.summary.tool_count == 0
     assert report.tools == []
-    assert report.artifact_kind == TOOLBOX_TRANSLATION_REPORT_KIND
-    assert report.to_dict()["artifactKind"] == TOOLBOX_TRANSLATION_REPORT_KIND
+
+
+def test_report_from_dict_never_synthesises_a_missing_artifact_identity() -> None:
+    """A 200 without artifactKind/artifactVersion must stay identity-less.
+
+    Defaulting these to the expected values would make a malformed or
+    non-translation-report response indistinguishable from a genuine v1 report,
+    and the attestation layer -- which consumes ``to_dict()`` -- would then have
+    nothing left to reject it on (honua-sdk-python#188 review).
+    """
+
+    from honua_admin import ToolboxTranslationReport
+
+    report = ToolboxTranslationReport.from_dict(
+        {"toolboxName": "T", "sourceFormat": "pyt", "tools": []}
+    )
+
+    assert report.artifact_kind is None
+    assert report.artifact_version is None
+    payload = report.to_dict()
+    assert "artifactKind" not in payload
+    assert "artifactVersion" not in payload
+
+
+def test_report_round_trips_a_present_artifact_identity_first() -> None:
+    from honua_admin import ToolboxTranslationReport
+
+    payload = ToolboxTranslationReport.from_dict(_REPORT).to_dict()
+
+    assert list(payload)[:2] == ["artifactKind", "artifactVersion"]
+    assert payload["artifactKind"] == TOOLBOX_TRANSLATION_REPORT_KIND
+    assert payload["artifactVersion"] == "1.0"
 
 
 @pytest.mark.anyio

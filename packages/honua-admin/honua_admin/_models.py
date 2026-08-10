@@ -1722,14 +1722,22 @@ class ToolboxTranslationReport:
     canonical process catalog — not the SDK's local view of it — decides every
     ``classification`` here, which is what makes a report built from this
     *server-attested* rather than a local assertion.
+
+    ``artifact_kind`` / ``artifact_version`` are deliberately **not** defaulted
+    to the expected identity: they stay ``None`` when the response omitted them.
+    The genuine endpoint always stamps both, so their absence is evidence that
+    the payload is not a translation report — and stamping a plausible identity
+    here would erase exactly the evidence a caller needs to refuse the response.
+    :func:`honua_sdk.migration.attest_translation` requires both fields before it
+    will call a verdict attested, and this round-trips their absence to it.
     """
 
     toolbox_name: str
     source_format: str
     summary: ToolboxTranslationSummary = field(default_factory=ToolboxTranslationSummary)
     tools: list[ToolboxToolTranslation] = field(default_factory=list)
-    artifact_kind: str = TOOLBOX_TRANSLATION_REPORT_KIND
-    artifact_version: str = TOOLBOX_TRANSLATION_ARTIFACT_VERSION
+    artifact_kind: str | None = None
+    artifact_version: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ToolboxTranslationReport:
@@ -1741,17 +1749,16 @@ class ToolboxTranslationReport:
             else ToolboxTranslationSummary()
         )
         d["tools"] = _model_list(ToolboxToolTranslation, d.get("tools", []))
-        d.setdefault("artifact_kind", TOOLBOX_TRANSLATION_REPORT_KIND)
-        d.setdefault("artifact_version", TOOLBOX_TRANSLATION_ARTIFACT_VERSION)
         return cls(**_extract_fields(cls, d))
 
     def to_dict(self) -> dict[str, Any]:
+        # An omitted identity stays omitted, so a consumer of this dict sees the
+        # response the server actually sent.
         d = _dataclass_to_camel_dict(self)
-        return {
-            "artifactKind": d.pop("artifactKind"),
-            "artifactVersion": d.pop("artifactVersion"),
-            **d,
+        identity: dict[str, Any] = {
+            key: d.pop(key) for key in ("artifactKind", "artifactVersion") if key in d
         }
+        return {**identity, **d}
 
 
 # ---------------------------------------------------------------------------

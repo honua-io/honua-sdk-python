@@ -84,6 +84,19 @@ either `server-attested` or `local-only`:
   complete `local-only` report with an explicit `fallbackReason`. There is no
   partial attestation -- one failed batch un-attests the whole toolbox. Pass
   `--require-attested` to make a local-only verdict a non-zero exit instead.
+* **A response only counts as attestation if it is unambiguously one.** The
+  report must carry the expected `artifactKind` and a readable `artifactVersion`
+  (never defaulted in client-side), and every tool's `classification` must be one
+  of the three declared values. A 200 that misses either bar -- an error
+  envelope, a proxy page, a newer server's vocabulary -- degrades to
+  `local-only`, because an accepted-but-unrecognized classification would show as
+  a tool's effective verdict while no summary counter tallied it.
+* **Every discovered toolbox tool is submitted.** For a `.atbx` that means the
+  ModelBuilder models *and* the script tools, which the reader records by name
+  only (their logic lives in an external `.py` it does not follow). Script tools
+  go in with no proposed target and come back `unsupported`, so an attestation
+  can never cover a strict subset of the toolbox while claiming to cover all of
+  it.
 
 Attestation is toolbox-scoped, because the endpoint's manifest declares a
 toolbox `sourceFormat` (`pyt` / `atbx` / `tbx`). `translate` on a bare arcpy

@@ -53,6 +53,23 @@ CLASSIFICATION_TRANSLATED = "translated"
 CLASSIFICATION_PARTIALLY_TRANSLATED = "partially-translated"
 CLASSIFICATION_UNSUPPORTED = "unsupported"
 
+#: The complete classification vocabulary this report format understands.
+#:
+#: The summary counts tools by exactly these three values, so a fourth value --
+#: from a newer server, a rewriting proxy, or a malformed response -- would
+#: appear as a tool's effective classification while no counter included it.
+#: That is an internally inconsistent artifact, so an unrecognized
+#: classification degrades the report to ``local-only`` instead of being
+#: attested. Widening the vocabulary is a deliberate change here, not something
+#: a response gets to do at runtime.
+CLASSIFICATIONS: frozenset[str] = frozenset(
+    {
+        CLASSIFICATION_TRANSLATED,
+        CLASSIFICATION_PARTIALLY_TRANSLATED,
+        CLASSIFICATION_UNSUPPORTED,
+    }
+)
+
 #: Agreement between the local and server verdict for one tool.
 AGREEMENT_AGREED = "agreed"
 AGREEMENT_DISAGREED = "disagreed"
@@ -64,7 +81,17 @@ MANIFEST_ARTIFACT_KIND = "honua.migration.toolbox-translation"
 MANIFEST_ARTIFACT_VERSION = "1.0"
 
 #: Artifact identity the server stamps on the report it returns.
+#:
+#: This is *required* on an attested response, not optional. The genuine
+#: endpoint always emits both fields, so their absence means the payload came
+#: from something else -- a proxy, an error envelope, a different API -- and
+#: cannot back an attestation claim. Client-side parsing must never fill them
+#: in: a locally-manufactured identity would make a malformed response
+#: indistinguishable from a real v1 report.
 REPORT_ARTIFACT_KIND = "honua.migration.toolbox-translation-report"
+
+#: Report schema versions this client knows how to read.
+SUPPORTED_REPORT_VERSIONS: frozenset[str] = frozenset({"1.0"})
 
 #: Schema id for the merged attestation artifact this module emits.
 ATTESTATION_SCHEMA = "honua.migration.toolbox-translation-attestation/v1"
@@ -376,10 +403,21 @@ def _parse_report(payload: Any, batch: TranslationManifest) -> dict[str, JsonObj
             f"The server returned a {type(payload).__name__} where a translation report object was expected."
         )
 
+    # Artifact identity is REQUIRED, not merely consistent-if-present. The
+    # genuine endpoint always stamps both fields, so a payload without them is
+    # not a translation report and must not back an attestation claim.
     artifact_kind = payload.get("artifactKind")
-    if artifact_kind is not None and artifact_kind != REPORT_ARTIFACT_KIND:
+    if artifact_kind != REPORT_ARTIFACT_KIND:
         raise TranslationAttestationError(
-            f"The server returned artifactKind {artifact_kind!r}, not {REPORT_ARTIFACT_KIND!r}."
+            f"The server returned artifactKind {artifact_kind!r}, not {REPORT_ARTIFACT_KIND!r}; "
+            "the response cannot be trusted as a translation report."
+        )
+
+    artifact_version = payload.get("artifactVersion")
+    if artifact_version not in SUPPORTED_REPORT_VERSIONS:
+        raise TranslationAttestationError(
+            f"The server returned artifactVersion {artifact_version!r}; this client reads "
+            f"{', '.join(sorted(SUPPORTED_REPORT_VERSIONS))}."
         )
 
     tools = payload.get("tools")
@@ -396,6 +434,13 @@ def _parse_report(payload: Any, batch: TranslationManifest) -> dict[str, JsonObj
         if not isinstance(tool_name, str) or not isinstance(classification, str):
             raise TranslationAttestationError(
                 "The server report contains a tool entry without a toolName/classification pair."
+            )
+        if classification not in CLASSIFICATIONS:
+            # Accepting it would put a value in `classification` that no summary
+            # counter tallies, producing an attested report that does not add up.
+            raise TranslationAttestationError(
+                f"The server classified {tool_name!r} as {classification!r}, which is outside this "
+                f"report format's vocabulary ({', '.join(sorted(CLASSIFICATIONS))})."
             )
         if tool_name not in submitted:
             raise TranslationAttestationError(
@@ -512,7 +557,22 @@ def build_atbx_translation_manifest(
     *,
     source_format: str = SOURCE_FORMAT_ATBX,
 ) -> TranslationManifest:
-    """Build the validation manifest for a parsed ``.atbx`` ModelBuilder toolbox."""
+    """Build the validation manifest for a parsed ``.atbx`` ModelBuilder toolbox.
+
+    A ``.atbx`` holds two kinds of tool. ModelBuilder **models** carry their
+    geoprocessing steps inline and are translated. **Script tools** only
+    reference an external Python body the reader deliberately does not follow,
+    so `parse_atbx_toolbox` surfaces them by name in
+    :attr:`~honua_sdk.migration.ModelBuilderToolbox.script_tool_names`.
+
+    Both go into the manifest. Submitting only the models would let the server
+    return a clean report for a toolbox whose script tools were never
+    classified, and the attestation would then cover a strict subset of the
+    toolbox while claiming to cover all of it. Script tools are therefore
+    submitted with no proposed target, which is the honest statement -- the
+    translator has not established that they map to anything -- and the server
+    reports them ``unsupported``.
+    """
 
     return TranslationManifest(
         toolbox_name=_toolbox_name(None, toolbox.filename),
@@ -520,10 +580,39 @@ def build_atbx_translation_manifest(
         source_label=_source_label(toolbox.filename),
         tools=tuple(
             _flatten(
-                _proposals_for_tool(model.name, model.label, [step.call for step in model.steps])
-                for model in toolbox.models
+                [
+                    *(
+                        _proposals_for_tool(model.name, model.label, [step.call for step in model.steps])
+                        for model in toolbox.models
+                    ),
+                    *(_script_tool_proposals(toolbox.script_tool_names),),
+                ]
             )
         ),
+    )
+
+
+def _script_tool_proposals(script_tool_names: Sequence[str]) -> tuple[TranslationToolProposal, ...]:
+    """Propose each ``.atbx`` script tool as explicitly unclassified-by-the-SDK.
+
+    The referenced ``.py`` body is not read here (point the arcpy script scanner
+    at it separately), so no native target can be proposed and no coverage may
+    be claimed. The tool still has to appear in the manifest so the report's
+    tool count matches the toolbox.
+    """
+
+    return tuple(
+        TranslationToolProposal(
+            tool_name=name.strip(),
+            local_classification=CLASSIFICATION_UNSUPPORTED,
+            unsupported_constructs=(
+                f"'{name.strip()}' is a script tool: its geoprocessing logic lives in an external "
+                "Python script the .atbx reader does not follow, so no native process mapping has "
+                "been established. Scan that script with the arcpy .py scanner to classify it.",
+            ),
+        )
+        for name in script_tool_names
+        if name and name.strip()
     )
 
 

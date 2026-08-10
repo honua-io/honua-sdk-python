@@ -84,10 +84,13 @@ either `server-attested` or `local-only`:
   complete `local-only` report with an explicit `fallbackReason`. There is no
   partial attestation -- one failed batch un-attests the whole toolbox. Pass
   `--require-attested` to make a local-only verdict a non-zero exit instead.
-* **A response only counts as attestation if it is unambiguously one.** The
-  report must carry the expected `artifactKind` and a readable `artifactVersion`
-  (never defaulted in client-side), and every tool's `classification` must be one
-  of the three declared values. A 200 that misses either bar -- an error
+* **A response only counts as attestation if it is unambiguously one, and is
+  about the artifact that was submitted.** The report must carry the expected
+  `artifactKind` and a readable `artifactVersion` (never defaulted in
+  client-side), its `toolboxName`/`sourceFormat` must match what was sent (so a
+  stale or misrouted report cannot attest the wrong toolbox just because tool
+  names happen to collide), and every tool's `classification` must be one of the
+  three declared values. A 200 that misses either bar -- an error
   envelope, a proxy page, a newer server's vocabulary -- degrades to
   `local-only`, because an accepted-but-unrecognized classification would show as
   a tool's effective verdict while no summary counter tallied it.

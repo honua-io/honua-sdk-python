@@ -420,6 +420,28 @@ def _parse_report(payload: Any, batch: TranslationManifest) -> dict[str, JsonObj
             f"{', '.join(sorted(SUPPORTED_REPORT_VERSIONS))}."
         )
 
+    # A report is only evidence about the artifact it was asked about. Matching
+    # tool names are not enough: two toolboxes can share tool names, and a stale
+    # or misrouted response would then attest the wrong artifact entirely. The
+    # server echoes both fields back for exactly this purpose, so bind to them.
+    reported_toolbox = payload.get("toolboxName")
+    if not isinstance(reported_toolbox, str) or reported_toolbox.strip() != batch.toolbox_name.strip():
+        raise TranslationAttestationError(
+            f"The server report is for toolbox {reported_toolbox!r}, not the submitted "
+            f"{batch.toolbox_name!r}; it cannot attest this toolbox."
+        )
+
+    reported_format = payload.get("sourceFormat")
+    if (
+        not isinstance(reported_format, str)
+        # The server normalises sourceFormat to lower case on the way out.
+        or reported_format.strip().casefold() != batch.source_format.strip().casefold()
+    ):
+        raise TranslationAttestationError(
+            f"The server report is for sourceFormat {reported_format!r}, not the submitted "
+            f"{batch.source_format!r}; it cannot attest this toolbox."
+        )
+
     tools = payload.get("tools")
     if not isinstance(tools, list):
         raise TranslationAttestationError("The server report carries no 'tools' array.")

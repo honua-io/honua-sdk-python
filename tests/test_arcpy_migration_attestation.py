@@ -422,9 +422,14 @@ def test_a_failure_with_no_message_still_names_the_failure_type() -> None:
     assert report.fallback_reason == "TimeoutError"
 
 
+# Everything a report needs before the per-tool checks are reached: the v1
+# artifact identity plus the binding back to the submitted toolbox. Cases below
+# break exactly one thing at a time on top of this.
 _VALID_IDENTITY = {
     "artifactKind": "honua.migration.toolbox-translation-report",
     "artifactVersion": "1.0",
+    "toolboxName": "Roads Toolbox",
+    "sourceFormat": "pyt",
 }
 
 
@@ -433,7 +438,7 @@ _VALID_IDENTITY = {
     [
         pytest.param([], "list where a translation report object", id="not-an-object"),
         pytest.param(
-            {"artifactKind": "honua.migration.source-inventory", "artifactVersion": "1.0", "tools": []},
+            {**_VALID_IDENTITY, "artifactKind": "honua.migration.source-inventory", "tools": []},
             "artifactKind",
             id="wrong-artifact",
         ),
@@ -925,3 +930,59 @@ def test_atbx_manifest_covers_models_script_tools_and_unresolved_together(tmp_pa
         summary["translatedCount"] + summary["partiallyTranslatedCount"] + summary["unsupportedCount"]
         == 3
     )
+
+
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        pytest.param({"toolboxName": "SomeOtherToolbox"}, "not the submitted", id="wrong-toolbox"),
+        pytest.param({"toolboxName": None}, "not the submitted", id="missing-toolbox"),
+        pytest.param({"sourceFormat": "atbx"}, "sourceFormat", id="wrong-source-format"),
+        pytest.param({"sourceFormat": None}, "sourceFormat", id="missing-source-format"),
+    ],
+)
+def test_a_report_for_a_different_artifact_is_not_attested(override: dict, expected: str) -> None:
+    """A report only attests the artifact it was asked about.
+
+    Matching tool names are not enough — two toolboxes can share them — so a
+    stale or misrouted response would otherwise attest the wrong artifact
+    entirely (honua-sdk-python#188 review).
+    """
+
+    manifest = _manifest()
+
+    def validator(batch: TranslationManifest) -> dict[str, object]:
+        return {**_server_report(batch), **override}
+
+    report = attest_translation(manifest, validator=validator, server="https://honua.test")
+
+    assert report.attested is False
+    assert report.verdict_source == LOCAL_ONLY
+    assert report.fallback_reason is not None
+    assert expected in report.fallback_reason
+    assert all(verdict.server_classification is None for verdict in report.tools)
+
+
+def test_report_binding_tolerates_the_servers_own_normalisation() -> None:
+    """The server trims the name and lower-cases the format; that must still bind."""
+
+    manifest = TranslationManifest(
+        toolbox_name="Roads Toolbox",
+        source_format="pyt",
+        tools=(
+            TranslationToolProposal(
+                tool_name="A", local_classification=CLASSIFICATION_UNSUPPORTED
+            ),
+        ),
+    )
+
+    def validator(batch: TranslationManifest) -> dict[str, object]:
+        payload = _server_report(batch)
+        # Exactly what the endpoint does: Trim() the name, ToLowerInvariant() the format.
+        payload["toolboxName"] = "  Roads Toolbox  "
+        payload["sourceFormat"] = "PYT"
+        return payload
+
+    report = attest_translation(manifest, validator=validator)
+
+    assert report.attested is True

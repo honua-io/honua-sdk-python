@@ -585,7 +585,9 @@ def build_atbx_translation_manifest(
                         _proposals_for_tool(model.name, model.label, [step.call for step in model.steps])
                         for model in toolbox.models
                     ),
-                    *(_script_tool_proposals(toolbox.script_tool_names),),
+                    # One more group, so a script tool sharing a model's name is
+                    # disambiguated by _flatten rather than rejected by the server.
+                    _script_tool_proposals(toolbox.script_tool_names),
                 ]
             )
         ),

@@ -48,14 +48,11 @@ The service reads the shared demo environment contract:
 
 ## Try the routes
 
-```bash
-# List catalog services
-curl 'http://localhost:8000/services'
+Open these URLs in a browser or an API client after starting the service:
 
-# Query features (optionally filtered by attribute and/or bbox)
-curl 'http://localhost:8000/features?where=1%3D1&limit=10'
-curl 'http://localhost:8000/features?bbox=-158,21,-157,22'
-```
+- list catalog services: <http://localhost:8000/services>
+- query features by attribute: <http://localhost:8000/features?where=1%3D1&limit=10>
+- query features by bounding box: <http://localhost:8000/features?bbox=-158,21,-157,22>
 
 `bbox` is `minx,miny,maxx,maxy` in EPSG:4326. An invalid bbox returns HTTP 422.
 

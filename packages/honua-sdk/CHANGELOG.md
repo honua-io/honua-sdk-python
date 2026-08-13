@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.10...python-sdk-v0.1.11) (2026-08-10)
+
+
+### Features
+
+* **migration:** server-attested toolbox translation verdicts ([#194](https://github.com/honua-io/honua-sdk-python/issues/194)) ([d9e8058](https://github.com/honua-io/honua-sdk-python/commit/d9e805810b9caace799254eff138dca36244f188))
+
 ## [0.1.10](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.9...python-sdk-v0.1.10) (2026-08-05)
 
 

@@ -3405,7 +3405,7 @@ services. Both clients share the data-plane configuration model
 overview that applies to both packages.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_admin</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaAdminClient</span>
 
-<span class="k">with</span> <span class="n">HonuaAdminClient</span><span class="p">(</span><span class="s2">&quot;https://admin.your-honua-server.com&quot;</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">admin</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaAdminClient</span><span class="p">(</span><span class="s2">"https://admin.your-honua-server.com"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">)</span> <span class="k">as</span> <span class="n">admin</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">admin</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
 <p><strong>See also</strong>: <a href="../../honua-sdk/clients/">honua-sdk Clients</a> for the data-plane

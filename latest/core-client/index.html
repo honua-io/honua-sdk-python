@@ -1607,13 +1607,13 @@ server JSON, and adds typed wrappers for common early-adopter workflows.</p>
 <p>Use <code>list_services()</code> when you need the raw <code>/rest/services</code> payload:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">payload</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
 <p>Use <code>list_service_summaries()</code> when you want typed service entries:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_service_summaries</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">service</span> <span class="ow">in</span> <span class="n">services</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">service</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
@@ -1624,13 +1624,13 @@ feature flags before choosing an optional surface. <code>supports()</code> check
 protocol or feature name:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">capabilities</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">capabilities</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">capabilities</span><span class="o">.</span><span class="n">supports</span><span class="p">(</span><span class="s2">&quot;stac&quot;</span><span class="p">):</span>
-        <span class="n">items</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">stac</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s2">&quot;imagery&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">capabilities</span><span class="o">.</span><span class="n">supports</span><span class="p">(</span><span class="s2">"stac"</span><span class="p">):</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">stac</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">(</span><span class="s2">"imagery"</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">client</span><span class="o">.</span><span class="n">supports</span><span class="p">(</span><span class="s2">&quot;geoservices-feature-service&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">client</span><span class="o">.</span><span class="n">supports</span><span class="p">(</span><span class="s2">"geoservices-feature-service"</span><span class="p">):</span>
         <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_service_summaries</span><span class="p">()</span>
 </code></pre></div>
 <p>Older servers that do not expose <code>/api/v1/capabilities</code> fall back to readiness
@@ -1643,20 +1643,20 @@ the shared Source/Query/Result API. <code>client.source(...)</code> binds a
 the same normalized features:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">parcels</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
         <span class="n">SourceDescriptor</span><span class="p">(</span>
-            <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
-            <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;geoservices-feature-service&quot;</span><span class="p">,</span>
-            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
 
     <span class="n">result</span> <span class="o">=</span> <span class="n">parcels</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
         <span class="n">Query</span><span class="p">(</span>
-            <span class="n">where</span><span class="o">=</span><span class="s2">&quot;status = &#39;active&#39;&quot;</span><span class="p">,</span>
-            <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;objectid&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">],</span>
-            <span class="n">pagination</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;limit&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">},</span>
+            <span class="n">where</span><span class="o">=</span><span class="s2">"status = 'active'"</span><span class="p">,</span>
+            <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"objectid"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">,</span> <span class="s2">"status"</span><span class="p">],</span>
+            <span class="n">pagination</span><span class="o">=</span><span class="p">{</span><span class="s2">"limit"</span><span class="p">:</span> <span class="mi">2000</span><span class="p">},</span>
         <span class="p">)</span>
     <span class="p">)</span>
 
@@ -1684,29 +1684,29 @@ streams normalized features from FeatureServer, OGC API Features, STAC, or
 OData:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureQuery</span><span class="p">,</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">ogc_features</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-        <span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
-        <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;ogc-features&quot;</span><span class="p">,</span>
-        <span class="nb">filter</span><span class="o">=</span><span class="s2">&quot;status = &#39;active&#39;&quot;</span><span class="p">,</span>
+        <span class="s2">"parcels"</span><span class="p">,</span>
+        <span class="n">protocol</span><span class="o">=</span><span class="s2">"ogc-features"</span><span class="p">,</span>
+        <span class="nb">filter</span><span class="o">=</span><span class="s2">"status = 'active'"</span><span class="p">,</span>
         <span class="n">bbox</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">180</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="mi">90</span><span class="p">],</span>
-        <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">],</span>
+        <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"name"</span><span class="p">,</span> <span class="s2">"status"</span><span class="p">],</span>
         <span class="n">limit</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="n">odata_features</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-        <span class="s2">&quot;4&quot;</span><span class="p">,</span>
-        <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;odata&quot;</span><span class="p">,</span>
-        <span class="nb">filter</span><span class="o">=</span><span class="s2">&quot;Status eq &#39;active&#39;&quot;</span><span class="p">,</span>
-        <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ObjectId&quot;</span><span class="p">,</span> <span class="s2">&quot;Name&quot;</span><span class="p">],</span>
+        <span class="s2">"4"</span><span class="p">,</span>
+        <span class="n">protocol</span><span class="o">=</span><span class="s2">"odata"</span><span class="p">,</span>
+        <span class="nb">filter</span><span class="o">=</span><span class="s2">"Status eq 'active'"</span><span class="p">,</span>
+        <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"ObjectId"</span><span class="p">,</span> <span class="s2">"Name"</span><span class="p">],</span>
         <span class="n">limit</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="n">stac_items</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
         <span class="n">FeatureQuery</span><span class="p">(</span>
-            <span class="n">source</span><span class="o">=</span><span class="s2">&quot;imagery&quot;</span><span class="p">,</span>
-            <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;stac&quot;</span><span class="p">,</span>
-            <span class="nb">filter</span><span class="o">=</span><span class="s2">&quot;eo:cloud_cover &lt; 10&quot;</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="s2">"imagery"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"stac"</span><span class="p">,</span>
+            <span class="nb">filter</span><span class="o">=</span><span class="s2">"eo:cloud_cover &lt; 10"</span><span class="p">,</span>
             <span class="n">bbox</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">180</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="mi">90</span><span class="p">],</span>
             <span class="n">limit</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
         <span class="p">)</span>
@@ -1724,16 +1724,16 @@ the FeatureServer-shaped wrapper; prefer the <code>Source</code> facade in new c
 </blockquote>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">feature_set</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_feature_set</span><span class="p">(</span>
-        <span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
+        <span class="n">service_id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span>
         <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-        <span class="n">where</span><span class="o">=</span><span class="s2">&quot;status = &#39;active&#39;&quot;</span><span class="p">,</span>
-        <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;objectid&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">],</span>
+        <span class="n">where</span><span class="o">=</span><span class="s2">"status = 'active'"</span><span class="p">,</span>
+        <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"objectid"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">,</span> <span class="s2">"status"</span><span class="p">],</span>
     <span class="p">)</span>
 
     <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">feature_set</span><span class="o">.</span><span class="n">features</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">object_id</span><span class="p">,</span> <span class="n">feature</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">object_id</span><span class="p">,</span> <span class="n">feature</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span>
 </code></pre></div>
 <p>The raw response is preserved on <code>FeatureSet.raw</code> and <code>Feature.raw</code> for fields
 that are not lifted into typed attributes.</p>
@@ -1743,16 +1743,16 @@ and <code>resultRecordCount</code>. Use <code>client.feature_server(service_id).
 or <code>query_items()</code> when you want to stream pages or individual typed features:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">features</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features_all</span><span class="p">(</span>
-        <span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
+        <span class="n">service_id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span>
         <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-        <span class="n">where</span><span class="o">=</span><span class="s2">&quot;1=1&quot;</span><span class="p">,</span>
+        <span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">,</span>
         <span class="n">page_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
         <span class="n">limit</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">feature_server</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">feature_server</span><span class="p">(</span><span class="s2">&quot;parcels&quot;</span><span class="p">)</span>
+    <span class="n">feature_server</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">feature_server</span><span class="p">(</span><span class="s2">"parcels"</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">feature_server</span><span class="o">.</span><span class="n">query_pages</span><span class="p">(</span><span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">2000</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">),</span> <span class="n">page</span><span class="o">.</span><span class="n">exceeded_transfer_limit</span><span class="p">)</span>
 
@@ -1771,25 +1771,25 @@ the server layer's configured maximum record count.</p>
 <p>The async client exposes the same methods:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncHonuaClient</span>
 
-<span class="k">async</span> <span class="k">with</span> <span class="n">AsyncHonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">async</span> <span class="k">with</span> <span class="n">AsyncHonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">features</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features_all</span><span class="p">(</span>
-        <span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
+        <span class="n">service_id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span>
         <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
         <span class="n">page_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="k">async</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">feature_server</span><span class="p">(</span><span class="s2">&quot;parcels&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">query_items</span><span class="p">(</span><span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">feature_server</span><span class="p">(</span><span class="s2">"parcels"</span><span class="p">)</span><span class="o">.</span><span class="n">query_items</span><span class="p">(</span><span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">object_id</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="edits">Edits<a class="headerlink" href="#edits" title="Permanent link">&para;</a></h2>
 <p><code>apply_edits()</code> returns raw JSON. <code>apply_edits_result()</code> wraps add, update, and
 delete outcomes in typed operation results:</p>
 <div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">apply_edits_result</span><span class="p">(</span>
-    <span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;parcels&quot;</span><span class="p">,</span>
+    <span class="n">service_id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span>
     <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
     <span class="n">updates</span><span class="o">=</span><span class="p">[</span>
         <span class="p">{</span>
-            <span class="s2">&quot;attributes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;objectid&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;retired&quot;</span><span class="p">},</span>
+            <span class="s2">"attributes"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"objectid"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">"status"</span><span class="p">:</span> <span class="s2">"retired"</span><span class="p">},</span>
         <span class="p">}</span>
     <span class="p">],</span>
 <span class="p">)</span>

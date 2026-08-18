@@ -1634,27 +1634,27 @@ site claims ledger and other producer snapshots in this ecosystem:</p>
 </ul>
 <h2 id="schema">Schema<a class="headerlink" href="#schema" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;schemaVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sdk-coverage.v1&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;package&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;honua-sdk-python (packages/honua-sdk + packages/honua-admin)&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;generator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;scripts/gen_sdk_coverage.py&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;keyListPolicy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;prose describing the consume-never-copy policy&gt;&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;capabilities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"schemaVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sdk-coverage.v1"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"package"</span><span class="p">:</span><span class="w"> </span><span class="s2">"honua-sdk-python (packages/honua-sdk + packages/honua-admin)"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"generator"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scripts/gen_sdk_coverage.py"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"keyListPolicy"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;prose describing the consume-never-copy policy&gt;"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"capabilities"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;serve.geoservices-featureserver&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;covered&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;sinceVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unreleased (source preview; not yet published to PyPI)&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;entrypoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="s2">&quot;honua_sdk.protocols.GeoServicesFeatureServerClient&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;honua_sdk.protocols.AsyncGeoServicesFeatureServerClient&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;honua_sdk.AsyncHonuaClient.feature_server&quot;</span>
+<span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"serve.geoservices-featureserver"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"covered"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"sinceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unreleased (source preview; not yet published to PyPI)"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"entrypoints"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">"honua_sdk.protocols.GeoServicesFeatureServerClient"</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">"honua_sdk.protocols.AsyncGeoServicesFeatureServerClient"</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">"honua_sdk.AsyncHonuaClient.feature_server"</span>
 <span class="w">      </span><span class="p">]</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;serve.odata&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;partial&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;sinceVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unreleased (source preview; not yet published to PyPI)&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;entrypoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;honua_sdk.protocols.ODataClient&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;honua_sdk.protocols.AsyncODataClient&quot;</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;note&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Read/query only ...; no create/update/delete entity-set operations are implemented.&quot;</span>
+<span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"serve.odata"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"partial"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"sinceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unreleased (source preview; not yet published to PyPI)"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"entrypoints"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"honua_sdk.protocols.ODataClient"</span><span class="p">,</span><span class="w"> </span><span class="s2">"honua_sdk.protocols.AsyncODataClient"</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">"note"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Read/query only ...; no create/update/delete entity-set operations are implemented."</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>

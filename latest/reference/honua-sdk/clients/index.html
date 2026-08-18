@@ -4580,7 +4580,7 @@ dedicated thin wrappers for the geocoding endpoint and keep the same
 configuration knobs.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://your-honua-server.com&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://your-honua-server.com"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
 <p><strong>See also</strong>: <a href="../source-facade/">Source facade</a> for the canonical query path,
@@ -5233,7 +5233,7 @@ should target.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.list_services" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.list_services" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -5341,7 +5341,7 @@ to :meth:<code>_request</code>.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.list_service_summaries" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.list_service_summaries" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -5510,7 +5510,7 @@ to :meth:<code>list_services</code>.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.geocoder" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">geocoder</span><span class="p">(</span><span class="n">locator</span><span class="o">=</span><span class="s1">&#39;World&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">geocoder</span><span class="p">(</span><span class="n">locator</span><span class="o">=</span><span class="s1">'World'</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.geocoder" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -7612,7 +7612,7 @@ before forwarding.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.query_features" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query_features</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">&#39;1=1&#39;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query_features</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">'1=1'</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">'*'</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.query_features" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -7801,7 +7801,7 @@ to :meth:<code>_request</code>.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.query_feature_set" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query_feature_set</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">&#39;1=1&#39;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query_feature_set</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">'1=1'</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">'*'</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.query_feature_set" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -7990,7 +7990,7 @@ to :meth:<code>query_features</code>.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.query_features_all" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query_features_all</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">&#39;1=1&#39;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query_features_all</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">'1=1'</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">'*'</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.query_features_all" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -8665,7 +8665,7 @@ auto-generation semantics.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.export_map" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">export_map</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">bbox</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="mi">400</span><span class="p">),</span> <span class="n">image_format</span><span class="o">=</span><span class="s1">&#39;png&#39;</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">export_map</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">bbox</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="mi">400</span><span class="p">),</span> <span class="n">image_format</span><span class="o">=</span><span class="s1">'png'</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.export_map" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -9536,7 +9536,7 @@ should target.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.list_services" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -9648,7 +9648,7 @@ to :meth:<code>_request</code>.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.list_service_summaries" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">&#39;json&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -9821,7 +9821,7 @@ to :meth:<code>list_services</code>.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.geocoder" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">geocoder</span><span class="p">(</span><span class="n">locator</span><span class="o">=</span><span class="s1">&#39;World&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">geocoder</span><span class="p">(</span><span class="n">locator</span><span class="o">=</span><span class="s1">'World'</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.AsyncHonuaClient.geocoder" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -11931,7 +11931,7 @@ before forwarding.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.query_features" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query_features</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">&#39;1=1&#39;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query_features</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">'1=1'</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">'*'</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -12124,7 +12124,7 @@ to :meth:<code>_request</code>.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.query_feature_set" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query_feature_set</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">&#39;1=1&#39;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query_feature_set</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">'1=1'</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">'*'</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -12317,7 +12317,7 @@ to :meth:<code>query_features</code>.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.query_features_all" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query_features_all</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">&#39;1=1&#39;</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query_features_all</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">layer_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s1">'1=1'</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="s1">'*'</span><span class="p">,</span> <span class="n">return_geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">page_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_pages</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -13004,7 +13004,7 @@ auto-generation semantics.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.export_map" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">export_map</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">bbox</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="mi">400</span><span class="p">),</span> <span class="n">image_format</span><span class="o">=</span><span class="s1">&#39;png&#39;</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">export_map</span><span class="p">(</span><span class="n">service_id</span><span class="p">,</span> <span class="n">bbox</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="mi">400</span><span class="p">),</span> <span class="n">image_format</span><span class="o">=</span><span class="s1">'png'</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">extra_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -14429,7 +14429,7 @@ They do not provide a custom-code upload, packaging, or local execution API.</p>
 
 
 <h3 id="honua_sdk.geoprocessing.HonuaGeoprocessing.submit_inputs" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">submit_inputs</span><span class="p">(</span><span class="n">process_id</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">response_mode</span><span class="o">=</span><span class="s1">&#39;document&#39;</span><span class="p">,</span> <span class="n">respond_async</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">submit_inputs</span><span class="p">(</span><span class="n">process_id</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">response_mode</span><span class="o">=</span><span class="s1">'document'</span><span class="p">,</span> <span class="n">respond_async</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.geoprocessing.HonuaGeoprocessing.submit_inputs" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -14965,7 +14965,7 @@ names a <code>kind</code> (<code>geoprocess</code> / <code>queryFeatures</code> 
 
 
 <h3 id="honua_sdk.geoprocessing.AsyncHonuaGeoprocessing.submit_inputs" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">submit_inputs</span><span class="p">(</span><span class="n">process_id</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">response_mode</span><span class="o">=</span><span class="s1">&#39;document&#39;</span><span class="p">,</span> <span class="n">respond_async</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">submit_inputs</span><span class="p">(</span><span class="n">process_id</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">response_mode</span><span class="o">=</span><span class="s1">'document'</span><span class="p">,</span> <span class="n">respond_async</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>

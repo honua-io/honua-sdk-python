@@ -1497,19 +1497,19 @@ canonicalized <code>CopyFeatures</code> calls report under <strong>Stubs</strong
 <p>Example inventory excerpts:</p>
 <div class="highlight"><pre><span></span><code>// honua_admin.scan_arcpy_script shape
 {
-  &quot;toolCalls&quot;: [
-    { &quot;call&quot;: &quot;arcpy.management.MakeFeatureLayer&quot;, &quot;tool&quot;: &quot;MakeFeatureLayer&quot;, &quot;toolbox&quot;: &quot;management&quot; },
-    { &quot;call&quot;: &quot;arcpy.management.GetCount&quot;, &quot;tool&quot;: &quot;GetCount&quot;, &quot;toolbox&quot;: &quot;management&quot; },
-    { &quot;call&quot;: &quot;arcpy.analysis.Buffer&quot;, &quot;tool&quot;: &quot;Buffer&quot;, &quot;toolbox&quot;: &quot;analysis&quot; },
-    { &quot;call&quot;: &quot;arcpy.sa.Slope&quot;, &quot;tool&quot;: &quot;Slope&quot;, &quot;toolbox&quot;: &quot;sa&quot; }
+  "toolCalls": [
+    { "call": "arcpy.management.MakeFeatureLayer", "tool": "MakeFeatureLayer", "toolbox": "management" },
+    { "call": "arcpy.management.GetCount", "tool": "GetCount", "toolbox": "management" },
+    { "call": "arcpy.analysis.Buffer", "tool": "Buffer", "toolbox": "analysis" },
+    { "call": "arcpy.sa.Slope", "tool": "Slope", "toolbox": "sa" }
   ]
 }
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>// honua_sdk.migration.scan_arcpy_source(...).to_dict() shape
 {
-  &quot;calls&quot;: [
-    { &quot;qualifiedName&quot;: &quot;arcpy.management.MakeFeatureLayer&quot;, &quot;family&quot;: &quot;management&quot;, &quot;tool&quot;: &quot;MakeFeatureLayer&quot; },
-    { &quot;qualifiedName&quot;: &quot;arcpy.analysis.Buffer&quot;, &quot;family&quot;: &quot;analysis&quot;, &quot;tool&quot;: &quot;Buffer&quot; }
+  "calls": [
+    { "qualifiedName": "arcpy.management.MakeFeatureLayer", "family": "management", "tool": "MakeFeatureLayer" },
+    { "qualifiedName": "arcpy.analysis.Buffer", "family": "analysis", "tool": "Buffer" }
   ]
 }
 </code></pre></div>
@@ -1544,7 +1544,7 @@ Partial (runs with documented deviations)
 
 Stubs (will raise -- replacement hint shown)
 --------------------------------------------
-  [  1x] analysis.Buffer  --  honua-server&#39;s geometry.buffer takes a single base64-WKB geometry plus srid+distance, not a feature class. The arcpy feature-class semantic requires a per-feature WKB serialization adapter that does not yet exist.
+  [  1x] analysis.Buffer  --  honua-server's geometry.buffer takes a single base64-WKB geometry plus srid+distance, not a feature class. The arcpy feature-class semantic requires a per-feature WKB serialization adapter that does not yet exist.
        hint: Iterate features client-side via honua_sdk.Source.iter_features(...), buffer each geometry through the geoprocessing client, and write the result back via Source.apply_edits.
        tracking: honua-server#feature-class-geometry-ops
 
@@ -1566,7 +1566,7 @@ shown above until the projection adapter lands.</p>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">honua_gp._cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">assess_inventory</span><span class="p">,</span> <span class="n">render_assessment</span>
 
-<span class="n">inventory</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;inventory.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="n">inventory</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"inventory.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
 <span class="n">rows</span> <span class="o">=</span> <span class="n">assess_inventory</span><span class="p">(</span><span class="n">inventory</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">render_assessment</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
 </code></pre></div>

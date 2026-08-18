@@ -1565,7 +1565,7 @@ the registry never inflates the runnable-coverage number.</p>
 <p>The statuses above are the SDK's <strong>own</strong> view of the Honua process catalog, and
 that view can drift from the server that would actually run the job. For a
 toolbox, <code>honua-migrate</code> can have the server settle it instead:</p>
-<div class="highlight"><pre><span></span><code>honua-migrate<span class="w"> </span>translate<span class="w"> </span>roads.pyt<span class="w"> </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--api-key<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HONUA_ADMIN_API_KEY</span><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code>honua-migrate<span class="w"> </span>translate<span class="w"> </span>roads.pyt<span class="w"> </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--api-key<span class="w"> </span><span class="s2">"</span><span class="nv">$HONUA_ADMIN_API_KEY</span><span class="s2">"</span>
 honua-migrate<span class="w"> </span>pyt<span class="w">   </span>roads.pyt<span class="w">  </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--attestation<span class="w"> </span>attest.json
 honua-migrate<span class="w"> </span>atbx<span class="w">  </span>models.atbx<span class="w"> </span>--server<span class="w"> </span>https://honua.example<span class="w"> </span>--require-attested
 </code></pre></div>

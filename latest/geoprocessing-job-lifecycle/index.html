@@ -1564,7 +1564,7 @@ an explicit process id and JSON input object rather than embedding a payload
 that only works for one deployment:</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>examples/geoprocessing_job_lifecycle.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--process-id<span class="w"> </span>geometry.buffer<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--inputs-json<span class="w"> </span><span class="s1">&#39;{&quot;inputGeoJson&quot;:&quot;{}&quot;,&quot;distance&quot;:100}&#39;</span>
+<span class="w">  </span>--inputs-json<span class="w"> </span><span class="s1">'{"inputGeoJson":"{}","distance":100}'</span>
 </code></pre></div>
 <p>That command belongs to the example script. The product <code>honua</code> CLI currently
 has no process/job subcommands.</p>

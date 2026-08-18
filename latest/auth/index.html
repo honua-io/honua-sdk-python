@@ -1562,7 +1562,7 @@ auth providers.</p>
 <p>Static credentials are still available for simple service accounts:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;honua-api-key&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"honua-api-key"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
 <p>For user or workload tokens that expire, use
@@ -1576,8 +1576,8 @@ window.</p>
     <span class="c1"># Call your identity provider here.</span>
     <span class="n">payload</span> <span class="o">=</span> <span class="n">issue_token</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">BearerToken</span><span class="o">.</span><span class="n">from_expires_in</span><span class="p">(</span>
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;access_token&quot;</span><span class="p">],</span>
-        <span class="n">payload</span><span class="p">[</span><span class="s2">&quot;expires_in&quot;</span><span class="p">],</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"access_token"</span><span class="p">],</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s2">"expires_in"</span><span class="p">],</span>
     <span class="p">)</span>
 
 
@@ -1586,7 +1586,7 @@ window.</p>
     <span class="n">refresh_window_seconds</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
 <p>The same <code>auth_provider</code> argument is accepted by:</p>
@@ -1609,10 +1609,10 @@ or bearer tokens without reconstructing the SDK client:</p>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">current_headers</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;X-API-Key&quot;</span><span class="p">:</span> <span class="n">current_key_from_secret_manager</span><span class="p">()}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"X-API-Key"</span><span class="p">:</span> <span class="n">current_key_from_secret_manager</span><span class="p">()}</span>
 
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">&quot;https://honua.example&quot;</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="n">CallableAuthProvider</span><span class="p">(</span><span class="n">current_headers</span><span class="p">))</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://honua.example"</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="n">CallableAuthProvider</span><span class="p">(</span><span class="n">current_headers</span><span class="p">))</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
 <p>Auth headers are attached only to the configured base URL authority. When

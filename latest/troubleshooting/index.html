@@ -1659,7 +1659,7 @@ runs still fail fast when that required base URL is absent.</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/integration<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-q<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--run-integration<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-m<span class="w"> </span><span class="s2">&quot;integration and staging and smoke&quot;</span>
+<span class="w">  </span>-m<span class="w"> </span><span class="s2">"integration and staging and smoke"</span>
 </code></pre></div>
 <p>Run the release smoke helper against an already-installed SDK artifact with:</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>scripts/release_smoke.py
@@ -1700,7 +1700,7 @@ exercise the surfaces it supports without masking required FeatureServer regress
 <li><code>pytest</code></li>
 </ul>
 <p>The canonical ETL example and notebook need additional local tools:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;packages/honua-sdk[geopandas]&quot;</span><span class="w"> </span>matplotlib<span class="w"> </span>jupyter
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">"packages/honua-sdk[geopandas]"</span><span class="w"> </span>matplotlib<span class="w"> </span>jupyter
 </code></pre></div>
 <p>The notebook is a companion walkthrough, not a second implementation. CI and smoke coverage validate the shared <code>examples/geospatial_etl/workflow.py</code> path instead of executing notebook cells separately.</p>
 <h2 id="cleaning-up-staging-smoke-data">Cleaning Up Staging Smoke Data<a class="headerlink" href="#cleaning-up-staging-smoke-data" title="Permanent link">&para;</a></h2>
@@ -1710,29 +1710,29 @@ exercise the surfaces it supports without masking required FeatureServer regress
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
 
-<span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;HONUA_SMOKE_UID_PREFIX&quot;</span><span class="p">,</span> <span class="s2">&quot;sdk-python-smoke&quot;</span><span class="p">)</span>
-<span class="n">escaped_prefix</span> <span class="o">=</span> <span class="n">prefix</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;&#39;&#39;&quot;</span><span class="p">)</span>
-<span class="n">where</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;description LIKE &#39;</span><span class="si">{</span><span class="n">escaped_prefix</span><span class="si">}</span><span class="s2">:%&#39;&quot;</span>  <span class="c1"># simple SQL-style filter</span>
+<span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"HONUA_SMOKE_UID_PREFIX"</span><span class="p">,</span> <span class="s2">"sdk-python-smoke"</span><span class="p">)</span>
+<span class="n">escaped_prefix</span> <span class="o">=</span> <span class="n">prefix</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"'"</span><span class="p">,</span> <span class="s2">"''"</span><span class="p">)</span>
+<span class="n">where</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"description LIKE '</span><span class="si">{</span><span class="n">escaped_prefix</span><span class="si">}</span><span class="s2">:%'"</span>  <span class="c1"># simple SQL-style filter</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;HONUA_BASE_URL&quot;</span><span class="p">],</span> <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;HONUA_API_KEY&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HONUA_BASE_URL"</span><span class="p">],</span> <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"HONUA_API_KEY"</span><span class="p">))</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
         <span class="n">SourceDescriptor</span><span class="p">(</span>
-            <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span>
-            <span class="n">protocol</span><span class="o">=</span><span class="s2">&quot;geoservices-feature-service&quot;</span><span class="p">,</span>
-            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-        <span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="n">where</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;objectid&quot;</span><span class="p">,</span> <span class="s2">&quot;uid&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">])</span>
+        <span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="n">where</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"objectid"</span><span class="p">,</span> <span class="s2">"uid"</span><span class="p">,</span> <span class="s2">"description"</span><span class="p">])</span>
     <span class="p">)</span>
     <span class="n">objectids</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">&quot;objectid&quot;</span><span class="p">]</span>
+        <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s2">"objectid"</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">features</span>
-        <span class="k">if</span> <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;objectid&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"objectid"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
     <span class="p">]</span>
     <span class="k">if</span> <span class="n">objectids</span><span class="p">:</span>
         <span class="n">client</span><span class="o">.</span><span class="n">apply_edits</span><span class="p">(</span>
-            <span class="n">service_id</span><span class="o">=</span><span class="s2">&quot;test_service&quot;</span><span class="p">,</span>
+            <span class="n">service_id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span>
             <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">deletes</span><span class="o">=</span><span class="n">objectids</span><span class="p">,</span>
         <span class="p">)</span>

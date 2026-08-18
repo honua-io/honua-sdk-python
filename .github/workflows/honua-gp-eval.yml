@@ -239,6 +239,12 @@ jobs:
           services:
             seed:
               image: client-compat-seed:latest
+              # The in-repo SpatialJoin join-layer fixture has to be applied by
+              # this one-shot seed job, BEFORE honua starts -- see the entrypoint
+              # comment below. Compose merges this list with the base file's
+              # ../../tests mount.
+              volumes:
+                - ${GITHUB_WORKSPACE}/packages/honua-gp/eval/seed:/workspace/gp-seed:ro
               entrypoint:
                 - /bin/sh
                 - -c
@@ -253,6 +259,21 @@ jobs:
                   done
                   echo "Applying honua-gp smoke seed: tests/seed/client-compat-v1.sql"
                   psql -v ON_ERROR_STOP=1 -f tests/seed/client-compat-v1.sql
+                  # The canonical client-compat seed registers a single layer
+                  # (layer 0) and honua-server's analytics.spatial-join rejects a
+                  # self-join, so the SpatialJoin eval scripts need a second,
+                  # distinct join layer.
+                  #
+                  # This MUST run here, in the seed job, and not after the server
+                  # is up: honua-server compiles and activates a metadata-v2
+                  # snapshot from the v1 tables at startup and then serves from
+                  # that snapshot. A layer inserted into honua.layers after the
+                  # server has started is absent from the activated snapshot, so
+                  # the GPServer submit path cannot resolve it and rejects the
+                  # job with HTTP 403 "layer read authorization" -- which is
+                  # exactly how the two SpatialJoin eval scripts used to fail.
+                  echo "Applying honua-gp SpatialJoin join-layer fixture: gp-seed/spatial-join-second-layer.sql"
+                  psql -v ON_ERROR_STOP=1 -f /workspace/gp-seed/spatial-join-second-layer.sql
                   echo "honua-gp smoke seed complete."
             honua:
               image: ${HONUA_LOCAL_SERVER_IMAGE}
@@ -297,14 +318,18 @@ jobs:
             docker compose -f "${compose_file}" -f "${override_file}" logs honua | tail -100 || true
             exit 1
           fi
-          # The canonical client-compat seed registers a single layer (layer 0).
-          # honua-server's analytics.spatial-join rejects a self-join, so the
-          # SpatialJoin eval scripts need a second, distinct join layer. Apply
-          # the in-repo second-layer fixture against the seeded postgres. See
-          # packages/honua-gp/eval/seed/spatial-join-second-layer.sql (#157).
-          second_layer_sql="${GITHUB_WORKSPACE}/packages/honua-gp/eval/seed/spatial-join-second-layer.sql"
-          docker compose -f "${compose_file}" -f "${override_file}" exec -T postgres \
-            psql -U postgres -d honua_compat -v ON_ERROR_STOP=1 < "${second_layer_sql}"
+          # Assert the SpatialJoin join layer made it into the activated
+          # metadata-v2 snapshot the server is serving from. The fixture is
+          # applied by the seed job (see the override above); if that ordering
+          # ever regresses, the SpatialJoin eval scripts fail with an opaque
+          # HTTP 403 instead of a diagnosable seed error, so check it here.
+          if ! curl -fsS -H "X-API-Key: ClientCompatAdmin123!" \
+            "http://localhost:5000/rest/services/test_service/FeatureServer/1?f=json" \
+            | grep -q '"id"'; then
+            echo "::error::The SpatialJoin join layer (test_service layer 1) is not served by honua-server. The seed job must apply packages/honua-gp/eval/seed/spatial-join-second-layer.sql BEFORE the server starts, or the server's activated metadata-v2 snapshot will not contain it."
+            docker compose -f "${compose_file}" -f "${override_file}" logs seed | tail -50 || true
+            exit 1
+          fi
 
       - name: Run ephemeral smoke (live value diff -- honua_gp <-> real honua-server)
         env:
@@ -340,3 +365,16 @@ jobs:
             --audit-root packages/honua-gp/eval/.audit-live \
             --pass-threshold 0.70 \
             --require-supported-pass-rate 1.0
+
+      # Without this the only trace of a live failure is the aggregate pass-rate
+      # line -- the failing script names and their reasons live in the JSON.
+      - name: Upload ephemeral smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: honua-gp-smoke-eval
+          path: |
+            packages/honua-gp/smoke-eval.json
+            packages/honua-gp/smoke-eval.xml
+          if-no-files-found: warn
+          retention-days: 30

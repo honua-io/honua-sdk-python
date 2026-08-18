@@ -658,6 +658,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"({summary.supported_pass_rate:.0%}); "
         f"supported-required {args.require_supported_pass_rate:.0%}\n"
     )
+    # Name the failures on stdout. The aggregate pass-rate line alone makes a
+    # red CI lane undiagnosable from the job log -- the script names and their
+    # reasons otherwise only exist in --output-json.
+    for result in summary.results:
+        if result.status == "fail":
+            scope = "expected_failure" if result.expected_failure else "supported"
+            sys.stdout.write(
+                f"honua-gp eval: FAIL [{scope}] {result.name}: {result.reason or 'no reason recorded'}\n"
+            )
     if args.update_golden:
         sys.stdout.write("honua-gp eval: golden value oracles updated; review the diff before committing.\n")
         return 0

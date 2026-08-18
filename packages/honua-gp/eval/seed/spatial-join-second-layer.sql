@@ -64,3 +64,27 @@ FROM (
         ('POINT(-122.4000 37.7700)', 'zone-c')
 ) AS seed(wkt, zone)
 WHERE NOT EXISTS (SELECT 1 FROM features WHERE layer_id = 1);
+
+-- Refresh the v1 -> metadata-v2 compatibility snapshot so the layer registered
+-- above is present in the ACTIVATED snapshot the server serves from.
+--
+-- honua-server reads its catalog from an activated metadata-v2 snapshot, not
+-- from honua.layers directly. tests/seed/client-compat-v1.sql builds and
+-- activates that snapshot as its last statement, which is before this file
+-- runs, so without this call layer 1 exists in the v1 tables but not in the
+-- snapshot -- and the GPServer submit path rejects analytics.spatial-join with
+-- HTTP 403 "layer read authorization". This file must therefore also be applied
+-- BEFORE honua-server starts (the ephemeral-server-smoke job applies it in the
+-- one-shot seed container); a server that has already started and compiled its
+-- own snapshot will not pick up a later refresh.
+--
+-- Guarded so the file stays applicable against a target seeded some other way.
+DO $$
+BEGIN
+    IF to_regprocedure('honua.seed_metadata_v2_compat_snapshot()') IS NOT NULL THEN
+        PERFORM honua.seed_metadata_v2_compat_snapshot();
+    ELSE
+        RAISE NOTICE 'honua.seed_metadata_v2_compat_snapshot() not present; skipping metadata-v2 snapshot refresh.';
+    END IF;
+END
+$$;

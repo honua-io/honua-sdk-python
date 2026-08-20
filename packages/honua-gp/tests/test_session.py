@@ -8,6 +8,29 @@ import honua_gp
 from honua_gp._session import get_session
 
 
+def test_client_bootstraps_from_environment(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _StubClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            captured["base_url"] = base_url
+            captured["kwargs"] = kwargs
+
+    import honua_sdk
+
+    monkeypatch.setattr(honua_sdk, "HonuaClient", _StubClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    monkeypatch.setenv("HONUA_API_KEY", "env-key")
+
+    built = get_session().client()
+
+    assert isinstance(built, _StubClient)
+    assert captured == {
+        "base_url": "https://env.example.com",
+        "kwargs": {"api_key": "env-key"},
+    }
+
+
 def test_configure_invalidates_lazy_client_cache_on_base_url_change() -> None:
     """Changing ``base_url`` must drop any previously cached client so the
     next ``client()`` call rebuilds against the new endpoint. Without this,

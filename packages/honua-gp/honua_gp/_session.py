@@ -230,6 +230,8 @@ class HonuaSession:
 
     def _build_client(self) -> Any:
         if not self.base_url:
+            self.configure_from_env()
+        if not self.base_url:
             raise HonuaGpConfigurationError(
                 "honua_gp is not configured; call honua_gp.configure(base_url=...) "
                 "or set the HONUA_BASE_URL environment variable."
@@ -244,6 +246,8 @@ class HonuaSession:
         return HonuaClient(self.base_url, **kwargs)
 
     def _build_admin_client(self) -> Any:
+        if not self.base_url:
+            self.configure_from_env()
         if not self.base_url:
             raise HonuaGpConfigurationError(
                 "honua_gp is not configured; call honua_gp.configure(base_url=...) "

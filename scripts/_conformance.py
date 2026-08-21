@@ -513,16 +513,31 @@ def _run_feature_query_unsupported_capability(
             return_geometry=False,
         )
     except HonuaHttpError as exc:
-        _require(exc.status_code >= 400, f"expected client/server error, got {exc.status_code}")
-        return {"observed": "HonuaHttpError", "status_code": exc.status_code}
+        _require(400 <= exc.status_code < 500, f"expected client error, got {exc.status_code}")
+        _require(isinstance(exc.body, Mapping), "invalid query HTTP error body is not structured JSON")
+        error = exc.body.get("error")
+        _require(isinstance(error, Mapping), "invalid query body is missing a structured error envelope")
+        code = error.get("code")
+        message = error.get("message")
+        _require(isinstance(code, int) and 400 <= code < 500, f"unexpected error code {code!r}")
+        _require(isinstance(message, str) and bool(message.strip()), "error envelope is missing a message")
+        return {
+            "observed": "HonuaHttpError",
+            "status_code": exc.status_code,
+            "error_code": code,
+            "error_message": message,
+        }
 
     # Some servers answer 200 with a GeoServices error envelope instead of an
     # HTTP error; that is still a structured, non-silent failure.
-    _require(
-        isinstance(response, Mapping) and "error" in response,
-        "invalid query neither raised HonuaHttpError nor returned an error envelope",
-    )
-    return {"observed": "error_envelope", "error": response.get("error")}
+    _require(isinstance(response, Mapping), "invalid query response is not structured JSON")
+    error = response.get("error")
+    _require(isinstance(error, Mapping), "invalid query response is missing an error envelope")
+    code = error.get("code")
+    message = error.get("message")
+    _require(isinstance(code, int) and 400 <= code < 500, f"unexpected error code {code!r}")
+    _require(isinstance(message, str) and bool(message.strip()), "error envelope is missing a message")
+    return {"observed": "error_envelope", "error_code": code, "error_message": message}
 
 
 def _run_catalog_lists_service(
@@ -628,16 +643,39 @@ def _run_ogc_features_items(
     collection_id = _resolve_ogc_collection_id(client, target)
     ogc = client.ogc_features()
 
-    items = ogc.items(collection_id, limit=5)
+    items = ogc.items(collection_id, limit=1, offset=0)
     _require(isinstance(items, Mapping), "OGC items response is not an object")
     _require(items.get("type") == "FeatureCollection", "OGC items is not a FeatureCollection")
     features = _as_list(items.get("features"), "OGC items missing features[]")
-    _require(len(features) > 0, "OGC collection returned no items")
+    _require(len(features) == 1, f"OGC limit=1 returned {len(features)} features")
     attrs = _feature_attributes(features[0])
     _require(len(attrs) > 0, "OGC feature has no properties")
+    number_matched = items.get("numberMatched")
+    _require(
+        isinstance(number_matched, int) and not isinstance(number_matched, bool) and number_matched >= 2,
+        f"OGC paging fixture must report numberMatched >= 2, got {number_matched!r}",
+    )
+    links = _as_list(items.get("links"), "OGC items missing links[]")
+    next_links = [
+        link for link in links
+        if isinstance(link, Mapping) and link.get("rel") == "next" and isinstance(link.get("href"), str)
+    ]
+    _require(bool(next_links), "OGC first page did not advertise a rel=next continuation link")
+
+    second_page = ogc.items(collection_id, limit=1, offset=1)
+    _require(isinstance(second_page, Mapping), "OGC second page response is not an object")
+    second_features = _as_list(second_page.get("features"), "OGC second page missing features[]")
+    _require(len(second_features) == 1, f"OGC second limit=1 page returned {len(second_features)} features")
+    first_id = features[0].get("id") if isinstance(features[0], Mapping) else None
+    second_id = second_features[0].get("id") if isinstance(second_features[0], Mapping) else None
+    _require(first_id is not None and second_id is not None, "OGC paged features must carry stable ids")
+    _require(first_id != second_id, "OGC offset=1 repeated the first page feature")
     return {
         "collection_id": collection_id,
         "feature_count": len(features),
+        "number_matched": number_matched,
+        "next_href": next_links[0]["href"],
+        "second_page_feature_id": second_id,
         "sample_property_keys": sorted(str(k) for k in attrs),
     }
 

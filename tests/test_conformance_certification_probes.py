@@ -13,6 +13,7 @@ from scripts._conformance import (
     _run_feature_query_jsonb_projection,
     _run_feature_query_unsupported_capability,
     _run_ogc_features_items,
+    _run_temporal_query,
 )
 
 
@@ -69,6 +70,22 @@ class _PagedQueryClient:
         return self.pages[len(self.calls) - 1]
 
 
+class _TemporalClient:
+    def _request_json(
+        self,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        time_window = params.get("time")
+        if time_window == "0,1":
+            return {"features": []}
+        if time_window is not None:
+            return {"features": []}
+        return {"features": [{"attributes": {"OBJECTID": 1}}]}
+
+
 TARGET = ConformanceTarget(base_url="https://example.test", service_id="test", layer_id=0)
 BUNDLE = FixtureBundle(Path("."), "fixture-v1")
 
@@ -114,6 +131,23 @@ def test_ogc_items_probe_rejects_repeated_continuation_page() -> None:
 
     with pytest.raises(AssertionError, match="repeated the first page"):
         _run_ogc_features_items(_OgcClient({0: first_page, 1: first_page}), TARGET, BUNDLE)
+
+
+def test_ogc_items_probe_rejects_cross_authority_continuation() -> None:
+    first_page = _page("a", next_link=True)
+    first_page["links"][-1]["href"] = "https://attacker.example/items?offset=1"
+
+    with pytest.raises(AssertionError, match="deployment authority"):
+        _run_ogc_features_items(
+            _OgcClient({0: first_page, 1: _page("b", next_link=False)}),
+            TARGET,
+            BUNDLE,
+        )
+
+
+def test_temporal_probe_rejects_empty_seeded_window() -> None:
+    with pytest.raises(AssertionError, match="seeded in-range"):
+        _run_temporal_query(_TemporalClient(), TARGET, BUNDLE)
 
 
 def test_json_field_probe_rejects_stringified_arrays() -> None:

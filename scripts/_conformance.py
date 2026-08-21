@@ -45,6 +45,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from honua_sdk import HonuaClient, HonuaHttpError
 
@@ -735,6 +736,14 @@ def _run_ogc_features_items(
     _require(bool(next_links), "OGC first page did not advertise a rel=next continuation link")
 
     next_href = next_links[0]["href"]
+    target_authority = urlsplit(target.base_url)
+    next_authority = urlsplit(next_href)
+    if next_authority.netloc:
+        _require(
+            (next_authority.scheme.lower(), next_authority.netloc.lower())
+            == (target_authority.scheme.lower(), target_authority.netloc.lower()),
+            "OGC Features next link changed deployment authority",
+        )
     # Continuation links are opaque. The SDK's public page walker follows the
     # complete advertised URL, preserving path, cursor, and vendor parameters.
     second_page = next(pages, None)
@@ -831,6 +840,7 @@ def _run_temporal_query(
     disjoint = _query("0,1")
 
     _require(len(unfiltered) > 0, "baseline (unfiltered) query returned no features")
+    _require(len(in_window) > 0, "seeded in-range temporal window returned no features")
     _require(
         len(disjoint) < len(unfiltered),
         "time filter not honored: a disjoint pre-seed window returned the same "

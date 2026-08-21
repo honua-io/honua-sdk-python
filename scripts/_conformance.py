@@ -506,7 +506,7 @@ def _run_feature_query_jsonb_projection(
     features = _as_list(response.get("features"), "response is missing a 'features' array")
     _require(len(features) > 0, "seeded layer returned no features")
 
-    observed = _validate_seeded_json_fields(features, "FeatureServer")
+    observed = _validate_seeded_json_fields(features, "FeatureServer", "attributes")
     jsonb_fields = {"tags", "numbers"}
     return {
         "feature_count": len(features),
@@ -515,10 +515,17 @@ def _run_feature_query_jsonb_projection(
     }
 
 
-def _validate_seeded_json_fields(features: list[Any], surface: str) -> set[str]:
+def _validate_seeded_json_fields(
+    features: list[Any], surface: str, member_name: str
+) -> set[str]:
     observed: set[str] = set()
     for feature in features:
-        attributes = {str(key).lower(): value for key, value in _feature_attributes(feature).items()}
+        _require(isinstance(feature, Mapping), f"{surface} feature is not an object")
+        _require(
+            isinstance(feature.get(member_name), Mapping),
+            f"{surface} feature has no {member_name} mapping",
+        )
+        attributes = {str(key).lower(): value for key, value in feature[member_name].items()}
         observed.update(attributes)
         missing = sorted({"tags", "numbers"} - attributes.keys())
         _require(not missing, f"{surface} JSON field projection is missing {missing}")
@@ -910,7 +917,7 @@ def _run_ogc_features_items_jsonb_projection(
     features = _as_list(items.get("features"), "OGC items missing features[]")
     _require(len(features) > 0, "OGC collection returned no items")
 
-    _validate_seeded_json_fields(features, "OGC API Features")
+    _validate_seeded_json_fields(features, "OGC API Features", "properties")
     jsonb_fields = {"tags", "numbers"}
     return {
         "collection_id": collection_id,
@@ -972,6 +979,25 @@ def _run_temporal_query(
         len(disjoint) == 0,
         "time filter leaked seeded features into the disjoint pre-seed window: "
         f"expected 0, got {len(disjoint)}",
+    )
+
+    def object_ids(features: list[Any], label: str) -> set[Any]:
+        ids: set[Any] = set()
+        for feature in features:
+            _require(isinstance(feature, Mapping), f"{label} temporal feature is not an object")
+            attributes = feature.get("attributes")
+            _require(isinstance(attributes, Mapping), f"{label} temporal feature has no attributes")
+            normalized = {str(key).lower(): value for key, value in attributes.items()}
+            _require("objectid" in normalized, f"{label} temporal feature has no objectid")
+            ids.add(normalized["objectid"])
+        return ids
+
+    unfiltered_ids = object_ids(unfiltered, "unfiltered")
+    in_window_ids = object_ids(in_window, "in-range")
+    _require(
+        in_window_ids == unfiltered_ids,
+        "in-range temporal query did not return the complete seeded record set: "
+        f"expected {sorted(unfiltered_ids)!r}, got {sorted(in_window_ids)!r}",
     )
     return {
         "feature_count": len(in_window),

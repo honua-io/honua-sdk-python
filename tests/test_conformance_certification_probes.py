@@ -18,6 +18,7 @@ from scripts._conformance import (
     _run_ogc_features_items,
     _run_replica_surface,
     _run_temporal_query,
+    _validate_seeded_json_fields,
 )
 
 
@@ -139,6 +140,26 @@ class _TemporalLeakClient:
             "features": [
                 {"attributes": {"OBJECTID": 1}},
                 {"attributes": {"OBJECTID": 2}},
+            ]
+        }
+
+
+class _TemporalPartialClient:
+    def _request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        time_window = params.get("time")
+        if time_window == "0,1":
+            return {"features": []}
+        object_ids = [1] if time_window is not None else [1, 2]
+        return {
+            "features": [
+                {"attributes": {"OBJECTID": object_id}}
+                for object_id in object_ids
             ]
         }
 
@@ -277,6 +298,11 @@ def test_temporal_probe_rejects_disjoint_window_leakage() -> None:
         _run_temporal_query(_TemporalLeakClient(), TARGET, BUNDLE)
 
 
+def test_temporal_probe_rejects_partial_seeded_window() -> None:
+    with pytest.raises(AssertionError, match="complete seeded record set"):
+        _run_temporal_query(_TemporalPartialClient(), TARGET, BUNDLE)
+
+
 @pytest.mark.parametrize(
     "metadata",
     [
@@ -327,6 +353,26 @@ def test_json_field_probe_rejects_boolean_numbers() -> None:
 
     with pytest.raises(AssertionError, match="array of integers"):
         _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
+
+
+@pytest.mark.parametrize(
+    ("surface", "required_member", "wrong_member"),
+    [
+        ("FeatureServer", "attributes", "properties"),
+        ("OGC API Features", "properties", "attributes"),
+    ],
+)
+def test_json_field_probe_requires_protocol_specific_member(
+    surface: str,
+    required_member: str,
+    wrong_member: str,
+) -> None:
+    feature = {
+        wrong_member: {"tags": ["red"], "numbers": [1]},
+    }
+
+    with pytest.raises(AssertionError, match=required_member):
+        _validate_seeded_json_fields([feature], surface, required_member)
 
 
 def test_invalid_query_probe_accepts_structured_client_error() -> None:

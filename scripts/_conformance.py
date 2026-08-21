@@ -783,7 +783,7 @@ def _run_ogc_features_items_jsonb_projection(
     features = _as_list(items.get("features"), "OGC items missing features[]")
     _require(len(features) > 0, "OGC collection returned no items")
 
-    observed = _validate_seeded_json_fields(features, "OGC API Features")
+    _validate_seeded_json_fields(features, "OGC API Features")
     jsonb_fields = {"tags", "numbers"}
     return {
         "collection_id": collection_id,

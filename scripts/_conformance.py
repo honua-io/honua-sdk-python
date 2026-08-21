@@ -1347,11 +1347,15 @@ def build_certification_fragment(
         )
 
     client_version = importlib.metadata.version("honua-sdk")
-    evidence_digest = "sha256:" + hashlib.sha256(json.dumps(
-        [
+    evidence_receipt = {
+        "format": "honua.sdk-python.case-results/v1",
+        "cases": [
             {"case": case.name, "receipt": asdict(result)}
             for case, result in case_results
         ],
+    }
+    evidence_digest = "sha256:" + hashlib.sha256(json.dumps(
+        evidence_receipt,
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")).hexdigest()
@@ -1386,6 +1390,7 @@ def build_certification_fragment(
                     else f"https://evidence.honua.io/data/sha256/{evidence_digest[7:]}"
                 ),
                 "evidence_digest": None if normalized_result == "skip" else evidence_digest,
+                "evidence_receipt": None if normalized_result == "skip" else evidence_receipt,
                 "facet_results": None if normalized_result == "skip" else {
                     facet: {"result": normalized_result, "evidence_digest": evidence_digest}
                     for facet in scenario_facets

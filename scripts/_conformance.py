@@ -38,7 +38,7 @@ lane stays green while the harness is in place, yet any *new* drift still fails.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import importlib.metadata
@@ -1349,14 +1349,7 @@ def build_certification_fragment(
     client_version = importlib.metadata.version("honua-sdk")
     evidence_digest = "sha256:" + hashlib.sha256(json.dumps(
         [
-            {
-                "case": case.name,
-                "status": result.status,
-                "fixture": result.fixture,
-                "message_type": result.message_type,
-                "started_at": result.started_at,
-                "completed_at": result.completed_at,
-            }
+            {"case": case.name, "receipt": asdict(result)}
             for case, result in case_results
         ],
         sort_keys=True,
@@ -1366,7 +1359,11 @@ def build_certification_fragment(
     for case, result in case_results:
         capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
         known_gap = case.known_gap_issue if result.status != "passed" else None
-        normalized_result = "pass" if result.status == "passed" else "fail"
+        normalized_result = (
+            "pass" if result.status == "passed"
+            else "skip" if known_gap
+            else "fail"
+        )
         observations.append(
             {
                 "capability_key": capability_key,
@@ -1384,9 +1381,12 @@ def build_certification_fragment(
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": f"sdk-python-certification@{target.sdk_source_sha}",
                 "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
-                "evidence_uri": target.evidence_uri,
-                "evidence_digest": evidence_digest,
-                "facet_results": {
+                "evidence_uri": (
+                    None if normalized_result == "skip"
+                    else f"https://evidence.honua.io/data/sha256/{evidence_digest[7:]}"
+                ),
+                "evidence_digest": None if normalized_result == "skip" else evidence_digest,
+                "facet_results": None if normalized_result == "skip" else {
                     facet: {"result": normalized_result, "evidence_digest": evidence_digest}
                     for facet in scenario_facets
                 },
@@ -1405,7 +1405,9 @@ def build_certification_fragment(
             "cut_at": target.candidate_cut_at,
         },
         "operation_scope": {
-            "complete": False,
+            "complete": (
+                {case.name for case, _ in case_results} == set(CASE_CERTIFICATION)
+            ),
             "owner_issue": CERTIFICATION_SCOPE_OWNER,
             "disposition": (
                 "The live cases are a bounded initial certification slice; the complete public/addressable "

@@ -95,8 +95,10 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         for facet in passed["facet_results"].values()
     )
     assert failed["operation"] == "temporal-query"
-    assert failed["result"] == "fail"
+    assert failed["result"] == "skip"
     assert failed["skip_reason"] == gap.known_gap_issue
+    assert failed["evidence_digest"] is None
+    assert failed["facet_results"] is None
 
 
 def test_machine_readable_certification_contract_matches_case_mapping() -> None:

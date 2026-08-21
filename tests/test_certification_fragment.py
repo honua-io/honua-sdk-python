@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -93,11 +94,11 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
 
 
 def test_machine_readable_certification_contract_matches_case_mapping() -> None:
+    root = Path(__file__).resolve().parents[1]
     contract = json.loads(
-        (Path(__file__).resolve().parents[1] / "conformance" / "protocol-certification.v1.json").read_text(
-            encoding="utf-8"
-        )
+        (root / "conformance" / "protocol-certification.v1.json").read_text(encoding="utf-8")
     )
+    package = tomllib.loads((root / "packages" / "honua-sdk" / "pyproject.toml").read_text(encoding="utf-8"))
     expected = sorted(
         (
             {
@@ -114,4 +115,4 @@ def test_machine_readable_certification_contract_matches_case_mapping() -> None:
         contract["operations"], key=lambda row: (row["surface"], row["operation"])
     ) == expected
     assert contract["canonicalClient"] == "Honua SDK Python"
-    assert contract["clientVersion"] == "0.1.11"
+    assert contract["clientVersion"] == package["project"]["version"]

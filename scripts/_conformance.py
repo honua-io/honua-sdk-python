@@ -550,7 +550,16 @@ def _run_feature_query_layer_fields(
 
     def field_family(value: str) -> str:
         token = value.upper().replace("ESRIFIELDTYPE", "").replace("FIELD_TYPE_", "")
-        if token in {"OID", "BIG_INTEGER", "INTEGER", "SMALL_INTEGER", "LONG"}:
+        if token in {
+            "OID",
+            "BIG_INTEGER",
+            "BIGINTEGER",
+            "INTEGER",
+            "INTEGER64",
+            "SMALL_INTEGER",
+            "SMALLINTEGER",
+            "LONG",
+        }:
             return "integer"
         if token in {"SINGLE", "DOUBLE", "FLOAT"}:
             return "floating"
@@ -583,26 +592,35 @@ def _run_feature_query_layer_fields(
         live_fields[name.casefold()] = field_family(field_type)
 
     canonical_seed_fields = {
-        "objectid",
-        "name",
-        "description",
-        "shape",
-        "status",
-        "count",
-        "ratio",
-        "active",
-        "created_at",
-        "event_date",
-        "event_time",
-        "uid",
-        "tags",
-        "numbers",
-        "eo:cloud_cover",
+        "objectid": "integer",
+        "name": "string",
+        "description": "string",
+        "shape": "geometry",
+        "status": "string",
+        "count": "integer",
+        "ratio": "floating",
+        "active": "integer",
+        "created_at": "date",
+        "event_date": "date",
+        "event_time": "string",
+        "uid": "guid",
+        "tags": "string",
+        "numbers": "string",
+        "eo:cloud_cover": "floating",
     }
-    missing_seed_fields = sorted(canonical_seed_fields - set(live_fields))
+    missing_seed_fields = sorted(set(canonical_seed_fields) - set(live_fields))
     _require(
         not missing_seed_fields,
         f"layer metadata is missing canonical client-compat fields: {missing_seed_fields}",
+    )
+    mismatched_seed_types = sorted(
+        name
+        for name, expected_family in canonical_seed_fields.items()
+        if live_fields.get(name) != expected_family
+    )
+    _require(
+        not mismatched_seed_types,
+        f"layer metadata canonical field types drifted: {mismatched_seed_types}",
     )
 
     # The shared wire fixture describes sf-parks while this lane intentionally

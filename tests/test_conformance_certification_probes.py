@@ -433,7 +433,7 @@ def test_layer_metadata_probe_requires_complete_client_compat_seed_schema(
                     {"name": "active", "type": "esriFieldTypeSmallInteger"},
                     {"name": "created_at", "type": "esriFieldTypeDate"},
                     {"name": "event_date", "type": "esriFieldTypeDate"},
-                    {"name": "event_time", "type": "esriFieldTypeDate"},
+                    {"name": "event_time", "type": "esriFieldTypeString"},
                     {"name": "uid", "type": "esriFieldTypeGUID"},
                     {"name": "tags", "type": "esriFieldTypeString"},
                     {"name": "numbers", "type": "esriFieldTypeString"},

@@ -36,11 +36,11 @@ Alpha (`0.x`). APIs may change before 1.0; breaking changes to the public API
 are gated by a [compatibility snapshot](docs/compatibility.md) and a
 per-capability [SDK coverage snapshot](docs/sdk-coverage.md).
 
-Releases are automated (release-please + a tag-triggered publish workflow
-using PyPI Trusted Publishing) and ship to PyPI as `honua-sdk` and
-`honua-admin`. If `pip install honua-sdk` does not resolve yet — the first
-public release is staged but may not have landed — install from source
-(below); the from-source path always works.
+Releases are automated with release-please and PyPI Trusted Publishing and
+ship to PyPI as `honua-sdk` and `honua-admin`. After release-please creates a
+package tag and GitHub Release, the publication workflow reconciles that exact
+release commit, publishes the SDK before the dependent admin package, and
+attaches the wheel and source distribution to the GitHub Release.
 
 ## Install
 
@@ -73,7 +73,7 @@ Or straight from GitHub without cloning, pinned to a release tag (replace
 with the newest `python-sdk-v*` tag):
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.9#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.11#subdirectory=packages/honua-sdk"
 ```
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it holds

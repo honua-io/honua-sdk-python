@@ -48,7 +48,7 @@ def test_public_package_metadata_release_components_and_jobs_stay_mapped() -> No
 
         assert metadata["project"]["name"] == spec.distribution
         assert spec.tag_prefix == f"{release_config['component']}-v"
-        assert f"working-directory: {spec.pyproject.parent.as_posix()}" in build_job
+        assert f"working-directory: release-source/{spec.pyproject.parent.as_posix()}" in build_job
         assert f"environment: {environments[spec.key]}" in publish_job
 
 
@@ -64,6 +64,8 @@ def test_only_workflow_run_and_strict_manual_dispatch_can_publish() -> None:
     assert "--workflow-ref \"$WORKFLOW_REF\"" in workflow
     assert "--release-tag \"$RELEASE_TAG\"" in workflow
     assert "refs/remotes/origin/trunk" not in workflow  # ancestry is enforced in the resolver
+    assert "ref: ${{ needs.resolve-publish-targets.outputs.release_sha }}" not in workflow
+    assert workflow.count('git worktree add --detach release-source "$RELEASE_SHA"') == 3
 
 
 def test_build_jobs_are_unprivileged_and_oidc_jobs_only_download_and_publish() -> None:

@@ -135,11 +135,17 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - name: Checkout exact release commit
+      - name: Checkout trusted publication automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Materialize exact release source
+        env:
+          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+        run: git worktree add --detach release-source "$RELEASE_SHA"
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -149,15 +155,15 @@ jobs:
       - name: Install packages
         run: |
           python -m pip install --upgrade pip
-          pip install -e "./packages/honua-sdk[grpc]"
-          pip install -e ./packages/honua-admin
+          pip install -e "./release-source/packages/honua-sdk[grpc]"
+          pip install -e ./release-source/packages/honua-admin
           pip install mypy
 
       - name: Run mypy
         run: |
           python -m mypy \
-            packages/honua-sdk/honua_sdk \
-            packages/honua-admin/honua_admin
+            release-source/packages/honua-sdk/honua_sdk \
+            release-source/packages/honua-admin/honua_admin
 
   build-honua-sdk:
     needs:
@@ -170,20 +176,20 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: packages/honua-sdk
+        working-directory: release-source/packages/honua-sdk
     steps:
-      - name: Checkout exact release commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-          persist-credentials: false
-
       - name: Checkout trusted publication automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.workflow_sha }}
-          path: .publication-automation
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Materialize exact release source
+        env:
+          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+        run: git worktree add --detach release-source "$RELEASE_SHA"
+        working-directory: ${{ github.workspace }}
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -197,30 +203,30 @@ jobs:
           pip install pytest hatch
 
       - name: Run compatibility gate
-        run: python scripts/compatibility_gate.py
+        run: python release-source/scripts/compatibility_gate.py
         working-directory: ${{ github.workspace }}
 
       - name: Run SDK coverage gate
         env:
           HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python scripts/gen_sdk_coverage.py
+        run: python release-source/scripts/gen_sdk_coverage.py
         working-directory: ${{ github.workspace }}
 
       - name: Install honua-admin (for full smoke coverage)
-        run: pip install -e "${{ github.workspace }}/packages/honua-admin"
+        run: pip install -e "${{ github.workspace }}/release-source/packages/honua-admin"
 
       - name: Run SDK tests
-        run: python -m pytest tests/ -q --tb=short
+        run: python -m pytest release-source/tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
         env:
-          PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk
+          PYTHONPATH: ${{ github.workspace }}/release-source/packages/honua-sdk
 
       - name: Validate tag version
         if: needs.resolve-publish-targets.outputs.publish == 'true'
         env:
           EXPECTED_TAG: ${{ needs.resolve-publish-targets.outputs.sdk_tag }}
         run: >
-          python "${GITHUB_WORKSPACE}/scripts/validate_publish_tag.py"
+          python "${GITHUB_WORKSPACE}/release-source/scripts/validate_publish_tag.py"
           --pyproject pyproject.toml
           --tag "$EXPECTED_TAG"
           --prefix python-sdk-v
@@ -232,7 +238,7 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.resolve-publish-targets.outputs.sdk_version }}
         run: >
-          python "${GITHUB_WORKSPACE}/.publication-automation/scripts/verify_distribution_parity.py"
+          python "${GITHUB_WORKSPACE}/scripts/verify_distribution_parity.py"
           manifest
           --dist-dir dist
           --package honua-sdk
@@ -245,8 +251,8 @@ jobs:
         with:
           name: honua-sdk-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            packages/honua-sdk/dist
-            packages/honua-sdk/dist-manifest.json
+            release-source/packages/honua-sdk/dist
+            release-source/packages/honua-sdk/dist-manifest.json
           if-no-files-found: error
           retention-days: 14
 
@@ -430,20 +436,20 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: packages/honua-admin
+        working-directory: release-source/packages/honua-admin
     steps:
-      - name: Checkout exact release commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-          persist-credentials: false
-
       - name: Checkout trusted publication automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.workflow_sha }}
-          path: .publication-automation
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Materialize exact release source
+        env:
+          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+        run: git worktree add --detach release-source "$RELEASE_SHA"
+        working-directory: ${{ github.workspace }}
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -453,32 +459,32 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e "${{ github.workspace }}/packages/honua-sdk[grpc]"
+          pip install -e "${{ github.workspace }}/release-source/packages/honua-sdk[grpc]"
           pip install -e .
           pip install pytest hatch
 
       - name: Run compatibility gate
-        run: python scripts/compatibility_gate.py
+        run: python release-source/scripts/compatibility_gate.py
         working-directory: ${{ github.workspace }}
 
       - name: Run SDK coverage gate
         env:
           HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python scripts/gen_sdk_coverage.py
+        run: python release-source/scripts/gen_sdk_coverage.py
         working-directory: ${{ github.workspace }}
 
       - name: Run tests
-        run: python -m pytest tests/ -q --tb=short
+        run: python -m pytest release-source/tests/ -q --tb=short
         working-directory: ${{ github.workspace }}
         env:
-          PYTHONPATH: ${{ github.workspace }}/packages/honua-sdk
+          PYTHONPATH: ${{ github.workspace }}/release-source/packages/honua-sdk
 
       - name: Validate tag version
         if: needs.resolve-publish-targets.outputs.publish == 'true'
         env:
           EXPECTED_TAG: ${{ needs.resolve-publish-targets.outputs.admin_tag }}
         run: >
-          python "${GITHUB_WORKSPACE}/scripts/validate_publish_tag.py"
+          python "${GITHUB_WORKSPACE}/release-source/scripts/validate_publish_tag.py"
           --pyproject pyproject.toml
           --tag "$EXPECTED_TAG"
           --prefix python-admin-v
@@ -490,7 +496,7 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.resolve-publish-targets.outputs.admin_version }}
         run: >
-          python "${GITHUB_WORKSPACE}/.publication-automation/scripts/verify_distribution_parity.py"
+          python "${GITHUB_WORKSPACE}/scripts/verify_distribution_parity.py"
           manifest
           --dist-dir dist
           --package honua-admin
@@ -503,8 +509,8 @@ jobs:
         with:
           name: honua-admin-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            packages/honua-admin/dist
-            packages/honua-admin/dist-manifest.json
+            release-source/packages/honua-admin/dist
+            release-source/packages/honua-admin/dist-manifest.json
           if-no-files-found: error
           retention-days: 14
 

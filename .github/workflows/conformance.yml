@@ -43,10 +43,11 @@ env:
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
   CONFORMANCE_FIXTURES_VERSION: "0.1.0-alpha.1"
-  # Immutable, date-pinned nightly tag (records the exact server the contract is
-  # certified against; the job moves only when this pin moves, so drift is
-  # attributable). Resolved digest + revision are recorded in the step summary.
-  HONUA_SERVER_IMAGE: ${{ github.event.inputs.server_image || 'ghcr.io/honua-io/honua-server:nightly-20260530-amd64' }}
+  # Current nightly image and its exact embedded source revision. Update these as
+  # one identity so scheduled evidence never joins a candidate to unrelated seed
+  # fixtures. Release dispatches continue to override both explicitly.
+  HONUA_SERVER_IMAGE: ${{ github.event.inputs.server_image || 'ghcr.io/honua-io/honua-server@sha256:78e3088d64d832d3e2752c87d80bfcad201b414f4525989ca5d9a242cd5fee8a' }}
+  HONUA_SERVER_NIGHTLY_REVISION: 'f897700159e2791c9468c6ca85bb4e2a3a8d8433'
 
 jobs:
   conformance:
@@ -100,9 +101,9 @@ jobs:
         with:
           repository: honua-io/honua-server
           path: honua-server
-          # Source the seed from the RC commit when certifying a release candidate;
-          # blank ref keeps the existing default-branch behavior for scheduled/PR runs.
-          ref: ${{ github.event.inputs.server_seed_ref || '' }}
+          # Release dispatches supply the RC commit. Scheduled and PR evidence use
+          # the exact revision embedded in the pinned nightly image above.
+          ref: ${{ github.event.inputs.server_seed_ref || env.HONUA_SERVER_NIGHTLY_REVISION }}
 
       - name: Start seeded pinned Honua target
         env:

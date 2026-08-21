@@ -27,10 +27,7 @@ pip install "honua-sdk[grpc,geopandas,raster]"
 pip install honua-admin
 ```
 
-If those commands do not resolve yet — the first public release is staged on
-the release automation (release-please + PyPI Trusted Publishing) but may not
-have landed — install from a clone instead; this path always works and is
-also the development path:
+For unreleased development work, install from a clone instead:
 
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git
@@ -59,7 +56,7 @@ Or straight from GitHub without cloning, pinned to a release tag (replace
 with the newest `python-sdk-v*` tag):
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.9#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.11#subdirectory=packages/honua-sdk"
 ```
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it

@@ -39,6 +39,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -196,6 +198,11 @@ class ConformanceTarget:
     api_key: str | None = None
     server_image: str | None = None
     server_commit: str | None = None
+    server_image_digest: str | None = None
+    sdk_source_sha: str | None = None
+    evidence_uri: str | None = None
+    candidate_cut_at: str | None = None
+    certification_tier: str = "nightly"
 
 
 def load_target_from_env() -> ConformanceTarget:
@@ -216,6 +223,11 @@ def load_target_from_env() -> ConformanceTarget:
         api_key=os.environ.get("HONUA_API_KEY"),
         server_image=os.environ.get("HONUA_SERVER_IMAGE"),
         server_commit=os.environ.get("HONUA_SERVER_COMMIT"),
+        server_image_digest=os.environ.get("HONUA_SERVER_IMAGE_DIGEST"),
+        sdk_source_sha=os.environ.get("HONUA_SDK_SOURCE_SHA"),
+        evidence_uri=os.environ.get("HONUA_EVIDENCE_URI"),
+        candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
+        certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
     )
 
 
@@ -268,6 +280,8 @@ class CaseResult:
     message_type: str | None
     sdk_method: str
     request_path: str
+    started_at: str
+    completed_at: str
     details: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
 
@@ -294,6 +308,7 @@ class ConformanceCase:
         message_type = bundle.manifest_types().get(f"{self.fixture}_response.json") or (
             bundle.manifest_types().get(f"{self.fixture}_request.json")
         )
+        started_at = _utc_now()
         try:
             details = self.runner(client, target, bundle)
         except Exception as exc:  # noqa: BLE001 - reported, not swallowed
@@ -304,6 +319,8 @@ class ConformanceCase:
                 message_type=message_type,
                 sdk_method=self.sdk_method,
                 request_path=self.request_path,
+                started_at=started_at,
+                completed_at=_utc_now(),
                 error=f"{type(exc).__name__}: {exc}",
             )
         return CaseResult(
@@ -313,8 +330,14 @@ class ConformanceCase:
             message_type=message_type,
             sdk_method=self.sdk_method,
             request_path=self.request_path,
+            started_at=started_at,
+            completed_at=_utc_now(),
             details=details,
         )
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 # -- assertion helpers ------------------------------------------------------- #
@@ -893,3 +916,98 @@ def render_summary(
             f"| `{r.name}` | `{r.fixture}` | `{r.message_type or '-'}` | {r.status} |"
         )
     return "\n".join(lines) + "\n"
+
+
+CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
+    "feature_query_envelope": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "query", ["positive", "pagination"]
+    ),
+    "feature_query_jsonb_projection": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "query-json-fields", ["positive", "media-schema"]
+    ),
+    "feature_query_field_metadata": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "layer-metadata", ["positive", "metadata"]
+    ),
+    "feature_query_invalid_is_structured_error": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "query-invalid", ["negative", "media-schema"]
+    ),
+    "catalog_lists_configured_service": (
+        "serve.geoservices-root", "geoservices-root", "list-services", ["positive", "metadata"]
+    ),
+    "ogc_features_items": (
+        "serve.ogc-api-features", "ogc-api-features", "items", ["positive", "pagination"]
+    ),
+    "ogc_features_items_jsonb_projection": (
+        "serve.ogc-api-features", "ogc-api-features", "items-json-fields", ["positive", "media-schema"]
+    ),
+    "temporal_query": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "temporal-query", ["positive", "boundary"]
+    ),
+    "replica_sync_surface": (
+        "editing.featureserver-edits", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
+    ),
+    "analysis_process_list": (
+        "process.ogc-api-processes", "ogc-api-processes", "list-processes", ["positive", "metadata"]
+    ),
+}
+
+
+def build_certification_fragment(
+    bundle: FixtureBundle,
+    target: ConformanceTarget,
+    case_results: Sequence[tuple[ConformanceCase, CaseResult]],
+) -> dict[str, Any]:
+    """Normalize live SDK case outcomes for the central evidence ledger."""
+    missing_target = [
+        name
+        for name, value in {
+            "server_commit": target.server_commit,
+            "server_image_digest": target.server_image_digest,
+            "evidence_uri": target.evidence_uri,
+            "candidate_cut_at": target.candidate_cut_at,
+        }.items()
+        if not value
+    ]
+    if missing_target:
+        raise ConformanceFixturesError(
+            "normalized certification evidence needs " + ", ".join(missing_target)
+        )
+
+    client_version = importlib.metadata.version("honua-sdk")
+    observations: list[dict[str, Any]] = []
+    for case, result in case_results:
+        capability_key, surface, operation, facets = CASE_CERTIFICATION[case.name]
+        known_gap = case.known_gap_issue if result.status != "passed" else None
+        observations.append(
+            {
+                "surface": surface,
+                "operation": operation,
+                "canonical_client": "honua-sdk-python",
+                "client_version": client_version,
+                "deployment_target": "local-docker",
+                "result": "pass" if result.status == "passed" else "fail",
+                "skip_reason": known_gap,
+                "source_sha": target.server_commit,
+                "image_digest": target.server_image_digest,
+                "fixture_revision": (
+                    f"geospatial-grpc@{bundle.version};"
+                    f"honua-sdk-python@{target.sdk_source_sha or 'unknown'};"
+                    f"capability={capability_key};facets={','.join(facets)}"
+                ),
+                "evidence_uri": target.evidence_uri,
+                "started_at": result.started_at,
+                "completed_at": result.completed_at,
+            }
+        )
+
+    return {
+        "schema": "honua.protocol-certification-fragment/v1",
+        "producer": "honua-sdk-python",
+        "generated_at": _utc_now(),
+        "candidate": {
+            "source_sha": target.server_commit,
+            "image_digest": target.server_image_digest,
+            "cut_at": target.candidate_cut_at,
+        },
+        "observations": observations,
+    }

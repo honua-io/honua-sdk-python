@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 
 from scripts._conformance import (
     ConformanceFixturesError,
+    build_certification_fragment,
     locate_fixture_bundle,
     load_target_from_env,
 )
@@ -63,6 +65,21 @@ def conformance_results(conformance_client, conformance_target, fixture_bundle):
                 conformance_target,
                 [result for _, result in results.values()],
             ),
+            encoding="utf-8",
+        )
+    fragment_path = os.environ.get("HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH")
+    if fragment_path:
+        Path(fragment_path).write_text(
+            json.dumps(
+                build_certification_fragment(
+                    fixture_bundle,
+                    conformance_target,
+                    list(results.values()),
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
             encoding="utf-8",
         )
     return results

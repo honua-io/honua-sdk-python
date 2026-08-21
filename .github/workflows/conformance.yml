@@ -23,6 +23,12 @@ on:
         description: "honua-server git ref to source the conformance seed from (should match the server_image commit). Blank = default branch."
         required: false
         default: ""
+      certification_tier:
+        description: "Evidence policy tier: nightly or release. Release requires immutable image and full server SHA."
+        required: false
+        type: choice
+        options: [nightly, release]
+        default: nightly
 
 permissions:
   contents: read
@@ -44,7 +50,7 @@ env:
 
 jobs:
   conformance:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -101,12 +107,24 @@ jobs:
       - name: Start seeded pinned Honua target
         env:
           COMPOSE_PROJECT_NAME: honua-python-conformance-${{ github.run_id }}-${{ github.run_attempt }}
+          HONUA_CERTIFICATION_TIER: ${{ github.event.inputs.certification_tier || (github.event_name == 'pull_request' && 'pr') || 'nightly' }}
         run: |
           set -euo pipefail
 
           server_root="${GITHUB_WORKSPACE}/honua-server"
           compose_file="${server_root}/docker/client-compat/compose.yml"
           override_file="${RUNNER_TEMP}/python-conformance-compose.override.yml"
+
+          if [[ "${HONUA_CERTIFICATION_TIER}" == "release" ]]; then
+            if [[ ! "${HONUA_SERVER_IMAGE}" =~ @sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::release certification requires server_image pinned by digest"
+              exit 1
+            fi
+            if [[ ! "${{ github.event.inputs.server_seed_ref }}" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::release certification requires a full 40-character server_seed_ref"
+              exit 1
+            fi
+          fi
 
           # Override the one-shot seed to apply the canonical client-compat seed
           # (schema + test_service / layer 0 with JSONB feature attributes — the
@@ -160,14 +178,30 @@ jobs:
           done
           curl -fsS http://localhost:5000/healthz/ready >/dev/null
 
-          image_digest="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)"
+          resolved_image="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)"
+          image_digest="${resolved_image##*@}"
           image_revision="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' 2>/dev/null || true)"
+          candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI HEAD)"
+
+          if [[ ! "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::could not resolve an immutable server image digest"
+            exit 1
+          fi
+          if [[ "${HONUA_CERTIFICATION_TIER}" == "release" && "${image_revision}" != "${{ github.event.inputs.server_seed_ref }}" ]]; then
+            echo "::error::image revision does not match release server_seed_ref"
+            exit 1
+          fi
 
           {
             echo "HONUA_BASE_URL=http://localhost:5000"
             echo "HONUA_SERVICE_ID=test_service"
             echo "HONUA_LAYER_ID=0"
             echo "HONUA_API_KEY=ClientCompatAdmin123!"
+            echo "HONUA_SERVER_IMAGE_DIGEST=${image_digest}"
+            echo "HONUA_SDK_SOURCE_SHA=${GITHUB_SHA}"
+            echo "HONUA_EVIDENCE_URI=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "HONUA_CANDIDATE_CUT_AT=${candidate_cut_at}"
+            echo "HONUA_CERTIFICATION_TIER=${HONUA_CERTIFICATION_TIER}"
             if [[ -n "${image_revision}" && "${image_revision}" != "<no value>" ]]; then
               echo "HONUA_SERVER_COMMIT=${image_revision}"
             fi
@@ -177,7 +211,7 @@ jobs:
             echo "## Python SDK live-server conformance — pinned target"
             echo "- Server image: \`${HONUA_SERVER_IMAGE}\`"
             if [[ -n "${image_digest}" ]]; then
-              echo "- Resolved digest: \`${image_digest}\`"
+              echo "- Resolved digest: \`${resolved_image}\`"
             fi
             if [[ -n "${image_revision}" && "${image_revision}" != "<no value>" ]]; then
               echo "- Image revision: \`${image_revision}\`"
@@ -189,6 +223,7 @@ jobs:
       - name: Run shared-fixture conformance suite
         env:
           HONUA_CONFORMANCE_SUMMARY_PATH: conformance-summary.md
+          HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: protocol-certification-fragment.json
         run: |
           python -m pytest tests/conformance \
             -q \
@@ -197,6 +232,23 @@ jobs:
             -rsxX \
             --tb=short \
             --junitxml=conformance-junit.xml
+
+      - name: Enforce release evidence outcomes
+        if: ${{ github.event.inputs.certification_tier == 'release' }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          fragment = json.loads(Path("protocol-certification-fragment.json").read_text())
+          failed = [
+              f"{row['surface']}/{row['operation']}={row['result']}"
+              for row in fragment["observations"]
+              if row["result"] != "pass"
+          ]
+          if failed:
+              raise SystemExit("release SDK certification has non-pass cells: " + ", ".join(failed))
+          PY
 
       - name: Append case results to step summary
         if: ${{ always() }}
@@ -214,6 +266,7 @@ jobs:
           path: |
             conformance-junit.xml
             conformance-summary.md
+            protocol-certification-fragment.json
 
       - name: Upload server diagnostics
         if: ${{ always() }}

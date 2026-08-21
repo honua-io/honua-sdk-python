@@ -193,6 +193,9 @@ def test_registry_and_release_assets_require_exact_hash_parity() -> None:
 
     for package in ("honua-sdk", "honua-admin"):
         attachment = _job_block(workflow, f"attach-{package}-release")
+        assert "always()" in attachment
+        assert "needs.resolve-publish-targets.result == 'success'" in attachment
+        assert f"needs.verify-{package}-pypi.result == 'success'" in attachment
         assert "contents: write" in attachment
         assert "id-token: write" not in attachment
         assert "gh release upload" in attachment

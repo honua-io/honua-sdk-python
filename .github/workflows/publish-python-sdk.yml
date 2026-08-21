@@ -494,7 +494,11 @@ jobs:
     needs:
       - resolve-publish-targets
       - verify-honua-sdk-pypi
-    if: needs.resolve-publish-targets.outputs.publish == 'true'
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.verify-honua-sdk-pypi.result == 'success'
+      && needs.resolve-publish-targets.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -843,7 +847,11 @@ jobs:
     needs:
       - resolve-publish-targets
       - verify-honua-admin-pypi
-    if: needs.resolve-publish-targets.outputs.publish == 'true'
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.verify-honua-admin-pypi.result == 'success'
+      && needs.resolve-publish-targets.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -241,15 +241,10 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
+          from scripts._conformance import validate_release_certification_fragment
 
           fragment = json.loads(Path("protocol-certification-fragment.json").read_text())
-          failed = [
-              f"{row['surface']}/{row['operation']}={row['result']}"
-              for row in fragment["observations"]
-              if row["result"] != "pass"
-          ]
-          if failed:
-              raise SystemExit("release SDK certification has non-pass cells: " + ", ".join(failed))
+          validate_release_certification_fragment(fragment)
           PY
 
       - name: Append case results to step summary

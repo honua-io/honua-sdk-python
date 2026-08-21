@@ -3,12 +3,15 @@ from __future__ import annotations
 import importlib.metadata
 from pathlib import Path
 
+import pytest
+
 from scripts._conformance import (
     CaseResult,
     ConformanceCase,
     ConformanceTarget,
     FixtureBundle,
     build_certification_fragment,
+    validate_release_certification_fragment,
 )
 
 
@@ -66,6 +69,10 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         "image_digest": image_digest,
         "cut_at": "2026-08-20T00:00:00Z",
     }
+    assert fragment["operation_scope"]["complete"] is False
+    assert fragment["operation_scope"]["owner_issue"].endswith("/issues/21")
+    with pytest.raises(AssertionError, match="operation scope is incomplete"):
+        validate_release_certification_fragment(fragment)
     passed, failed = fragment["observations"]
     assert passed["operation"] == "query"
     assert passed["client_version"] == "9.9.9"

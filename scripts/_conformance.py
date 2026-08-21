@@ -1210,6 +1210,52 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
     ),
 }
 
+CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
+
+
+def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None:
+    """Reject incomplete, duplicated, missing, or non-pass release evidence."""
+    scope = fragment.get("operation_scope")
+    _require(isinstance(scope, Mapping), "release SDK certification is missing operation_scope")
+    if scope.get("complete") is not True:
+        owner = scope.get("owner_issue") or CERTIFICATION_SCOPE_OWNER
+        raise AssertionError(
+            "release SDK certification operation scope is incomplete; "
+            f"catalog every public/addressable operation under {owner}"
+        )
+
+    required_rows = _as_list(
+        scope.get("required_operations"),
+        "release SDK certification operation_scope is missing required_operations",
+    )
+    required = {
+        (str(row["surface"]), str(row["operation"]))
+        for row in required_rows
+        if isinstance(row, Mapping) and "surface" in row and "operation" in row
+    }
+    _require(len(required) == len(required_rows), "required operation entries are malformed or duplicated")
+
+    observations = _as_list(
+        fragment.get("observations"),
+        "release SDK certification is missing observations",
+    )
+    observed_rows = [
+        (str(row["surface"]), str(row["operation"]))
+        for row in observations
+        if isinstance(row, Mapping) and "surface" in row and "operation" in row
+    ]
+    _require(len(observed_rows) == len(observations), "release observations are malformed")
+    _require(len(set(observed_rows)) == len(observed_rows), "release observations contain duplicate operation cells")
+    missing = required - set(observed_rows)
+    _require(not missing, f"release SDK certification is missing operation cells: {sorted(missing)}")
+
+    failed = [
+        f"{row['surface']}/{row['operation']}={row['result']}"
+        for row in observations
+        if row.get("result") != "pass"
+    ]
+    _require(not failed, "release SDK certification has non-pass cells: " + ", ".join(failed))
+
 
 def build_certification_fragment(
     bundle: FixtureBundle,
@@ -1267,6 +1313,21 @@ def build_certification_fragment(
             "source_sha": target.server_commit,
             "image_digest": target.server_image_digest,
             "cut_at": target.candidate_cut_at,
+        },
+        "operation_scope": {
+            "complete": False,
+            "owner_issue": CERTIFICATION_SCOPE_OWNER,
+            "disposition": (
+                "The live cases are a bounded initial certification slice; the complete public/addressable "
+                "SDK operation denominator is tracked by the owner issue and release evidence must fail closed."
+            ),
+            "required_operations": [
+                {"surface": surface, "operation": operation}
+                for surface, operation in sorted({
+                    (surface, operation)
+                    for _, surface, operation, _ in CASE_CERTIFICATION.values()
+                })
+            ],
         },
         "observations": observations,
     }

@@ -109,6 +109,7 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: honua-python-conformance-${{ github.run_id }}-${{ github.run_attempt }}
           HONUA_CERTIFICATION_TIER: ${{ github.event.inputs.certification_tier || (github.event_name == 'pull_request' && 'pr') || 'nightly' }}
+          SERVER_SEED_REF_INPUT: ${{ github.event.inputs.server_seed_ref }}
         run: |
           set -euo pipefail
 
@@ -121,7 +122,7 @@ jobs:
               echo "::error::release certification requires server_image pinned by digest"
               exit 1
             fi
-            if [[ ! "${{ github.event.inputs.server_seed_ref }}" =~ ^[0-9a-f]{40}$ ]]; then
+            if [[ ! "${SERVER_SEED_REF_INPUT}" =~ ^[0-9a-f]{40}$ ]]; then
               echo "::error::release certification requires a full 40-character server_seed_ref"
               exit 1
             fi

@@ -38,6 +38,7 @@ lane stays green while the harness is in place, yet any *new* drift still fails.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+import base64
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
@@ -1347,18 +1348,15 @@ def build_certification_fragment(
         )
 
     client_version = importlib.metadata.version("honua-sdk")
-    evidence_receipt = {
-        "format": "honua.sdk-python.case-results/v1",
-        "cases": [
+    payload_base64 = base64.b64encode(json.dumps(
+        [
             {"case": case.name, "receipt": asdict(result)}
             for case, result in case_results
         ],
-    }
-    evidence_digest = "sha256:" + hashlib.sha256(json.dumps(
-        evidence_receipt,
         sort_keys=True,
         separators=(",", ":"),
-    ).encode("utf-8")).hexdigest()
+        ensure_ascii=False,
+    ).encode("utf-8")).decode("ascii")
     observations: list[dict[str, Any]] = []
     for case, result in case_results:
         capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
@@ -1368,6 +1366,35 @@ def build_certification_fragment(
             else "skip" if known_gap
             else "fail"
         )
+        contract_revision = f"sdk-python-certification@{target.sdk_source_sha}"
+        receipt_facets = {facet: normalized_result for facet in scenario_facets}
+        evidence_receipt = None if normalized_result == "skip" else {
+            "schema": "honua.certification-evidence-receipt/v1",
+            "identity": {
+                "capability_key": capability_key,
+                "surface": surface,
+                "operation": operation,
+                "canonical_client": "Honua SDK Python",
+                "client_version": client_version,
+                "deployment_target": "local-docker",
+                "source_sha": target.server_commit,
+                "producer_source_sha": target.sdk_source_sha,
+                "image_digest": target.server_image_digest,
+                "fixture_revision": f"geospatial-grpc@{bundle.version}",
+                "contract_revision": contract_revision,
+                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "started_at": result.started_at,
+                "completed_at": result.completed_at,
+            },
+            "result": normalized_result,
+            "facets": receipt_facets,
+            "payload_base64": payload_base64,
+        }
+        evidence_digest = None if evidence_receipt is None else "sha256:" + hashlib.sha256(
+            json.dumps(
+                evidence_receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode("utf-8")
+        ).hexdigest()
         observations.append(
             {
                 "capability_key": capability_key,
@@ -1383,7 +1410,7 @@ def build_certification_fragment(
                 "producer_source_sha": target.sdk_source_sha,
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
-                "contract_revision": f"sdk-python-certification@{target.sdk_source_sha}",
+                "contract_revision": contract_revision,
                 "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
                 "evidence_uri": (
                     None if normalized_result == "skip"
@@ -1392,7 +1419,7 @@ def build_certification_fragment(
                 "evidence_digest": None if normalized_result == "skip" else evidence_digest,
                 "evidence_receipt": None if normalized_result == "skip" else evidence_receipt,
                 "facet_results": None if normalized_result == "skip" else {
-                    facet: {"result": normalized_result, "evidence_digest": evidence_digest}
+                    facet: {"result": receipt_facets[facet], "evidence_digest": evidence_digest}
                     for facet in scenario_facets
                 },
                 "started_at": result.started_at,

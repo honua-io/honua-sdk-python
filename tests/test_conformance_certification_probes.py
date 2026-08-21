@@ -164,6 +164,24 @@ class _TemporalPartialClient:
         }
 
 
+class _TemporalDuplicateClient:
+    def _request_json(
+        self,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        if params.get("time") == "0,1":
+            return {"features": []}
+        return {
+            "features": [
+                {"attributes": {"OBJECTID": 1}},
+                {"attributes": {"OBJECTID": 1}},
+            ]
+        }
+
+
 class _ReplicaFeatureServer:
     def __init__(self, metadata: dict[str, Any]) -> None:
         self._metadata = metadata
@@ -301,6 +319,11 @@ def test_temporal_probe_rejects_disjoint_window_leakage() -> None:
 def test_temporal_probe_rejects_partial_seeded_window() -> None:
     with pytest.raises(AssertionError, match="complete seeded record set"):
         _run_temporal_query(_TemporalPartialClient(), TARGET, BUNDLE)
+
+
+def test_temporal_probe_rejects_duplicate_objectids() -> None:
+    with pytest.raises(AssertionError, match="duplicate objectids"):
+        _run_temporal_query(_TemporalDuplicateClient(), TARGET, BUNDLE)
 
 
 @pytest.mark.parametrize(
@@ -490,6 +513,30 @@ def test_feature_query_probe_rejects_duplicate_ids_within_each_page(
         )
 
 
+@pytest.mark.parametrize("invalid_id", [1.0, True])
+def test_feature_query_probe_requires_integer_objectids(
+    monkeypatch: pytest.MonkeyPatch, invalid_id: Any
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+    first_page = {
+        "features": [
+            {"attributes": {"OBJECTID": object_id}, "geometry": {"x": 0, "y": 0}}
+            for object_id in [invalid_id, 2, 3, 4, 5]
+        ],
+        "exceededTransferLimit": True,
+    }
+    second_page = {
+        "features": [{"attributes": {"OBJECTID": 2}, "geometry": {"x": 0, "y": 0}}],
+        "exceededTransferLimit": False,
+    }
+    with pytest.raises(AssertionError, match="must be an integer"):
+        _run_feature_query(_PagedQueryClient([first_page, second_page]), TARGET, BUNDLE)
+
+
 def test_feature_query_probe_validates_every_first_page_feature(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -571,6 +618,28 @@ def test_layer_metadata_probe_rejects_field_or_object_id_drift(
         ],
     }
     with pytest.raises(AssertionError):
+        _run_feature_query_layer_fields(_LayerClient(metadata), TARGET, BUNDLE)
+
+
+def test_layer_metadata_probe_rejects_duplicate_field_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {
+            "objectIdFieldName": "OBJECTID",
+            "fields": [{"name": "OBJECTID", "fieldType": "FIELD_TYPE_BIG_INTEGER"}],
+        },
+    )
+    metadata = {
+        "objectIdField": "OBJECTID",
+        "fields": [
+            {"name": "OBJECTID", "type": "esriFieldTypeString"},
+            {"name": "objectid", "type": "esriFieldTypeOID"},
+        ],
+    }
+    with pytest.raises(AssertionError, match="duplicate field name"):
         _run_feature_query_layer_fields(_LayerClient(metadata), TARGET, BUNDLE)
 
 

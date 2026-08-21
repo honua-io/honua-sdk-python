@@ -75,6 +75,8 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         validate_release_certification_fragment(fragment)
     passed, failed = fragment["observations"]
     assert passed["operation"] == "query"
+    assert passed["capability_key"] == "serve.geoservices-featureserver"
+    assert passed["scenario_facets"] == ["positive", "pagination"]
     assert passed["client_version"] == "9.9.9"
     assert passed["result"] == "pass"
     assert passed["skip_reason"] is None

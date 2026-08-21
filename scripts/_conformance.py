@@ -460,7 +460,12 @@ def _run_feature_query(
             attributes = _feature_attributes(feature)
             normalized = {str(key).lower(): value for key, value in attributes.items()}
             _require("objectid" in normalized, "feature is missing its objectid attribute")
-            ids.append(normalized["objectid"])
+            object_id = normalized["objectid"]
+            _require(
+                isinstance(object_id, int) and not isinstance(object_id, bool),
+                "feature objectid must be an integer",
+            )
+            ids.append(object_id)
         return ids
 
     first_ids = object_ids(features)
@@ -592,7 +597,9 @@ def _run_feature_query_layer_fields(
             isinstance(field_type, str) and bool(field_type.strip()),
             f"golden field type is invalid for {name!r}: {field_type!r}",
         )
-        expected_fields[name.casefold()] = field_family(field_type)
+        normalized_name = name.casefold()
+        _require(normalized_name not in expected_fields, f"duplicate golden field name: {name!r}")
+        expected_fields[normalized_name] = field_family(field_type)
 
     live_fields: dict[str, str] = {}
     for fld in fields:
@@ -604,7 +611,9 @@ def _run_feature_query_layer_fields(
             isinstance(field_type, str) and bool(field_type.strip()),
             f"field type is invalid for {name!r}: {field_type!r}",
         )
-        live_fields[name.casefold()] = field_family(field_type)
+        normalized_name = name.casefold()
+        _require(normalized_name not in live_fields, f"duplicate field name: {name!r}")
+        live_fields[normalized_name] = field_family(field_type)
 
     canonical_seed_fields = {
         "objectid": "integer",
@@ -982,15 +991,16 @@ def _run_temporal_query(
     )
 
     def object_ids(features: list[Any], label: str) -> set[Any]:
-        ids: set[Any] = set()
+        values: list[Any] = []
         for feature in features:
             _require(isinstance(feature, Mapping), f"{label} temporal feature is not an object")
             attributes = feature.get("attributes")
             _require(isinstance(attributes, Mapping), f"{label} temporal feature has no attributes")
             normalized = {str(key).lower(): value for key, value in attributes.items()}
             _require("objectid" in normalized, f"{label} temporal feature has no objectid")
-            ids.add(normalized["objectid"])
-        return ids
+            values.append(normalized["objectid"])
+        _require(len(values) == len(set(values)), f"{label} temporal query contains duplicate objectids")
+        return set(values)
 
     unfiltered_ids = object_ids(unfiltered, "unfiltered")
     in_window_ids = object_ids(in_window, "in-range")
@@ -1337,12 +1347,14 @@ def build_certification_fragment(
     client_version = importlib.metadata.version("honua-sdk")
     observations: list[dict[str, Any]] = []
     for case, result in case_results:
-        _, surface, operation, _ = CASE_CERTIFICATION[case.name]
+        capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
         known_gap = case.known_gap_issue if result.status != "passed" else None
         observations.append(
             {
+                "capability_key": capability_key,
                 "surface": surface,
                 "operation": operation,
+                "scenario_facets": scenario_facets,
                 "canonical_client": "honua-sdk-python",
                 "client_version": client_version,
                 "deployment_target": "local-docker",

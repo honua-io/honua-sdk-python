@@ -373,6 +373,41 @@ def test_feature_query_probe_rejects_repeated_page(monkeypatch: pytest.MonkeyPat
         _run_feature_query(_PagedQueryClient([repeated, repeated]), TARGET, BUNDLE)
 
 
+@pytest.mark.parametrize(
+    ("first_ids", "second_ids"),
+    [
+        ([1, 1, 1, 1, 1], [2]),
+        ([1, 2, 3, 4, 5], [6, 6]),
+    ],
+)
+def test_feature_query_probe_rejects_duplicate_ids_within_each_page(
+    monkeypatch: pytest.MonkeyPatch,
+    first_ids: list[int],
+    second_ids: list[int],
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+
+    def page(object_ids: list[int], *, more: bool) -> dict[str, Any]:
+        return {
+            "features": [
+                {"attributes": {"OBJECTID": object_id}, "geometry": {"x": 0, "y": 0}}
+                for object_id in object_ids
+            ],
+            "exceededTransferLimit": more,
+        }
+
+    with pytest.raises(AssertionError, match="duplicate objectid"):
+        _run_feature_query(
+            _PagedQueryClient([page(first_ids, more=True), page(second_ids, more=False)]),
+            TARGET,
+            BUNDLE,
+        )
+
+
 def test_feature_query_probe_validates_every_first_page_feature(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

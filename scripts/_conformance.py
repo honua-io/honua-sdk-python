@@ -458,6 +458,8 @@ def _run_feature_query(
 
     first_ids = object_ids(features)
     second_ids = object_ids(second_features)
+    _require(len(first_ids) == len(set(first_ids)), "first page contains duplicate objectid values")
+    _require(len(second_ids) == len(set(second_ids)), "second page contains duplicate objectid values")
     _require(first_ids == sorted(first_ids), "first page is not ordered by objectid")
     _require(second_ids == sorted(second_ids), "second page is not ordered by objectid")
     _require(first_ids[-1] < second_ids[0], "feature-query pages are not ordered and non-overlapping")

@@ -78,8 +78,8 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["client_version"] == "9.9.9"
     assert passed["result"] == "pass"
     assert passed["skip_reason"] is None
-    assert f"honua-sdk-python@{sdk_sha}" in passed["fixture_revision"]
-    assert "facets=positive,pagination" in passed["fixture_revision"]
+    assert passed["producer_source_sha"] == sdk_sha
+    assert passed["fixture_revision"] == "geospatial-grpc@fixture-v1"
     assert failed["operation"] == "temporal-query"
     assert failed["result"] == "fail"
     assert failed["skip_reason"] == gap.known_gap_issue

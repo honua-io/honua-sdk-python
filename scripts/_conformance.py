@@ -1325,6 +1325,7 @@ def build_certification_fragment(
             "server_image_digest": target.server_image_digest,
             "evidence_uri": target.evidence_uri,
             "candidate_cut_at": target.candidate_cut_at,
+            "sdk_source_sha": target.sdk_source_sha,
         }.items()
         if not value
     ]
@@ -1336,7 +1337,7 @@ def build_certification_fragment(
     client_version = importlib.metadata.version("honua-sdk")
     observations: list[dict[str, Any]] = []
     for case, result in case_results:
-        capability_key, surface, operation, facets = CASE_CERTIFICATION[case.name]
+        _, surface, operation, _ = CASE_CERTIFICATION[case.name]
         known_gap = case.known_gap_issue if result.status != "passed" else None
         observations.append(
             {
@@ -1348,12 +1349,9 @@ def build_certification_fragment(
                 "result": "pass" if result.status == "passed" else "fail",
                 "skip_reason": known_gap,
                 "source_sha": target.server_commit,
+                "producer_source_sha": target.sdk_source_sha,
                 "image_digest": target.server_image_digest,
-                "fixture_revision": (
-                    f"geospatial-grpc@{bundle.version};"
-                    f"honua-sdk-python@{target.sdk_source_sha or 'unknown'};"
-                    f"capability={capability_key};facets={','.join(facets)}"
-                ),
+                "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "evidence_uri": target.evidence_uri,
                 "started_at": result.started_at,
                 "completed_at": result.completed_at,

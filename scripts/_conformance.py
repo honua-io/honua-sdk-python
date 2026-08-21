@@ -38,11 +38,16 @@ lane stays green while the harness is in place, yet any *new* drift still fails.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+import base64
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+import hashlib
+import importlib.metadata
 import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from honua_sdk import HonuaClient, HonuaHttpError
 
@@ -196,6 +201,11 @@ class ConformanceTarget:
     api_key: str | None = None
     server_image: str | None = None
     server_commit: str | None = None
+    server_image_digest: str | None = None
+    sdk_source_sha: str | None = None
+    evidence_uri: str | None = None
+    candidate_cut_at: str | None = None
+    certification_tier: str = "nightly"
 
 
 def load_target_from_env() -> ConformanceTarget:
@@ -216,6 +226,11 @@ def load_target_from_env() -> ConformanceTarget:
         api_key=os.environ.get("HONUA_API_KEY"),
         server_image=os.environ.get("HONUA_SERVER_IMAGE"),
         server_commit=os.environ.get("HONUA_SERVER_COMMIT"),
+        server_image_digest=os.environ.get("HONUA_SERVER_IMAGE_DIGEST"),
+        sdk_source_sha=os.environ.get("HONUA_SDK_SOURCE_SHA"),
+        evidence_uri=os.environ.get("HONUA_EVIDENCE_URI"),
+        candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
+        certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
     )
 
 
@@ -268,6 +283,8 @@ class CaseResult:
     message_type: str | None
     sdk_method: str
     request_path: str
+    started_at: str
+    completed_at: str
     details: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
 
@@ -294,6 +311,7 @@ class ConformanceCase:
         message_type = bundle.manifest_types().get(f"{self.fixture}_response.json") or (
             bundle.manifest_types().get(f"{self.fixture}_request.json")
         )
+        started_at = _utc_now()
         try:
             details = self.runner(client, target, bundle)
         except Exception as exc:  # noqa: BLE001 - reported, not swallowed
@@ -304,6 +322,8 @@ class ConformanceCase:
                 message_type=message_type,
                 sdk_method=self.sdk_method,
                 request_path=self.request_path,
+                started_at=started_at,
+                completed_at=_utc_now(),
                 error=f"{type(exc).__name__}: {exc}",
             )
         return CaseResult(
@@ -313,8 +333,14 @@ class ConformanceCase:
             message_type=message_type,
             sdk_method=self.sdk_method,
             request_path=self.request_path,
+            started_at=started_at,
+            completed_at=_utc_now(),
             details=details,
         )
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 # -- assertion helpers ------------------------------------------------------- #
@@ -363,27 +389,33 @@ def _run_feature_query(
     :func:`_run_feature_query_jsonb_projection`.
     """
     golden = bundle.response("feature_query")
+    page_size = 5
     response = client.query_features(
         target.service_id,
         target.layer_id,
         where="1=1",
         out_fields=["*"],
         return_geometry=True,
-        extra_params={"resultRecordCount": 5},
+        extra_params={
+            "resultOffset": 0,
+            "resultRecordCount": page_size,
+            "orderByFields": "objectid ASC",
+        },
     )
 
     _require(isinstance(response, Mapping), "query response is not a JSON object")
     features = _as_list(response.get("features"), "response is missing a 'features' array")
-    _require(len(features) > 0, "seeded layer returned no features")
+    _require(len(features) == page_size, "first page did not honor resultRecordCount")
     _require(
-        "exceededTransferLimit" in response,
-        "response is missing the canonical 'exceededTransferLimit' envelope flag",
+        response.get("exceededTransferLimit") is True,
+        "first page did not prove a continuation with exceededTransferLimit=true",
     )
 
-    sample = features[0]
-    attributes = _feature_attributes(sample)
-    _require(len(attributes) > 0, "feature has no attributes")
-    _require("geometry" in sample, "return_geometry=true but feature has no geometry")
+    for feature in features:
+        _require(isinstance(feature, Mapping), "feature is not an object")
+        _require(isinstance(feature.get("attributes"), Mapping), "feature has no attributes mapping")
+        _require(len(feature["attributes"]) > 0, "feature has no attributes")
+        _require("geometry" in feature, "return_geometry=true but feature has no geometry")
 
     # Cross-check the contract envelope keys the golden advertises that have a
     # GeoServices analogue.
@@ -394,10 +426,66 @@ def _run_feature_query(
         f"response envelope missing keys vs contract: {sorted(expected_envelope - set(response))}",
     )
 
+    second_response = client.query_features(
+        target.service_id,
+        target.layer_id,
+        where="1=1",
+        out_fields=["*"],
+        return_geometry=True,
+        extra_params={
+            "resultOffset": page_size,
+            "resultRecordCount": page_size,
+            "orderByFields": "objectid ASC",
+        },
+    )
+    _require(isinstance(second_response, Mapping), "second page is not a JSON object")
+    second_features = _as_list(
+        second_response.get("features"), "second page is missing a 'features' array"
+    )
+    _require(0 < len(second_features) <= page_size, "second page is empty or unbounded")
+    _require(
+        isinstance(second_response.get("exceededTransferLimit"), bool),
+        "second page exceededTransferLimit is missing or is not a boolean",
+    )
+    for feature in second_features:
+        _require(isinstance(feature, Mapping), "second-page feature is not an object")
+        _require(
+            isinstance(feature.get("attributes"), Mapping),
+            "second-page feature has no attributes mapping",
+        )
+        _require(len(feature["attributes"]) > 0, "second-page feature has no attributes")
+        _require("geometry" in feature, "second-page feature has no geometry")
+
+    def object_ids(page: list[Any]) -> list[Any]:
+        ids: list[Any] = []
+        for feature in page:
+            attributes = _feature_attributes(feature)
+            normalized = {str(key).lower(): value for key, value in attributes.items()}
+            _require("objectid" in normalized, "feature is missing its objectid attribute")
+            object_id = normalized["objectid"]
+            _require(
+                isinstance(object_id, int) and not isinstance(object_id, bool),
+                "feature objectid must be an integer",
+            )
+            ids.append(object_id)
+        return ids
+
+    first_ids = object_ids(features)
+    second_ids = object_ids(second_features)
+    _require(len(first_ids) == len(set(first_ids)), "first page contains duplicate objectid values")
+    _require(len(second_ids) == len(set(second_ids)), "second page contains duplicate objectid values")
+    _require(first_ids == sorted(first_ids), "first page is not ordered by objectid")
+    _require(second_ids == sorted(second_ids), "second page is not ordered by objectid")
+    _require(first_ids[-1] < second_ids[0], "feature-query pages are not ordered and non-overlapping")
+
     return {
-        "feature_count": len(features),
+        "feature_count": len(features) + len(second_features),
+        "first_page_count": len(features),
+        "second_page_count": len(second_features),
+        "first_page_object_ids": first_ids,
+        "second_page_object_ids": second_ids,
         "golden_envelope_keys": sorted(golden_keys),
-        "exceeded_transfer_limit": response.get("exceededTransferLimit"),
+        "exceeded_transfer_limit": response["exceededTransferLimit"],
     }
 
 
@@ -425,18 +513,42 @@ def _run_feature_query_jsonb_projection(
     features = _as_list(response.get("features"), "response is missing a 'features' array")
     _require(len(features) > 0, "seeded layer returned no features")
 
-    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
+    observed = _validate_seeded_json_fields(features, "FeatureServer", "attributes")
     jsonb_fields = {"tags", "numbers"}
-    missing_jsonb = sorted(jsonb_fields - observed)
-    _require(
-        not missing_jsonb,
-        f"JSONB-typed attributes not projected (honua-server#1238): missing {missing_jsonb}",
-    )
     return {
         "feature_count": len(features),
         "observed_fields": sorted(observed),
         "jsonb_fields_projected": sorted(jsonb_fields),
     }
+
+
+def _validate_seeded_json_fields(
+    features: list[Any], surface: str, member_name: str
+) -> set[str]:
+    observed: set[str] = set()
+    for feature in features:
+        _require(isinstance(feature, Mapping), f"{surface} feature is not an object")
+        _require(
+            isinstance(feature.get(member_name), Mapping),
+            f"{surface} feature has no {member_name} mapping",
+        )
+        attributes = {str(key).lower(): value for key, value in feature[member_name].items()}
+        observed.update(attributes)
+        missing = sorted({"tags", "numbers"} - attributes.keys())
+        _require(not missing, f"{surface} JSON field projection is missing {missing}")
+
+        tags = attributes["tags"]
+        _require(
+            isinstance(tags, list) and all(isinstance(value, str) for value in tags),
+            f"{surface} tags value/type drift: expected an array of strings, got {tags!r}",
+        )
+        numbers = attributes["numbers"]
+        _require(
+            isinstance(numbers, list)
+            and all(isinstance(value, int) and not isinstance(value, bool) for value in numbers),
+            f"{surface} numbers must be an array of integers, got {numbers!r}",
+        )
+    return observed
 
 
 def _run_feature_query_layer_fields(
@@ -457,18 +569,119 @@ def _run_feature_query_layer_fields(
 
     fields = _as_list(metadata.get("fields"), "layer metadata has no fields[]")
     _require(len(fields) > 0, "layer metadata has no fields[]")
-    for fld in fields:
-        _require(isinstance(fld, Mapping) and "name" in fld and "type" in fld,
-                 f"field descriptor missing name/type: {fld!r}")
 
+    def field_family(value: str) -> str:
+        token = value.upper().replace("ESRIFIELDTYPE", "").replace("FIELD_TYPE_", "")
+        if token in {
+            "OID",
+            "BIG_INTEGER",
+            "BIGINTEGER",
+            "INTEGER",
+            "INTEGER64",
+            "SMALL_INTEGER",
+            "SMALLINTEGER",
+            "LONG",
+        }:
+            return "integer"
+        if token in {"SINGLE", "DOUBLE", "FLOAT"}:
+            return "floating"
+        if token in {"STRING", "TEXT"}:
+            return "string"
+        return token.lower()
+
+    expected_fields: dict[str, str] = {}
+    for fld in golden_fields:
+        _require(isinstance(fld, Mapping), f"golden field descriptor is invalid: {fld!r}")
+        name = fld.get("name")
+        field_type = fld.get("fieldType")
+        _require(isinstance(name, str) and bool(name.strip()), f"golden field name is invalid: {name!r}")
+        _require(
+            isinstance(field_type, str) and bool(field_type.strip()),
+            f"golden field type is invalid for {name!r}: {field_type!r}",
+        )
+        normalized_name = name.casefold()
+        _require(normalized_name not in expected_fields, f"duplicate golden field name: {name!r}")
+        expected_fields[normalized_name] = field_family(field_type)
+
+    live_fields: dict[str, str] = {}
+    for fld in fields:
+        _require(isinstance(fld, Mapping), f"field descriptor is invalid: {fld!r}")
+        name = fld.get("name")
+        field_type = fld.get("type")
+        _require(isinstance(name, str) and bool(name.strip()), f"field name is invalid: {name!r}")
+        _require(
+            isinstance(field_type, str) and bool(field_type.strip()),
+            f"field type is invalid for {name!r}: {field_type!r}",
+        )
+        normalized_name = name.casefold()
+        _require(normalized_name not in live_fields, f"duplicate field name: {name!r}")
+        live_fields[normalized_name] = field_family(field_type)
+
+    canonical_seed_fields = {
+        "objectid": "integer",
+        "name": "string",
+        "description": "string",
+        "shape": "geometry",
+        "status": "string",
+        "count": "integer",
+        "ratio": "floating",
+        "active": "integer",
+        "created_at": "date",
+        "event_date": "date",
+        "event_time": "string",
+        "uid": "guid",
+        "tags": "string",
+        "numbers": "string",
+        "eo:cloud_cover": "floating",
+    }
+    missing_seed_fields = sorted(set(canonical_seed_fields) - set(live_fields))
     _require(
-        "objectIdField" in metadata or "objectIdFieldName" in metadata,
-        "layer metadata is missing an object-id field declaration",
+        not missing_seed_fields,
+        f"layer metadata is missing canonical client-compat fields: {missing_seed_fields}",
+    )
+    mismatched_seed_types = sorted(
+        name
+        for name, expected_family in canonical_seed_fields.items()
+        if live_fields.get(name) != expected_family
+    )
+    _require(
+        not mismatched_seed_types,
+        f"layer metadata canonical field types drifted: {mismatched_seed_types}",
+    )
+
+    # The shared wire fixture describes sf-parks while this lane intentionally
+    # targets the richer client-compat seed. Compare types for overlapping
+    # schema roles after proving the complete mapped seed schema is present.
+    matched_fields = set(expected_fields) & set(live_fields)
+    expected_object_id = golden.get("objectIdFieldName")
+    _require(
+        isinstance(expected_object_id, str) and bool(expected_object_id.strip()),
+        "golden response has no objectIdFieldName",
+    )
+    expected_object_id_key = expected_object_id.casefold()
+    _require(expected_object_id_key in matched_fields, "layer metadata is missing the golden object-id field")
+    matched_attributes = matched_fields - {expected_object_id_key}
+    _require(
+        bool(matched_attributes),
+        "layer metadata shares no non-object-id field with the golden schema",
+    )
+    mismatched_types = sorted(
+        name for name in matched_fields if live_fields[name] != expected_fields[name]
+    )
+    _require(not mismatched_types, f"layer metadata field types drifted: {mismatched_types}")
+
+    live_object_id = metadata.get("objectIdField") or metadata.get("objectIdFieldName")
+    _require(
+        isinstance(live_object_id, str)
+        and live_object_id.casefold() == expected_object_id.casefold(),
+        f"layer object-id field drifted: expected {expected_object_id!r}, got {live_object_id!r}",
     )
     return {
         "live_field_count": len(fields),
         "golden_field_count": len(golden_fields),
-        "object_id_field": metadata.get("objectIdField") or metadata.get("objectIdFieldName"),
+        "object_id_field": live_object_id,
+        "matched_fields": sorted(matched_fields),
+        "fixture_only_fields": sorted(set(expected_fields) - set(live_fields)),
     }
 
 
@@ -490,16 +703,31 @@ def _run_feature_query_unsupported_capability(
             return_geometry=False,
         )
     except HonuaHttpError as exc:
-        _require(exc.status_code >= 400, f"expected client/server error, got {exc.status_code}")
-        return {"observed": "HonuaHttpError", "status_code": exc.status_code}
+        _require(400 <= exc.status_code < 500, f"expected client error, got {exc.status_code}")
+        _require(isinstance(exc.body, Mapping), "invalid query HTTP error body is not structured JSON")
+        error = exc.body.get("error")
+        _require(isinstance(error, Mapping), "invalid query body is missing a structured error envelope")
+        code = error.get("code")
+        message = error.get("message")
+        _require(isinstance(code, int) and 400 <= code < 500, f"unexpected error code {code!r}")
+        _require(isinstance(message, str) and bool(message.strip()), "error envelope is missing a message")
+        return {
+            "observed": "HonuaHttpError",
+            "status_code": exc.status_code,
+            "error_code": code,
+            "error_message": message,
+        }
 
     # Some servers answer 200 with a GeoServices error envelope instead of an
     # HTTP error; that is still a structured, non-silent failure.
-    _require(
-        isinstance(response, Mapping) and "error" in response,
-        "invalid query neither raised HonuaHttpError nor returned an error envelope",
-    )
-    return {"observed": "error_envelope", "error": response.get("error")}
+    _require(isinstance(response, Mapping), "invalid query response is not structured JSON")
+    error = response.get("error")
+    _require(isinstance(error, Mapping), "invalid query response is missing an error envelope")
+    code = error.get("code")
+    message = error.get("message")
+    _require(isinstance(code, int) and 400 <= code < 500, f"unexpected error code {code!r}")
+    _require(isinstance(message, str) and bool(message.strip()), "error envelope is missing a message")
+    return {"observed": "error_envelope", "error_code": code, "error_message": message}
 
 
 def _run_catalog_lists_service(
@@ -513,12 +741,23 @@ def _run_catalog_lists_service(
     """
     response = client.list_services()
     services = _as_list(response.get("services"), "list_services did not return services[]")
-    names = {s.get("name") for s in services if isinstance(s, Mapping)}
+    matches = [
+        service
+        for service in services
+        if isinstance(service, Mapping)
+        and service.get("name") == target.service_id
+        and service.get("type") == "FeatureServer"
+    ]
     _require(
-        target.service_id in names,
-        f"service {target.service_id!r} not advertised; saw {sorted(n for n in names if n)}",
+        bool(matches),
+        f"FeatureServer {target.service_id!r} not advertised; saw "
+        f"{sorted((str(s.get('name')), str(s.get('type'))) for s in services if isinstance(s, Mapping))}",
     )
-    return {"service_count": len(services), "matched": target.service_id}
+    return {
+        "service_count": len(services),
+        "matched": target.service_id,
+        "matched_type": "FeatureServer",
+    }
 
 
 def _configured_ogc_collection_candidates(target: ConformanceTarget) -> list[str]:
@@ -605,16 +844,67 @@ def _run_ogc_features_items(
     collection_id = _resolve_ogc_collection_id(client, target)
     ogc = client.ogc_features()
 
-    items = ogc.items(collection_id, limit=5)
+    def validate_feature(feature: Any, page: str) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+        _require(isinstance(feature, Mapping), f"OGC {page} feature is not an object")
+        _require(feature.get("type") == "Feature", f"OGC {page} item is not a GeoJSON Feature")
+        _require("geometry" in feature, f"OGC {page} feature is missing geometry")
+        _require(
+            isinstance(feature.get("properties"), Mapping),
+            f"OGC {page} feature has no properties mapping",
+        )
+        properties = feature["properties"]
+        _require(len(properties) > 0, f"OGC {page} feature has no properties")
+        return feature, properties
+
+    pages = iter(ogc.items_pages(collection_id, page_size=1, limit=2, max_pages=2))
+    items = next(pages, None)
     _require(isinstance(items, Mapping), "OGC items response is not an object")
     _require(items.get("type") == "FeatureCollection", "OGC items is not a FeatureCollection")
     features = _as_list(items.get("features"), "OGC items missing features[]")
-    _require(len(features) > 0, "OGC collection returned no items")
-    attrs = _feature_attributes(features[0])
-    _require(len(attrs) > 0, "OGC feature has no properties")
+    _require(len(features) == 1, f"OGC limit=1 returned {len(features)} features")
+    first_feature, attrs = validate_feature(features[0], "first-page")
+    number_matched = items.get("numberMatched")
+    _require(
+        isinstance(number_matched, int) and not isinstance(number_matched, bool) and number_matched >= 2,
+        f"OGC paging fixture must report numberMatched >= 2, got {number_matched!r}",
+    )
+    links = _as_list(items.get("links"), "OGC items missing links[]")
+    next_links = [
+        link for link in links
+        if isinstance(link, Mapping) and link.get("rel") == "next" and isinstance(link.get("href"), str)
+    ]
+    _require(bool(next_links), "OGC first page did not advertise a rel=next continuation link")
+
+    next_href = next_links[0]["href"]
+    target_authority = urlsplit(target.base_url)
+    next_authority = urlsplit(next_href)
+    if next_authority.netloc:
+        _require(
+            (next_authority.scheme.lower(), next_authority.netloc.lower())
+            == (target_authority.scheme.lower(), target_authority.netloc.lower()),
+            "OGC Features next link changed deployment authority",
+        )
+    # Continuation links are opaque. The SDK's public page walker follows the
+    # complete advertised URL, preserving path, cursor, and vendor parameters.
+    second_page = next(pages, None)
+    _require(isinstance(second_page, Mapping), "OGC second page response is not an object")
+    _require(
+        second_page.get("type") == "FeatureCollection",
+        "OGC second page is not a FeatureCollection",
+    )
+    second_features = _as_list(second_page.get("features"), "OGC second page missing features[]")
+    _require(len(second_features) == 1, f"OGC second limit=1 page returned {len(second_features)} features")
+    second_feature, _ = validate_feature(second_features[0], "second-page")
+    first_id = first_feature.get("id")
+    second_id = second_feature.get("id")
+    _require(first_id is not None and second_id is not None, "OGC paged features must carry stable ids")
+    _require(first_id != second_id, "OGC offset=1 repeated the first page feature")
     return {
         "collection_id": collection_id,
         "feature_count": len(features),
+        "number_matched": number_matched,
+        "next_href": next_href,
+        "second_page_feature_id": second_id,
         "sample_property_keys": sorted(str(k) for k in attrs),
     }
 
@@ -638,14 +928,8 @@ def _run_ogc_features_items_jsonb_projection(
     features = _as_list(items.get("features"), "OGC items missing features[]")
     _require(len(features) > 0, "OGC collection returned no items")
 
-    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
+    _validate_seeded_json_fields(features, "OGC API Features", "properties")
     jsonb_fields = {"tags", "numbers"}
-    missing_jsonb = sorted(jsonb_fields - observed)
-    _require(
-        not missing_jsonb,
-        f"JSONB-typed attributes not projected via OGC items (honua-server#1238): "
-        f"missing {missing_jsonb}",
-    )
     return {
         "collection_id": collection_id,
         "feature_count": len(features),
@@ -701,11 +985,31 @@ def _run_temporal_query(
     disjoint = _query("0,1")
 
     _require(len(unfiltered) > 0, "baseline (unfiltered) query returned no features")
+    _require(len(in_window) > 0, "seeded in-range temporal window returned no features")
     _require(
-        len(disjoint) < len(unfiltered),
-        "time filter not honored: a disjoint pre-seed window returned the same "
-        f"feature count ({len(disjoint)}) as the unfiltered query "
-        f"({len(unfiltered)})",
+        len(disjoint) == 0,
+        "time filter leaked seeded features into the disjoint pre-seed window: "
+        f"expected 0, got {len(disjoint)}",
+    )
+
+    def object_ids(features: list[Any], label: str) -> set[Any]:
+        values: list[Any] = []
+        for feature in features:
+            _require(isinstance(feature, Mapping), f"{label} temporal feature is not an object")
+            attributes = feature.get("attributes")
+            _require(isinstance(attributes, Mapping), f"{label} temporal feature has no attributes")
+            normalized = {str(key).lower(): value for key, value in attributes.items()}
+            _require("objectid" in normalized, f"{label} temporal feature has no objectid")
+            values.append(normalized["objectid"])
+        _require(len(values) == len(set(values)), f"{label} temporal query contains duplicate objectids")
+        return set(values)
+
+    unfiltered_ids = object_ids(unfiltered, "unfiltered")
+    in_window_ids = object_ids(in_window, "in-range")
+    _require(
+        in_window_ids == unfiltered_ids,
+        "in-range temporal query did not return the complete seeded record set: "
+        f"expected {sorted(unfiltered_ids)!r}, got {sorted(in_window_ids)!r}",
     )
     return {
         "feature_count": len(in_window),
@@ -738,16 +1042,18 @@ def _run_replica_surface(
     """
     metadata = client.feature_server(target.service_id).metadata()
     _require(isinstance(metadata, Mapping), "feature server metadata is not an object")
-    caps = str(metadata.get("capabilities", ""))
+    caps_value = metadata.get("capabilities", "")
+    _require(isinstance(caps_value, str), "FeatureServer capabilities must be a string")
+    caps = caps_value
     # Gate strictly on sync/replica signals. The old ``"Create" in caps``
     # disjunct matched the unrelated ``Create`` editing capability that *any*
     # editable FeatureServer advertises, so this probe reported replica/sync
     # support present when it was absent.
     caps_tokens = {token.strip().lower() for token in caps.split(",")}
     sync_enabled = (
-        bool(metadata.get("syncEnabled"))
+        metadata.get("syncEnabled") is True
         or "sync" in caps_tokens
-        or "createreplica" in caps.lower()
+        or "createreplica" in caps_tokens
     )
     _require(
         sync_enabled,
@@ -767,12 +1073,55 @@ def _run_analysis_process_surface(
     2026-07-10 against a seeded honua-server:nightly-20260530 target, so this
     is now an unconditionally required assertion.
     """
-    bundle.request("process_execute_plan")  # assert the fixture is present/loadable
+    request = bundle.request("process_execute_plan")
+    plan = request.get("plan") if isinstance(request, Mapping) else None
+    steps = _as_list(plan.get("steps") if isinstance(plan, Mapping) else None,
+                     "process fixture has no plan.steps[]")
+    fixture_kinds = {
+        str(step["kind"]).strip().lower().replace("_", "-")
+        for step in steps
+        if isinstance(step, Mapping) and isinstance(step.get("kind"), str) and step["kind"].strip()
+    }
+    _require(bool(fixture_kinds), "process fixture has no executable step kinds")
+
+    # ExecutePlan submits the complete vendor-neutral plan through Honua's OGC
+    # wrapper. Step kinds describe graph behavior and are not process catalog
+    # identifiers; any concrete processId belongs inside a geoprocess step.
+    expected_process_id = "honua-geoprocessing"
+
     processes = client.ogc_processes().processes()
     _require(isinstance(processes, Mapping), "processes response is not an object")
     listed = _as_list(processes.get("processes"), "processes response missing processes[]")
     _require(len(listed) > 0, "no analysis processes advertised")
-    return {"process_count": len(listed)}
+    advertised_ids: set[str] = set()
+    canonical_process: Mapping[str, Any] | None = None
+    for process in listed:
+        _require(isinstance(process, Mapping), f"process entry is not an object: {process!r}")
+        process_id = process.get("id") or process.get("identifier")
+        _require(
+            isinstance(process_id, str) and bool(process_id.strip()),
+            f"process entry has no identifier: {process!r}",
+        )
+        normalized_id = process_id.strip()
+        advertised_ids.add(normalized_id)
+        if normalized_id == expected_process_id:
+            canonical_process = process
+    _require(
+        expected_process_id in advertised_ids,
+        f"process catalog is missing canonical process {expected_process_id!r}",
+    )
+    _require(canonical_process is not None, "canonical process metadata is unavailable")
+    title = canonical_process.get("title")
+    version = canonical_process.get("version")
+    _require(isinstance(title, str) and bool(title.strip()), "canonical process has no title")
+    _require(isinstance(version, str) and bool(version.strip()), "canonical process has no version")
+    return {
+        "process_count": len(listed),
+        "fixture_kinds": sorted(fixture_kinds),
+        "matched_fixture_processes": [expected_process_id],
+        "process_title": title.strip(),
+        "process_version": version.strip(),
+    }
 
 
 def build_cases() -> list[ConformanceCase]:
@@ -893,3 +1242,216 @@ def render_summary(
             f"| `{r.name}` | `{r.fixture}` | `{r.message_type or '-'}` | {r.status} |"
         )
     return "\n".join(lines) + "\n"
+
+
+CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
+    "feature_query_envelope": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "query", ["positive", "pagination"]
+    ),
+    "feature_query_jsonb_projection": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "query-json-fields", ["positive", "media-schema"]
+    ),
+    "feature_query_field_metadata": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "layer-metadata", ["positive", "metadata"]
+    ),
+    "feature_query_invalid_is_structured_error": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "query-invalid", ["negative", "media-schema"]
+    ),
+    "catalog_lists_configured_service": (
+        "serve.geoservices-root", "geoservices-root", "list-services", ["positive", "metadata"]
+    ),
+    "ogc_features_items": (
+        "serve.ogc-api-features", "ogc-api-features", "items", ["positive", "pagination"]
+    ),
+    "ogc_features_items_jsonb_projection": (
+        "serve.ogc-api-features", "ogc-api-features", "items-json-fields", ["positive", "media-schema"]
+    ),
+    "temporal_query": (
+        "serve.geoservices-featureserver", "geoservices-featureserver", "temporal-query", ["positive", "boundary"]
+    ),
+    "replica_sync_surface": (
+        "editing.featureserver-edits", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
+    ),
+    "analysis_process_list": (
+        "process.ogc-api-processes", "ogc-api-processes", "list-processes", ["positive", "metadata"]
+    ),
+}
+
+CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
+CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-public-v1"
+
+
+def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None:
+    """Reject incomplete, duplicated, missing, or non-pass release evidence."""
+    scope = fragment.get("operation_scope")
+    _require(isinstance(scope, Mapping), "release SDK certification is missing operation_scope")
+    if scope.get("complete") is not True:
+        owner = scope.get("owner_issue") or CERTIFICATION_SCOPE_OWNER
+        raise AssertionError(
+            "release SDK certification operation scope is incomplete; "
+            f"catalog every public/addressable operation under {owner}"
+        )
+
+    required_rows = _as_list(
+        scope.get("required_operations"),
+        "release SDK certification operation_scope is missing required_operations",
+    )
+    required = {
+        (str(row["surface"]), str(row["operation"]))
+        for row in required_rows
+        if isinstance(row, Mapping) and "surface" in row and "operation" in row
+    }
+    _require(len(required) == len(required_rows), "required operation entries are malformed or duplicated")
+
+    observations = _as_list(
+        fragment.get("observations"),
+        "release SDK certification is missing observations",
+    )
+    observed_rows = [
+        (str(row["surface"]), str(row["operation"]))
+        for row in observations
+        if isinstance(row, Mapping) and "surface" in row and "operation" in row
+    ]
+    _require(len(observed_rows) == len(observations), "release observations are malformed")
+    _require(len(set(observed_rows)) == len(observed_rows), "release observations contain duplicate operation cells")
+    missing = required - set(observed_rows)
+    _require(not missing, f"release SDK certification is missing operation cells: {sorted(missing)}")
+
+    failed = [
+        f"{row['surface']}/{row['operation']}={row['result']}"
+        for row in observations
+        if row.get("result") != "pass"
+    ]
+    _require(not failed, "release SDK certification has non-pass cells: " + ", ".join(failed))
+
+
+def build_certification_fragment(
+    bundle: FixtureBundle,
+    target: ConformanceTarget,
+    case_results: Sequence[tuple[ConformanceCase, CaseResult]],
+) -> dict[str, Any]:
+    """Normalize live SDK case outcomes for the central evidence ledger."""
+    missing_target = [
+        name
+        for name, value in {
+            "server_commit": target.server_commit,
+            "server_image_digest": target.server_image_digest,
+            "evidence_uri": target.evidence_uri,
+            "candidate_cut_at": target.candidate_cut_at,
+            "sdk_source_sha": target.sdk_source_sha,
+        }.items()
+        if not value
+    ]
+    if missing_target:
+        raise ConformanceFixturesError(
+            "normalized certification evidence needs " + ", ".join(missing_target)
+        )
+
+    client_version = importlib.metadata.version("honua-sdk")
+    payload_base64 = base64.b64encode(json.dumps(
+        [
+            {"case": case.name, "receipt": asdict(result)}
+            for case, result in case_results
+        ],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")).decode("ascii")
+    observations: list[dict[str, Any]] = []
+    for case, result in case_results:
+        capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
+        known_gap = case.known_gap_issue if result.status != "passed" else None
+        normalized_result = (
+            "pass" if result.status == "passed"
+            else "skip" if known_gap
+            else "fail"
+        )
+        contract_revision = f"sdk-python-certification@{target.sdk_source_sha}"
+        receipt_facets = {facet: normalized_result for facet in scenario_facets}
+        evidence_receipt = None if normalized_result == "skip" else {
+            "schema": "honua.certification-evidence-receipt/v1",
+            "identity": {
+                "capability_key": capability_key,
+                "surface": surface,
+                "operation": operation,
+                "canonical_client": "Honua SDK Python",
+                "client_version": client_version,
+                "deployment_target": "local-docker",
+                "source_sha": target.server_commit,
+                "producer_source_sha": target.sdk_source_sha,
+                "image_digest": target.server_image_digest,
+                "fixture_revision": f"geospatial-grpc@{bundle.version}",
+                "contract_revision": contract_revision,
+                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "started_at": result.started_at,
+                "completed_at": result.completed_at,
+            },
+            "result": normalized_result,
+            "facets": receipt_facets,
+            "payload_base64": payload_base64,
+        }
+        evidence_digest = None if evidence_receipt is None else "sha256:" + hashlib.sha256(
+            json.dumps(
+                evidence_receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode("utf-8")
+        ).hexdigest()
+        observations.append(
+            {
+                "capability_key": capability_key,
+                "surface": surface,
+                "operation": operation,
+                "scenario_facets": scenario_facets,
+                "canonical_client": "Honua SDK Python",
+                "client_version": client_version,
+                "deployment_target": "local-docker",
+                "result": normalized_result,
+                "skip_reason": known_gap,
+                "source_sha": target.server_commit,
+                "producer_source_sha": target.sdk_source_sha,
+                "image_digest": target.server_image_digest,
+                "fixture_revision": f"geospatial-grpc@{bundle.version}",
+                "contract_revision": contract_revision,
+                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "evidence_uri": (
+                    None if normalized_result == "skip"
+                    else f"https://evidence.honua.io/data/sha256/{evidence_digest[7:]}"
+                ),
+                "evidence_digest": None if normalized_result == "skip" else evidence_digest,
+                "evidence_receipt": None if normalized_result == "skip" else evidence_receipt,
+                "facet_results": None if normalized_result == "skip" else {
+                    facet: {"result": receipt_facets[facet], "evidence_digest": evidence_digest}
+                    for facet in scenario_facets
+                },
+                "started_at": result.started_at,
+                "completed_at": result.completed_at,
+            }
+        )
+
+    return {
+        "schema": "honua.protocol-certification-fragment/v1",
+        "producer": "honua-sdk-python",
+        "generated_at": _utc_now(),
+        "candidate": {
+            "source_sha": target.server_commit,
+            "image_digest": target.server_image_digest,
+            "cut_at": target.candidate_cut_at,
+        },
+        "operation_scope": {
+            "complete": (
+                {case.name for case, _ in case_results} == set(CASE_CERTIFICATION)
+            ),
+            "owner_issue": CERTIFICATION_SCOPE_OWNER,
+            "disposition": (
+                "The live cases are a bounded initial certification slice; the complete public/addressable "
+                "SDK operation denominator is tracked by the owner issue and release evidence must fail closed."
+            ),
+            "required_operations": [
+                {"surface": surface, "operation": operation}
+                for surface, operation in sorted({
+                    (surface, operation)
+                    for _, surface, operation, _ in CASE_CERTIFICATION.values()
+                })
+            ],
+        },
+        "observations": observations,
+    }

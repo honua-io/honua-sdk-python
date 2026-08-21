@@ -455,7 +455,7 @@ def test_process_probe_rejects_malformed_or_unrelated_catalog(
         _run_analysis_process_surface(_ProcessesClient(response), TARGET, BUNDLE)
 
 
-def test_process_probe_maps_fixture_kinds_to_canonical_catalog_ids(
+def test_process_probe_maps_execute_plan_to_canonical_wrapper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -474,8 +474,7 @@ def test_process_probe_maps_fixture_kinds_to_canonical_catalog_ids(
         _ProcessesClient(
             {
                 "processes": [
-                    {"id": "honua:source.honua-layer"},
-                    {"id": "honua:transform.aggregate"},
+                    {"id": "honua:honua-geoprocessing"},
                 ]
             }
         ),
@@ -484,10 +483,7 @@ def test_process_probe_maps_fixture_kinds_to_canonical_catalog_ids(
     )
 
     assert result["fixture_kinds"] == ["aggregate", "query-features"]
-    assert result["matched_fixture_processes"] == [
-        "source.honua-layer",
-        "transform.aggregate",
-    ]
+    assert result["matched_fixture_processes"] == ["honua-geoprocessing"]
 
 
 @pytest.mark.parametrize(

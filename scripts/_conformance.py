@@ -977,17 +977,10 @@ def _run_analysis_process_surface(
     }
     _require(bool(fixture_kinds), "process fixture has no executable step kinds")
 
-    # The vendor-neutral ExecutePlan fixture describes abstract workflow kinds,
-    # while OGC API Processes advertises Honua's executable catalog identifiers.
-    # Keep that translation explicit so a merely non-empty or unrelated catalog
-    # cannot certify the fixture's source-query and aggregation capabilities.
-    fixture_process_ids = {
-        "query-features": "source.honua-layer",
-        "aggregate": "transform.aggregate",
-    }
-    unmapped_kinds = sorted(fixture_kinds - fixture_process_ids.keys())
-    _require(not unmapped_kinds, f"process fixture has unmapped step kinds: {unmapped_kinds}")
-    expected_ids = {fixture_process_ids[kind] for kind in fixture_kinds}
+    # ExecutePlan submits the complete vendor-neutral plan through Honua's OGC
+    # wrapper. Step kinds describe graph behavior and are not process catalog
+    # identifiers; any concrete processId belongs inside a geoprocess step.
+    expected_ids = {"honua-geoprocessing"}
 
     processes = client.ogc_processes().processes()
     _require(isinstance(processes, Mapping), "processes response is not an object")

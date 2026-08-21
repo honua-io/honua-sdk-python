@@ -402,6 +402,40 @@ def test_layer_metadata_probe_rejects_field_or_object_id_drift(
         _run_feature_query_layer_fields(_LayerClient(metadata), TARGET, BUNDLE)
 
 
+def test_layer_metadata_probe_maps_shared_fields_across_different_seed_datasets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {
+            "objectIdFieldName": "OBJECTID",
+            "fields": [
+                {"name": "OBJECTID", "fieldType": "FIELD_TYPE_BIG_INTEGER"},
+                {"name": "NAME", "fieldType": "FIELD_TYPE_STRING"},
+                {"name": "AREA", "fieldType": "FIELD_TYPE_DOUBLE"},
+            ],
+        },
+    )
+    result = _run_feature_query_layer_fields(
+        _LayerClient(
+            {
+                "objectIdField": "objectid",
+                "fields": [
+                    {"name": "objectid", "type": "esriFieldTypeOID"},
+                    {"name": "name", "type": "esriFieldTypeString"},
+                    {"name": "tags", "type": "esriFieldTypeString"},
+                ],
+            }
+        ),
+        TARGET,
+        BUNDLE,
+    )
+
+    assert result["matched_fields"] == ["name", "objectid"]
+    assert result["fixture_only_fields"] == ["area"]
+
+
 @pytest.mark.parametrize(
     "response",
     [
@@ -440,8 +474,8 @@ def test_process_probe_maps_fixture_kinds_to_canonical_catalog_ids(
         _ProcessesClient(
             {
                 "processes": [
-                    {"id": "source.honua-layer"},
-                    {"id": "transform.aggregate"},
+                    {"id": "honua:source.honua-layer"},
+                    {"id": "honua:transform.aggregate"},
                 ]
             }
         ),

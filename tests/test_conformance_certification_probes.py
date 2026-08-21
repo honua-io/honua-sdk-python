@@ -11,7 +11,9 @@ from scripts._conformance import (
     FixtureBundle,
     _run_feature_query,
     _run_feature_query_jsonb_projection,
+    _run_feature_query_layer_fields,
     _run_feature_query_unsupported_capability,
+    _run_analysis_process_surface,
     _run_ogc_features_items,
     _run_replica_surface,
     _run_temporal_query,
@@ -69,6 +71,38 @@ class _PagedQueryClient:
     def query_features(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.calls.append(kwargs)
         return self.pages[len(self.calls) - 1]
+
+
+class _LayerFeatureServer:
+    def __init__(self, metadata: dict[str, Any]) -> None:
+        self._metadata = metadata
+
+    def layer_metadata(self, _layer_id: int) -> dict[str, Any]:
+        return self._metadata
+
+
+class _LayerClient:
+    def __init__(self, metadata: dict[str, Any]) -> None:
+        self._feature_server = _LayerFeatureServer(metadata)
+
+    def feature_server(self, _service_id: str) -> _LayerFeatureServer:
+        return self._feature_server
+
+
+class _ProcessesFacade:
+    def __init__(self, response: dict[str, Any]) -> None:
+        self._response = response
+
+    def processes(self) -> dict[str, Any]:
+        return self._response
+
+
+class _ProcessesClient:
+    def __init__(self, response: dict[str, Any]) -> None:
+        self._processes = _ProcessesFacade(response)
+
+    def ogc_processes(self) -> _ProcessesFacade:
+        return self._processes
 
 
 class _TemporalClient:
@@ -169,6 +203,22 @@ def test_ogc_items_probe_rejects_repeated_continuation_page() -> None:
 
     with pytest.raises(AssertionError, match="repeated the first page"):
         _run_ogc_features_items(_OgcClient({0: first_page, 1: first_page}), TARGET, BUNDLE)
+
+
+@pytest.mark.parametrize(
+    "second_page",
+    [
+        {"features": [{"id": "b", "properties": {"name": "b"}}]},
+        {"type": "FeatureCollection", "features": [{"id": "b"}]},
+    ],
+)
+def test_ogc_items_probe_rejects_malformed_continuation(second_page: dict[str, Any]) -> None:
+    with pytest.raises(AssertionError):
+        _run_ogc_features_items(
+            _OgcClient({0: _page("a", next_link=True), 1: second_page}),
+            TARGET,
+            BUNDLE,
+        )
 
 
 def test_ogc_items_probe_rejects_cross_authority_continuation() -> None:
@@ -299,6 +349,76 @@ def test_feature_query_probe_rejects_repeated_page(monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(AssertionError, match="non-overlapping"):
         _run_feature_query(_PagedQueryClient([repeated, repeated]), TARGET, BUNDLE)
+
+
+@pytest.mark.parametrize(
+    "second_page",
+    [
+        {"features": [{"attributes": {"OBJECTID": 6}, "geometry": {"x": 0, "y": 0}}]},
+        {"features": [{"attributes": {"OBJECTID": 6}}], "exceededTransferLimit": False},
+    ],
+)
+def test_feature_query_probe_rejects_malformed_continuation(
+    monkeypatch: pytest.MonkeyPatch, second_page: dict[str, Any]
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+    first_page = {
+        "features": [
+            {"attributes": {"OBJECTID": object_id}, "geometry": {"x": 0, "y": 0}}
+            for object_id in range(1, 6)
+        ],
+        "exceededTransferLimit": True,
+    }
+    with pytest.raises(AssertionError):
+        _run_feature_query(_PagedQueryClient([first_page, second_page]), TARGET, BUNDLE)
+
+
+def test_layer_metadata_probe_rejects_field_or_object_id_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {
+            "objectIdFieldName": "OBJECTID",
+            "fields": [
+                {"name": "OBJECTID", "fieldType": "FIELD_TYPE_BIG_INTEGER"},
+                {"name": "NAME", "fieldType": "FIELD_TYPE_STRING"},
+            ],
+        },
+    )
+    metadata = {
+        "objectIdField": "wrong_id",
+        "fields": [
+            {"name": "OBJECTID", "type": "esriFieldTypeOID"},
+            {"name": "NAME", "type": "esriFieldTypeDouble"},
+        ],
+    }
+    with pytest.raises(AssertionError):
+        _run_feature_query_layer_fields(_LayerClient(metadata), TARGET, BUNDLE)
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"processes": [None]},
+        {"processes": [{"id": "unrelated"}]},
+    ],
+)
+def test_process_probe_rejects_malformed_or_unrelated_catalog(
+    monkeypatch: pytest.MonkeyPatch, response: dict[str, Any]
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "request",
+        lambda self, name: {"plan": {"steps": [{"kind": "aggregate"}]}},
+    )
+    with pytest.raises(AssertionError):
+        _run_analysis_process_surface(_ProcessesClient(response), TARGET, BUNDLE)
 
 
 @pytest.mark.parametrize(

@@ -440,6 +440,13 @@ def _run_feature_query(
         second_response.get("features"), "second page is missing a 'features' array"
     )
     _require(0 < len(second_features) <= page_size, "second page is empty or unbounded")
+    _require(
+        "exceededTransferLimit" in second_response,
+        "second page is missing exceededTransferLimit",
+    )
+    for feature in second_features:
+        _require(len(_feature_attributes(feature)) > 0, "second-page feature has no attributes")
+        _require("geometry" in feature, "second-page feature has no geometry")
 
     def object_ids(page: list[Any]) -> list[Any]:
         ids: list[Any] = []
@@ -540,18 +547,64 @@ def _run_feature_query_layer_fields(
 
     fields = _as_list(metadata.get("fields"), "layer metadata has no fields[]")
     _require(len(fields) > 0, "layer metadata has no fields[]")
-    for fld in fields:
-        _require(isinstance(fld, Mapping) and "name" in fld and "type" in fld,
-                 f"field descriptor missing name/type: {fld!r}")
 
+    def field_family(value: str) -> str:
+        token = value.upper().replace("ESRIFIELDTYPE", "").replace("FIELD_TYPE_", "")
+        if token in {"OID", "BIG_INTEGER", "INTEGER", "SMALL_INTEGER", "LONG"}:
+            return "integer"
+        if token in {"SINGLE", "DOUBLE", "FLOAT"}:
+            return "floating"
+        if token in {"STRING", "TEXT"}:
+            return "string"
+        return token.lower()
+
+    expected_fields: dict[str, str] = {}
+    for fld in golden_fields:
+        _require(isinstance(fld, Mapping), f"golden field descriptor is invalid: {fld!r}")
+        name = fld.get("name")
+        field_type = fld.get("fieldType")
+        _require(isinstance(name, str) and bool(name.strip()), f"golden field name is invalid: {name!r}")
+        _require(
+            isinstance(field_type, str) and bool(field_type.strip()),
+            f"golden field type is invalid for {name!r}: {field_type!r}",
+        )
+        expected_fields[name.casefold()] = field_family(field_type)
+
+    live_fields: dict[str, str] = {}
+    for fld in fields:
+        _require(isinstance(fld, Mapping), f"field descriptor is invalid: {fld!r}")
+        name = fld.get("name")
+        field_type = fld.get("type")
+        _require(isinstance(name, str) and bool(name.strip()), f"field name is invalid: {name!r}")
+        _require(
+            isinstance(field_type, str) and bool(field_type.strip()),
+            f"field type is invalid for {name!r}: {field_type!r}",
+        )
+        live_fields[name.casefold()] = field_family(field_type)
+
+    missing_fields = sorted(set(expected_fields) - set(live_fields))
+    _require(not missing_fields, f"layer metadata is missing golden fields: {missing_fields}")
+    mismatched_types = sorted(
+        name for name, family in expected_fields.items() if live_fields[name] != family
+    )
+    _require(not mismatched_types, f"layer metadata field types drifted: {mismatched_types}")
+
+    expected_object_id = golden.get("objectIdFieldName")
+    live_object_id = metadata.get("objectIdField") or metadata.get("objectIdFieldName")
     _require(
-        "objectIdField" in metadata or "objectIdFieldName" in metadata,
-        "layer metadata is missing an object-id field declaration",
+        isinstance(expected_object_id, str) and bool(expected_object_id.strip()),
+        "golden response has no objectIdFieldName",
+    )
+    _require(
+        isinstance(live_object_id, str)
+        and live_object_id.casefold() == expected_object_id.casefold(),
+        f"layer object-id field drifted: expected {expected_object_id!r}, got {live_object_id!r}",
     )
     return {
         "live_field_count": len(fields),
         "golden_field_count": len(golden_fields),
-        "object_id_field": metadata.get("objectIdField") or metadata.get("objectIdFieldName"),
+        "object_id_field": live_object_id,
+        "matched_fields": sorted(expected_fields),
     }
 
 
@@ -736,8 +789,14 @@ def _run_ogc_features_items(
     # complete advertised URL, preserving path, cursor, and vendor parameters.
     second_page = next(pages, None)
     _require(isinstance(second_page, Mapping), "OGC second page response is not an object")
+    _require(
+        second_page.get("type") == "FeatureCollection",
+        "OGC second page is not a FeatureCollection",
+    )
     second_features = _as_list(second_page.get("features"), "OGC second page missing features[]")
     _require(len(second_features) == 1, f"OGC second limit=1 page returned {len(second_features)} features")
+    second_attrs = _feature_attributes(second_features[0])
+    _require(len(second_attrs) > 0, "OGC second-page feature has no properties")
     first_id = features[0].get("id") if isinstance(features[0], Mapping) else None
     second_id = second_features[0].get("id") if isinstance(second_features[0], Mapping) else None
     _require(first_id is not None and second_id is not None, "OGC paged features must carry stable ids")
@@ -896,12 +955,36 @@ def _run_analysis_process_surface(
     2026-07-10 against a seeded honua-server:nightly-20260530 target, so this
     is now an unconditionally required assertion.
     """
-    bundle.request("process_execute_plan")  # assert the fixture is present/loadable
+    request = bundle.request("process_execute_plan")
+    plan = request.get("plan") if isinstance(request, Mapping) else None
+    steps = _as_list(plan.get("steps") if isinstance(plan, Mapping) else None,
+                     "process fixture has no plan.steps[]")
+    expected_ids = {
+        str(step["kind"]).strip().lower().replace("_", "-")
+        for step in steps
+        if isinstance(step, Mapping) and isinstance(step.get("kind"), str) and step["kind"].strip()
+    }
+    _require(bool(expected_ids), "process fixture has no executable step kinds")
+
     processes = client.ogc_processes().processes()
     _require(isinstance(processes, Mapping), "processes response is not an object")
     listed = _as_list(processes.get("processes"), "processes response missing processes[]")
     _require(len(listed) > 0, "no analysis processes advertised")
-    return {"process_count": len(listed)}
+    advertised_ids: set[str] = set()
+    for process in listed:
+        _require(isinstance(process, Mapping), f"process entry is not an object: {process!r}")
+        process_id = process.get("id") or process.get("identifier")
+        _require(
+            isinstance(process_id, str) and bool(process_id.strip()),
+            f"process entry has no identifier: {process!r}",
+        )
+        advertised_ids.add(process_id.strip().lower().replace("_", "-").split(":")[-1])
+    matched = sorted(expected_ids & advertised_ids)
+    _require(
+        bool(matched),
+        f"process catalog does not advertise a fixture step {sorted(expected_ids)!r}",
+    )
+    return {"process_count": len(listed), "matched_fixture_processes": matched}
 
 
 def build_cases() -> list[ConformanceCase]:

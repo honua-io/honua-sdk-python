@@ -817,14 +817,21 @@ def _run_ogc_features_items(
     collection_id = _resolve_ogc_collection_id(client, target)
     ogc = client.ogc_features()
 
+    def validate_feature(feature: Any, page: str) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+        _require(isinstance(feature, Mapping), f"OGC {page} feature is not an object")
+        _require(feature.get("type") == "Feature", f"OGC {page} item is not a GeoJSON Feature")
+        _require("geometry" in feature, f"OGC {page} feature is missing geometry")
+        properties = _feature_attributes(feature)
+        _require(len(properties) > 0, f"OGC {page} feature has no properties")
+        return feature, properties
+
     pages = iter(ogc.items_pages(collection_id, page_size=1, limit=2, max_pages=2))
     items = next(pages, None)
     _require(isinstance(items, Mapping), "OGC items response is not an object")
     _require(items.get("type") == "FeatureCollection", "OGC items is not a FeatureCollection")
     features = _as_list(items.get("features"), "OGC items missing features[]")
     _require(len(features) == 1, f"OGC limit=1 returned {len(features)} features")
-    attrs = _feature_attributes(features[0])
-    _require(len(attrs) > 0, "OGC feature has no properties")
+    first_feature, attrs = validate_feature(features[0], "first-page")
     number_matched = items.get("numberMatched")
     _require(
         isinstance(number_matched, int) and not isinstance(number_matched, bool) and number_matched >= 2,
@@ -856,10 +863,9 @@ def _run_ogc_features_items(
     )
     second_features = _as_list(second_page.get("features"), "OGC second page missing features[]")
     _require(len(second_features) == 1, f"OGC second limit=1 page returned {len(second_features)} features")
-    second_attrs = _feature_attributes(second_features[0])
-    _require(len(second_attrs) > 0, "OGC second-page feature has no properties")
-    first_id = features[0].get("id") if isinstance(features[0], Mapping) else None
-    second_id = second_features[0].get("id") if isinstance(second_features[0], Mapping) else None
+    second_feature, _ = validate_feature(second_features[0], "second-page")
+    first_id = first_feature.get("id")
+    second_id = second_feature.get("id")
     _require(first_id is not None and second_id is not None, "OGC paged features must carry stable ids")
     _require(first_id != second_id, "OGC offset=1 repeated the first page feature")
     return {
@@ -1037,6 +1043,7 @@ def _run_analysis_process_surface(
     listed = _as_list(processes.get("processes"), "processes response missing processes[]")
     _require(len(listed) > 0, "no analysis processes advertised")
     advertised_ids: set[str] = set()
+    canonical_process: Mapping[str, Any] | None = None
     for process in listed:
         _require(isinstance(process, Mapping), f"process entry is not an object: {process!r}")
         process_id = process.get("id") or process.get("identifier")
@@ -1044,15 +1051,25 @@ def _run_analysis_process_surface(
             isinstance(process_id, str) and bool(process_id.strip()),
             f"process entry has no identifier: {process!r}",
         )
-        advertised_ids.add(process_id.strip())
+        normalized_id = process_id.strip()
+        advertised_ids.add(normalized_id)
+        if normalized_id == expected_process_id:
+            canonical_process = process
     _require(
         expected_process_id in advertised_ids,
         f"process catalog is missing canonical process {expected_process_id!r}",
     )
+    _require(canonical_process is not None, "canonical process metadata is unavailable")
+    title = canonical_process.get("title")
+    version = canonical_process.get("version")
+    _require(isinstance(title, str) and bool(title.strip()), "canonical process has no title")
+    _require(isinstance(version, str) and bool(version.strip()), "canonical process has no version")
     return {
         "process_count": len(listed),
         "fixture_kinds": sorted(fixture_kinds),
         "matched_fixture_processes": [expected_process_id],
+        "process_title": title.strip(),
+        "process_version": version.strip(),
     }
 
 

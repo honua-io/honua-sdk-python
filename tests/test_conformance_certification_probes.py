@@ -170,7 +170,12 @@ def _page(feature_id: str, *, next_link: bool) -> dict[str, Any]:
     return {
         "type": "FeatureCollection",
         "numberMatched": 2,
-        "features": [{"type": "Feature", "id": feature_id, "properties": {"name": feature_id}}],
+        "features": [{
+            "type": "Feature",
+            "id": feature_id,
+            "geometry": None,
+            "properties": {"name": feature_id},
+        }],
         "links": links,
     }
 
@@ -191,6 +196,14 @@ def test_ogc_items_probe_proves_page_boundary_and_continuation() -> None:
     [
         {**_page("a", next_link=True), "features": _page("a", next_link=True)["features"] * 2},
         _page("a", next_link=False),
+        {
+            **_page("a", next_link=True),
+            "features": [{"id": "a", "geometry": None, "properties": {"name": "a"}}],
+        },
+        {
+            **_page("a", next_link=True),
+            "features": [{"type": "Feature", "id": "a", "properties": {"name": "a"}}],
+        },
     ],
 )
 def test_ogc_items_probe_rejects_unproven_pagination(first_page: dict[str, Any]) -> None:
@@ -211,6 +224,14 @@ def test_ogc_items_probe_rejects_repeated_continuation_page() -> None:
     [
         {"features": [{"id": "b", "properties": {"name": "b"}}]},
         {"type": "FeatureCollection", "features": [{"id": "b"}]},
+        {
+            "type": "FeatureCollection",
+            "features": [{"id": "b", "geometry": None, "properties": {"name": "b"}}],
+        },
+        {
+            "type": "FeatureCollection",
+            "features": [{"type": "Feature", "id": "b", "properties": {"name": "b"}}],
+        },
     ],
 )
 def test_ogc_items_probe_rejects_malformed_continuation(second_page: dict[str, Any]) -> None:
@@ -496,6 +517,8 @@ def test_catalog_probe_requires_feature_server_descriptor() -> None:
     [
         {"processes": [None]},
         {"processes": [{"id": "unrelated"}]},
+        {"processes": [{"id": "honua-geoprocessing"}]},
+        {"processes": [{"id": "honua-geoprocessing", "title": "Honua", "version": ""}]},
     ],
 )
 def test_process_probe_rejects_malformed_or_unrelated_catalog(
@@ -529,7 +552,7 @@ def test_process_probe_maps_execute_plan_to_canonical_wrapper(
         _ProcessesClient(
             {
                 "processes": [
-                    {"id": "honua-geoprocessing"},
+                    {"id": "honua-geoprocessing", "title": "Honua geoprocessing", "version": "1.0.0"},
                 ]
             }
         ),

@@ -9,6 +9,7 @@ from honua_sdk.errors import HonuaHttpError
 from scripts._conformance import (
     ConformanceTarget,
     FixtureBundle,
+    _run_feature_query,
     _run_feature_query_unsupported_capability,
     _run_ogc_features_items,
 )
@@ -44,6 +45,16 @@ class _QueryClient:
         if self.error is not None:
             raise self.error
         return self.response
+
+
+class _PagedQueryClient:
+    def __init__(self, pages: list[dict[str, Any]]) -> None:
+        self.pages = pages
+        self.calls: list[dict[str, Any]] = []
+
+    def query_features(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(kwargs)
+        return self.pages[len(self.calls) - 1]
 
 
 TARGET = ConformanceTarget(base_url="https://example.test", service_id="test", layer_id=0)
@@ -91,6 +102,50 @@ def test_invalid_query_probe_accepts_structured_client_error() -> None:
     result = _run_feature_query_unsupported_capability(_QueryClient(error=error), TARGET, BUNDLE)
 
     assert result["error_code"] == 400
+
+
+def test_feature_query_probe_proves_two_bounded_ordered_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+
+    def page(start: int, count: int, *, more: bool) -> dict[str, Any]:
+        return {
+            "features": [
+                {"attributes": {"OBJECTID": object_id}, "geometry": {"x": 0, "y": 0}}
+                for object_id in range(start, start + count)
+            ],
+            "exceededTransferLimit": more,
+        }
+
+    client = _PagedQueryClient([page(1, 5, more=True), page(6, 3, more=False)])
+
+    result = _run_feature_query(client, TARGET, BUNDLE)
+
+    assert [call["extra_params"]["resultOffset"] for call in client.calls] == [0, 5]
+    assert result["first_page_object_ids"] == [1, 2, 3, 4, 5]
+    assert result["second_page_object_ids"] == [6, 7, 8]
+
+
+def test_feature_query_probe_rejects_repeated_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+
+    repeated = {
+        "features": [
+            {"attributes": {"objectid": object_id}, "geometry": {"x": 0, "y": 0}}
+            for object_id in range(1, 6)
+        ],
+        "exceededTransferLimit": True,
+    }
+
+    with pytest.raises(AssertionError, match="non-overlapping"):
+        _run_feature_query(_PagedQueryClient([repeated, repeated]), TARGET, BUNDLE)
 
 
 @pytest.mark.parametrize(

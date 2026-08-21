@@ -386,21 +386,26 @@ def _run_feature_query(
     :func:`_run_feature_query_jsonb_projection`.
     """
     golden = bundle.response("feature_query")
+    page_size = 5
     response = client.query_features(
         target.service_id,
         target.layer_id,
         where="1=1",
         out_fields=["*"],
         return_geometry=True,
-        extra_params={"resultRecordCount": 5},
+        extra_params={
+            "resultOffset": 0,
+            "resultRecordCount": page_size,
+            "orderByFields": "objectid ASC",
+        },
     )
 
     _require(isinstance(response, Mapping), "query response is not a JSON object")
     features = _as_list(response.get("features"), "response is missing a 'features' array")
-    _require(len(features) > 0, "seeded layer returned no features")
+    _require(len(features) == page_size, "first page did not honor resultRecordCount")
     _require(
-        "exceededTransferLimit" in response,
-        "response is missing the canonical 'exceededTransferLimit' envelope flag",
+        response.get("exceededTransferLimit") is True,
+        "first page did not prove a continuation with exceededTransferLimit=true",
     )
 
     sample = features[0]
@@ -417,10 +422,47 @@ def _run_feature_query(
         f"response envelope missing keys vs contract: {sorted(expected_envelope - set(response))}",
     )
 
+    second_response = client.query_features(
+        target.service_id,
+        target.layer_id,
+        where="1=1",
+        out_fields=["*"],
+        return_geometry=True,
+        extra_params={
+            "resultOffset": page_size,
+            "resultRecordCount": page_size,
+            "orderByFields": "objectid ASC",
+        },
+    )
+    _require(isinstance(second_response, Mapping), "second page is not a JSON object")
+    second_features = _as_list(
+        second_response.get("features"), "second page is missing a 'features' array"
+    )
+    _require(0 < len(second_features) <= page_size, "second page is empty or unbounded")
+
+    def object_ids(page: list[Any]) -> list[Any]:
+        ids: list[Any] = []
+        for feature in page:
+            attributes = _feature_attributes(feature)
+            normalized = {str(key).lower(): value for key, value in attributes.items()}
+            _require("objectid" in normalized, "feature is missing its objectid attribute")
+            ids.append(normalized["objectid"])
+        return ids
+
+    first_ids = object_ids(features)
+    second_ids = object_ids(second_features)
+    _require(first_ids == sorted(first_ids), "first page is not ordered by objectid")
+    _require(second_ids == sorted(second_ids), "second page is not ordered by objectid")
+    _require(first_ids[-1] < second_ids[0], "feature-query pages are not ordered and non-overlapping")
+
     return {
-        "feature_count": len(features),
+        "feature_count": len(features) + len(second_features),
+        "first_page_count": len(features),
+        "second_page_count": len(second_features),
+        "first_page_object_ids": first_ids,
+        "second_page_object_ids": second_ids,
         "golden_envelope_keys": sorted(golden_keys),
-        "exceeded_transfer_limit": response.get("exceededTransferLimit"),
+        "exceeded_transfer_limit": response["exceededTransferLimit"],
     }
 
 

@@ -182,14 +182,15 @@ jobs:
           resolved_image="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)"
           image_digest="${resolved_image##*@}"
           image_revision="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' 2>/dev/null || true)"
+          seed_revision="$(git -C "${server_root}" rev-parse HEAD)"
           candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI "${image_revision}")"
 
           if [[ ! "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::could not resolve an immutable server image digest"
             exit 1
           fi
-          if [[ "${HONUA_CERTIFICATION_TIER}" == "release" && "${image_revision}" != "${{ github.event.inputs.server_seed_ref }}" ]]; then
-            echo "::error::image revision does not match release server_seed_ref"
+          if [[ "${image_revision}" != "${seed_revision}" ]]; then
+            echo "::error::${HONUA_CERTIFICATION_TIER} image revision ${image_revision} does not match checked-out seed revision ${seed_revision}"
             exit 1
           fi
 

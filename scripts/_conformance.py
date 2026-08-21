@@ -582,10 +582,32 @@ def _run_feature_query_layer_fields(
         )
         live_fields[name.casefold()] = field_family(field_type)
 
+    canonical_seed_fields = {
+        "objectid",
+        "name",
+        "description",
+        "shape",
+        "status",
+        "count",
+        "ratio",
+        "active",
+        "created_at",
+        "event_date",
+        "event_time",
+        "uid",
+        "tags",
+        "numbers",
+        "eo:cloud_cover",
+    }
+    missing_seed_fields = sorted(canonical_seed_fields - set(live_fields))
+    _require(
+        not missing_seed_fields,
+        f"layer metadata is missing canonical client-compat fields: {missing_seed_fields}",
+    )
+
     # The shared wire fixture describes sf-parks while this lane intentionally
-    # targets the server's richer client-compat seed. Compare the schema roles
-    # both datasets share instead of requiring dataset-specific columns such as
-    # AREA to exist under a different service mapping.
+    # targets the richer client-compat seed. Compare types for overlapping
+    # schema roles after proving the complete mapped seed schema is present.
     matched_fields = set(expected_fields) & set(live_fields)
     expected_object_id = golden.get("objectIdFieldName")
     _require(
@@ -675,12 +697,23 @@ def _run_catalog_lists_service(
     """
     response = client.list_services()
     services = _as_list(response.get("services"), "list_services did not return services[]")
-    names = {s.get("name") for s in services if isinstance(s, Mapping)}
+    matches = [
+        service
+        for service in services
+        if isinstance(service, Mapping)
+        and service.get("name") == target.service_id
+        and service.get("type") == "FeatureServer"
+    ]
     _require(
-        target.service_id in names,
-        f"service {target.service_id!r} not advertised; saw {sorted(n for n in names if n)}",
+        bool(matches),
+        f"FeatureServer {target.service_id!r} not advertised; saw "
+        f"{sorted((str(s.get('name')), str(s.get('type'))) for s in services if isinstance(s, Mapping))}",
     )
-    return {"service_count": len(services), "matched": target.service_id}
+    return {
+        "service_count": len(services),
+        "matched": target.service_id,
+        "matched_type": "FeatureServer",
+    }
 
 
 def _configured_ogc_collection_candidates(target: ConformanceTarget) -> list[str]:

@@ -12,6 +12,7 @@ from scripts._conformance import (
     _run_feature_query,
     _run_feature_query_jsonb_projection,
     _run_feature_query_layer_fields,
+    _run_catalog_lists_service,
     _run_feature_query_unsupported_capability,
     _run_analysis_process_surface,
     _run_ogc_features_items,
@@ -402,7 +403,7 @@ def test_layer_metadata_probe_rejects_field_or_object_id_drift(
         _run_feature_query_layer_fields(_LayerClient(metadata), TARGET, BUNDLE)
 
 
-def test_layer_metadata_probe_maps_shared_fields_across_different_seed_datasets(
+def test_layer_metadata_probe_requires_complete_client_compat_seed_schema(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -424,7 +425,19 @@ def test_layer_metadata_probe_maps_shared_fields_across_different_seed_datasets(
                 "fields": [
                     {"name": "objectid", "type": "esriFieldTypeOID"},
                     {"name": "name", "type": "esriFieldTypeString"},
+                    {"name": "description", "type": "esriFieldTypeString"},
+                    {"name": "shape", "type": "esriFieldTypeGeometry"},
+                    {"name": "status", "type": "esriFieldTypeString"},
+                    {"name": "count", "type": "esriFieldTypeInteger"},
+                    {"name": "ratio", "type": "esriFieldTypeDouble"},
+                    {"name": "active", "type": "esriFieldTypeSmallInteger"},
+                    {"name": "created_at", "type": "esriFieldTypeDate"},
+                    {"name": "event_date", "type": "esriFieldTypeDate"},
+                    {"name": "event_time", "type": "esriFieldTypeDate"},
+                    {"name": "uid", "type": "esriFieldTypeGUID"},
                     {"name": "tags", "type": "esriFieldTypeString"},
+                    {"name": "numbers", "type": "esriFieldTypeString"},
+                    {"name": "eo:cloud_cover", "type": "esriFieldTypeDouble"},
                 ],
             }
         ),
@@ -434,6 +447,15 @@ def test_layer_metadata_probe_maps_shared_fields_across_different_seed_datasets(
 
     assert result["matched_fields"] == ["name", "objectid"]
     assert result["fixture_only_fields"] == ["area"]
+
+
+def test_catalog_probe_requires_feature_server_descriptor() -> None:
+    class CatalogClient:
+        def list_services(self) -> dict[str, Any]:
+            return {"services": [{"name": "test", "type": "MapServer"}]}
+
+    with pytest.raises(AssertionError, match="FeatureServer"):
+        _run_catalog_lists_service(CatalogClient(), TARGET, BUNDLE)
 
 
 @pytest.mark.parametrize(

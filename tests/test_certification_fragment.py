@@ -52,7 +52,7 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         server_commit=source_sha,
         server_image_digest=image_digest,
         sdk_source_sha=sdk_sha,
-        evidence_uri="https://example.test/run/1",
+        evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
     )
@@ -87,7 +87,13 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["producer_source_sha"] == sdk_sha
     assert passed["fixture_revision"] == "geospatial-grpc@fixture-v1"
     assert passed["contract_revision"] == f"sdk-python-certification@{sdk_sha}"
-    assert passed["auth_policy_revision"] == "anonymous-and-protected-v1"
+    assert passed["auth_policy_revision"] == "anonymous-public-v1"
+    assert passed["evidence_digest"].startswith("sha256:")
+    assert set(passed["facet_results"]) == set(passed["scenario_facets"])
+    assert all(
+        facet == {"result": "pass", "evidence_digest": passed["evidence_digest"]}
+        for facet in passed["facet_results"].values()
+    )
     assert failed["operation"] == "temporal-query"
     assert failed["result"] == "fail"
     assert failed["skip_reason"] == gap.known_gap_issue

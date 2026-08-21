@@ -40,6 +40,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -1276,7 +1277,7 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
 }
 
 CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
-CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-and-protected-v1"
+CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-public-v1"
 
 
 def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None:
@@ -1346,10 +1347,26 @@ def build_certification_fragment(
         )
 
     client_version = importlib.metadata.version("honua-sdk")
+    evidence_digest = "sha256:" + hashlib.sha256(json.dumps(
+        [
+            {
+                "case": case.name,
+                "status": result.status,
+                "fixture": result.fixture,
+                "message_type": result.message_type,
+                "started_at": result.started_at,
+                "completed_at": result.completed_at,
+            }
+            for case, result in case_results
+        ],
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
     observations: list[dict[str, Any]] = []
     for case, result in case_results:
         capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
         known_gap = case.known_gap_issue if result.status != "passed" else None
+        normalized_result = "pass" if result.status == "passed" else "fail"
         observations.append(
             {
                 "capability_key": capability_key,
@@ -1359,7 +1376,7 @@ def build_certification_fragment(
                 "canonical_client": "Honua SDK Python",
                 "client_version": client_version,
                 "deployment_target": "local-docker",
-                "result": "pass" if result.status == "passed" else "fail",
+                "result": normalized_result,
                 "skip_reason": known_gap,
                 "source_sha": target.server_commit,
                 "producer_source_sha": target.sdk_source_sha,
@@ -1368,6 +1385,11 @@ def build_certification_fragment(
                 "contract_revision": f"sdk-python-certification@{target.sdk_source_sha}",
                 "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
                 "evidence_uri": target.evidence_uri,
+                "evidence_digest": evidence_digest,
+                "facet_results": {
+                    facet: {"result": normalized_result, "evidence_digest": evidence_digest}
+                    for facet in scenario_facets
+                },
                 "started_at": result.started_at,
                 "completed_at": result.completed_at,
             }

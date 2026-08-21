@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -50,6 +51,12 @@ def test_publish_workflow_is_exact_sequential_and_least_privilege() -> None:
     assert "github.event.workflow_run.head_repository.full_name == github.repository" in workflow
     assert "github.event.workflow_run.head_sha" in workflow
     assert "ref: ${{ needs.resolve-publish-targets.outputs.release_sha }}" in workflow
+    assert "path: release-source" not in workflow
+    assert "cache: pip" not in workflow
+    assert "--target-ref \"$TARGET_REF\"" in workflow
+    for line in workflow.splitlines():
+        if "uses:" in line:
+            assert re.search(r"@[0-9a-f]{40}(?:\s+#\s+\S+)?$", line)
     assert "--workflow-ref \"$WORKFLOW_REF\"" in workflow
     assert "--release-tag \"$RELEASE_TAG\"" in workflow
 

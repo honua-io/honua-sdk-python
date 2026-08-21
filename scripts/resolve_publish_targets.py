@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from scripts.validate_publish_tag import package_version
+import tomllib
 
 
 @dataclass(frozen=True)
@@ -168,14 +168,31 @@ def _tag_commit(workspace: Path, tag: str) -> str | None:
     return None
 
 
-def _head_sha(workspace: Path) -> str:
+def _resolve_commit(workspace: Path, target_ref: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(workspace), "rev-parse", "HEAD"],
+        ["git", "-C", str(workspace), "rev-parse", "--verify", f"{target_ref}^{{commit}}"],
         check=True,
         capture_output=True,
         text=True,
     )
     return result.stdout.strip()
+
+
+def _package_version_at_commit(workspace: Path, release_sha: str, spec: PackageSpec) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(workspace), "show", f"{release_sha}:{spec.pyproject.as_posix()}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = tomllib.loads(result.stdout)
+    try:
+        version = data["project"]["version"]
+    except KeyError as exc:
+        raise ValueError(f"{spec.pyproject} is missing project.version at {release_sha}.") from exc
+    if not isinstance(version, str) or not version:
+        raise ValueError(f"{spec.pyproject} project.version must be a non-empty string.")
+    return version
 
 
 def _parse_bool(value: str) -> bool:
@@ -205,6 +222,7 @@ def _write_github_outputs(path: Path, plan: PublishPlan) -> None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--target-ref", default="HEAD")
     parser.add_argument("--event-name", required=True)
     parser.add_argument("--ref-name", default="")
     parser.add_argument("--ref-type", default="")
@@ -224,8 +242,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         workspace = args.workspace.resolve()
+        release_sha = _resolve_commit(workspace, args.target_ref)
         versions = {
-            spec.key: package_version(workspace / spec.pyproject) for spec in PACKAGE_SPECS
+            spec.key: _package_version_at_commit(workspace, release_sha, spec)
+            for spec in PACKAGE_SPECS
         }
         tags = {
             spec.key: f"{spec.tag_prefix}{versions[spec.key]}" for spec in PACKAGE_SPECS
@@ -233,7 +253,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         tag_commits = {tag: _tag_commit(workspace, tag) for tag in tags.values()}
         plan = plan_publish(
             event_name=args.event_name,
-            release_sha=_head_sha(workspace),
+            release_sha=release_sha,
             versions=versions,
             tag_commits=tag_commits,
             ref_name=args.ref_name,

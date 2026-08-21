@@ -182,7 +182,7 @@ jobs:
           resolved_image="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)"
           image_digest="${resolved_image##*@}"
           image_revision="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' 2>/dev/null || true)"
-          candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI HEAD)"
+          candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI "${image_revision}")"
 
           if [[ ! "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::could not resolve an immutable server image digest"

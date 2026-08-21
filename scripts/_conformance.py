@@ -45,7 +45,6 @@ import json
 import os
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
 
 from honua_sdk import HonuaClient, HonuaHttpError
 
@@ -520,10 +519,16 @@ def _validate_seeded_json_fields(features: list[Any], surface: str) -> set[str]:
             f"{surface} tags value/type drift for feature_count={feature_count}: "
             f"expected {expected_tags!r}, got {attributes['tags']!r}",
         )
+        numbers = attributes["numbers"]
         _require(
-            attributes["numbers"] == expected_numbers,
+            isinstance(numbers, list)
+            and all(isinstance(value, int) and not isinstance(value, bool) for value in numbers),
+            f"{surface} numbers must be an array of integers, got {numbers!r}",
+        )
+        _require(
+            numbers == expected_numbers,
             f"{surface} numbers value/type drift for feature_count={feature_count}: "
-            f"expected {expected_numbers!r}, got {attributes['numbers']!r}",
+            f"expected {expected_numbers!r}, got {numbers!r}",
         )
     return observed
 
@@ -709,7 +714,8 @@ def _run_ogc_features_items(
     collection_id = _resolve_ogc_collection_id(client, target)
     ogc = client.ogc_features()
 
-    items = ogc.items(collection_id, limit=1, offset=0)
+    pages = iter(ogc.items_pages(collection_id, page_size=1, limit=2, max_pages=2))
+    items = next(pages, None)
     _require(isinstance(items, Mapping), "OGC items response is not an object")
     _require(items.get("type") == "FeatureCollection", "OGC items is not a FeatureCollection")
     features = _as_list(items.get("features"), "OGC items missing features[]")
@@ -729,20 +735,9 @@ def _run_ogc_features_items(
     _require(bool(next_links), "OGC first page did not advertise a rel=next continuation link")
 
     next_href = next_links[0]["href"]
-    next_query = parse_qs(urlsplit(next_href).query, keep_blank_values=True)
-    _require(
-        len(next_query.get("limit", [])) == 1 and len(next_query.get("offset", [])) == 1,
-        f"OGC next link must carry one limit and offset: {next_href!r}",
-    )
-    try:
-        next_limit = int(next_query["limit"][0])
-        next_offset = int(next_query["offset"][0])
-    except ValueError as error:
-        raise AssertionError(f"OGC next link has non-integer paging values: {next_href!r}") from error
-    _require(next_limit == 1, f"OGC next link changed the page limit: {next_limit}")
-    _require(next_offset > 0, f"OGC next link did not advance the offset: {next_offset}")
-
-    second_page = ogc.items(collection_id, limit=next_limit, offset=next_offset)
+    # Continuation links are opaque. The SDK's public page walker follows the
+    # complete advertised URL, preserving path, cursor, and vendor parameters.
+    second_page = next(pages, None)
     _require(isinstance(second_page, Mapping), "OGC second page response is not an object")
     second_features = _as_list(second_page.get("features"), "OGC second page missing features[]")
     _require(len(second_features) == 1, f"OGC second limit=1 page returned {len(second_features)} features")
@@ -755,7 +750,6 @@ def _run_ogc_features_items(
         "feature_count": len(features),
         "number_matched": number_matched,
         "next_href": next_href,
-        "next_offset": next_offset,
         "second_page_feature_id": second_id,
         "sample_property_keys": sorted(str(k) for k in attrs),
     }

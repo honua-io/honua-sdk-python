@@ -150,6 +150,20 @@ def test_temporal_probe_rejects_empty_seeded_window() -> None:
         _run_temporal_query(_TemporalClient(), TARGET, BUNDLE)
 
 
+def test_json_field_probe_accepts_seed_without_synthetic_feature_count() -> None:
+    response = {
+        "features": [{
+            "attributes": {"tags": ["red", "blue"], "numbers": [0, 1, 2]},
+            "geometry": {"x": 0, "y": 0},
+        }],
+        "exceededTransferLimit": False,
+    }
+
+    result = _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
+
+    assert result["jsonb_fields_projected"] == ["numbers", "tags"]
+
+
 def test_json_field_probe_rejects_stringified_arrays() -> None:
     response = {
         "features": [{

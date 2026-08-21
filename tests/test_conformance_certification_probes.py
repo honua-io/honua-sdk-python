@@ -13,6 +13,7 @@ from scripts._conformance import (
     _run_feature_query_jsonb_projection,
     _run_feature_query_unsupported_capability,
     _run_ogc_features_items,
+    _run_replica_surface,
     _run_temporal_query,
 )
 
@@ -86,6 +87,43 @@ class _TemporalClient:
         return {"features": [{"attributes": {"OBJECTID": 1}}]}
 
 
+class _TemporalLeakClient:
+    def _request_json(
+        self,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        time_window = params.get("time")
+        if time_window == "0,1":
+            return {"features": [{"attributes": {"OBJECTID": 1}}]}
+        if time_window is not None:
+            return {"features": [{"attributes": {"OBJECTID": 2}}]}
+        return {
+            "features": [
+                {"attributes": {"OBJECTID": 1}},
+                {"attributes": {"OBJECTID": 2}},
+            ]
+        }
+
+
+class _ReplicaFeatureServer:
+    def __init__(self, metadata: dict[str, Any]) -> None:
+        self._metadata = metadata
+
+    def metadata(self) -> dict[str, Any]:
+        return self._metadata
+
+
+class _ReplicaClient:
+    def __init__(self, metadata: dict[str, Any]) -> None:
+        self._feature_server = _ReplicaFeatureServer(metadata)
+
+    def feature_server(self, _service_id: str) -> _ReplicaFeatureServer:
+        return self._feature_server
+
+
 TARGET = ConformanceTarget(base_url="https://example.test", service_id="test", layer_id=0)
 BUNDLE = FixtureBundle(Path("."), "fixture-v1")
 
@@ -148,6 +186,23 @@ def test_ogc_items_probe_rejects_cross_authority_continuation() -> None:
 def test_temporal_probe_rejects_empty_seeded_window() -> None:
     with pytest.raises(AssertionError, match="seeded in-range"):
         _run_temporal_query(_TemporalClient(), TARGET, BUNDLE)
+
+
+def test_temporal_probe_rejects_disjoint_window_leakage() -> None:
+    with pytest.raises(AssertionError, match="disjoint pre-seed"):
+        _run_temporal_query(_TemporalLeakClient(), TARGET, BUNDLE)
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"syncEnabled": "false", "capabilities": "Query"},
+        {"syncEnabled": False, "capabilities": "Query,NotCreateReplica"},
+    ],
+)
+def test_replica_probe_rejects_untyped_or_partial_sync_signals(metadata: dict[str, Any]) -> None:
+    with pytest.raises(AssertionError, match="does not advertise"):
+        _run_replica_surface(_ReplicaClient(metadata), TARGET, BUNDLE)
 
 
 def test_json_field_probe_accepts_seed_without_synthetic_feature_count() -> None:

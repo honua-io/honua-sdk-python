@@ -830,10 +830,9 @@ def _run_temporal_query(
     _require(len(unfiltered) > 0, "baseline (unfiltered) query returned no features")
     _require(len(in_window) > 0, "seeded in-range temporal window returned no features")
     _require(
-        len(disjoint) < len(unfiltered),
-        "time filter not honored: a disjoint pre-seed window returned the same "
-        f"feature count ({len(disjoint)}) as the unfiltered query "
-        f"({len(unfiltered)})",
+        len(disjoint) == 0,
+        "time filter leaked seeded features into the disjoint pre-seed window: "
+        f"expected 0, got {len(disjoint)}",
     )
     return {
         "feature_count": len(in_window),
@@ -866,16 +865,18 @@ def _run_replica_surface(
     """
     metadata = client.feature_server(target.service_id).metadata()
     _require(isinstance(metadata, Mapping), "feature server metadata is not an object")
-    caps = str(metadata.get("capabilities", ""))
+    caps_value = metadata.get("capabilities", "")
+    _require(isinstance(caps_value, str), "FeatureServer capabilities must be a string")
+    caps = caps_value
     # Gate strictly on sync/replica signals. The old ``"Create" in caps``
     # disjunct matched the unrelated ``Create`` editing capability that *any*
     # editable FeatureServer advertises, so this probe reported replica/sync
     # support present when it was absent.
     caps_tokens = {token.strip().lower() for token in caps.split(",")}
     sync_enabled = (
-        bool(metadata.get("syncEnabled"))
+        metadata.get("syncEnabled") is True
         or "sync" in caps_tokens
-        or "createreplica" in caps.lower()
+        or "createreplica" in caps_tokens
     )
     _require(
         sync_enabled,

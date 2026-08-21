@@ -39,13 +39,21 @@ environment contract, seeded staging assumptions, and manual cleanup guidance.
    GitHub Release(s) at that exact merge commit.
 2. The completed `Release Please` run starts `Publish Python Packages` through
    `workflow_run`. Ordinary trunk runs with no matching new tag are a no-op.
-3. The publish workflow verifies package metadata, peeled tag commit(s), and
-   each GitHub Release target before it requests a PyPI OIDC token.
-4. When both packages are released together, `honua-sdk` is tested and
-   published first; only then is the dependent `honua-admin` package tested
-   and published.
-5. A successful publish attaches one wheel and one source distribution to the
-   corresponding GitHub Release and adds the exact-version PyPI install link.
+3. Unprivileged jobs verify package metadata, trunk ancestry, peeled tag
+   commit(s), GitHub Release targets, tests, builds, and an immutable
+   filename/SHA256 manifest. Branch dry runs stop here and never enter a PyPI
+   environment or receive an OIDC permission.
+4. A PyPI preflight treats an occupied version as a no-op only when its exact
+   filename/SHA256 set matches the built wheel and source distribution. Any
+   partial, extra, or mismatched registry file fails the release.
+5. The minimal OIDC job only downloads the verified Actions artifact and
+   invokes the pinned PyPI publisher. A separate unprivileged job then requires
+   exact post-upload PyPI parity.
+6. When both packages are released together, the SDK's PyPI parity and GitHub
+   assets complete before the dependent `honua-admin` OIDC job can start.
+7. The isolated GitHub Release job uploads only missing assets, fails rather
+   than overwriting a different digest, verifies the final asset digests, and
+   adds the exact-version PyPI install link.
 
 The existing GitHub environments and PyPI Trusted Publisher tuples must remain:
 
@@ -70,7 +78,9 @@ release after the automated run failed or was missed:
    commit and package versions.
 
 The recovery run fails before publication if the workflow is not from
-`trunk`, the tag does not match package metadata, selected tags do not peel to
-the checked-out commit, or a GitHub Release is missing, draft, or targets a
-different commit. PyPI uploads use `skip-existing`, and GitHub Release asset
-updates are idempotent.
+`trunk`, the release commit is not an ancestor of `origin/trunk`, the tag does
+not match package metadata, selected tags do not peel to the checked-out
+commit, or a GitHub Release is missing, draft, or targets a different commit.
+Occupied PyPI coordinates and existing GitHub assets are accepted only with
+exact filename/SHA256 parity; no registry or release asset is blindly skipped
+or overwritten.

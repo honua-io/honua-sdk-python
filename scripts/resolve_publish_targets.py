@@ -70,8 +70,7 @@ def plan_publish(
     release_sha: str,
     versions: Mapping[str, str],
     tag_commits: Mapping[str, str | None],
-    ref_name: str = "",
-    ref_type: str = "",
+    release_is_trunk_ancestor: bool,
     requested_package: str = "both",
     dry_run: bool = True,
     release_tag: str = "",
@@ -90,6 +89,8 @@ def plan_publish(
     }
 
     if event_name == "workflow_run":
+        if not release_is_trunk_ancestor:
+            raise ValueError(f"Release commit {release_sha} is not an ancestor of origin/trunk.")
         selected = tuple(
             spec.key for spec in PACKAGE_SPECS if tag_commits.get(tags[spec.key]) == release_sha
         )
@@ -97,23 +98,6 @@ def plan_publish(
             release_sha=release_sha,
             selected=selected,
             publish=bool(selected),
-            versions=versions,
-            tags=tags,
-        )
-
-    if event_name == "push":
-        if ref_type != "tag":
-            raise ValueError("A push publication must run from a tag ref.")
-        matching = tuple(spec.key for spec in PACKAGE_SPECS if tags[spec.key] == ref_name)
-        if not matching:
-            expected = ", ".join(tags.values())
-            raise ValueError(f"Push tag {ref_name!r} does not match package metadata ({expected}).")
-        if tag_commits.get(ref_name) != release_sha:
-            raise ValueError(f"Tag {ref_name!r} does not resolve to release commit {release_sha}.")
-        return PublishPlan(
-            release_sha=release_sha,
-            selected=matching,
-            publish=True,
             versions=versions,
             tags=tags,
         )
@@ -135,6 +119,8 @@ def plan_publish(
         raise ValueError("A non-dry manual publication must dispatch the workflow from trunk.")
     if not release_tag:
         raise ValueError("A non-dry manual publication requires an exact release_tag input.")
+    if not release_is_trunk_ancestor:
+        raise ValueError(f"Release commit {release_sha} is not an ancestor of origin/trunk.")
     if release_tag not in {tags[key] for key in selected}:
         expected = ", ".join(tags[key] for key in selected)
         raise ValueError(f"release_tag {release_tag!r} does not match the selection ({expected}).")
@@ -170,12 +156,39 @@ def _tag_commit(workspace: Path, tag: str) -> str | None:
 
 def _resolve_commit(workspace: Path, target_ref: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(workspace), "rev-parse", "--verify", f"{target_ref}^{{commit}}"],
+        [
+            "git",
+            "-C",
+            str(workspace),
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            f"{target_ref}^{{commit}}",
+        ],
         check=True,
         capture_output=True,
         text=True,
     )
     return result.stdout.strip()
+
+
+def _is_ancestor(workspace: Path, ancestor: str, descendant: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(workspace), "merge-base", "--is-ancestor", ancestor, descendant],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise subprocess.CalledProcessError(
+        result.returncode,
+        result.args,
+        output=result.stdout,
+        stderr=result.stderr,
+    )
 
 
 def _package_version_at_commit(workspace: Path, release_sha: str, spec: PackageSpec) -> str:
@@ -224,8 +237,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--target-ref", default="HEAD")
     parser.add_argument("--event-name", required=True)
-    parser.add_argument("--ref-name", default="")
-    parser.add_argument("--ref-type", default="")
     parser.add_argument("--workflow-ref", default="")
     parser.add_argument("--package", default="both")
     parser.add_argument("--dry-run", default="true")
@@ -256,8 +267,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             release_sha=release_sha,
             versions=versions,
             tag_commits=tag_commits,
-            ref_name=args.ref_name,
-            ref_type=args.ref_type,
+            release_is_trunk_ancestor=_is_ancestor(
+                workspace, release_sha, "refs/remotes/origin/trunk"
+            ),
             requested_package=args.package,
             dry_run=_parse_bool(args.dry_run),
             release_tag=args.release_tag,

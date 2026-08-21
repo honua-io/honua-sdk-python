@@ -440,8 +440,8 @@ def _run_feature_query(
     )
     _require(0 < len(second_features) <= page_size, "second page is empty or unbounded")
     _require(
-        "exceededTransferLimit" in second_response,
-        "second page is missing exceededTransferLimit",
+        isinstance(second_response.get("exceededTransferLimit"), bool),
+        "second page exceededTransferLimit is missing or is not a boolean",
     )
     for feature in second_features:
         _require(len(_feature_attributes(feature)) > 0, "second-page feature has no attributes")

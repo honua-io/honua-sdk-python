@@ -382,6 +382,14 @@ def test_feature_query_probe_validates_every_first_page_feature(
     [
         {"features": [{"attributes": {"OBJECTID": 6}, "geometry": {"x": 0, "y": 0}}]},
         {"features": [{"attributes": {"OBJECTID": 6}}], "exceededTransferLimit": False},
+        {
+            "features": [{"attributes": {"OBJECTID": 6}, "geometry": {"x": 0, "y": 0}}],
+            "exceededTransferLimit": "false",
+        },
+        {
+            "features": [{"attributes": {"OBJECTID": 6}, "geometry": {"x": 0, "y": 0}}],
+            "exceededTransferLimit": None,
+        },
     ],
 )
 def test_feature_query_probe_rejects_malformed_continuation(

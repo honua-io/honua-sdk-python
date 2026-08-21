@@ -204,6 +204,12 @@ def test_ogc_items_probe_proves_page_boundary_and_continuation() -> None:
             **_page("a", next_link=True),
             "features": [{"type": "Feature", "id": "a", "properties": {"name": "a"}}],
         },
+        {
+            **_page("a", next_link=True),
+            "features": [
+                {"type": "Feature", "id": "a", "geometry": None, "attributes": {"name": "a"}}
+            ],
+        },
     ],
 )
 def test_ogc_items_probe_rejects_unproven_pagination(first_page: dict[str, Any]) -> None:
@@ -231,6 +237,12 @@ def test_ogc_items_probe_rejects_repeated_continuation_page() -> None:
         {
             "type": "FeatureCollection",
             "features": [{"type": "Feature", "id": "b", "properties": {"name": "b"}}],
+        },
+        {
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "id": "b", "geometry": None, "attributes": {"name": "b"}}
+            ],
         },
     ],
 )
@@ -371,6 +383,30 @@ def test_feature_query_probe_rejects_repeated_page(monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(AssertionError, match="non-overlapping"):
         _run_feature_query(_PagedQueryClient([repeated, repeated]), TARGET, BUNDLE)
+
+
+def test_feature_query_probe_requires_geoservices_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+    first_page = {
+        "features": [
+            {"properties": {"OBJECTID": object_id}, "geometry": {"x": 0, "y": 0}}
+            for object_id in range(1, 6)
+        ],
+        "exceededTransferLimit": True,
+    }
+    second_page = {
+        "features": [{"attributes": {"OBJECTID": 6}, "geometry": {"x": 0, "y": 0}}],
+        "exceededTransferLimit": False,
+    }
+
+    with pytest.raises(AssertionError, match="attributes mapping"):
+        _run_feature_query(_PagedQueryClient([first_page, second_page]), TARGET, BUNDLE)
 
 
 @pytest.mark.parametrize(

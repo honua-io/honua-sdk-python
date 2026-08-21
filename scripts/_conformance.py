@@ -410,7 +410,9 @@ def _run_feature_query(
     )
 
     for feature in features:
-        _require(len(_feature_attributes(feature)) > 0, "feature has no attributes")
+        _require(isinstance(feature, Mapping), "feature is not an object")
+        _require(isinstance(feature.get("attributes"), Mapping), "feature has no attributes mapping")
+        _require(len(feature["attributes"]) > 0, "feature has no attributes")
         _require("geometry" in feature, "return_geometry=true but feature has no geometry")
 
     # Cross-check the contract envelope keys the golden advertises that have a
@@ -444,7 +446,12 @@ def _run_feature_query(
         "second page exceededTransferLimit is missing or is not a boolean",
     )
     for feature in second_features:
-        _require(len(_feature_attributes(feature)) > 0, "second-page feature has no attributes")
+        _require(isinstance(feature, Mapping), "second-page feature is not an object")
+        _require(
+            isinstance(feature.get("attributes"), Mapping),
+            "second-page feature has no attributes mapping",
+        )
+        _require(len(feature["attributes"]) > 0, "second-page feature has no attributes")
         _require("geometry" in feature, "second-page feature has no geometry")
 
     def object_ids(page: list[Any]) -> list[Any]:
@@ -823,7 +830,11 @@ def _run_ogc_features_items(
         _require(isinstance(feature, Mapping), f"OGC {page} feature is not an object")
         _require(feature.get("type") == "Feature", f"OGC {page} item is not a GeoJSON Feature")
         _require("geometry" in feature, f"OGC {page} feature is missing geometry")
-        properties = _feature_attributes(feature)
+        _require(
+            isinstance(feature.get("properties"), Mapping),
+            f"OGC {page} feature has no properties mapping",
+        )
+        properties = feature["properties"]
         _require(len(properties) > 0, f"OGC {page} feature has no properties")
         return feature, properties
 

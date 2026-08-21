@@ -1276,6 +1276,7 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
 }
 
 CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
+CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-and-protected-v1"
 
 
 def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None:
@@ -1355,7 +1356,7 @@ def build_certification_fragment(
                 "surface": surface,
                 "operation": operation,
                 "scenario_facets": scenario_facets,
-                "canonical_client": "honua-sdk-python",
+                "canonical_client": "Honua SDK Python",
                 "client_version": client_version,
                 "deployment_target": "local-docker",
                 "result": "pass" if result.status == "passed" else "fail",
@@ -1364,6 +1365,8 @@ def build_certification_fragment(
                 "producer_source_sha": target.sdk_source_sha,
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
+                "contract_revision": f"sdk-python-certification@{target.sdk_source_sha}",
+                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
                 "evidence_uri": target.evidence_uri,
                 "started_at": result.started_at,
                 "completed_at": result.completed_at,

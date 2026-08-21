@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import importlib.metadata
+import json
 from pathlib import Path
 
 import pytest
 
 from scripts._conformance import (
     CaseResult,
+    CASE_CERTIFICATION,
     ConformanceCase,
     ConformanceTarget,
     FixtureBundle,
@@ -77,11 +79,39 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["operation"] == "query"
     assert passed["capability_key"] == "serve.geoservices-featureserver"
     assert passed["scenario_facets"] == ["positive", "pagination"]
+    assert passed["canonical_client"] == "Honua SDK Python"
     assert passed["client_version"] == "9.9.9"
     assert passed["result"] == "pass"
     assert passed["skip_reason"] is None
     assert passed["producer_source_sha"] == sdk_sha
     assert passed["fixture_revision"] == "geospatial-grpc@fixture-v1"
+    assert passed["contract_revision"] == f"sdk-python-certification@{sdk_sha}"
+    assert passed["auth_policy_revision"] == "anonymous-and-protected-v1"
     assert failed["operation"] == "temporal-query"
     assert failed["result"] == "fail"
     assert failed["skip_reason"] == gap.known_gap_issue
+
+
+def test_machine_readable_certification_contract_matches_case_mapping() -> None:
+    contract = json.loads(
+        (Path(__file__).resolve().parents[1] / "conformance" / "protocol-certification.v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    expected = sorted(
+        (
+            {
+                "capability_key": capability,
+                "surface": surface,
+                "operation": operation,
+                "scenario_facets": facets,
+            }
+            for capability, surface, operation, facets in CASE_CERTIFICATION.values()
+        ),
+        key=lambda row: (row["surface"], row["operation"]),
+    )
+    assert sorted(
+        contract["operations"], key=lambda row: (row["surface"], row["operation"])
+    ) == expected
+    assert contract["canonicalClient"] == "Honua SDK Python"
+    assert contract["clientVersion"] == "0.1.11"

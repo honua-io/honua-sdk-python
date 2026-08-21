@@ -10,6 +10,7 @@ from scripts._conformance import (
     ConformanceTarget,
     FixtureBundle,
     _run_feature_query,
+    _run_feature_query_jsonb_projection,
     _run_feature_query_unsupported_capability,
     _run_ogc_features_items,
 )
@@ -90,6 +91,27 @@ def test_ogc_items_probe_proves_page_boundary_and_continuation() -> None:
 def test_ogc_items_probe_rejects_unproven_pagination(first_page: dict[str, Any]) -> None:
     with pytest.raises(AssertionError):
         _run_ogc_features_items(_OgcClient({0: first_page, 1: _page("b", next_link=False)}), TARGET, BUNDLE)
+
+
+def test_ogc_items_probe_rejects_nonadvancing_next_link() -> None:
+    first_page = _page("a", next_link=True)
+    first_page["links"][-1]["href"] = "https://example.test/items?limit=1&offset=0"
+
+    with pytest.raises(AssertionError, match="advance the offset"):
+        _run_ogc_features_items(_OgcClient({0: first_page}), TARGET, BUNDLE)
+
+
+def test_json_field_probe_rejects_stringified_arrays() -> None:
+    response = {
+        "features": [{
+            "attributes": {"feature_count": 1, "tags": '["red","blue"]', "numbers": "[0,1,2]"},
+            "geometry": {"x": 0, "y": 0},
+        }],
+        "exceededTransferLimit": False,
+    }
+
+    with pytest.raises(AssertionError, match="tags value/type drift"):
+        _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
 
 
 def test_invalid_query_probe_accepts_structured_client_error() -> None:

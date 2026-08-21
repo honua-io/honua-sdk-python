@@ -45,6 +45,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from honua_sdk import HonuaClient, HonuaHttpError
 
@@ -490,18 +491,41 @@ def _run_feature_query_jsonb_projection(
     features = _as_list(response.get("features"), "response is missing a 'features' array")
     _require(len(features) > 0, "seeded layer returned no features")
 
-    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
+    observed = _validate_seeded_json_fields(features, "FeatureServer")
     jsonb_fields = {"tags", "numbers"}
-    missing_jsonb = sorted(jsonb_fields - observed)
-    _require(
-        not missing_jsonb,
-        f"JSONB-typed attributes not projected (honua-server#1238): missing {missing_jsonb}",
-    )
     return {
         "feature_count": len(features),
         "observed_fields": sorted(observed),
         "jsonb_fields_projected": sorted(jsonb_fields),
     }
+
+
+def _validate_seeded_json_fields(features: list[Any], surface: str) -> set[str]:
+    observed: set[str] = set()
+    for feature in features:
+        attributes = {str(key).lower(): value for key, value in _feature_attributes(feature).items()}
+        observed.update(attributes)
+        missing = sorted({"feature_count", "tags", "numbers"} - attributes.keys())
+        _require(not missing, f"{surface} JSON field projection is missing {missing}")
+
+        feature_count = attributes["feature_count"]
+        _require(
+            isinstance(feature_count, int) and not isinstance(feature_count, bool),
+            f"{surface} feature_count must be an integer, got {type(feature_count).__name__}",
+        )
+        expected_tags = ["red", "blue"] if feature_count % 2 == 1 else ["green"]
+        expected_numbers = [feature_count - 1, feature_count, feature_count + 1]
+        _require(
+            attributes["tags"] == expected_tags,
+            f"{surface} tags value/type drift for feature_count={feature_count}: "
+            f"expected {expected_tags!r}, got {attributes['tags']!r}",
+        )
+        _require(
+            attributes["numbers"] == expected_numbers,
+            f"{surface} numbers value/type drift for feature_count={feature_count}: "
+            f"expected {expected_numbers!r}, got {attributes['numbers']!r}",
+        )
+    return observed
 
 
 def _run_feature_query_layer_fields(
@@ -704,7 +728,21 @@ def _run_ogc_features_items(
     ]
     _require(bool(next_links), "OGC first page did not advertise a rel=next continuation link")
 
-    second_page = ogc.items(collection_id, limit=1, offset=1)
+    next_href = next_links[0]["href"]
+    next_query = parse_qs(urlsplit(next_href).query, keep_blank_values=True)
+    _require(
+        len(next_query.get("limit", [])) == 1 and len(next_query.get("offset", [])) == 1,
+        f"OGC next link must carry one limit and offset: {next_href!r}",
+    )
+    try:
+        next_limit = int(next_query["limit"][0])
+        next_offset = int(next_query["offset"][0])
+    except ValueError as error:
+        raise AssertionError(f"OGC next link has non-integer paging values: {next_href!r}") from error
+    _require(next_limit == 1, f"OGC next link changed the page limit: {next_limit}")
+    _require(next_offset > 0, f"OGC next link did not advance the offset: {next_offset}")
+
+    second_page = ogc.items(collection_id, limit=next_limit, offset=next_offset)
     _require(isinstance(second_page, Mapping), "OGC second page response is not an object")
     second_features = _as_list(second_page.get("features"), "OGC second page missing features[]")
     _require(len(second_features) == 1, f"OGC second limit=1 page returned {len(second_features)} features")
@@ -716,7 +754,8 @@ def _run_ogc_features_items(
         "collection_id": collection_id,
         "feature_count": len(features),
         "number_matched": number_matched,
-        "next_href": next_links[0]["href"],
+        "next_href": next_href,
+        "next_offset": next_offset,
         "second_page_feature_id": second_id,
         "sample_property_keys": sorted(str(k) for k in attrs),
     }
@@ -741,14 +780,8 @@ def _run_ogc_features_items_jsonb_projection(
     features = _as_list(items.get("features"), "OGC items missing features[]")
     _require(len(features) > 0, "OGC collection returned no items")
 
-    observed = {str(key).lower() for f in features for key in _feature_attributes(f)}
+    observed = _validate_seeded_json_fields(features, "OGC API Features")
     jsonb_fields = {"tags", "numbers"}
-    missing_jsonb = sorted(jsonb_fields - observed)
-    _require(
-        not missing_jsonb,
-        f"JSONB-typed attributes not projected via OGC items (honua-server#1238): "
-        f"missing {missing_jsonb}",
-    )
     return {
         "collection_id": collection_id,
         "feature_count": len(features),

@@ -352,6 +352,31 @@ def test_feature_query_probe_rejects_repeated_page(monkeypatch: pytest.MonkeyPat
         _run_feature_query(_PagedQueryClient([repeated, repeated]), TARGET, BUNDLE)
 
 
+def test_feature_query_probe_validates_every_first_page_feature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "response",
+        lambda self, name: {"features": [], "exceededTransferLimit": False},
+    )
+    first_page = {
+        "features": [
+            {"attributes": {"OBJECTID": object_id}, "geometry": {"x": 0, "y": 0}}
+            for object_id in range(1, 6)
+        ],
+        "exceededTransferLimit": True,
+    }
+    first_page["features"][1].pop("geometry")
+    second_page = {
+        "features": [{"attributes": {"OBJECTID": 6}, "geometry": {"x": 0, "y": 0}}],
+        "exceededTransferLimit": False,
+    }
+
+    with pytest.raises(AssertionError, match="feature has no geometry"):
+        _run_feature_query(_PagedQueryClient([first_page, second_page]), TARGET, BUNDLE)
+
+
 @pytest.mark.parametrize(
     "second_page",
     [

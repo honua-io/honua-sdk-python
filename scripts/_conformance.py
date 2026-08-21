@@ -409,10 +409,9 @@ def _run_feature_query(
         "first page did not prove a continuation with exceededTransferLimit=true",
     )
 
-    sample = features[0]
-    attributes = _feature_attributes(sample)
-    _require(len(attributes) > 0, "feature has no attributes")
-    _require("geometry" in sample, "return_geometry=true but feature has no geometry")
+    for feature in features:
+        _require(len(_feature_attributes(feature)) > 0, "feature has no attributes")
+        _require("geometry" in feature, "return_geometry=true but feature has no geometry")
 
     # Cross-check the contract envelope keys the golden advertises that have a
     # GeoServices analogue.

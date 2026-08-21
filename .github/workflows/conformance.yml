@@ -42,7 +42,7 @@ env:
   PYTHON_VERSION: "3.11"
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
-  CONFORMANCE_FIXTURES_VERSION: "0.1.0-alpha.1"
+  CONFORMANCE_FIXTURES_VERSION: "0.2.0-alpha.1"
   # Current nightly image and its exact embedded source revision. Update these as
   # one identity so scheduled evidence never joins a candidate to unrelated seed
   # fixtures. Release dispatches continue to override both explicitly.

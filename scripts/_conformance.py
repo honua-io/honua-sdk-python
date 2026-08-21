@@ -959,12 +959,24 @@ def _run_analysis_process_surface(
     plan = request.get("plan") if isinstance(request, Mapping) else None
     steps = _as_list(plan.get("steps") if isinstance(plan, Mapping) else None,
                      "process fixture has no plan.steps[]")
-    expected_ids = {
+    fixture_kinds = {
         str(step["kind"]).strip().lower().replace("_", "-")
         for step in steps
         if isinstance(step, Mapping) and isinstance(step.get("kind"), str) and step["kind"].strip()
     }
-    _require(bool(expected_ids), "process fixture has no executable step kinds")
+    _require(bool(fixture_kinds), "process fixture has no executable step kinds")
+
+    # The vendor-neutral ExecutePlan fixture describes abstract workflow kinds,
+    # while OGC API Processes advertises Honua's executable catalog identifiers.
+    # Keep that translation explicit so a merely non-empty or unrelated catalog
+    # cannot certify the fixture's source-query and aggregation capabilities.
+    fixture_process_ids = {
+        "query-features": "source.honua-layer",
+        "aggregate": "transform.aggregate",
+    }
+    unmapped_kinds = sorted(fixture_kinds - fixture_process_ids.keys())
+    _require(not unmapped_kinds, f"process fixture has unmapped step kinds: {unmapped_kinds}")
+    expected_ids = {fixture_process_ids[kind] for kind in fixture_kinds}
 
     processes = client.ogc_processes().processes()
     _require(isinstance(processes, Mapping), "processes response is not an object")
@@ -978,13 +990,17 @@ def _run_analysis_process_surface(
             isinstance(process_id, str) and bool(process_id.strip()),
             f"process entry has no identifier: {process!r}",
         )
-        advertised_ids.add(process_id.strip().lower().replace("_", "-").split(":")[-1])
-    matched = sorted(expected_ids & advertised_ids)
+        advertised_ids.add(process_id.strip().lower().replace("_", "-"))
+    missing = sorted(expected_ids - advertised_ids)
     _require(
-        bool(matched),
-        f"process catalog does not advertise a fixture step {sorted(expected_ids)!r}",
+        not missing,
+        f"process catalog is missing fixture capabilities {missing!r}",
     )
-    return {"process_count": len(listed), "matched_fixture_processes": matched}
+    return {
+        "process_count": len(listed),
+        "fixture_kinds": sorted(fixture_kinds),
+        "matched_fixture_processes": sorted(expected_ids),
+    }
 
 
 def build_cases() -> list[ConformanceCase]:

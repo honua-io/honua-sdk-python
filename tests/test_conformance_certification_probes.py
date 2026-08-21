@@ -421,6 +421,41 @@ def test_process_probe_rejects_malformed_or_unrelated_catalog(
         _run_analysis_process_surface(_ProcessesClient(response), TARGET, BUNDLE)
 
 
+def test_process_probe_maps_fixture_kinds_to_canonical_catalog_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "request",
+        lambda self, name: {
+            "plan": {
+                "steps": [
+                    {"kind": "query_features"},
+                    {"kind": "aggregate"},
+                ]
+            }
+        },
+    )
+    result = _run_analysis_process_surface(
+        _ProcessesClient(
+            {
+                "processes": [
+                    {"id": "source.honua-layer"},
+                    {"id": "transform.aggregate"},
+                ]
+            }
+        ),
+        TARGET,
+        BUNDLE,
+    )
+
+    assert result["fixture_kinds"] == ["aggregate", "query-features"]
+    assert result["matched_fixture_processes"] == [
+        "source.honua-layer",
+        "transform.aggregate",
+    ]
+
+
 @pytest.mark.parametrize(
     "error",
     [

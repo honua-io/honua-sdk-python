@@ -521,7 +521,7 @@ def test_process_probe_maps_execute_plan_to_canonical_wrapper(
         _ProcessesClient(
             {
                 "processes": [
-                    {"id": "honua:honua-geoprocessing"},
+                    {"id": "honua-geoprocessing"},
                 ]
             }
         ),
@@ -531,6 +531,25 @@ def test_process_probe_maps_execute_plan_to_canonical_wrapper(
 
     assert result["fixture_kinds"] == ["aggregate", "query-features"]
     assert result["matched_fixture_processes"] == ["honua-geoprocessing"]
+
+
+@pytest.mark.parametrize("process_id", ["other:honua-geoprocessing", "honua_geoprocessing"])
+def test_process_probe_rejects_noncanonical_wrapper_id(
+    monkeypatch: pytest.MonkeyPatch,
+    process_id: str,
+) -> None:
+    monkeypatch.setattr(
+        FixtureBundle,
+        "request",
+        lambda self, name: {"plan": {"steps": [{"kind": "aggregate"}]}},
+    )
+
+    with pytest.raises(AssertionError, match="missing canonical process"):
+        _run_analysis_process_surface(
+            _ProcessesClient({"processes": [{"id": process_id}]}),
+            TARGET,
+            BUNDLE,
+        )
 
 
 @pytest.mark.parametrize(

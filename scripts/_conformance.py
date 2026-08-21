@@ -1030,7 +1030,7 @@ def _run_analysis_process_surface(
     # ExecutePlan submits the complete vendor-neutral plan through Honua's OGC
     # wrapper. Step kinds describe graph behavior and are not process catalog
     # identifiers; any concrete processId belongs inside a geoprocess step.
-    expected_ids = {"honua-geoprocessing"}
+    expected_process_id = "honua-geoprocessing"
 
     processes = client.ogc_processes().processes()
     _require(isinstance(processes, Mapping), "processes response is not an object")
@@ -1044,16 +1044,15 @@ def _run_analysis_process_surface(
             isinstance(process_id, str) and bool(process_id.strip()),
             f"process entry has no identifier: {process!r}",
         )
-        advertised_ids.add(process_id.strip().lower().replace("_", "-").split(":")[-1])
-    missing = sorted(expected_ids - advertised_ids)
+        advertised_ids.add(process_id.strip())
     _require(
-        not missing,
-        f"process catalog is missing fixture capabilities {missing!r}",
+        expected_process_id in advertised_ids,
+        f"process catalog is missing canonical process {expected_process_id!r}",
     )
     return {
         "process_count": len(listed),
         "fixture_kinds": sorted(fixture_kinds),
-        "matched_fixture_processes": sorted(expected_ids),
+        "matched_fixture_processes": [expected_process_id],
     }
 
 

@@ -29,9 +29,21 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
 
 concurrency:
-  group: publish-python-packages
+  # GitHub keeps at most one pending run per group. Workflow-run IDs keep a
+  # later no-op Release Please completion from replacing a tagged reconciliation;
+  # manual production runs deduplicate on their exact release coordinate.
+  group: >-
+    publish-python-packages-${{
+      github.event_name == 'workflow_run'
+      && format('workflow-run-{0}', github.event.workflow_run.id)
+      || (inputs.dry_run
+          && format('manual-dry-run-{0}', github.run_id)
+          || format('manual-release-{0}-{1}', inputs.package, inputs.release_tag || github.run_id))
+    }}
   cancel-in-progress: false
 
 permissions:
@@ -94,6 +106,17 @@ jobs:
     if: needs.resolve-publish-targets.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Verify selected GitHub Releases through REST
         env:
           GH_TOKEN: ${{ github.token }}
@@ -124,6 +147,26 @@ jobs:
           [[ "$SDK_SELECTED" != "true" ]] || verify_release "$SDK_TAG"
           [[ "$ADMIN_SELECTED" != "true" ]] || verify_release "$ADMIN_TAG"
 
+      - name: Require protected environments and immutable release tags
+        if: needs.resolve-publish-targets.outputs.publish == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SDK_SELECTED: ${{ needs.resolve-publish-targets.outputs.sdk }}
+          ADMIN_SELECTED: ${{ needs.resolve-publish-targets.outputs.admin }}
+        run: |
+          if [[ "$SDK_SELECTED" == "true" ]]; then
+            python scripts/verify_publication_controls.py \
+              --repository "$GITHUB_REPOSITORY" \
+              --environment pypi-honua-sdk \
+              --tag-pattern 'refs/tags/python-sdk-v*'
+          fi
+          if [[ "$ADMIN_SELECTED" == "true" ]]; then
+            python scripts/verify_publication_controls.py \
+              --repository "$GITHUB_REPOSITORY" \
+              --environment pypi-honua-admin \
+              --tag-pattern 'refs/tags/python-admin-v*'
+          fi
+
   pre-publish-typecheck:
     needs:
       - resolve-publish-targets
@@ -152,12 +195,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install packages
+      - name: Install hash-locked third-party dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e "./release-source/packages/honua-sdk[grpc]"
-          pip install -e ./release-source/packages/honua-admin
-          pip install mypy
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+
+      - name: Install commit-bound local packages without dependency resolution
+        run: |
+          python -m pip install --no-deps --no-build-isolation -e ./release-source/packages/honua-sdk
+          python -m pip install --no-deps --no-build-isolation -e ./release-source/packages/honua-admin
 
       - name: Run mypy
         run: |
@@ -165,7 +213,7 @@ jobs:
             release-source/packages/honua-sdk/honua_sdk \
             release-source/packages/honua-admin/honua_admin
 
-  build-honua-sdk:
+  validate-honua-sdk:
     needs:
       - resolve-publish-targets
       - verify-github-releases
@@ -196,11 +244,20 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: Install hash-locked third-party dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[grpc]"
-          pip install pytest hatch
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
+
+      - name: Install commit-bound local packages without dependency resolution
+        run: |
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip install \
+            --no-deps \
+            --no-build-isolation \
+            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-admin"
 
       - name: Run compatibility gate
         run: python release-source/scripts/compatibility_gate.py
@@ -211,9 +268,6 @@ jobs:
           HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
         run: python release-source/scripts/gen_sdk_coverage.py
         working-directory: ${{ github.workspace }}
-
-      - name: Install honua-admin (for full smoke coverage)
-        run: pip install -e "${{ github.workspace }}/release-source/packages/honua-admin"
 
       - name: Run SDK tests
         run: python -m pytest release-source/tests/ -q --tb=short
@@ -231,19 +285,95 @@ jobs:
           --tag "$EXPECTED_TAG"
           --prefix python-sdk-v
 
-      - name: Build package
-        run: hatch build
+  build-honua-sdk:
+    needs:
+      - resolve-publish-targets
+      - verify-github-releases
+      - validate-honua-sdk
+    if: needs.resolve-publish-targets.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Create immutable distribution manifest
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install hash-locked build backend
+        run: |
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+
+      - name: Materialize independent pristine commit-bound build sources
+        env:
+          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+        run: |
+          git worktree add --detach build-source-1 "$RELEASE_SHA"
+          git worktree add --detach build-source-2 "$RELEASE_SHA"
+          for source in build-source-1 build-source-2; do
+            actual_sha="$(git -C "$source" rev-parse HEAD)"
+            [[ "$actual_sha" == "$RELEASE_SHA" ]] \
+              || { echo "$source commit mismatch" >&2; exit 1; }
+            [[ -z "$(git -C "$source" status --porcelain --untracked-files=all)" ]] \
+              || { echo "$source is not clean" >&2; exit 1; }
+          done
+        working-directory: ${{ github.workspace }}
+
+      - name: Build package from independent pristine sources
+        run: |
+          source_date_epoch="$(git -C build-source-1 show -s --format=%ct HEAD)"
+          [[ "$source_date_epoch" =~ ^[0-9]+$ ]] || { echo "Invalid release commit timestamp" >&2; exit 1; }
+          export SOURCE_DATE_EPOCH="$source_date_epoch"
+          mkdir -p \
+            "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
+            "${GITHUB_WORKSPACE}/publish-artifact/dist"
+          python -m build \
+            --no-isolation \
+            --wheel \
+            --sdist \
+            --outdir "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
+            build-source-1/packages/honua-sdk
+          [[ -z "$(git -C build-source-1 status --porcelain --untracked-files=all)" ]] \
+            || { echo "First build mutated its independent source" >&2; exit 1; }
+          python -m build \
+            --no-isolation \
+            --wheel \
+            --sdist \
+            --outdir "${GITHUB_WORKSPACE}/publish-artifact/dist" \
+            build-source-2/packages/honua-sdk
+          [[ -z "$(git -C build-source-2 status --porcelain --untracked-files=all)" ]] \
+            || { echo "Second build mutated its independent source" >&2; exit 1; }
+        working-directory: ${{ github.workspace }}
+
+      - name: Require reproducible artifacts and create immutable manifest
         env:
           EXPECTED_VERSION: ${{ needs.resolve-publish-targets.outputs.sdk_version }}
-        run: >
-          python "${GITHUB_WORKSPACE}/scripts/verify_distribution_parity.py"
-          manifest
-          --dist-dir dist
-          --package honua-sdk
-          --version "$EXPECTED_VERSION"
-          --output dist-manifest.json
+        run: |
+          python scripts/verify_distribution_parity.py manifest \
+            --dist-dir publish-artifact/reproducibility \
+            --package honua-sdk \
+            --version "$EXPECTED_VERSION" \
+            --output publish-artifact/reproducibility-manifest.json
+          python scripts/verify_distribution_parity.py manifest \
+            --dist-dir publish-artifact/dist \
+            --package honua-sdk \
+            --version "$EXPECTED_VERSION" \
+            --output publish-artifact/dist-manifest.json
+          cmp -s \
+            publish-artifact/reproducibility-manifest.json \
+            publish-artifact/dist-manifest.json \
+            || { echo "Repeated SDK builds were not byte-for-byte reproducible" >&2; exit 1; }
+        working-directory: ${{ github.workspace }}
 
       - name: Upload verified SDK artifact
         id: upload
@@ -251,8 +381,8 @@ jobs:
         with:
           name: honua-sdk-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            release-source/packages/honua-sdk/dist
-            release-source/packages/honua-sdk/dist-manifest.json
+            publish-artifact/dist
+            publish-artifact/dist-manifest.json
           if-no-files-found: error
           retention-days: 14
 
@@ -425,7 +555,7 @@ jobs:
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$body_file"
           fi
 
-  build-honua-admin:
+  validate-honua-admin:
     needs:
       - resolve-publish-targets
       - verify-github-releases
@@ -456,12 +586,20 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: Install hash-locked third-party dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e "${{ github.workspace }}/release-source/packages/honua-sdk[grpc]"
-          pip install -e .
-          pip install pytest hatch
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
+
+      - name: Install commit-bound local packages without dependency resolution
+        run: |
+          python -m pip install \
+            --no-deps \
+            --no-build-isolation \
+            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-sdk"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Run compatibility gate
         run: python release-source/scripts/compatibility_gate.py
@@ -489,19 +627,95 @@ jobs:
           --tag "$EXPECTED_TAG"
           --prefix python-admin-v
 
-      - name: Build package
-        run: hatch build
+  build-honua-admin:
+    needs:
+      - resolve-publish-targets
+      - verify-github-releases
+      - validate-honua-admin
+    if: needs.resolve-publish-targets.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Create immutable distribution manifest
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install hash-locked build backend
+        run: |
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+
+      - name: Materialize independent pristine commit-bound build sources
+        env:
+          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+        run: |
+          git worktree add --detach build-source-1 "$RELEASE_SHA"
+          git worktree add --detach build-source-2 "$RELEASE_SHA"
+          for source in build-source-1 build-source-2; do
+            actual_sha="$(git -C "$source" rev-parse HEAD)"
+            [[ "$actual_sha" == "$RELEASE_SHA" ]] \
+              || { echo "$source commit mismatch" >&2; exit 1; }
+            [[ -z "$(git -C "$source" status --porcelain --untracked-files=all)" ]] \
+              || { echo "$source is not clean" >&2; exit 1; }
+          done
+        working-directory: ${{ github.workspace }}
+
+      - name: Build package from independent pristine sources
+        run: |
+          source_date_epoch="$(git -C build-source-1 show -s --format=%ct HEAD)"
+          [[ "$source_date_epoch" =~ ^[0-9]+$ ]] || { echo "Invalid release commit timestamp" >&2; exit 1; }
+          export SOURCE_DATE_EPOCH="$source_date_epoch"
+          mkdir -p \
+            "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
+            "${GITHUB_WORKSPACE}/publish-artifact/dist"
+          python -m build \
+            --no-isolation \
+            --wheel \
+            --sdist \
+            --outdir "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
+            build-source-1/packages/honua-admin
+          [[ -z "$(git -C build-source-1 status --porcelain --untracked-files=all)" ]] \
+            || { echo "First build mutated its independent source" >&2; exit 1; }
+          python -m build \
+            --no-isolation \
+            --wheel \
+            --sdist \
+            --outdir "${GITHUB_WORKSPACE}/publish-artifact/dist" \
+            build-source-2/packages/honua-admin
+          [[ -z "$(git -C build-source-2 status --porcelain --untracked-files=all)" ]] \
+            || { echo "Second build mutated its independent source" >&2; exit 1; }
+        working-directory: ${{ github.workspace }}
+
+      - name: Require reproducible artifacts and create immutable manifest
         env:
           EXPECTED_VERSION: ${{ needs.resolve-publish-targets.outputs.admin_version }}
-        run: >
-          python "${GITHUB_WORKSPACE}/scripts/verify_distribution_parity.py"
-          manifest
-          --dist-dir dist
-          --package honua-admin
-          --version "$EXPECTED_VERSION"
-          --output dist-manifest.json
+        run: |
+          python scripts/verify_distribution_parity.py manifest \
+            --dist-dir publish-artifact/reproducibility \
+            --package honua-admin \
+            --version "$EXPECTED_VERSION" \
+            --output publish-artifact/reproducibility-manifest.json
+          python scripts/verify_distribution_parity.py manifest \
+            --dist-dir publish-artifact/dist \
+            --package honua-admin \
+            --version "$EXPECTED_VERSION" \
+            --output publish-artifact/dist-manifest.json
+          cmp -s \
+            publish-artifact/reproducibility-manifest.json \
+            publish-artifact/dist-manifest.json \
+            || { echo "Repeated admin builds were not byte-for-byte reproducible" >&2; exit 1; }
+        working-directory: ${{ github.workspace }}
 
       - name: Upload verified admin artifact
         id: upload
@@ -509,8 +723,8 @@ jobs:
         with:
           name: honua-admin-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            release-source/packages/honua-admin/dist
-            release-source/packages/honua-admin/dist-manifest.json
+            publish-artifact/dist
+            publish-artifact/dist-manifest.json
           if-no-files-found: error
           retention-days: 14
 

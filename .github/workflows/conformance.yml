@@ -23,6 +23,10 @@ on:
         description: "honua-server git ref to source the conformance seed from (should match the server_image commit). Blank = default branch."
         required: false
         default: ""
+      candidate_cut_at:
+        description: "Exact governed candidate cut timestamp (YYYY-MM-DDTHH:MM:SSZ). Required for release certification."
+        required: false
+        default: ""
       certification_tier:
         description: "Evidence policy tier: nightly or release. Release requires immutable image and full server SHA."
         required: false
@@ -110,6 +114,7 @@ jobs:
           COMPOSE_PROJECT_NAME: honua-python-conformance-${{ github.run_id }}-${{ github.run_attempt }}
           HONUA_CERTIFICATION_TIER: ${{ github.event.inputs.certification_tier || (github.event_name == 'pull_request' && 'pr') || 'nightly' }}
           SERVER_SEED_REF_INPUT: ${{ github.event.inputs.server_seed_ref }}
+          CANDIDATE_CUT_AT_INPUT: ${{ github.event.inputs.candidate_cut_at }}
         run: |
           set -euo pipefail
 
@@ -124,6 +129,10 @@ jobs:
             fi
             if [[ ! "${SERVER_SEED_REF_INPUT}" =~ ^[0-9a-f]{40}$ ]]; then
               echo "::error::release certification requires a full 40-character server_seed_ref"
+              exit 1
+            fi
+            if [[ ! "${CANDIDATE_CUT_AT_INPUT}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+              echo "::error::release certification requires the exact governed candidate_cut_at in UTC"
               exit 1
             fi
           fi
@@ -184,7 +193,11 @@ jobs:
           image_digest="${resolved_image##*@}"
           image_revision="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' 2>/dev/null || true)"
           seed_revision="$(git -C "${server_root}" rev-parse HEAD)"
-          candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI "${image_revision}")"
+          if [[ "${HONUA_CERTIFICATION_TIER}" == "release" ]]; then
+            candidate_cut_at="${CANDIDATE_CUT_AT_INPUT}"
+          else
+            candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI "${image_revision}")"
+          fi
 
           if [[ ! "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::could not resolve an immutable server image digest"
@@ -219,6 +232,7 @@ jobs:
             if [[ -n "${image_revision}" && "${image_revision}" != "<no value>" ]]; then
               echo "- Image revision: \`${image_revision}\`"
             fi
+            echo "- Governed candidate cut: \`${candidate_cut_at}\`"
             echo "- Fixture set: \`${CONFORMANCE_FIXTURES_VERSION}\` (geospatial-grpc shared fixtures)"
             echo "- Base URL: \`http://localhost:5000\` (service \`test_service\`, layer \`0\`)"
           } >> "${GITHUB_STEP_SUMMARY}"

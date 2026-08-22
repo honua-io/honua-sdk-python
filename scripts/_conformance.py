@@ -1279,10 +1279,38 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
 
 CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
 CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-public-v1"
+_CANDIDATE_CUT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def validate_candidate_cut_at(value: str | None) -> str:
+    """Require an exact, calendar-valid UTC release cut timestamp."""
+    if not isinstance(value, str):
+        raise ConformanceFixturesError(
+            "candidate_cut_at must use the exact UTC format YYYY-MM-DDTHH:MM:SSZ"
+        )
+    try:
+        parsed = datetime.strptime(value, _CANDIDATE_CUT_FORMAT)
+    except ValueError as exc:
+        raise ConformanceFixturesError(
+            "candidate_cut_at must be a calendar-valid UTC timestamp in "
+            "YYYY-MM-DDTHH:MM:SSZ format"
+        ) from exc
+    if parsed.strftime(_CANDIDATE_CUT_FORMAT) != value:
+        raise ConformanceFixturesError(
+            "candidate_cut_at must use the canonical UTC format YYYY-MM-DDTHH:MM:SSZ"
+        )
+    return value
 
 
 def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None:
     """Reject incomplete, duplicated, missing, or non-pass release evidence."""
+    candidate = fragment.get("candidate")
+    _require(isinstance(candidate, Mapping), "release SDK certification is missing candidate identity")
+    try:
+        candidate_cut_at = validate_candidate_cut_at(candidate.get("cut_at"))
+    except ConformanceFixturesError as exc:
+        raise AssertionError(str(exc)) from exc
+
     scope = fragment.get("operation_scope")
     _require(isinstance(scope, Mapping), "release SDK certification is missing operation_scope")
     if scope.get("complete") is not True:
@@ -1323,6 +1351,15 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
         if row.get("result") != "pass"
     ]
     _require(not failed, "release SDK certification has non-pass cells: " + ", ".join(failed))
+    for row in observations:
+        receipt = row.get("evidence_receipt")
+        identity = receipt.get("identity") if isinstance(receipt, Mapping) else None
+        _require(
+            isinstance(identity, Mapping)
+            and identity.get("candidate_cut_at") == candidate_cut_at,
+            f"release SDK certification receipt for {row['surface']}/{row['operation']} "
+            "is not bound to candidate.cut_at",
+        )
 
 
 def build_certification_fragment(
@@ -1383,6 +1420,7 @@ def build_certification_fragment(
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,
                 "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "candidate_cut_at": target.candidate_cut_at,
                 "started_at": result.started_at,
                 "completed_at": result.completed_at,
             },

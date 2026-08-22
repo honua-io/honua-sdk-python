@@ -131,10 +131,13 @@ jobs:
               echo "::error::release certification requires a full 40-character server_seed_ref"
               exit 1
             fi
-            if [[ ! "${CANDIDATE_CUT_AT_INPUT}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
-              echo "::error::release certification requires the exact governed candidate_cut_at in UTC"
-              exit 1
-            fi
+            python - "${CANDIDATE_CUT_AT_INPUT}" <<'PY'
+          import sys
+
+          from scripts._conformance import validate_candidate_cut_at
+
+          validate_candidate_cut_at(sys.argv[1])
+          PY
           fi
 
           # Override the one-shot seed to apply the canonical client-compat seed

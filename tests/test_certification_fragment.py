@@ -14,6 +14,7 @@ from scripts._conformance import (
     ConformanceTarget,
     FixtureBundle,
     build_certification_fragment,
+    validate_candidate_cut_at,
     validate_release_certification_fragment,
 )
 
@@ -88,6 +89,7 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["fixture_revision"] == "geospatial-grpc@fixture-v1"
     assert passed["contract_revision"] == f"sdk-python-certification@{sdk_sha}"
     assert passed["auth_policy_revision"] == "anonymous-public-v1"
+    assert passed["evidence_receipt"]["identity"]["candidate_cut_at"] == target.candidate_cut_at
     assert passed["evidence_digest"].startswith("sha256:")
     assert set(passed["facet_results"]) == set(passed["scenario_facets"])
     assert all(
@@ -99,6 +101,71 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert failed["skip_reason"] == gap.known_gap_issue
     assert failed["evidence_digest"] is None
     assert failed["facet_results"] is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-13-40T25:61:61Z",
+        "2026-08-20T00:00:00+00:00",
+        "2026-08-20T00:00:00.000Z",
+        "2026-8-20T00:00:00Z",
+        "",
+        None,
+    ],
+)
+def test_candidate_cut_requires_a_calendar_valid_canonical_utc_timestamp(
+    value: str | None,
+) -> None:
+    with pytest.raises(RuntimeError, match="candidate_cut_at"):
+        validate_candidate_cut_at(value)
+
+
+def test_candidate_cut_changes_the_content_addressed_receipt(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    case = _case("feature_query_envelope")
+
+    def build(cut_at: str) -> dict:
+        target = ConformanceTarget(
+            base_url="http://localhost:5000",
+            server_commit="a" * 40,
+            server_image_digest="sha256:" + "b" * 64,
+            sdk_source_sha="c" * 40,
+            evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
+            candidate_cut_at=cut_at,
+            certification_tier="release",
+        )
+        return build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"),
+            target,
+            [(case, _result(case.name, "passed"))],
+        )["observations"][0]
+
+    first = build("2026-08-20T00:00:00Z")
+    second = build("2026-08-20T00:00:01Z")
+    assert first["evidence_digest"] != second["evidence_digest"]
+    assert first["evidence_uri"] != second["evidence_uri"]
+
+
+def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+        certification_tier="release",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment["observations"][0]["evidence_receipt"]["identity"]["candidate_cut_at"] = (
+        "2026-08-20T00:00:01Z"
+    )
+
+    with pytest.raises(AssertionError, match="not bound to candidate.cut_at"):
+        validate_release_certification_fragment(fragment)
 
 
 def test_machine_readable_certification_contract_matches_case_mapping() -> None:

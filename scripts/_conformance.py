@@ -1139,6 +1139,7 @@ def build_cases() -> list[ConformanceCase]:
     """
     fs_query_path = "/rest/services/{service}/FeatureServer/{layer}/query"
     fs_meta_path = "/rest/services/{service}/FeatureServer/{layer}"
+    fs_service_path = "/rest/services/{service}/FeatureServer"
     ogc_items_path = "/ogc/features/v1/collections/{collection}/items"
     return [
         ConformanceCase(
@@ -1202,7 +1203,9 @@ def build_cases() -> list[ConformanceCase]:
             name="replica_sync_surface",
             fixture="feature_apply_edits",
             sdk_method="HonuaClient.feature_server(...).metadata",
-            request_path=fs_meta_path,
+            # service-level metadata: _run_replica_surface calls
+            # feature_server(...).metadata(), which never touches a layer path
+            request_path=fs_service_path,
             runner=_run_replica_surface,
             known_gap_issue="honua-server#2645",
         ),

@@ -4,6 +4,7 @@ import importlib.metadata
 import json
 import tomllib
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -13,6 +14,7 @@ from scripts._conformance import (
     ConformanceCase,
     ConformanceTarget,
     FixtureBundle,
+    build_cases,
     build_certification_fragment,
     validate_candidate_cut_at,
     validate_release_certification_fragment,
@@ -57,8 +59,9 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
     )
-    passing = _case("feature_query_envelope")
-    gap = _case("temporal_query", "https://github.com/honua-io/honua-server/issues/2643")
+    cases_by_name = {case.name: case for case in build_cases()}
+    passing = cases_by_name["feature_query_envelope"]
+    gap = cases_by_name["temporal_query"]
 
     fragment = build_certification_fragment(
         FixtureBundle(Path("."), "fixture-v1"),
@@ -82,6 +85,15 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["capability_key"] == "serve.geoservices-featureserver"
     assert passed["scenario_facets"] == ["positive", "pagination"]
     assert passed["canonical_client"] == "Honua SDK Python"
+    assert passed["client_id"] == passed["canonical_client"]
+    assert passed["runner_lane"] == "sdk-python-certification"
+    assert passed["protocol_version"] == "11.0"
+    assert passed["protocol_profile"] == "GeoServices REST"
+    assert passed["performed_by"] == passed["client_id"]
+    assert passed["request_url"] == (
+        "http://localhost:5000/rest/services/test_service/FeatureServer/0/query"
+    )
+    assert passed["exercised_capabilities"] == passed["scenario_facets"]
     assert passed["client_version"] == "9.9.9"
     assert passed["result"] == "pass"
     assert passed["skip_reason"] is None
@@ -101,6 +113,45 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert failed["skip_reason"] == gap.known_gap_issue
     assert failed["evidence_digest"] is None
     assert failed["facet_results"] is None
+    assert failed["exercised_capabilities"] == []
+
+
+def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="https://candidate.test/root/",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+        certification_tier="release",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    expected_protocol_context = {
+        "geoservices-root": ("11.0", "GeoServices REST"),
+        "geoservices-featureserver": ("11.0", "GeoServices REST"),
+        "ogc-api-features": ("1.0", "core"),
+        "ogc-api-processes": ("1.0", "core"),
+    }
+
+    for observation in fragment["observations"]:
+        assert observation["client_id"] == observation["canonical_client"]
+        assert observation["runner_lane"] == "sdk-python-certification"
+        assert observation["performed_by"] == observation["client_id"]
+        assert (
+            observation["protocol_version"], observation["protocol_profile"]
+        ) == expected_protocol_context[observation["surface"]]
+        parsed_url = urlsplit(observation["request_url"])
+        assert parsed_url.scheme in {"http", "https"}
+        assert parsed_url.netloc
+        assert isinstance(observation["exercised_capabilities"], list)
+        if observation["result"] == "pass":
+            assert set(observation["scenario_facets"]).issubset(
+                observation["exercised_capabilities"]
+            )
 
 
 @pytest.mark.parametrize(

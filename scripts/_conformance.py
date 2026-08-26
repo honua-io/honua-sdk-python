@@ -47,7 +47,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 from honua_sdk import HonuaClient, HonuaHttpError
 
@@ -1279,7 +1279,38 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
 
 CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
 CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-public-v1"
+CERTIFICATION_CLIENT_ID = "Honua SDK Python"
+CERTIFICATION_RUNNER_LANE = "sdk-python-certification"
+CERTIFICATION_PROTOCOL_CONTEXT: dict[str, tuple[str, str]] = {
+    "geoservices-root": ("11.0", "GeoServices REST"),
+    "geoservices-featureserver": ("11.0", "GeoServices REST"),
+    "ogc-api-features": ("1.0", "core"),
+    "ogc-api-processes": ("1.0", "core"),
+}
 _CANDIDATE_CUT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _certification_request_url(
+    case: ConformanceCase,
+    result: CaseResult,
+    target: ConformanceTarget,
+) -> str:
+    """Build the observed operation URL from the live run's target context."""
+    collection_id = result.details.get("collection_id")
+    if not isinstance(collection_id, str) or not collection_id:
+        collection_id = _configured_ogc_collection_candidates(target)[0]
+    request_path = case.request_path.format(
+        service=quote(target.service_id, safe=""),
+        layer=target.layer_id,
+        collection=quote(collection_id, safe=""),
+    )
+    request_url = urljoin(target.base_url.rstrip("/") + "/", request_path.lstrip("/"))
+    parsed = urlsplit(request_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ConformanceFixturesError(
+            "normalized certification evidence needs an absolute HTTP(S) target base_url"
+        )
+    return request_url
 
 
 def validate_candidate_cut_at(value: str | None) -> str:
@@ -1397,6 +1428,7 @@ def build_certification_fragment(
     observations: list[dict[str, Any]] = []
     for case, result in case_results:
         capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
+        protocol_version, protocol_profile = CERTIFICATION_PROTOCOL_CONTEXT[surface]
         known_gap = case.known_gap_issue if result.status != "passed" else None
         normalized_result = (
             "pass" if result.status == "passed"
@@ -1405,13 +1437,14 @@ def build_certification_fragment(
         )
         contract_revision = f"sdk-python-certification@{target.sdk_source_sha}"
         receipt_facets = {facet: normalized_result for facet in scenario_facets}
+        exercised_capabilities = scenario_facets if normalized_result == "pass" else []
         evidence_receipt = None if normalized_result == "skip" else {
             "schema": "honua.certification-evidence-receipt/v1",
             "identity": {
                 "capability_key": capability_key,
                 "surface": surface,
                 "operation": operation,
-                "canonical_client": "Honua SDK Python",
+                "canonical_client": CERTIFICATION_CLIENT_ID,
                 "client_version": client_version,
                 "deployment_target": "local-docker",
                 "source_sha": target.server_commit,
@@ -1439,7 +1472,14 @@ def build_certification_fragment(
                 "surface": surface,
                 "operation": operation,
                 "scenario_facets": scenario_facets,
-                "canonical_client": "Honua SDK Python",
+                "canonical_client": CERTIFICATION_CLIENT_ID,
+                "client_id": CERTIFICATION_CLIENT_ID,
+                "runner_lane": CERTIFICATION_RUNNER_LANE,
+                "protocol_version": protocol_version,
+                "protocol_profile": protocol_profile,
+                "performed_by": CERTIFICATION_CLIENT_ID,
+                "request_url": _certification_request_url(case, result, target),
+                "exercised_capabilities": exercised_capabilities,
                 "client_version": client_version,
                 "deployment_target": "local-docker",
                 "result": normalized_result,

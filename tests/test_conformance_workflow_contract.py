@@ -16,3 +16,12 @@ def test_release_certification_uses_the_governed_candidate_cut() -> None:
         'candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI '
         '"${image_revision}")"'
     ) in workflow
+
+
+def test_conformance_builds_and_runs_from_an_isolated_wheel_install() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "python -m build --wheel --outdir dist packages/honua-sdk" in workflow
+    assert "pip install -e packages/honua-sdk" not in workflow
+    assert "HONUA_SDK_WHEEL_SHA256=${wheel_sha256}" in workflow
+    assert '"${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance' in workflow

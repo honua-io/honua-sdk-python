@@ -66,11 +66,24 @@ jobs:
           cache: pip
           cache-dependency-path: packages/honua-sdk/pyproject.toml
 
-      - name: Install honua-sdk
+      - name: Build and install honua-sdk wheel
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install -e packages/honua-sdk
-          pip install pytest
+          python -m pip install build
+          python -m build --wheel --outdir dist packages/honua-sdk
+          wheel="$(find dist -maxdepth 1 -name 'honua_sdk-*.whl' -type f -print -quit)"
+          [[ -n "${wheel}" ]]
+          wheel_sha256="$(sha256sum "${wheel}" | cut -d ' ' -f 1)"
+          python -m venv "${RUNNER_TEMP}/honua-sdk-certification"
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install --upgrade pip
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install "${wheel}" pytest
+          {
+            echo "HONUA_SDK_CERT_PYTHON=${RUNNER_TEMP}/honua-sdk-certification/bin/python"
+            echo "HONUA_SDK_INSTALL_ROOT=${RUNNER_TEMP}/honua-sdk-certification"
+            echo "HONUA_SDK_WHEEL_FILENAME=$(basename "${wheel}")"
+            echo "HONUA_SDK_WHEEL_SHA256=${wheel_sha256}"
+          } >> "${GITHUB_ENV}"
 
       - name: Verify fixture pin matches conformance/FIXTURES_VERSION
         run: |
@@ -245,7 +258,7 @@ jobs:
           HONUA_CONFORMANCE_SUMMARY_PATH: conformance-summary.md
           HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: protocol-certification-fragment.json
         run: |
-          python -m pytest tests/conformance \
+          "${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance \
             -q \
             --run-integration \
             -m "integration and conformance" \

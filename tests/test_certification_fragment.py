@@ -55,6 +55,8 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         server_commit=source_sha,
         server_image_digest=image_digest,
         sdk_source_sha=sdk_sha,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
         evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
@@ -98,6 +100,11 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["result"] == "pass"
     assert passed["skip_reason"] is None
     assert passed["producer_source_sha"] == sdk_sha
+    assert passed["client_package"] == {
+        "filename": "honua_sdk-9.9.9-py3-none-any.whl",
+        "sha256": "d" * 64,
+    }
+    assert passed["evidence_receipt"]["identity"]["client_package"] == passed["client_package"]
     assert passed["fixture_revision"] == "geospatial-grpc@fixture-v1"
     assert passed["contract_revision"] == f"sdk-python-certification@{sdk_sha}"
     assert passed["auth_policy_revision"] == "anonymous-public-v1"
@@ -123,6 +130,8 @@ def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch)
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
         evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
@@ -154,6 +163,27 @@ def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch)
             )
 
 
+def test_certification_rejects_malformed_wheel_digest(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="not-a-digest",
+        evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+
+    with pytest.raises(RuntimeError, match="sdk_wheel_sha256"):
+        build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"),
+            target,
+            [(_case("feature_query_envelope"), _result("feature_query_envelope", "passed"))],
+        )
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -182,6 +212,8 @@ def test_candidate_cut_changes_the_content_addressed_receipt(monkeypatch) -> Non
             server_commit="a" * 40,
             server_image_digest="sha256:" + "b" * 64,
             sdk_source_sha="c" * 40,
+            sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+            sdk_wheel_sha256="d" * 64,
             evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
             candidate_cut_at=cut_at,
             certification_tier="release",
@@ -205,6 +237,8 @@ def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> 
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
         evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",

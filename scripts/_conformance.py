@@ -203,6 +203,8 @@ class ConformanceTarget:
     server_commit: str | None = None
     server_image_digest: str | None = None
     sdk_source_sha: str | None = None
+    sdk_wheel_filename: str | None = None
+    sdk_wheel_sha256: str | None = None
     evidence_uri: str | None = None
     candidate_cut_at: str | None = None
     certification_tier: str = "nightly"
@@ -228,6 +230,8 @@ def load_target_from_env() -> ConformanceTarget:
         server_commit=os.environ.get("HONUA_SERVER_COMMIT"),
         server_image_digest=os.environ.get("HONUA_SERVER_IMAGE_DIGEST"),
         sdk_source_sha=os.environ.get("HONUA_SDK_SOURCE_SHA"),
+        sdk_wheel_filename=os.environ.get("HONUA_SDK_WHEEL_FILENAME"),
+        sdk_wheel_sha256=os.environ.get("HONUA_SDK_WHEEL_SHA256"),
         evidence_uri=os.environ.get("HONUA_EVIDENCE_URI"),
         candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
         certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
@@ -1410,12 +1414,24 @@ def build_certification_fragment(
             "evidence_uri": target.evidence_uri,
             "candidate_cut_at": target.candidate_cut_at,
             "sdk_source_sha": target.sdk_source_sha,
+            "sdk_wheel_filename": target.sdk_wheel_filename,
+            "sdk_wheel_sha256": target.sdk_wheel_sha256,
         }.items()
         if not value
     ]
     if missing_target:
         raise ConformanceFixturesError(
             "normalized certification evidence needs " + ", ".join(missing_target)
+        )
+    wheel_filename = target.sdk_wheel_filename
+    wheel_sha256 = target.sdk_wheel_sha256
+    if not isinstance(wheel_filename, str) or not wheel_filename.endswith(".whl"):
+        raise ConformanceFixturesError("sdk_wheel_filename must identify a wheel")
+    if not isinstance(wheel_sha256, str) or len(wheel_sha256) != 64 or any(
+        char not in "0123456789abcdef" for char in wheel_sha256
+    ):
+        raise ConformanceFixturesError(
+            "sdk_wheel_sha256 must be a lowercase 64-character SHA-256 digest"
         )
 
     client_version = importlib.metadata.version("honua-sdk")
@@ -1452,6 +1468,10 @@ def build_certification_fragment(
                 "deployment_target": "local-docker",
                 "source_sha": target.server_commit,
                 "producer_source_sha": target.sdk_source_sha,
+                "client_package": {
+                    "filename": target.sdk_wheel_filename,
+                    "sha256": target.sdk_wheel_sha256,
+                },
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,
@@ -1489,6 +1509,10 @@ def build_certification_fragment(
                 "skip_reason": known_gap,
                 "source_sha": target.server_commit,
                 "producer_source_sha": target.sdk_source_sha,
+                "client_package": {
+                    "filename": target.sdk_wheel_filename,
+                    "sha256": target.sdk_wheel_sha256,
+                },
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,

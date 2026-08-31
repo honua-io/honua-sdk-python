@@ -37,7 +37,20 @@ def conformance_target():
 
 @pytest.fixture(scope="session")
 def conformance_client(conformance_target):
+    import honua_sdk
     from honua_sdk import HonuaClient
+
+    install_root = os.environ.get("HONUA_SDK_INSTALL_ROOT")
+    if not install_root:
+        pytest.fail("HONUA_SDK_INSTALL_ROOT is required; certification must use an installed wheel")
+    package_path = Path(honua_sdk.__file__).resolve()
+    try:
+        package_path.relative_to(Path(install_root).resolve())
+    except ValueError:
+        pytest.fail(
+            f"honua_sdk resolved outside the isolated install root: {package_path}",
+            pytrace=False,
+        )
 
     with HonuaClient(conformance_target.base_url, api_key=conformance_target.api_key) as client:
         yield client

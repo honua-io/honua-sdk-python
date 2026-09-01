@@ -11,6 +11,8 @@ def test_release_certification_uses_the_governed_candidate_cut() -> None:
     assert "CANDIDATE_CUT_AT_INPUT: ${{ github.event.inputs.candidate_cut_at }}" in workflow
     assert "from scripts._conformance import validate_candidate_cut_at" in workflow
     assert "validate_candidate_cut_at(sys.argv[1])" in workflow
+    assert '"${HONUA_SDK_CERT_PYTHON}" - "${CANDIDATE_CUT_AT_INPUT}"' in workflow
+    assert '"${HONUA_SDK_CERT_PYTHON}" - <<\'PY\'' in workflow
     assert 'candidate_cut_at="${CANDIDATE_CUT_AT_INPUT}"' in workflow
     assert (
         'candidate_cut_at="$(git -C "${server_root}" show -s --format=%cI '

@@ -160,7 +160,7 @@ jobs:
               echo "::error::release certification requires a full 40-character server_seed_ref"
               exit 1
             fi
-            python - "${CANDIDATE_CUT_AT_INPUT}" <<'PY'
+            "${HONUA_SDK_CERT_PYTHON}" - "${CANDIDATE_CUT_AT_INPUT}" <<'PY'
           import sys
 
           from scripts._conformance import validate_candidate_cut_at
@@ -285,7 +285,7 @@ jobs:
       - name: Enforce release evidence outcomes
         if: ${{ github.event.inputs.certification_tier == 'release' }}
         run: |
-          python - <<'PY'
+          "${HONUA_SDK_CERT_PYTHON}" - <<'PY'
           import json
           from pathlib import Path
           from scripts._conformance import validate_release_certification_fragment

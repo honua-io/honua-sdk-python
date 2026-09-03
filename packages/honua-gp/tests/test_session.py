@@ -31,6 +31,40 @@ def test_client_bootstraps_from_environment(monkeypatch) -> None:
     }
 
 
+def test_environment_bootstrap_preserves_injected_admin_client(monkeypatch) -> None:
+    class _StubClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            pass
+
+    import honua_sdk
+
+    monkeypatch.setattr(honua_sdk, "HonuaClient", _StubClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    injected_admin = object()
+    honua_gp.configure(admin_client=injected_admin)
+
+    get_session().client()
+
+    assert get_session()._admin is injected_admin  # noqa: SLF001
+
+
+def test_environment_bootstrap_preserves_injected_data_client(monkeypatch) -> None:
+    class _StubAdminClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            pass
+
+    import honua_admin
+
+    monkeypatch.setattr(honua_admin, "HonuaAdminClient", _StubAdminClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    injected_client = object()
+    honua_gp.configure(client=injected_client)
+
+    get_session().admin_client()
+
+    assert get_session()._client is injected_client  # noqa: SLF001
+
+
 def test_configure_invalidates_lazy_client_cache_on_base_url_change() -> None:
     """Changing ``base_url`` must drop any previously cached client so the
     next ``client()`` call rebuilds against the new endpoint. Without this,

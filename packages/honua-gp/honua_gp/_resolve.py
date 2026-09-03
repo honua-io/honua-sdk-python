@@ -21,6 +21,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import unquote
 
 from ._errors import HonuaGpResolveError
 from ._session import HonuaSession, LayerAlias, get_session
@@ -108,7 +109,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
     # name and sending it as a service id.
     feature_layer = _FEATURE_SERVER_LAYER_RE.search(path)
     if feature_layer is not None:
-        service = feature_layer.group("service").strip("/")
+        service = unquote(feature_layer.group("service").strip("/"))
         layer = feature_layer.group("layer")
         return ResolvedSource(
             source=f"honua://services/{service}/{layer}",

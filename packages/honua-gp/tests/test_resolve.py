@@ -75,6 +75,20 @@ def test_feature_server_layer_url_preserves_foldered_service_id() -> None:
     assert descriptor["locator"] == {"serviceId": "folder/test", "layerId": 12}
 
 
+def test_feature_server_layer_url_decodes_escaped_service_name() -> None:
+    from honua_sdk.protocols._base import _service_path
+
+    resolved = resolve(
+        "https://honua.example.com/rest/services/My%20Service/FeatureServer/0"
+    )
+    assert resolved.source == "honua://services/My Service/0"
+    descriptor = descriptor_mapping(resolved)
+    assert descriptor["locator"] == {"serviceId": "My Service", "layerId": 0}
+    assert _service_path(descriptor["locator"]["serviceId"], "FeatureServer") == (
+        "/rest/services/My%20Service/FeatureServer"
+    )
+
+
 def test_descriptor_mapping_parses_honua_uri_service_and_layer() -> None:
     resolved = resolve("honua://services/transport/2")
     descriptor = descriptor_mapping(resolved)

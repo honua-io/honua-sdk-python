@@ -1589,7 +1589,9 @@
 <h2 id="server-compatibility-baseline">Server Compatibility Baseline<a class="headerlink" href="#server-compatibility-baseline" title="Permanent link">&para;</a></h2>
 <p>Release builds support Honua Server versions that meet all of these conditions:</p>
 <ul>
-<li><code>serverVersion</code> parses to at least <code>2026.3.0</code>.</li>
+<li><code>serverVersion</code> parses to at least <code>1.0.0</code>. Honua Server GA identities use
+  SemVer <code>1.x</code> values and may include build metadata such as <code>1.0.0+&lt;sha&gt;</code>.</li>
+<li>Pre-GA CalVer identities remain supported from <code>2026.3.0</code> onward.</li>
 <li><code>releaseChannel</code> is <code>preview</code> or a later channel (<code>beta</code>, <code>rc</code>, <code>stable</code>, or
   <code>lts</code>).</li>
 <li><code>controlPlaneApi.major</code> is <code>1</code>.</li>

@@ -176,7 +176,7 @@ def _default_code(kind: FailureKind) -> str:
         FailureKind.NOT_FOUND: "resource_not_found",
         FailureKind.VALIDATION: "validation_failed",
         FailureKind.CONFLICT: "resource_conflict",
-        FailureKind.THROTTLED: "rate_limited",
+        FailureKind.THROTTLED: "rate_limit_exceeded",
         FailureKind.UNAVAILABLE: "service_unavailable",
     }.get(kind, "unknown_failure")
 
@@ -275,7 +275,9 @@ def _grpc_failure_receipt(
     declared_kind = _first(trailing, "honua-error-kind") or _first(initial, "honua-error-kind")
     kind = _kind(declared_kind, _grpc_kind(number))
     machine_code = _first(trailing, "honua-error-code") or _first(initial, "honua-error-code")
-    declared_retryable = _first(trailing, "honua-error-retryable") or _first(initial, "honua-error-retryable")
+    declared_retryable = _first(trailing, "honua-retryable", "honua-error-retryable") or _first(
+        initial, "honua-retryable", "honua-error-retryable"
+    )
     retryable = declared_retryable == "true" if declared_retryable in ("true", "false") else number in (4, 8, 10, 14)
     retry_after = _number_from_string(_first(trailing, "retry-after") or _first(initial, "retry-after"))
     details = _first(trailing, "honua-error-details") or _first(initial, "honua-error-details")
@@ -290,8 +292,10 @@ def _grpc_failure_receipt(
         code=machine_code or _default_code(kind),
         retryable=retryable,
         retry_after_seconds=retry_after,
-        correlation_id=_first(trailing, "x-correlation-id", "honua-request-id", "x-request-id")
-        or _first(initial, "x-correlation-id", "honua-request-id", "x-request-id"),
+        correlation_id=_first(
+            trailing, "x-correlation-id", "honua-request-id", "x-request-id", "honua-correlation-id"
+        )
+        or _first(initial, "x-correlation-id", "honua-request-id", "x-request-id", "honua-correlation-id"),
         field_errors=_field_errors(errors),
         protocol_metadata=ProtocolMetadata(initial=initial, trailing=trailing),
     )

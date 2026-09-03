@@ -7,7 +7,10 @@ import re
 from dataclasses import dataclass, field, fields
 from typing import Any, Literal, TypeAlias
 
-MINIMUM_SUPPORTED_SERVER_VERSION = "2026.3.0"
+MINIMUM_SUPPORTED_SERVER_VERSION = "1.0.0"
+# Pre-GA Honua Server releases used CalVer; keep their established cutoff
+# while accepting the GA SemVer identity above.
+_MINIMUM_SUPPORTED_CALVER = "2026.3.0"
 MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR = 1
 MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH = "/api/v1/admin"
 MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL = "preview"
@@ -24,6 +27,7 @@ _RELEASE_CHANNEL_ORDER = {
 }
 
 _VERSION_COMPONENT_PATTERN = re.compile(r"\d+")
+_CALVER_PATTERN = re.compile(r"^\d{4}[.-]\d{1,2}[.-]\d{1,2}(?:[-+].*)?$")
 
 
 def _to_snake(name: str) -> str:
@@ -90,6 +94,10 @@ def _parse_version_components(version: str | None) -> tuple[int, int, int] | Non
     if len(parts) < 3:
         return None
     return (parts[0], parts[1], parts[2])
+
+
+def _is_calver(version: str | None) -> bool:
+    return bool(version and _CALVER_PATTERN.fullmatch(version))
 
 
 # ---------------------------------------------------------------------------
@@ -599,7 +607,12 @@ def evaluate_admin_compatibility(
         )
 
     actual_version = _parse_version_components(compatibility.server_version)
-    minimum_version = _parse_version_components(baseline.minimum_server_version)
+    minimum_version_text = (
+        _MINIMUM_SUPPORTED_CALVER
+        if _is_calver(compatibility.server_version)
+        else baseline.minimum_server_version
+    )
+    minimum_version = _parse_version_components(minimum_version_text)
     if actual_version is None:
         reasons.append(f"Server version {compatibility.server_version!r} could not be parsed.")
     elif minimum_version is None:
@@ -608,7 +621,7 @@ def evaluate_admin_compatibility(
         reasons.append(
             "Server version "
             f"{compatibility.server_version!r} is below required "
-            f"{baseline.minimum_server_version!r}."
+            f"{minimum_version_text!r}."
         )
 
     if compatibility.control_plane_api.major != baseline.control_plane_api_major:
@@ -1834,5 +1847,3 @@ class MigrationInventoryScanRequest:
 
     def to_dict(self) -> dict[str, Any]:
         return _dataclass_to_camel_dict(self)
-
-

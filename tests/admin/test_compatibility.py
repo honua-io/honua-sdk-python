@@ -105,6 +105,18 @@ def test_check_compatibility_accepts_supported_server(make_client) -> None:
     assert result.baseline.minimum_release_channel == MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL
 
 
+def test_check_compatibility_accepts_ga_semver_server(make_client) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        payload = _make_capabilities_payload(server_version="1.0.0+ac30266f")
+        return httpx.Response(200, json=make_api_response(payload))
+
+    with make_client(handler) as client:
+        result = client.check_compatibility()
+
+    assert result.supported is True
+    assert result.reasons == []
+
+
 def test_check_compatibility_rejects_major_mismatch(make_client) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         payload = _make_capabilities_payload(major=2)
@@ -120,6 +132,18 @@ def test_check_compatibility_rejects_major_mismatch(make_client) -> None:
 def test_check_compatibility_rejects_server_version_below_baseline(make_client) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         payload = _make_capabilities_payload(server_version="2026.2.28-preview.1")
+        return httpx.Response(200, json=make_api_response(payload))
+
+    with make_client(handler) as client:
+        result = client.check_compatibility()
+
+    assert result.supported is False
+    assert any("below required" in reason for reason in result.reasons)
+
+
+def test_check_compatibility_rejects_semver_below_baseline(make_client) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        payload = _make_capabilities_payload(server_version="0.99.0-preview.1")
         return httpx.Response(200, json=make_api_response(payload))
 
     with make_client(handler) as client:

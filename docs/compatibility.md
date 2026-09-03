@@ -11,7 +11,9 @@ The Python SDK compatibility gate protects two contracts:
 
 Release builds support Honua Server versions that meet all of these conditions:
 
-- `serverVersion` parses to at least `2026.3.0`.
+- `serverVersion` parses to at least `1.0.0`. Honua Server GA identities use
+  SemVer `1.x` values and may include build metadata such as `1.0.0+<sha>`.
+- Pre-GA CalVer identities remain supported from `2026.3.0` onward.
 - `releaseChannel` is `preview` or a later channel (`beta`, `rc`, `stable`, or
   `lts`).
 - `controlPlaneApi.major` is `1`.

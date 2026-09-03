@@ -1609,8 +1609,7 @@ class AsyncHonuaClient:
             response = await self._client.request(**request_kwargs)
         except httpx.HTTPError as exc:
             raise _to_transport_error(exc) from exc
-        if response.status_code >= 400:
+        if not 200 <= response.status_code < 300:
             raise _to_http_error(response)
         return response
-
 

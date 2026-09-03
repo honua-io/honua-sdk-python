@@ -242,7 +242,7 @@ def test_update_protocols_400_raises_http_error(make_client) -> None:
     assert "Invalid protocol" in exc_info.value.message
 
 
-def test_does_not_follow_redirects_by_default() -> None:
+def test_does_not_follow_redirects_by_default_and_raises() -> None:
     seen: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -260,9 +260,10 @@ def test_does_not_follow_redirects_by_default() -> None:
         transport=transport,
         api_key="test-key",
     ) as client:
-        result = client.list_services()
+        with pytest.raises(HonuaHttpError) as exc_info:
+            client.list_services()
 
-    assert result == []
+    assert exc_info.value.status_code == 302
     assert len(seen) == 1
     assert seen[0][0] == "http://test.honua.io/api/v1/admin/services/"
     assert seen[0][1] == "test-key"

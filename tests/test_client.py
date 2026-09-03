@@ -709,7 +709,7 @@ def test_non_success_raises_honua_http_error() -> None:
     assert isinstance(err.body, dict)
 
 
-def test_does_not_follow_redirects_by_default() -> None:
+def test_does_not_follow_redirects_by_default_and_raises() -> None:
     seen: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -723,9 +723,10 @@ def test_does_not_follow_redirects_by_default() -> None:
 
     transport = httpx.MockTransport(handler)
     with HonuaClient("http://example.test", transport=transport, api_key="test-key") as client:
-        response = client.readiness()
+        with pytest.raises(HonuaHttpError) as exc_info:
+            client.readiness()
 
-    assert response == {}
+    assert exc_info.value.status_code == 302
     assert len(seen) == 1
     assert seen[0][0] == "http://example.test/healthz/ready"
     assert seen[0][1] == "test-key"

@@ -20,16 +20,22 @@ def test_release_certification_uses_the_governed_candidate_cut() -> None:
     ) in workflow
 
 
-def test_conformance_downloads_public_wheel_and_runs_from_isolated_install() -> None:
+def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
+    assert "if: ${{ github.event_name == 'pull_request' }}" in workflow
+    assert "python -m build --wheel --outdir dist packages/honua-sdk" in workflow
+    assert "HONUA_SDK_WHEEL_SOURCE=github-actions" in workflow
+    assert "HONUA_SDK_SOURCE_SHA=${GITHUB_SHA}" in workflow
+    assert "HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request'" in workflow
+
+    assert "if: ${{ github.event_name != 'pull_request' }}" in workflow
     assert 'HONUA_SDK_PUBLIC_VERSION: "0.1.11"' in workflow
     assert 'HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.11-py3-none-any.whl"' in workflow
     assert "python -m pip download" in workflow
     assert '"honua-sdk==${HONUA_SDK_PUBLIC_VERSION}"' in workflow
     assert "--only-binary=:all:" in workflow
     assert "sha256sum --check --strict" in workflow
-    assert "python -m build" not in workflow
     assert "pip install -e packages/honua-sdk" not in workflow
     assert "HONUA_SDK_WHEEL_SHA256=${HONUA_SDK_PUBLIC_WHEEL_SHA256}" in workflow
     assert "HONUA_SDK_WHEEL_SOURCE=pypi" in workflow

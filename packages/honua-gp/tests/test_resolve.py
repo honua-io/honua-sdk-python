@@ -53,6 +53,42 @@ def test_honua_path_map_override(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resolved.source == "honua://services/transport/0"
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "rest/services/test/FeatureServer/0",
+        "https://honua.example.com/rest/services/test/FeatureServer/0",
+        "https://honua.example.com/gis/rest/services/folder/test/FeatureServer/12?f=json",
+    ],
+)
+def test_feature_server_layer_paths_are_canonicalized(path: str) -> None:
+    resolved = resolve(path)
+    assert resolved.kind == "honua-uri"
+    assert resolved.source.endswith("/FeatureServer/0") is False
+    descriptor = descriptor_mapping(resolved)
+    assert descriptor["locator"]["layerId"] in (0, 12)
+
+
+def test_feature_server_layer_url_preserves_foldered_service_id() -> None:
+    resolved = resolve("https://honua.example.com/gis/rest/services/folder/test/FeatureServer/12")
+    descriptor = descriptor_mapping(resolved)
+    assert descriptor["locator"] == {"serviceId": "folder/test", "layerId": 12}
+
+
+def test_feature_server_layer_url_decodes_escaped_service_name() -> None:
+    from honua_sdk.protocols._base import _service_path
+
+    resolved = resolve(
+        "https://honua.example.com/rest/services/My%20Service/FeatureServer/0"
+    )
+    assert resolved.source == "honua://services/My Service/0"
+    descriptor = descriptor_mapping(resolved)
+    assert descriptor["locator"] == {"serviceId": "My Service", "layerId": 0}
+    assert _service_path(descriptor["locator"]["serviceId"], "FeatureServer") == (
+        "/rest/services/My%20Service/FeatureServer"
+    )
+
+
 def test_descriptor_mapping_parses_honua_uri_service_and_layer() -> None:
     resolved = resolve("honua://services/transport/2")
     descriptor = descriptor_mapping(resolved)

@@ -21,6 +21,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import unquote
 
 from ._errors import HonuaGpResolveError
 from ._session import HonuaSession, LayerAlias, get_session
@@ -29,6 +30,10 @@ _HONUA_URI = re.compile(r"^honua://(?P<rest>.+)$")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 _GDB_RE = re.compile(r"\.gdb([\\/]|$)", re.IGNORECASE)
 _SDE_RE = re.compile(r"\.sde([\\/]|$)", re.IGNORECASE)
+_FEATURE_SERVER_LAYER_RE = re.compile(
+    r"(?:^|/)rest/services/(?P<service>.+?)/FeatureServer/(?P<layer>\d+)/?(?:[?#].*)?$",
+    re.IGNORECASE,
+)
 _IN_MEMORY_PREFIXES = ("in_memory", "memory", "in_memory\\", "in_memory/")
 
 
@@ -98,13 +103,28 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
     if path in overrides:
         return ResolvedSource(source=overrides[path], kind="honua-uri", raw=raw)
 
-    # 4. in_memory / memory layer.
+    # 4. ArcGIS REST FeatureServer layer URL/path. ArcPy callers commonly pass
+    # the same live URL they use with the real arcpy module; canonicalize it to
+    # the shim's existing source URI instead of treating the URL as a workspace
+    # name and sending it as a service id.
+    feature_layer = _FEATURE_SERVER_LAYER_RE.search(path)
+    if feature_layer is not None:
+        service = unquote(feature_layer.group("service").strip("/"))
+        layer = feature_layer.group("layer")
+        return ResolvedSource(
+            source=f"honua://services/{service}/{layer}",
+            kind="honua-uri",
+            layer=layer,
+            raw=raw,
+        )
+
+    # 5. in_memory / memory layer.
     lowered = path.lower()
     if lowered.startswith(_IN_MEMORY_PREFIXES):
         tail = path.split("/")[-1].split("\\")[-1]
         return ResolvedSource(source=f"in_memory:{tail}", kind="in-memory", raw=raw)
 
-    # 5. Absolute Windows / POSIX path.
+    # 6. Absolute Windows / POSIX path.
     if _WINDOWS_ABSOLUTE.match(path) or path.startswith("/") or path.startswith("\\\\"):
         normalized = path.replace("\\", "/")
         layer = normalized.rsplit("/", 1)[-1]
@@ -121,7 +141,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
             raw=raw,
         )
 
-    # 6. Fall back to workspace-relative name.
+    # 7. Fall back to workspace-relative name.
     return ResolvedSource(
         source=path,
         kind="workspace-relative",
@@ -182,11 +202,10 @@ def descriptor_mapping(
     if source.startswith("honua://services/"):
         rest = source[len("honua://services/") :]
         parts = [part for part in rest.split("/") if part]
-        if parts:
-            service_id = parts[0]
         if len(parts) >= 2:
+            service_id = "/".join(parts[:-1])
             try:
-                layer_id = int(parts[1])
+                layer_id = int(parts[-1])
             except ValueError as exc:
                 raise HonuaGpResolveError(
                     source,
@@ -201,6 +220,8 @@ def descriptor_mapping(
                     source,
                     hint="honua://services URIs must use a non-negative numeric layer id.",
                 )
+        elif parts:
+            service_id = parts[0]
     elif isinstance(workspace, str) and workspace.startswith("honua://services/"):
         ws_parts = [part for part in workspace[len("honua://services/") :].split("/") if part]
         if ws_parts:

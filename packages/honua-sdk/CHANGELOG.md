@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.12](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.11...python-sdk-v0.1.12) (2026-09-03)
+
+
+### Bug Fixes
+
+* **client:** align compatibility and redirect handling ([#220](https://github.com/honua-io/honua-sdk-python/issues/220)) ([f2714f0](https://github.com/honua-io/honua-sdk-python/commit/f2714f092e1c1c0bbaabc9da64b30a14c4bcaa6d))
+* **release:** reconcile Python package publication ([#208](https://github.com/honua-io/honua-sdk-python/issues/208)) ([f253264](https://github.com/honua-io/honua-sdk-python/commit/f2532648be815e2c7f7db337907e36626c536264))
+
 ## [0.1.11](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.10...python-sdk-v0.1.11) (2026-08-10)
 
 

@@ -122,6 +122,25 @@ def test_unauthenticated_remains_distinct_from_permission_denied() -> None:
     assert error.failure_kind is not FailureKind.AUTHORIZATION
 
 
+@pytest.mark.parametrize("error_code", [498, 499])
+def test_geoservices_token_codes_are_authentication_failures(error_code: int) -> None:
+    body = {"error": {"code": error_code, "message": "Token required"}}
+    response = httpx.Response(200, headers={"X-Request-ID": "geo-token"}, json=body)
+
+    error = _build_geoservices_error(
+        error_code=error_code,
+        message="Token required",
+        body=body,
+        response=response,
+    )
+
+    assert error.receipt.transport_status == 200
+    assert error.receipt.protocol_code == str(error_code)
+    assert error.receipt.kind is FailureKind.AUTHENTICATION
+    assert error.receipt.code == "authentication_required"
+    assert error.receipt.correlation_id == "geo-token"
+
+
 def _assert_receipt(
     receipt: Any,
     failure: dict[str, Any],

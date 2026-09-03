@@ -108,8 +108,8 @@ _HTTP_KINDS = {
     422: FailureKind.VALIDATION,
     428: FailureKind.CONFLICT,
     429: FailureKind.THROTTLED,
-    498: FailureKind.AUTHORIZATION,
-    499: FailureKind.AUTHORIZATION,
+    498: FailureKind.AUTHENTICATION,
+    499: FailureKind.AUTHENTICATION,
 }
 _RETRYABLE_HTTP_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _SERVER_ERROR_MIN = 500
@@ -123,8 +123,7 @@ def _metadata(values: Mapping[str, Any] | None) -> dict[str, tuple[str, ...]]:
             continue
         sequence = value if isinstance(value, (list, tuple)) else (value,)
         result[normalized] = tuple(
-            item.decode("utf-8", errors="replace") if isinstance(item, bytes) else str(item)
-            for item in sequence
+            item.decode("utf-8", errors="replace") if isinstance(item, bytes) else str(item) for item in sequence
         )
     return result
 
@@ -214,13 +213,14 @@ def _number(value: object) -> float | None:
     return None
 
 
-def _http_failure_receipt(
+def _http_failure_receipt(  # noqa: PLR0913 - explicit carriers prevent receipt data loss
     *,
     transport_status: int,
     body: Any | None,
     headers: Mapping[str, Any] | None,
     protocol_code: int | None = None,
     retry_after_seconds: float | None = None,
+    correlation_id: str | None = None,
 ) -> TerminalFailureReceipt:
     root = body if isinstance(body, Mapping) else {}
     error = root.get("error")
@@ -233,11 +233,14 @@ def _http_failure_receipt(
     retryable = (
         declared_retryable
         if isinstance(declared_retryable, bool)
-        else classification_code in _RETRYABLE_HTTP_CODES
+        else classification_code in _RETRYABLE_HTTP_CODES or transport_status in _RETRYABLE_HTTP_CODES
     )
     safe_headers = _metadata(headers)
-    correlation_id = source.get("correlationId") or root.get("correlationId") or _first(
-        safe_headers, "x-correlation-id", "honua-request-id", "x-request-id"
+    correlation_id = (
+        source.get("correlationId")
+        or root.get("correlationId")
+        or _first(safe_headers, "x-correlation-id", "honua-request-id", "x-request-id", "honua-correlation-id")
+        or correlation_id
     )
     declared_retry_after = _number(source.get("retryAfterSeconds"))
     return TerminalFailureReceipt(
@@ -246,11 +249,7 @@ def _http_failure_receipt(
         kind=kind,
         code=code,
         retryable=retryable,
-        retry_after_seconds=(
-            declared_retry_after
-            if declared_retry_after is not None
-            else retry_after_seconds
-        ),
+        retry_after_seconds=(declared_retry_after if declared_retry_after is not None else retry_after_seconds),
         correlation_id=correlation_id if isinstance(correlation_id, str) else None,
         field_errors=_field_errors(source.get("errors") or root.get("errors")),
         protocol_metadata=ProtocolMetadata(initial=safe_headers, trailing={}),
@@ -292,9 +291,7 @@ def _grpc_failure_receipt(
         code=machine_code or _default_code(kind),
         retryable=retryable,
         retry_after_seconds=retry_after,
-        correlation_id=_first(
-            trailing, "x-correlation-id", "honua-request-id", "x-request-id", "honua-correlation-id"
-        )
+        correlation_id=_first(trailing, "x-correlation-id", "honua-request-id", "x-request-id", "honua-correlation-id")
         or _first(initial, "x-correlation-id", "honua-request-id", "x-request-id", "honua-correlation-id"),
         field_errors=_field_errors(errors),
         protocol_metadata=ProtocolMetadata(initial=initial, trailing=trailing),
@@ -387,6 +384,7 @@ class HonuaHttpError(HonuaError):
         request_id: str | None = None,
         headers: Mapping[str, str] | None = None,
         error_code: int | None = None,
+        retry_after: float | None = None,
         receipt: TerminalFailureReceipt | None = None,
     ) -> None:
         super().__init__(f"HTTP {status_code}: {message}")
@@ -401,6 +399,8 @@ class HonuaHttpError(HonuaError):
             body=body,
             headers=headers,
             protocol_code=error_code,
+            retry_after_seconds=retry_after,
+            correlation_id=request_id,
         )
         self.failure_kind = self.receipt.kind
         self.machine_code = self.receipt.code
@@ -465,9 +465,10 @@ class HonuaRateLimitError(HonuaHttpError):
             request_id=request_id,
             headers=headers,
             error_code=error_code,
+            retry_after=retry_after,
             receipt=receipt,
         )
-        self.retry_after = self.receipt.retry_after_seconds if retry_after is None else retry_after
+        self.retry_after = self.receipt.retry_after_seconds
 
 
 class HonuaTransportError(HonuaError):

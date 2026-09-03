@@ -24,10 +24,14 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
     assert "if: ${{ github.event_name == 'pull_request' }}" in workflow
-    assert "python -m build --wheel --outdir dist packages/honua-sdk" in workflow
+    assert "python -m build --wheel --no-isolation --outdir dist packages/honua-sdk" in workflow
     assert "HONUA_SDK_WHEEL_SOURCE=github-actions" in workflow
     assert "HONUA_SDK_SOURCE_SHA=${GITHUB_SHA}" in workflow
     assert "HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request'" in workflow
+    assert workflow.count("--require-hashes") == 5
+    assert workflow.count(".github/requirements/publish-python.lock") == 3
+    assert "--no-isolation" in workflow
+    assert "pip install --upgrade" not in workflow
 
     assert "if: ${{ github.event_name != 'pull_request' }}" in workflow
     assert 'HONUA_SDK_PUBLIC_VERSION: "0.1.11"' in workflow

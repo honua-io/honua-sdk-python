@@ -80,15 +80,26 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip build
-          python -m build --wheel --outdir dist packages/honua-sdk
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+          python -m build --wheel --no-isolation --outdir dist packages/honua-sdk
           wheel="$(find dist -maxdepth 1 -name 'honua_sdk-*.whl' -type f -print -quit)"
           [[ -n "${wheel}" ]]
           wheel_filename="$(basename "${wheel}")"
           wheel_sha256="$(sha256sum "${wheel}" | cut -d ' ' -f 1)"
+          wheel_requirement="${RUNNER_TEMP}/honua-sdk-wheel-requirement.txt"
+          printf '%s --hash=sha256:%s\n' "$(realpath "${wheel}")" "${wheel_sha256}" > "${wheel_requirement}"
           python -m venv "${RUNNER_TEMP}/honua-sdk-certification"
-          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install --upgrade pip
-          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install "${wheel}" pytest
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --no-deps \
+            -r "${wheel_requirement}"
           {
             echo "HONUA_SDK_CERT_PYTHON=${RUNNER_TEMP}/honua-sdk-certification/bin/python"
             echo "HONUA_SDK_INSTALL_ROOT=${RUNNER_TEMP}/honua-sdk-certification"
@@ -102,7 +113,6 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
           mkdir -p dist
           python -m pip download \
             --dest dist \
@@ -112,9 +122,17 @@ jobs:
           wheel="dist/${HONUA_SDK_PUBLIC_WHEEL}"
           [[ -f "${wheel}" ]]
           echo "${HONUA_SDK_PUBLIC_WHEEL_SHA256}  ${wheel}" | sha256sum --check --strict
+          wheel_requirement="${RUNNER_TEMP}/honua-sdk-wheel-requirement.txt"
+          printf '%s --hash=sha256:%s\n' "$(realpath "${wheel}")" "${HONUA_SDK_PUBLIC_WHEEL_SHA256}" > "${wheel_requirement}"
           python -m venv "${RUNNER_TEMP}/honua-sdk-certification"
-          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install --upgrade pip
-          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install "${wheel}" pytest
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --no-deps \
+            -r "${wheel_requirement}"
           installed_version="$("${RUNNER_TEMP}/honua-sdk-certification/bin/python" -c \
             'import importlib.metadata; print(importlib.metadata.version("honua-sdk"))')"
           [[ "${installed_version}" == "${HONUA_SDK_PUBLIC_VERSION}" ]]

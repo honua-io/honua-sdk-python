@@ -21,6 +21,7 @@ from .errors import (
     HonuaRateLimitError,
     HonuaTimeoutError,
     HonuaTransportError,
+    _http_failure_receipt,
 )
 
 
@@ -354,6 +355,13 @@ def _build_http_error(
         or response.headers.get("x-correlation-id")
     )
     headers = dict(response.headers)
+    retry_after = _parse_retry_after(response.headers.get("retry-after"))
+    receipt = _http_failure_receipt(
+        transport_status=response.status_code,
+        body=body,
+        headers=headers,
+        retry_after_seconds=retry_after,
+    )
     if status_code in (401, 403):
         return HonuaAuthError(
             status_code,
@@ -361,9 +369,9 @@ def _build_http_error(
             body=body,
             request_id=request_id,
             headers=headers,
+            receipt=receipt,
         )
     if status_code == 429:
-        retry_after = _parse_retry_after(response.headers.get("retry-after"))
         return HonuaRateLimitError(
             status_code,
             message,
@@ -371,6 +379,7 @@ def _build_http_error(
             retry_after=retry_after,
             request_id=request_id,
             headers=headers,
+            receipt=receipt,
         )
     return HonuaHttpError(
         status_code,
@@ -378,6 +387,7 @@ def _build_http_error(
         body=body,
         request_id=request_id,
         headers=headers,
+        receipt=receipt,
     )
 
 
@@ -496,6 +506,14 @@ def _build_geoservices_error(
     )
     headers = dict(response.headers)
     status_code = _normalize_geoservices_status(error_code)
+    retry_after = _parse_retry_after(response.headers.get("retry-after"))
+    receipt = _http_failure_receipt(
+        transport_status=getattr(response, "status_code", 200),
+        body=body,
+        headers=headers,
+        protocol_code=error_code,
+        retry_after_seconds=retry_after,
+    )
     if error_code in _GEOSERVICES_AUTH_CODES:
         return HonuaAuthError(
             status_code,
@@ -504,9 +522,9 @@ def _build_geoservices_error(
             request_id=request_id,
             headers=headers,
             error_code=error_code,
+            receipt=receipt,
         )
     if error_code == 429:
-        retry_after = _parse_retry_after(response.headers.get("retry-after"))
         return HonuaRateLimitError(
             status_code,
             message,
@@ -515,6 +533,7 @@ def _build_geoservices_error(
             request_id=request_id,
             headers=headers,
             error_code=error_code,
+            receipt=receipt,
         )
     return HonuaHttpError(
         status_code,
@@ -523,6 +542,7 @@ def _build_geoservices_error(
         request_id=request_id,
         headers=headers,
         error_code=error_code,
+        receipt=receipt,
     )
 
 

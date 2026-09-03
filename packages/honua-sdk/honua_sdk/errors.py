@@ -384,7 +384,6 @@ class HonuaHttpError(HonuaError):
         request_id: str | None = None,
         headers: Mapping[str, str] | None = None,
         error_code: int | None = None,
-        retry_after: float | None = None,
         receipt: TerminalFailureReceipt | None = None,
     ) -> None:
         super().__init__(f"HTTP {status_code}: {message}")
@@ -399,7 +398,6 @@ class HonuaHttpError(HonuaError):
             body=body,
             headers=headers,
             protocol_code=error_code,
-            retry_after_seconds=retry_after,
             correlation_id=request_id,
         )
         self.failure_kind = self.receipt.kind
@@ -458,6 +456,14 @@ class HonuaRateLimitError(HonuaHttpError):
         error_code: int | None = None,
         receipt: TerminalFailureReceipt | None = None,
     ) -> None:
+        resolved_receipt = receipt or _http_failure_receipt(
+            transport_status=status_code,
+            body=body,
+            headers=headers,
+            protocol_code=error_code,
+            retry_after_seconds=retry_after,
+            correlation_id=request_id,
+        )
         super().__init__(
             status_code,
             message,
@@ -465,8 +471,7 @@ class HonuaRateLimitError(HonuaHttpError):
             request_id=request_id,
             headers=headers,
             error_code=error_code,
-            retry_after=retry_after,
-            receipt=receipt,
+            receipt=resolved_receipt,
         )
         self.retry_after = self.receipt.retry_after_seconds
 

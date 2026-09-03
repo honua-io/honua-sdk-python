@@ -1,12 +1,30 @@
 {
   "schemaVersion": 1,
   "baseline": {
-    "minimumServerVersion": "2026.3.0",
+    "minimumServerVersion": "1.0.0",
     "controlPlaneApiMajor": 1,
     "basePath": "/api/v1/admin",
     "minimumReleaseChannel": "preview"
   },
   "cases": [
+    {
+      "name": "ga-semver-server",
+      "description": "The GA server identity uses SemVer 1.x with optional build metadata.",
+      "compatibility": {
+        "serverVersion": "1.0.0+ac30266f",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [],
+        "features": {}
+      },
+      "expected": {
+        "supported": true
+      }
+    },
     {
       "name": "minimum-preview-server",
       "description": "The lowest supported public-preview server line remains compatible.",

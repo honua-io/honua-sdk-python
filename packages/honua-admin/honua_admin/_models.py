@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field, fields
 from typing import Any, Literal, TypeAlias
 
-MINIMUM_SUPPORTED_SERVER_VERSION = "2026.3.0"
+MINIMUM_SUPPORTED_SERVER_VERSION = "1.0.0"
 MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR = 1
 MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH = "/api/v1/admin"
 MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL = "preview"
@@ -1834,5 +1834,4 @@ class MigrationInventoryScanRequest:
 
     def to_dict(self) -> dict[str, Any]:
         return _dataclass_to_camel_dict(self)
-
 

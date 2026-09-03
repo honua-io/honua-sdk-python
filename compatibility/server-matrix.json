@@ -131,9 +131,9 @@
     },
     {
       "name": "server-version-below-baseline",
-      "description": "Servers older than the minimum supported line are blocked.",
+      "description": "Pre-GA SemVer servers older than the minimum supported line are blocked.",
       "compatibility": {
-        "serverVersion": "2026.2.28-preview.1",
+        "serverVersion": "0.99.0-preview.1",
         "releaseChannel": "preview",
         "controlPlaneApi": {
           "major": 1,

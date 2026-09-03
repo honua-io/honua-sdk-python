@@ -131,9 +131,9 @@
     },
     {
       "name": "server-version-below-baseline",
-      "description": "Pre-GA SemVer servers older than the minimum supported line are blocked.",
+      "description": "Pre-GA CalVer servers older than the minimum supported line are blocked.",
       "compatibility": {
-        "serverVersion": "0.99.0-preview.1",
+        "serverVersion": "2026.2.28-preview.1",
         "releaseChannel": "preview",
         "controlPlaneApi": {
           "major": 1,
@@ -153,6 +153,27 @@
           "manifestDryRun": true,
           "manifestPrune": true
         }
+      },
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "below required"
+        ]
+      }
+    },
+    {
+      "name": "semver-server-version-below-baseline",
+      "description": "SemVer servers older than the GA minimum supported line are blocked.",
+      "compatibility": {
+        "serverVersion": "0.99.0-preview.1",
+        "releaseChannel": "preview",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [],
+        "features": {}
       },
       "expected": {
         "supported": false,

@@ -131,8 +131,18 @@ def test_check_compatibility_rejects_major_mismatch(make_client) -> None:
 
 def test_check_compatibility_rejects_server_version_below_baseline(make_client) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
-        # The baseline now follows GA SemVer; the old 2026.x fixture compares
-        # newer than 1.0.0 and therefore no longer exercises this contract.
+        payload = _make_capabilities_payload(server_version="2026.2.28-preview.1")
+        return httpx.Response(200, json=make_api_response(payload))
+
+    with make_client(handler) as client:
+        result = client.check_compatibility()
+
+    assert result.supported is False
+    assert any("below required" in reason for reason in result.reasons)
+
+
+def test_check_compatibility_rejects_semver_below_baseline(make_client) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
         payload = _make_capabilities_payload(server_version="0.99.0-preview.1")
         return httpx.Response(200, json=make_api_response(payload))
 

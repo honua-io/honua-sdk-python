@@ -1,0 +1,18 @@
+# Direct dependencies for the isolated Python publication validation/build jobs.
+# Keep every entry exact; publish-python.lock adds hashes for these and all
+# transitive dependencies.
+build==1.5.0
+editables==0.6
+grpcio==1.81.1
+hatchling==1.30.1
+httpx==0.28.1
+mypy==2.3.1
+protobuf==6.31.1
+pytest==9.0.3
+
+ruff
+pytest-cov
+pip-audit
+geopandas
+shapely
+twine

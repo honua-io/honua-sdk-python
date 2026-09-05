@@ -1,11 +1,10 @@
 """Hash the wheel metadata's offline resolution for a clean installation."""
 
-from email.parser import BytesParser
 import hashlib
-from pathlib import Path
 import sys
+from email.parser import BytesParser
+from pathlib import Path
 from zipfile import ZipFile
-
 
 wheel_directory = Path(sys.argv[1])
 requirements = []

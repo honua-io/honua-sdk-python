@@ -1,0 +1,4 @@
+-r ci.in
+mkdocs-material
+mkdocstrings[python]
+mike

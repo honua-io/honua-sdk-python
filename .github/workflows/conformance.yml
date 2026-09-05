@@ -70,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
-          python -m build --no-isolation --wheel --outdir dist packages/honua-sdk
+          python -m build --wheel --outdir dist packages/honua-sdk --no-isolation
           wheel="$(find dist -maxdepth 1 -name 'honua_sdk-*.whl' -type f -print -quit)"
           [[ -n "${wheel}" ]]
           wheel_sha256="$(sha256sum "${wheel}" | cut -d ' ' -f 1)"

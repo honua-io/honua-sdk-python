@@ -13,6 +13,4 @@ pytest==9.0.3
 ruff
 pytest-cov
 pip-audit
-geopandas
-shapely
 twine

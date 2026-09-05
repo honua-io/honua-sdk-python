@@ -326,6 +326,10 @@ jobs:
       - name: Smoke-install built wheels in a fresh venv
         run: |
           python -m pip download --require-hashes --only-binary=:all: -r .github/requirements/ci.lock -d wheelhouse
+          # Resolve only the built wheels' declared dependencies, offline from
+          # the hash-verified wheelhouse. Do not preinstall the entire CI lock.
+          python -m pip download --no-index --find-links wheelhouse --only-binary=:all: --dest smoke-wheels packages/honua-sdk/dist/honua_sdk-*.whl packages/honua-admin/dist/honua_admin-*.whl
+          python .github/scripts/lock-smoke-wheels.py smoke-wheels smoke.lock
           python -m venv /tmp/wheel-smoke
-          /tmp/wheel-smoke/bin/pip install --no-index --find-links wheelhouse packages/honua-sdk/dist/honua_sdk-*.whl packages/honua-admin/dist/honua_admin-*.whl
+          /tmp/wheel-smoke/bin/pip install --require-hashes --no-index --find-links smoke-wheels -r smoke.lock
           /tmp/wheel-smoke/bin/python -c "import honua_sdk; import honua_admin; print('ok', honua_sdk.__version__, honua_admin.__version__)"

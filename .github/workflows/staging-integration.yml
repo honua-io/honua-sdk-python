@@ -48,7 +48,8 @@ jobs:
       HONUA_PROTOCOL_BBOX: ${{ vars.HONUA_PROTOCOL_BBOX }}
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
       HONUA_CLIENT_COMPAT_BINDING_JSON: ${{ vars.HONUA_CLIENT_COMPAT_BINDING_JSON }}
-      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:latest-aot' }}
+      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server@sha256:78e3088d64d832d3e2752c87d80bfcad201b414f4525989ca5d9a242cd5fee8a' }}
+      HONUA_LOCAL_SERVER_REVISION: ${{ vars.HONUA_LOCAL_SERVER_REVISION || 'f897700159e2791c9468c6ca85bb4e2a3a8d8433' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -91,6 +92,7 @@ jobs:
         with:
           repository: honua-io/honua-server
           path: honua-server
+          ref: ${{ env.HONUA_LOCAL_SERVER_REVISION }}
 
       - name: Start seeded local Honua target
         if: ${{ steps.smoke-config.outputs.local_stack == 'true' }}
@@ -131,6 +133,8 @@ jobs:
           YAML
 
           docker pull "${HONUA_LOCAL_SERVER_IMAGE}"
+          image_revision="$(docker image inspect "${HONUA_LOCAL_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+          test "${image_revision}" = "$(git -C "${server_root}" rev-parse HEAD)"
           docker build \
             -t client-compat-seed:latest \
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \

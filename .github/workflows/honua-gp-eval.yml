@@ -36,10 +36,10 @@ jobs:
   eval:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -50,11 +50,10 @@ jobs:
 
       - name: Install packages
         run: |
-          python -m pip install --upgrade pip
-          pip install -e packages/honua-sdk
-          pip install -e packages/honua-admin
-          pip install -e packages/honua-gp
-          pip install pytest
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
+          pip install --no-deps --no-build-isolation -e packages/honua-sdk
+          pip install --no-deps --no-build-isolation -e packages/honua-admin
+          pip install --no-deps --no-build-isolation -e packages/honua-gp
 
       - name: Generate compatibility matrix (drift check)
         # --check runs the committed file against a fresh render of the
@@ -111,8 +110,7 @@ jobs:
 
       - name: Build honua-gp wheel
         run: |
-          pip install --upgrade build twine
-          python -m build --wheel packages/honua-gp/
+          python -m build --no-isolation --wheel packages/honua-gp/
           twine check packages/honua-gp/dist/*
 
       - name: Upload honua-gp wheel artifact
@@ -165,23 +163,15 @@ jobs:
       # read the generic ``vars.HONUA_BASE_URL``.
       HONUA_BASE_URL: ${{ vars.HONUA_GP_EVAL_BASE_URL }}
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
-      # NOTE (issue #157): the layer-aware vector ops (Buffer / SpatialJoin /
-      # Dissolve / Project -> analytics.buffer-aggregate / analytics.spatial-join
-      # / generalization.dissolve / conversion.feature-project) now run
-      # end-to-end once honua-server#2327 wired the per-op OGC projections to the
-      # managed geoprocessing executors. That fix is NOT in the old
-      # ``latest-aot`` tag (stuck on an April build that predates the in-process
-      # GP dispatch worker, so every layer-aware job hangs in ``Queued``), so we
-      # pin ``nightly-aot`` -- verified live (2026-07 build): buffer x3 +
-      # buffer_then_dissolve, dissolve, project x2, and spatial-join x2 all reach
-      # a terminal SUCCEEDED. Operators can override via the
-      # ``HONUA_LOCAL_SERVER_IMAGE`` repo variable to pin a dated build.
-      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server:nightly-aot' }}
+      # Use the immutable image/source pair verified by the conformance lane.
+      # Keep operator overrides paired so seed schema cannot drift from the image.
+      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server@sha256:78e3088d64d832d3e2752c87d80bfcad201b414f4525989ca5d9a242cd5fee8a' }}
+      HONUA_LOCAL_SERVER_REVISION: ${{ vars.HONUA_LOCAL_SERVER_REVISION || 'f897700159e2791c9468c6ca85bb4e2a3a8d8433' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -189,11 +179,10 @@ jobs:
 
       - name: Install packages
         run: |
-          python -m pip install --upgrade pip
-          pip install -e packages/honua-sdk
-          pip install -e packages/honua-admin
-          pip install -e packages/honua-gp
-          pip install pytest
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
+          pip install --no-deps --no-build-isolation -e packages/honua-sdk
+          pip install --no-deps --no-build-isolation -e packages/honua-admin
+          pip install --no-deps --no-build-isolation -e packages/honua-gp
 
       - name: Detect ephemeral honua-server target
         id: target
@@ -217,10 +206,11 @@ jobs:
 
       - name: Checkout Honua Server seed fixtures
         if: ${{ steps.target.outputs.local_stack == 'true' }}
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: honua-io/honua-server
           path: honua-server
+          ref: ${{ env.HONUA_LOCAL_SERVER_REVISION }}
 
       - name: Start seeded local Honua target
         if: ${{ steps.target.outputs.local_stack == 'true' }}
@@ -292,6 +282,8 @@ jobs:
                 - "5000:5000"
           YAML
           docker pull "${HONUA_LOCAL_SERVER_IMAGE}"
+          image_revision="$(docker image inspect "${HONUA_LOCAL_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+          test "${image_revision}" = "$(git -C "${server_root}" rev-parse HEAD)"
           docker build \
             -t client-compat-seed:latest \
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \

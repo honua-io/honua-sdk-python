@@ -1,0 +1,4 @@
+-r ci-geopandas.in
+mkdocs-material
+mkdocstrings[python]
+mike

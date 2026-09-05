@@ -9,3 +9,8 @@ httpx==0.28.1
 mypy==2.3.1
 protobuf==6.33.5
 pytest==9.0.3
+
+ruff
+pytest-cov
+pip-audit
+twine

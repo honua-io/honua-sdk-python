@@ -112,7 +112,7 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/${{ contains(matrix.extras, 'geopandas') && 'ci-geopandas.lock' || 'ci.lock' }}
           pip install --no-deps --no-build-isolation -e "packages/honua-sdk[${{ matrix.extras }}]"
           pip install --no-deps --no-build-isolation -e "packages/honua-admin"
 
@@ -208,7 +208,7 @@ jobs:
 
       - name: Install packages and pip-audit
         run: |
-          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci-geopandas.lock
           pip install --no-deps --no-build-isolation -e "packages/honua-sdk[grpc,geopandas]"
           pip install --no-deps --no-build-isolation -e "packages/honua-admin"
 
@@ -325,8 +325,7 @@ jobs:
 
       - name: Smoke-install built wheels in a fresh venv
         run: |
+          python -m pip download --require-hashes --only-binary=:all: -r .github/requirements/ci.lock -d wheelhouse
           python -m venv /tmp/wheel-smoke
-          /tmp/wheel-smoke/bin/pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
-          /tmp/wheel-smoke/bin/pip install --no-deps --no-build-isolation packages/honua-sdk/dist/honua_sdk-*.whl
-          /tmp/wheel-smoke/bin/pip install --no-deps --no-build-isolation packages/honua-admin/dist/honua_admin-*.whl
+          /tmp/wheel-smoke/bin/pip install --no-index --find-links wheelhouse packages/honua-sdk/dist/honua_sdk-*.whl packages/honua-admin/dist/honua_admin-*.whl
           /tmp/wheel-smoke/bin/python -c "import honua_sdk; import honua_admin; print('ok', honua_sdk.__version__, honua_admin.__version__)"

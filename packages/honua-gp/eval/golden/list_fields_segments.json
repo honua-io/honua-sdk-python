@@ -1,5 +1,46 @@
 {
   "audit_lines": 1,
   "expected_failure": false,
+  "response": {
+    "field_count": 15,
+    "field_names": [
+      "objectid",
+      "name",
+      "description",
+      "shape",
+      "status",
+      "count",
+      "ratio",
+      "active",
+      "created_at",
+      "event_date",
+      "event_time",
+      "uid",
+      "tags",
+      "numbers",
+      "eo:cloud_cover"
+    ],
+    "field_types": {
+      "active": "SmallInteger",
+      "count": "Integer",
+      "created_at": "Date",
+      "description": "String",
+      "eo:cloud_cover": "Double",
+      "event_date": "Date",
+      "event_time": "String",
+      "name": "String",
+      "numbers": "String",
+      "objectid": "OID",
+      "ratio": "Double",
+      "shape": "Geometry",
+      "status": "String",
+      "tags": "String",
+      "uid": "GUID"
+    },
+    "oid_field": null,
+    "shape_type": null,
+    "srid": null
+  },
+  "schema_version": 2,
   "stdout_contains": "list_fields_segments ok"
 }

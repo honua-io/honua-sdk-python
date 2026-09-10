@@ -9,6 +9,7 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
+from eval._emit import emit_response, schema_fingerprint
 from eval._stub import install_stub, stub_active
 
 import honua_gp as arcpy
@@ -25,4 +26,5 @@ arcpy.env.overwriteOutput = True
 
 fields = arcpy.management.ListFields("segments", wild_card="STAT*")
 names = [f.name for f in fields]
+emit_response("list_fields_segments_wildcard", schema_fingerprint(fields))
 print(f"list_fields_segments_wildcard ok count={len(fields)} fields={','.join(names)}")

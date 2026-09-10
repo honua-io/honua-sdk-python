@@ -431,6 +431,80 @@ def test_update_cursor_preserves_zero_valued_oid_for_updates_and_deletes() -> No
     _ = second  # silence unused-var warnings
 
 
+def test_search_cursor_reads_query_feature_properties() -> None:
+    """SearchCursor must read values from a real ``QueryFeature`` (``.properties``
+    / ``.id``), not just the eval stub's ``.attributes`` shape.
+
+    ``Source.iter_features`` against a live honua-server yields
+    ``honua_sdk.models.QueryFeature`` -- GeoJSON-shaped ``.properties`` plus a
+    protocol-neutral ``.id``, with no ``.attributes`` at all. Before the fix,
+    ``_values_for_row`` only recognized ``.attributes``, so every field
+    (including ``OID@``) silently came back ``None`` against a real server;
+    the eval stub's ``_StubFeature`` (which does have ``.attributes``) masked
+    this in stub-mode CI.
+    """
+
+    from honua_sdk import QueryFeature
+
+    class _QueryFeatureSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter([
+                QueryFeature(id=1, properties={"STATUS": "CLOSED", "name": "Side Rd"}),
+                QueryFeature(id=2, properties={"STATUS": "OPEN", "name": "Main St"}),
+            ])
+
+    class _QueryFeatureClient:
+        def source(self, descriptor: Any) -> Any:
+            return _QueryFeatureSource()
+
+    honua_gp.configure(client=_QueryFeatureClient())
+
+    with honua_gp.da.SearchCursor("roads", ["OID@", "STATUS", "name"]) as cursor:
+        rows = list(cursor)
+
+    assert rows == [(1, "CLOSED", "Side Rd"), (2, "OPEN", "Main St")]
+
+
+def test_update_cursor_extracts_oid_from_query_feature_id() -> None:
+    """UpdateCursor.updateRow/deleteRow must resolve the OID from ``QueryFeature.id``,
+    not just an ``OBJECTID``-keyed ``attributes`` mapping.
+
+    Before the fix, a real ``QueryFeature`` (no ``.attributes``, and whose
+    object-id field may not even be named ``OBJECTID`` server-side -- the
+    client-compat seed's is the lower-case ``objectid``) always resolved to
+    ``_extract_oid() is None``, so ``updateRow``/``deleteRow`` raised
+    ``HonuaGpConfigurationError`` for every real feature.
+    """
+
+    from honua_sdk import QueryFeature
+
+    edits: dict[str, Any] = {}
+
+    class _QueryFeatureSource:
+        def iter_features(self, **_: Any) -> Any:
+            return iter([QueryFeature(id=16, properties={"STATUS": "CLOSED"})])
+
+        def apply_edits(self, **kwargs: Any) -> Any:
+            edits.update(kwargs)
+            return {"ok": True}
+
+    class _QueryFeatureClient:
+        def source(self, descriptor: Any) -> Any:
+            return _QueryFeatureSource()
+
+    honua_gp.configure(client=_QueryFeatureClient())
+
+    with honua_gp.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+        row = next(cursor)
+        assert row[0] == 16
+        row[1] = "ARCHIVED"
+        cursor.updateRow(row)
+        cursor.deleteRow()
+
+    assert edits["updates"][0]["attributes"]["OBJECTID"] == 16
+    assert edits["deletes"] == [16]
+
+
 def test_cursor_open_failure_reports_real_error_kind(tmp_path) -> None:
     # Unconfigured session: _open() raises HonuaGpConfigurationError before
     # the caller's `with` block starts. The audit should record that real

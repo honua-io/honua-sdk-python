@@ -9,6 +9,7 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
+from eval._emit import apply_edits_fingerprint, emit_response
 from eval._stub import install_stub, stub_active
 
 import honua_gp as arcpy
@@ -27,4 +28,9 @@ with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["OPEN", "Main St"])
     cursor.insertRow(["OPEN", "Elm Ave"])
     cursor.insertRow(["CLOSED", "Side Rd"])
+    # Flush explicitly (rather than relying on the implicit __exit__ flush) so
+    # the applyEdits result is available here to fingerprint.
+    result = cursor.flush()
+
+emit_response("insert_cursor_append_rows", apply_edits_fingerprint(result))
 print("insert_cursor_append_rows ok")

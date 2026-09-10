@@ -62,6 +62,7 @@ from xml.etree import ElementTree as ET
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCRIPT_DIR = PACKAGE_ROOT / "eval" / "scripts"
 DEFAULT_GOLDEN_DIR = PACKAGE_ROOT / "eval" / "golden"
+DEFAULT_UNBLESSED_ALLOWLIST = PACKAGE_ROOT / "eval" / "UNBLESSED_ALLOWLIST.json"
 DEFAULT_PASS_RATE = 0.70
 
 
@@ -175,6 +176,29 @@ def _golden_is_expected_failure(script: Path, golden: dict[str, Any] | None) -> 
     if golden is not None and isinstance(golden.get("expected_failure"), bool):
         return golden["expected_failure"]
     return "expected_failure" in script.stem
+
+
+def load_unblessed_allowlist(path: Path) -> dict[str, str]:
+    """Load the {script_stem: reason} map of supported scripts with no capturable response oracle.
+
+    A live-mode supported script with no golden ``response`` block is either
+    a gap that has never been blessed (a regression risk -- see issue #202)
+    or a script whose operation genuinely has no server round trip to
+    fingerprint (e.g. ``MakeTableView``, a session-local alias registration).
+    Only the second case belongs here, with the reason documented; anything
+    else must fail so a newly-added supported script cannot silently regrow
+    the unblessed set.
+    """
+
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): str(v) for k, v in data.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +337,7 @@ def _grade(
     request_actual: list[dict[str, Any]],
     response_actual: dict[str, Any] | None,
     live_mode: bool,
+    unblessed_allowlist: dict[str, str] | None = None,
 ) -> tuple[str, bool, str | None, dict[str, str]]:
     """Grade one script across plumbing + request + response layers."""
 
@@ -391,8 +416,26 @@ def _grade(
         else:
             checks["response"] = "pass"
     elif live_mode and golden is not None and not expected_failure:
-        # Live run, supported script, but no response oracle recorded yet.
-        checks["response"] = "unblessed"
+        # Live run, supported script, but no response oracle recorded. Pass
+        # ONLY when the script is explicitly documented as non-capturable in
+        # the unblessed allow-list (see UNBLESSED_ALLOWLIST.json) -- otherwise
+        # this is exactly the silent-pass gap issue #202 closed: a new
+        # supported script (or a regression that dropped an oracle) must fail
+        # loudly, not disappear into an "unblessed" pass.
+        allowlist = unblessed_allowlist or {}
+        if script.stem in allowlist:
+            checks["response"] = "unblessed(allowed)"
+        else:
+            checks["response"] = "fail"
+            return (
+                "fail",
+                False,
+                f"supported script {script.stem!r} has no response oracle and is not in "
+                "eval/UNBLESSED_ALLOWLIST.json -- bless it "
+                "(HONUA_GP_EVAL_USE_STUB=0 ... run_eval.py --update-golden) or document why it "
+                "has no capturable response in the allow-list",
+                checks,
+            )
 
     return "pass", False, None, checks
 
@@ -431,9 +474,11 @@ def run(
     timeout: float,
     pass_threshold: float,
     update_golden: bool = False,
+    unblessed_allowlist_path: Path = DEFAULT_UNBLESSED_ALLOWLIST,
 ) -> EvalSummary:
     scripts = sorted(p for p in script_dir.glob("*.py") if not p.name.startswith("_"))
     live_mode = live_values_available()
+    unblessed_allowlist = load_unblessed_allowlist(unblessed_allowlist_path)
     summary = EvalSummary(total=len(scripts), pass_threshold=pass_threshold, live_mode=live_mode)
     result_root = Path(tempfile.mkdtemp(prefix="honua-gp-eval-results-"))
     for script in scripts:
@@ -487,6 +532,7 @@ def run(
             request_actual=request_actual,
             response_actual=response_actual,
             live_mode=live_mode,
+            unblessed_allowlist=unblessed_allowlist,
         )
         result = ScriptResult(
             name=script.name,
@@ -587,6 +633,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--scripts", type=Path, default=DEFAULT_SCRIPT_DIR, help="Directory of eval scripts.")
     parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN_DIR, help="Directory of golden reference values.")
     parser.add_argument(
+        "--unblessed-allowlist",
+        type=Path,
+        default=DEFAULT_UNBLESSED_ALLOWLIST,
+        help=(
+            "JSON {script_stem: reason} map of supported scripts documented as having no "
+            "capturable live response oracle. A live-mode supported script with no response "
+            "oracle and no allow-list entry fails the run (see issue #202)."
+        ),
+    )
+    parser.add_argument(
         "--audit-root",
         type=Path,
         default=PACKAGE_ROOT / "eval" / ".audit",
@@ -645,6 +701,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         timeout=args.timeout,
         pass_threshold=args.pass_threshold,
         update_golden=args.update_golden,
+        unblessed_allowlist_path=args.unblessed_allowlist,
     )
     write_json(summary, args.output_json)
     write_junit(summary, args.output_junit)

@@ -1,0 +1,3 @@
+{
+  "make_table_view": "management.MakeTableView (and MakeFeatureLayer) resolve to honua_gp.management._make_layer_handler, which only registers a client-side LayerAlias in the session -- it makes no honua-server HTTP round trip. There is no server response for the harness to fingerprint; the request/plumbing layers (already graded) are this script's full coverage. See issue #202 and docs/golden-eval.md."
+}

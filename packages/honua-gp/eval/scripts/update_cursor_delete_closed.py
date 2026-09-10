@@ -9,6 +9,7 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
+from eval._emit import apply_edits_fingerprint, emit_response
 from eval._stub import install_stub, stub_active
 
 import honua_gp as arcpy
@@ -27,4 +28,12 @@ with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
     for row in cursor:
         if row[1] == "CLOSED":
             cursor.deleteRow()
+    # Flush explicitly (rather than relying on the implicit __exit__ flush) so
+    # the applyEdits result is available here to fingerprint. update_cursor_
+    # close_status runs alphabetically first and archives every CLOSED row on
+    # the same seeded layer, so this deterministically finds zero rows to
+    # delete -- that is itself the stable oracle, not an absent one.
+    result = cursor.flush()
+
+emit_response("update_cursor_delete_closed", apply_edits_fingerprint(result))
 print("update_cursor_delete_closed ok")

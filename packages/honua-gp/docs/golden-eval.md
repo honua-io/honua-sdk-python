@@ -85,6 +85,28 @@ Request fingerprints are written in any mode; response fingerprints only in
 live mode (the stub's canned `href` carries no real values and must never be
 frozen as an oracle).
 
+## Unblessed supported scripts must be explicit (`UNBLESSED_ALLOWLIST.json`)
+
+A live-mode run grades every non-`expected_failure` script's response layer
+against its golden `response` block. If a supported script has no `response`
+block at all, the harness does **not** silently pass it: it fails unless the
+script's stem is listed in `eval/UNBLESSED_ALLOWLIST.json` with a documented
+reason. This closes the gap issue #202 found -- an un-oracled supported
+script used to grade as an "unblessed" pass, so a response-parsing regression
+in an unblessed script's operation could sail through the live smoke lane
+silently.
+
+Two ways a supported script ends up here:
+
+* **Not yet blessed** -- bless it (see above) and commit the oracle. This is
+  the expected outcome for almost every case; a newly-added supported script
+  must be blessed before merge, or the live smoke lane fails on it.
+* **Genuinely not capturable** -- the operation makes no honua-server HTTP
+  round trip to fingerprint (e.g. `MakeTableView`/`MakeFeatureLayer`, which
+  only register a client-side session alias). Add an entry to
+  `UNBLESSED_ALLOWLIST.json` explaining why, instead of leaving the gap
+  implicit.
+
 ## Determinism note (live mode)
 
 The response oracles for count/row scripts record exact values pinned to the

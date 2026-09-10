@@ -1,5 +1,28 @@
 {
   "audit_lines": 1,
   "expected_failure": false,
+  "response": {
+    "field_count": 6,
+    "field_names": [
+      "name",
+      "description",
+      "status",
+      "event_time",
+      "tags",
+      "numbers"
+    ],
+    "field_types": {
+      "description": "String",
+      "event_time": "String",
+      "name": "String",
+      "numbers": "String",
+      "status": "String",
+      "tags": "String"
+    },
+    "oid_field": null,
+    "shape_type": null,
+    "srid": null
+  },
+  "schema_version": 2,
   "stdout_contains": "list_fields_segments_filtered ok"
 }

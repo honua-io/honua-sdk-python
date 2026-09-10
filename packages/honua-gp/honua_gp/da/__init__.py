@@ -102,13 +102,45 @@ def _oid_from_attrs(attrs: Mapping[str, Any]) -> Any:
     return None
 
 
-def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
+def _attrs_for_feature(feature: Any) -> dict[str, Any]:
+    """Extract the attribute/property mapping from any feature shape a Source yields.
+
+    The eval stub's ``_StubFeature`` exposes ``.attributes``; the real
+    ``honua_sdk.models.QueryFeature`` (what ``Source.iter_features`` actually
+    yields against a live server) exposes GeoJSON-shaped ``.properties``
+    instead -- there is no ``.attributes``. Without the ``.properties``
+    fallback every live cursor read silently degraded to an empty mapping
+    (every field value ``None``), which stub-mode CI could never catch since
+    the stub always has ``.attributes``.
+    """
+
     if hasattr(feature, "attributes"):
-        attrs = dict(feature.attributes or {})
-    elif isinstance(feature, dict):
-        attrs = dict(feature.get("attributes") or feature.get("properties") or {})
-    else:
-        attrs = {}
+        return dict(feature.attributes or {})
+    if hasattr(feature, "properties"):
+        return dict(feature.properties or {})
+    if isinstance(feature, dict):
+        return dict(feature.get("attributes") or feature.get("properties") or {})
+    return {}
+
+
+def _oid_from_feature(feature: Any, attrs: Mapping[str, Any]) -> Any:
+    """Resolve a feature's OID, preferring the SDK's protocol-neutral ``.id``.
+
+    ``QueryFeature.id`` is the SDK's already-resolved stable identifier --
+    it does not depend on the server's object-id field name matching one of
+    ``_OID_KEYS`` (the client-compat seed's object-id field is the lower-case
+    ``objectid``, which ``_OID_KEYS`` never matched). Fall back to scanning
+    ``attrs`` for the stub's legacy shape, which has no ``.id``.
+    """
+
+    feature_id = getattr(feature, "id", None)
+    if feature_id is not None:
+        return feature_id
+    return _oid_from_attrs(attrs)
+
+
+def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
+    attrs = _attrs_for_feature(feature)
 
     geometry = getattr(feature, "geometry", None)
     if geometry is None and isinstance(feature, dict):
@@ -119,7 +151,7 @@ def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
         if field.upper() in {"SHAPE@", "SHAPE@JSON"}:
             out.append(_shape_value(geometry, field.upper()))
         elif field.upper() == "OID@":
-            out.append(_oid_from_attrs(attrs))
+            out.append(_oid_from_feature(feature, attrs))
         else:
             out.append(attrs.get(field))
     return tuple(out)
@@ -554,8 +586,7 @@ class UpdateCursor(_BaseCursor):
             })
 
     def _extract_oid(self, feature: Any) -> Any:
-        attrs = getattr(feature, "attributes", None) or (feature.get("attributes") if isinstance(feature, dict) else None) or {}
-        return _oid_from_attrs(attrs)
+        return _oid_from_feature(feature, _attrs_for_feature(feature))
 
 
 class InsertCursor(_BaseCursor):

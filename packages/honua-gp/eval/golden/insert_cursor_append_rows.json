@@ -4,5 +4,11 @@
     "audit_lines": 1,
     "stdout_contains": "insert_cursor_append_rows ok"
   },
+  "response": {
+    "add_count": 3,
+    "all_succeeded": true,
+    "delete_count": 0,
+    "update_count": 0
+  },
   "schema_version": 2
 }

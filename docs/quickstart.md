@@ -22,7 +22,26 @@ and the notebook companion imports that same shared workflow module.
 ## Prerequisites
 
 - Python 3.11+
-- A running Honua server (or use the demo endpoint)
+- A Honua server to talk to. You do not need to stand one up to finish this page
+  — the sections below run against the public read-only demo.
+
+### The public demo server
+
+`https://demo.honua.io` serves real data anonymously, with no account, key, or
+local install. Every read-only example on this page runs against it as written.
+
+| | |
+|---|---|
+| Base URL | `https://demo.honua.io` |
+| FeatureServer service | `maui-buildings` |
+| Layer id | `13` (polygon; `id`, `height`, `class`, `name`) |
+| OGC API Features | `https://demo.honua.io/ogc/features/collections` |
+
+It is read-only: `/api/v1/admin/*` returns `401`. The **admin** and **gRPC**
+sections below therefore keep a `your-honua-server.com` placeholder and need a
+server of your own — see the
+[Honua Server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md),
+whose gRPC listener is h2c on port **8081**.
 
 ## Step 1: Install (takes a minute or two on first install)
 
@@ -37,19 +56,19 @@ The `geopandas` extra installs the GeoPandas and Shapely stack used later in thi
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
-with HonuaClient("https://your-honua-server.com") as client:
+with HonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="test_service",
+            id="maui-buildings",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="test_service", layer_id=0),
+            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
         )
     )
-    result = source.query(Query(where="1=1", out_fields=["*"]))
+    result = source.query(Query(where="height > 10", out_fields=["id", "height"]))
 
 print(f"Found {len(result.features)} features")
 for feature in result.features[:3]:
-    print(feature.id, feature.properties)
+    print(feature.properties)
 ```
 
 `client.source(...)` returns a source-bound facade; `source.query(...)`
@@ -60,8 +79,8 @@ feature's underlying protocol payload (for FeatureServer that is the
 GeoServices JSON shape with `"attributes"` and `"geometry"` sub-keys), and
 `result.raw_legacy` holds the underlying query envelope, when you need it.
 
-> **Legacy / compact form.** `client.query_features("test_service",
-> layer_id=0, where="1=1", return_geometry=True, out_fields=["*"])`
+> **Legacy / compact form.** `client.query_features("maui-buildings",
+> layer_id=13, where="1=1", return_geometry=True, out_fields=["*"])`
 > still works and returns the raw GeoServices dict; prefer it only for
 > one-liners. The `Source` API above is the recommended idiom and
 > returns typed `Result`/`QueryFeature` objects.
@@ -88,7 +107,7 @@ Esri JSON geometries and the layer's `spatialReference`:
 ```python
 from honua_sdk.geopandas import features_to_geodataframe
 
-raw = client.query_features("test_service", layer_id=0, where="1=1")
+raw = client.query_features("maui-buildings", layer_id=13, where="height > 10")
 gdf = features_to_geodataframe(raw)
 ```
 
@@ -127,7 +146,7 @@ from shapely.geometry import Point
 
 from honua_sdk import HonuaGeocodingClient
 
-with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
+with HonuaGeocodingClient("https://demo.honua.io") as geocoder:
     results = geocoder.forward_geocode("1600 Pennsylvania Ave NW, Washington, DC")
 
 if results:
@@ -165,7 +184,7 @@ pip install honua-sdk[grpc]
 ```python
 from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
 
-with HonuaGrpcClient("your-honua-server.com:50051", insecure=True) as grpc_client:
+with HonuaGrpcClient("your-honua-server.com:8081", insecure=True) as grpc_client:
     # Unary query
     request = QueryFeaturesRequest(
         service_id="test_service",
@@ -187,7 +206,7 @@ For async usage, swap in `HonuaGrpcAsyncClient`:
 ```python
 from honua_sdk.grpc import HonuaGrpcAsyncClient, QueryFeaturesRequest
 
-async with HonuaGrpcAsyncClient("your-honua-server.com:50051", insecure=True) as grpc_client:
+async with HonuaGrpcAsyncClient("your-honua-server.com:8081", insecure=True) as grpc_client:
     request = QueryFeaturesRequest(service_id="test_service", layer_id=0)
     response = await grpc_client.query_features(request)
 
@@ -214,15 +233,15 @@ from honua_sdk import (
     SourceLocator,
 )
 
-SERVER = "https://your-honua-server.com"
+SERVER = "https://demo.honua.io"
 
 # --- Query features --------------------------------------------------------
 with HonuaClient(SERVER) as client:
     source = client.source(
         SourceDescriptor(
-            id="test_service",
+            id="maui-buildings",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="test_service", layer_id=0),
+            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
         )
     )
     result = source.query(Query(where="1=1", out_fields=["*"]))
@@ -273,7 +292,7 @@ response yourself, the JSON shape is straightforward. Each feature has
 import geopandas as gpd
 from shapely.geometry import shape
 
-raw = client.query_features("test_service", layer_id=0, where="1=1")
+raw = client.query_features("maui-buildings", layer_id=13, where="height > 10")
 features = raw.get("features", [])
 
 rows = []

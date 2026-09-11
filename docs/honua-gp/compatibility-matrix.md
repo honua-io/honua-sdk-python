@@ -1,3 +1,9 @@
+---
+type: reference
+title: "honua-gp compatibility matrix"
+description: "Generated from the in-code COMPAT manifest: which ArcPy surfaces the shim implements, which it stubs, and which it refuses."
+tags: [honua-gp, compatibility, generated]
+---
 # honua-gp compatibility matrix
 
 Generated from the in-code ``COMPAT`` manifest by ``scripts/render_compat_matrix.py`` (re-run after manifest edits).

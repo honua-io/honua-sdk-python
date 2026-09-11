@@ -1,3 +1,9 @@
+---
+type: index
+title: "What this repository owns"
+description: "The split between the Python data-plane package and the admin control-plane package, and the surfaces each one covers."
+tags: [sdk, python, surfaces]
+---
 # Honua Python SDK Feature Map
 
 This repository owns the Python data-plane package and admin/control-plane package.

@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Retry and timeout behaviour"
+description: "What the retry transport retries, what it refuses to retry, how backoff is calculated, and which timeouts apply where."
+tags: [retries, timeouts, transport]
+---
 # Retries and Timeouts
 
 This deep-dive explains how the Honua SDK's retry transport behaves, what

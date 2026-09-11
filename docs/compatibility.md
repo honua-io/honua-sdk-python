@@ -1,3 +1,9 @@
+---
+type: reference
+title: "SDK compatibility policy"
+description: "The two contracts the compatibility gate protects, and what counts as a breaking change to either."
+tags: [compatibility, versioning, policy]
+---
 # SDK Compatibility Policy
 
 The Python SDK compatibility gate protects two contracts:

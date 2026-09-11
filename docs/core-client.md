@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Protocol-native client methods"
+description: "The original per-protocol methods kept for callers that need exact control over the request, alongside the higher-level Source facade."
+tags: [client, api, protocols]
+---
 # Core Client
 
 The SDK keeps the original protocol-native methods for callers that need exact

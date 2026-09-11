@@ -1,3 +1,9 @@
+---
+type: reference
+title: "honua-sdk source facade"
+description: "Generated API reference for the Source abstraction that normalises querying across protocols."
+tags: [api-reference, source-facade]
+---
 # honua-sdk › Source facade
 
 The canonical entry point for portable code is the ``Source`` facade —

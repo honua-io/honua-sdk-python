@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Codemod translation coverage"
+description: "What the offline codemod in honua_sdk.migration translates today, distinct from the runtime honua-gp shim, so a migration can be scoped before it starts."
+tags: [migration, codemod, coverage]
+---
 # ArcPy migration codemod: translation coverage
 
 This documents the **offline codemod** in `honua_sdk.migration` (the

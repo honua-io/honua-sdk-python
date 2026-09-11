@@ -4,9 +4,9 @@
 
 * [Honua Python SDK](index.md)
 * [Long-form documentation map](README.md)
+* [What this repository owns](features/README.md)
 * [Analyst demo suite](demo-suite.md)
 * [Runnable examples](examples.md)
-* [What this repository owns](features/README.md)
 * [honua-gp compatibility shim](honua-gp/README.md)
 
 ## Quickstart

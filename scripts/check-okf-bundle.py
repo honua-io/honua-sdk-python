@@ -46,7 +46,7 @@ SCALAR_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 
 
 def load_manifest() -> dict:
-    with open(MANIFEST_PATH, "r", encoding="utf-8") as fh:
+    with open(MANIFEST_PATH, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -109,8 +109,8 @@ MERMAID_ARROW_RE = re.compile(r"<-->|<--|-\.->|-\.-|==>|===|-->|---|--x|--o|--")
 
 
 def mermaid_diagram_kind(block: str) -> str:
-    for line in block.splitlines():
-        line = line.strip()
+    for raw in block.splitlines():
+        line = raw.strip()
         if line and not line.startswith("%%"):
             return line.split()[0].lower()
     return ""
@@ -241,7 +241,7 @@ def check_runbook_typing(root: pathlib.Path, excluded) -> list[str]:
     registry_path = REPO_ROOT / "scripts" / "ci" / "code-referenced-anchors.v1.json"
     if not registry_path.is_file():
         return []
-    with open(registry_path, "r", encoding="utf-8") as fh:
+    with open(registry_path, encoding="utf-8") as fh:
         registry = json.load(fh)
     base = registry.get("docsBaseUrl", "").rstrip("/")
 

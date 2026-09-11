@@ -101,12 +101,12 @@ convert to a GeoDataFrame in one call:
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
-with HonuaClient("https://your-honua-server.com") as client:
+with HonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="parcels",
+            id="maui-buildings",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="parcels", layer_id=0),
+            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
         )
     )
     result = source.query(Query(where="status = 'active'", out_fields=["*"]))
@@ -133,7 +133,7 @@ an edited GeoDataFrame back into `apply_edits` payloads.
 ```python
 from honua_sdk import HonuaClient
 
-with HonuaClient("https://your-honua-server.com") as client:
+with HonuaClient("https://demo.honua.io") as client:
     ogc = client.ogc_features()
     collections = ogc.collections()
 
@@ -147,7 +147,7 @@ with HonuaClient("https://your-honua-server.com") as client:
 ```python
 from honua_sdk import HonuaGeocodingClient
 
-with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
+with HonuaGeocodingClient("https://demo.honua.io") as geocoder:
     results = geocoder.forward_geocode("1600 Pennsylvania Ave NW, Washington, DC")
     for r in results:
         print(f"{r.address}  ({r.latitude}, {r.longitude})  score={r.score}")
@@ -161,12 +161,12 @@ names — works with FastAPI, asyncio pipelines, and Jupyter:
 ```python
 from honua_sdk import AsyncHonuaClient, Query, SourceDescriptor, SourceLocator
 
-async with AsyncHonuaClient("https://your-honua-server.com") as client:
+async with AsyncHonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="parcels",
+            id="maui-buildings",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="parcels", layer_id=0),
+            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
         )
     )
     result = await source.query(Query(where="1=1"))
@@ -177,7 +177,9 @@ async with AsyncHonuaClient("https://your-honua-server.com") as client:
 ```python
 from honua_admin import HonuaAdminClient
 
-with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
+# Admin needs a server of your own: the public demo returns 401 for /api/v1/admin/*.
+# Mint a key with HONUA_ADMIN_PASSWORD on your server - see the honua-server quickstart.
+with HonuaAdminClient("https://your-honua-server.com", api_key=os.environ["HONUA_API_KEY"]) as admin:
     compatibility = admin.check_compatibility()
     if not compatibility.supported:
         raise RuntimeError("; ".join(compatibility.reasons))

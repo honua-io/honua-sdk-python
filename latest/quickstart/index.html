@@ -514,6 +514,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-public-demo-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The public demo server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1623,6 +1640,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-public-demo-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The public demo server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1795,8 +1829,43 @@ and the notebook companion imports that same shared workflow module.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Python 3.11+</li>
-<li>A running Honua server (or use the demo endpoint)</li>
+<li>A Honua server to talk to. You do not need to stand one up to finish this page
+  — the sections below run against the public read-only demo.</li>
 </ul>
+<h3 id="the-public-demo-server">The public demo server<a class="headerlink" href="#the-public-demo-server" title="Permanent link">&para;</a></h3>
+<p><code>https://demo.honua.io</code> serves real data anonymously, with no account, key, or
+local install. Every read-only example on this page runs against it as written.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Base URL</td>
+<td><code>https://demo.honua.io</code></td>
+</tr>
+<tr>
+<td>FeatureServer service</td>
+<td><code>maui-buildings</code></td>
+</tr>
+<tr>
+<td>Layer id</td>
+<td><code>13</code> (polygon; <code>id</code>, <code>height</code>, <code>class</code>, <code>name</code>)</td>
+</tr>
+<tr>
+<td>OGC API Features</td>
+<td><code>https://demo.honua.io/ogc/features/collections</code></td>
+</tr>
+</tbody>
+</table>
+<p>It is read-only: <code>/api/v1/admin/*</code> returns <code>401</code>. The <strong>admin</strong> and <strong>gRPC</strong>
+sections below therefore keep a <code>your-honua-server.com</code> placeholder and need a
+server of your own — see the
+<a href="https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md">Honua Server quickstart</a>,
+whose gRPC listener is h2c on port <strong>8081</strong>.</p>
 <h2 id="step-1-install-takes-a-minute-or-two-on-first-install">Step 1: Install (takes a minute or two on first install)<a class="headerlink" href="#step-1-install-takes-a-minute-or-two-on-first-install" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"honua-sdk[geopandas]"</span><span class="w"> </span>matplotlib
 </code></pre></div>
@@ -1804,19 +1873,19 @@ and the notebook companion imports that same shared workflow module.</p>
 <h2 id="step-2-query-features-60-seconds">Step 2: Query features (60 seconds)<a class="headerlink" href="#step-2-query-features-60-seconds" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://your-honua-server.com"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
         <span class="n">SourceDescriptor</span><span class="p">(</span>
-            <span class="nb">id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-buildings"</span><span class="p">,</span>
             <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
-            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-buildings"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">13</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">]))</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"height &gt; 10"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"height"</span><span class="p">]))</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">features</span><span class="p">[:</span><span class="mi">3</span><span class="p">]:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="p">)</span>
 </code></pre></div>
 <p><code>client.source(...)</code> returns a source-bound facade; <code>source.query(...)</code>
 returns a canonical <code>Result</code> whose <code>features</code> are normalized
@@ -1826,8 +1895,8 @@ feature's underlying protocol payload (for FeatureServer that is the
 GeoServices JSON shape with <code>"attributes"</code> and <code>"geometry"</code> sub-keys), and
 <code>result.raw_legacy</code> holds the underlying query envelope, when you need it.</p>
 <blockquote>
-<p><strong>Legacy / compact form.</strong> <code>client.query_features("test_service",
-layer_id=0, where="1=1", return_geometry=True, out_fields=["*"])</code>
+<p><strong>Legacy / compact form.</strong> <code>client.query_features("maui-buildings",
+layer_id=13, where="1=1", return_geometry=True, out_fields=["*"])</code>
 still works and returns the raw GeoServices dict; prefer it only for
 one-liners. The <code>Source</code> API above is the recommended idiom and
 returns typed <code>Result</code>/<code>QueryFeature</code> objects.</p>
@@ -1847,7 +1916,7 @@ a list of feature dicts, use <code>features_to_geodataframe</code>, which also a
 Esri JSON geometries and the layer's <code>spatialReference</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geopandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">features_to_geodataframe</span>
 
-<span class="n">raw</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="s2">"test_service"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">)</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="s2">"maui-buildings"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">13</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">"height &gt; 10"</span><span class="p">)</span>
 <span class="n">gdf</span> <span class="o">=</span> <span class="n">features_to_geodataframe</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 </code></pre></div>
 <p>The reverse helper, <code>geodataframe_to_features</code>, turns an edited GeoDataFrame
@@ -1874,7 +1943,7 @@ top of the feature map.</p>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGeocodingClient</span>
 
-<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="s2">"https://your-honua-server.com"</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
     <span class="n">results</span> <span class="o">=</span> <span class="n">geocoder</span><span class="o">.</span><span class="n">forward_geocode</span><span class="p">(</span><span class="s2">"1600 Pennsylvania Ave NW, Washington, DC"</span><span class="p">)</span>
 
 <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
@@ -1906,7 +1975,7 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
 </blockquote>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGrpcClient</span><span class="p">,</span> <span class="n">QueryFeaturesRequest</span>
 
-<span class="k">with</span> <span class="n">HonuaGrpcClient</span><span class="p">(</span><span class="s2">"your-honua-server.com:50051"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaGrpcClient</span><span class="p">(</span><span class="s2">"your-honua-server.com:8081"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
     <span class="c1"># Unary query</span>
     <span class="n">request</span> <span class="o">=</span> <span class="n">QueryFeaturesRequest</span><span class="p">(</span>
         <span class="n">service_id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span>
@@ -1926,7 +1995,7 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
 </blockquote>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">,</span> <span class="n">QueryFeaturesRequest</span>
 
-<span class="k">async</span> <span class="k">with</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">(</span><span class="s2">"your-honua-server.com:50051"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
+<span class="k">async</span> <span class="k">with</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">(</span><span class="s2">"your-honua-server.com:8081"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
     <span class="n">request</span> <span class="o">=</span> <span class="n">QueryFeaturesRequest</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
 
@@ -1949,15 +2018,15 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
     <span class="n">SourceLocator</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">SERVER</span> <span class="o">=</span> <span class="s2">"https://your-honua-server.com"</span>
+<span class="n">SERVER</span> <span class="o">=</span> <span class="s2">"https://demo.honua.io"</span>
 
 <span class="c1"># --- Query features --------------------------------------------------------</span>
 <span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
         <span class="n">SourceDescriptor</span><span class="p">(</span>
-            <span class="nb">id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-buildings"</span><span class="p">,</span>
             <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
-            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"test_service"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-buildings"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">13</span><span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">]))</span>
@@ -2004,7 +2073,7 @@ response yourself, the JSON shape is straightforward. Each feature has
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">shape</span>
 
-<span class="n">raw</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="s2">"test_service"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">)</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="s2">"maui-buildings"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">13</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">"height &gt; 10"</span><span class="p">)</span>
 <span class="n">features</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"features"</span><span class="p">,</span> <span class="p">[])</span>
 
 <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>

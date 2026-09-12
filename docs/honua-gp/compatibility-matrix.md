@@ -2,6 +2,7 @@
 type: reference
 title: "honua-gp compatibility matrix"
 description: "Which arcpy surfaces the shim supports, which run with documented deviations, and which raise rather than fail silently. Check this before committing to a migration."
+resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"
 tags: [honua-gp, arcpy, compatibility, generated]
 ---
 # honua-gp compatibility matrix

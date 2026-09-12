@@ -2,6 +2,7 @@
 type: index
 title: "honua-gp compatibility shim"
 description: "A proprietary drop-in shim that lets existing ArcPy-shaped code call Honua. What it covers, what it does not, and how it differs from the offline codemod."
+resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"
 tags: [honua-gp, arcpy, compatibility]
 ---
 # honua-gp docs

@@ -2,6 +2,7 @@
 type: reference
 title: "SDK compatibility policy"
 description: "The two contracts the compatibility gate protects, and what counts as a breaking change to either."
+resource: "https://github.com/honua-io/honua-sdk-python/blob/trunk/compatibility/sdk-coverage.v1.json"
 tags: [compatibility, versioning, policy]
 ---
 # SDK Compatibility Policy

@@ -2,6 +2,7 @@
 type: reference
 title: "honua-sdk errors"
 description: "Generated API reference for the exception hierarchy the data-plane client raises."
+resource: "https://pypi.org/project/honua-sdk/"
 tags: [api-reference, errors]
 ---
 # honua-sdk › Errors

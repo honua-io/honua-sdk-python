@@ -2,6 +2,7 @@
 type: index
 title: "Long-form documentation map"
 description: "What lives in this docs directory and in what order to read it, from the quickstart through the deep-dives to the generated API reference."
+resource: "https://pypi.org/project/honua-sdk/"
 tags: [sdk, python, navigation]
 ---
 # Honua SDK Documentation

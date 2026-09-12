@@ -2,6 +2,7 @@
 type: guide
 title: "Collect a support bundle"
 description: "honua doctor builds a bounded, sanitized artifact locally and uploads nothing. What it collects, what it redacts, and what to do with it."
+resource: "honua://capability/ops.observability"
 tags: [support, diagnostics, doctor]
 ---
 # Sanitized diagnostic bundles

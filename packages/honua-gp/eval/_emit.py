@@ -96,12 +96,19 @@ def feature_layer_fingerprint(result: Any) -> dict[str, Any]:
     }
 
     # The layer-aware analysis/management processes return a single
-    # ``outputFeatureLayer`` (or similarly named) FeatureLayer artifact.
+    # ``outputFeatureLayer`` (or similarly named) FeatureLayer artifact, either
+    # as a ``href`` data URI (by-reference transmission) or an inline ``value``
+    # GeoJSON document (OGC API Processes "value" transmission mode -- what
+    # honua-server's layer-aware executors actually return).
     for value in outputs.values():
         if not isinstance(value, Mapping):
             continue
         href = value.get("href")
         geojson = _decode_feature_layer_href(href) if isinstance(href, str) else None
+        if geojson is None:
+            inline = value.get("value")
+            if isinstance(inline, Mapping):
+                geojson = inline
         if geojson is None:
             continue
         features = geojson.get("features")

@@ -17,7 +17,7 @@
   ],
   "response": {
     "feature_count": 1,
-    "geometry_type": "Polygon",
+    "geometry_type": "MultiPolygon",
     "output_keys": [
       "outputFeatureLayer"
     ]

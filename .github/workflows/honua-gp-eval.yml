@@ -239,9 +239,19 @@ jobs:
           services:
             seed:
               image: client-compat-seed:latest
-              # The in-repo SpatialJoin join-layer fixture has to be applied by
-              # this one-shot seed job, BEFORE honua starts -- see the entrypoint
-              # comment below. Compose merges this list with the base file's
+              # honua-server#4185/#3899 hardened PostgresCoreSchemaGuard to fail
+              # startup migrations when a migration-owned table exists without a
+              # matching journal row ("SchemaExistsWithoutJournal") -- exactly
+              # what happens if this one-shot seed job (which mirrors several
+              # core migrations' DDL directly, bypassing DbUp) runs BEFORE honua
+              # ever migrates the database. So this job depends only on postgres,
+              # not on honua: the "Start Honua Server" step below starts honua
+              # FIRST against a genuinely empty database (a real, journaled
+              # migration run), and only runs this seed job afterward, against
+              # the now-migrated schema -- where its ``CREATE TABLE IF NOT
+              # EXISTS`` statements are no-ops and only the INSERT/UPDATE data
+              # loading actually applies (see the seed file's own header
+              # comment). Compose merges this list with the base file's
               # ../../tests mount.
               volumes:
                 - ${GITHUB_WORKSPACE}/packages/honua-gp/eval/seed:/workspace/gp-seed:ro
@@ -263,15 +273,6 @@ jobs:
                   # (layer 0) and honua-server's analytics.spatial-join rejects a
                   # self-join, so the SpatialJoin eval scripts need a second,
                   # distinct join layer.
-                  #
-                  # This MUST run here, in the seed job, and not after the server
-                  # is up: honua-server compiles and activates a metadata-v2
-                  # snapshot from the v1 tables at startup and then serves from
-                  # that snapshot. A layer inserted into honua.layers after the
-                  # server has started is absent from the activated snapshot, so
-                  # the GPServer submit path cannot resolve it and rejects the
-                  # job with HTTP 403 "layer read authorization" -- which is
-                  # exactly how the two SpatialJoin eval scripts used to fail.
                   echo "Applying honua-gp SpatialJoin join-layer fixture: gp-seed/spatial-join-second-layer.sql"
                   psql -v ON_ERROR_STOP=1 -f /workspace/gp-seed/spatial-join-second-layer.sql
                   echo "honua-gp smoke seed complete."
@@ -297,7 +298,14 @@ jobs:
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \
             "${server_root}"
 
-          docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua
+          # Bring up postgres/redis first and wait for both healthchecks so the
+          # subsequent --no-deps honua start does not race an unready dependency.
+          docker compose -f "${compose_file}" -f "${override_file}" up -d --wait postgres redis
+
+          # Start honua directly (--no-deps), bypassing its "seed" dependency, so
+          # it migrates a genuinely empty database on this first boot -- see the
+          # seed service's comment above for why the order matters.
+          docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build --no-deps honua
           echo "HONUA_BASE_URL=http://localhost:5000" >> "${GITHUB_ENV}"
           echo "HONUA_API_KEY=ClientCompatAdmin123!" >> "${GITHUB_ENV}"
           # Poll the same readiness endpoint the compose healthcheck uses
@@ -318,16 +326,34 @@ jobs:
             docker compose -f "${compose_file}" -f "${override_file}" logs honua | tail -100 || true
             exit 1
           fi
-          # Assert the SpatialJoin join layer made it into the activated
-          # metadata-v2 snapshot the server is serving from. The fixture is
-          # applied by the seed job (see the override above); if that ordering
-          # ever regresses, the SpatialJoin eval scripts fail with an opaque
-          # HTTP 403 instead of a diagnosable seed error, so check it here.
-          if ! curl -fsS -H "X-API-Key: ClientCompatAdmin123!" \
-            "http://localhost:5000/rest/services/test_service/FeatureServer/1?f=json" \
-            | grep -q '"id"'; then
-            echo "::error::The SpatialJoin join layer (test_service layer 1) is not served by honua-server. The seed job must apply packages/honua-gp/eval/seed/spatial-join-second-layer.sql BEFORE the server starts, or the server's activated metadata-v2 snapshot will not contain it."
+
+          # Now that honua has migrated a fresh database and journaled every
+          # applied script, layer the client-compat data on top of that already-
+          # migrated schema.
+          docker compose -f "${compose_file}" -f "${override_file}" run --rm seed
+
+          # honua's Metadata v2 graph snapshot is served through a process-wide
+          # cache with a short TTL (``CacheOptions.MetadataGraphTtlSeconds``,
+          # default 10s) -- see src/Honua.Core/Features/Caching/CacheOptions.cs
+          # in honua-server. Poll for the SpatialJoin join layer to surface
+          # through that cache instead of assuming a fixed sleep, and assert it
+          # made it into the served snapshot: if that ordering or the cache
+          # contract ever regresses, the SpatialJoin eval scripts fail with an
+          # opaque HTTP 403 instead of a diagnosable seed error.
+          spatial_join_visible="false"
+          for _ in $(seq 1 15); do
+            if curl -fsS -H "X-API-Key: ClientCompatAdmin123!" \
+              "http://localhost:5000/rest/services/test_service/FeatureServer/1?f=json" \
+              | grep -q '"id"'; then
+              spatial_join_visible="true"
+              break
+            fi
+            sleep 2
+          done
+          if [[ "${spatial_join_visible}" != "true" ]]; then
+            echo "::error::The SpatialJoin join layer (test_service layer 1) is not served by honua-server. The seed job must apply packages/honua-gp/eval/seed/spatial-join-second-layer.sql AFTER honua has migrated the database, and the served Metadata v2 snapshot must pick it up within the cache TTL."
             docker compose -f "${compose_file}" -f "${override_file}" logs seed | tail -50 || true
+            docker compose -f "${compose_file}" -f "${override_file}" logs honua | tail -100 || true
             exit 1
           fi
 

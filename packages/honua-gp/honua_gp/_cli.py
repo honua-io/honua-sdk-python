@@ -278,6 +278,11 @@ def render_compat_matrix() -> str:
         'documented deviations, and which raise rather than fail silently. Check '
         'this before committing to a migration."'
     )
+    # `resource` points at the shim's source rather than PyPI: honua-gp is not
+    # published there, and a resource that 404s is worse than none.
+    lines.append(
+        'resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"'
+    )
     lines.append("tags: [honua-gp, arcpy, compatibility, generated]")
     lines.append("---")
     lines.append("# honua-gp compatibility matrix")

@@ -1,3 +1,9 @@
+---
+type: reference
+title: "honua-sdk clients"
+description: "Generated API reference for the data-plane client classes and their methods."
+tags: [api-reference, honua-sdk]
+---
 # honua-sdk › Clients
 
 Two top-level clients share the same surface area and configuration model.

@@ -49,6 +49,17 @@ jobs:
           pip install mkdocs-material "mkdocstrings[python]" mike
           pip install ./packages/honua-sdk[grpc,geopandas]
           pip install ./packages/honua-admin
+      # OKF bundle gate. docs/okf-bundle.v1.json declares which markdown is
+      # product documentation; every page inside that boundary must carry valid
+      # Open Knowledge Format v0.2 frontmatter. Runs before the site build so a
+      # page that lands untyped fails here rather than shipping. MkDocs reads the
+      # same frontmatter as page metadata, so `title` serves both readers and
+      # agents. See agent-delivery-spec WS9.
+      - name: Validate OKF documentation bundle
+        run: python3 scripts/check-okf-bundle.py
+      - name: Check GitBook SUMMARY.md is derived from the bundle
+        run: python3 scripts/generate-summary.py --check
+
       - name: Build site
         run: mkdocs build --strict
 

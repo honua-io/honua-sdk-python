@@ -1,3 +1,9 @@
+---
+type: reference
+title: "How pagination works"
+description: "How the Source facade represents paging across protocols that disagree about it, and what to expect when a server truncates a result set."
+tags: [pagination, source-facade]
+---
 # Pagination
 
 This deep-dive explains how the Source facade represents pagination, how

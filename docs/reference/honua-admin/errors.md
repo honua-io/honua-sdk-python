@@ -1,3 +1,9 @@
+---
+type: reference
+title: "honua-admin errors"
+description: "Generated API reference for the exceptions the control-plane client raises."
+tags: [api-reference, errors]
+---
 # honua-admin › Errors
 
 The admin client raises the same exception hierarchy as the data-plane

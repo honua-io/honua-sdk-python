@@ -1,3 +1,10 @@
+---
+type: index
+title: "Honua Python SDK"
+description: "The landing page for both installable packages: honua-sdk for the data plane and honua-admin for the control plane, and which one a given task needs."
+resource: "https://pypi.org/project/honua-sdk/"
+tags: [sdk, python, overview]
+---
 # Honua Python SDK
 
 Two installable packages provide Python access to the Honua platform:

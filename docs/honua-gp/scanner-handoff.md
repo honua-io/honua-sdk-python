@@ -1,3 +1,9 @@
+---
+type: guide
+title: "Hand an ArcPy inventory to the codemod"
+description: "Take a script inventory produced by the migration scanner and feed it into the translation step, for teams moving ArcPy workloads."
+tags: [migration, arcpy, codemod]
+---
 # honua-gp scanner handoff
 
 This doc shows how an ArcPy script inventory produced by the migration scanner

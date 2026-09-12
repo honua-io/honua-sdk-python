@@ -5,6 +5,11 @@ docs_dir: docs
 
 exclude_docs: |
   README.md
+  # GitBook's table of contents, generated from the OKF bundle by
+  # scripts/generate-summary.py. MkDocs has its own nav, so this file is not
+  # part of the site - and it links to README.md, which is excluded above, so
+  # leaving it in fails `mkdocs build --strict`.
+  SUMMARY.md
 
 validation:
   omitted_files: info

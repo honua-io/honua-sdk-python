@@ -265,6 +265,21 @@ def render_compat_matrix() -> str:
 
     families = ("analysis", "management", "da", "sa")
     lines: list[str] = []
+    # OKF v0.2 frontmatter. This matrix is real consumer documentation - it is
+    # what someone checks before committing to a migration - so it belongs in
+    # the documentation bundle. It is also generated and compared against this
+    # output by a test, so the frontmatter has to come from here rather than be
+    # added by hand. See docs/okf-bundle.v1.json.
+    lines.append("---")
+    lines.append("type: reference")
+    lines.append('title: "honua-gp compatibility matrix"')
+    lines.append(
+        'description: "Which arcpy surfaces the shim supports, which run with '
+        'documented deviations, and which raise rather than fail silently. Check '
+        'this before committing to a migration."'
+    )
+    lines.append("tags: [honua-gp, arcpy, compatibility, generated]")
+    lines.append("---")
     lines.append("# honua-gp compatibility matrix")
     lines.append("")
     lines.append(

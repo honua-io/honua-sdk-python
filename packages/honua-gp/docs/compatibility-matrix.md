@@ -1,3 +1,9 @@
+---
+type: reference
+title: "honua-gp compatibility matrix"
+description: "Which arcpy surfaces the shim supports, which run with documented deviations, and which raise rather than fail silently. Check this before committing to a migration."
+tags: [honua-gp, arcpy, compatibility, generated]
+---
 # honua-gp compatibility matrix
 
 Generated from the in-code ``COMPAT`` manifest by ``scripts/render_compat_matrix.py`` (re-run after manifest edits).

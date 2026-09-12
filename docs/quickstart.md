@@ -1,3 +1,10 @@
+---
+type: guide
+title: "Query features in five minutes"
+description: "Install the SDK and run a real query against the public demo server, with no account, key or local install. The fastest proof the SDK works."
+resource: "https://pypi.org/project/honua-sdk/"
+tags: [quickstart, python]
+---
 # 5-Minute Quickstart: Query Features and Plot with GeoPandas
 
 ## What You'll Build

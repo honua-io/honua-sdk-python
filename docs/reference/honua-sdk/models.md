@@ -1,3 +1,9 @@
+---
+type: reference
+title: "honua-sdk models"
+description: "Generated API reference for the request and result types the data-plane client exchanges."
+tags: [api-reference, models]
+---
 # honua-sdk › Models
 
 These dataclasses make up the canonical request/response shape.

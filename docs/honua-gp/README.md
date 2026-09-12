@@ -1,3 +1,9 @@
+---
+type: index
+title: "honua-gp compatibility shim"
+description: "A proprietary drop-in shim that lets existing ArcPy-shaped code call Honua. What it covers, what it does not, and how it differs from the offline codemod."
+tags: [honua-gp, arcpy, compatibility]
+---
 # honua-gp docs
 
 `honua-gp` is a **proprietary** drop-in compatibility shim that lets

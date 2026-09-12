@@ -1,3 +1,9 @@
+---
+type: guide
+title: "Authenticate a client"
+description: "Static API keys, static bearer tokens and refreshable credentials: which to use, how to supply them, and how they are sent on the wire."
+tags: [auth, api-key, oidc]
+---
 # Authentication
 
 Honua SDK clients support static API keys, static bearer tokens, and refreshable

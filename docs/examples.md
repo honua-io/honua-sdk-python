@@ -2,6 +2,7 @@
 type: index
 title: "Runnable examples"
 description: "Where the script-first demos live and what each one shows, for readers who would rather run something than read about it."
+resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/examples"
 tags: [examples, demos]
 ---
 # Examples

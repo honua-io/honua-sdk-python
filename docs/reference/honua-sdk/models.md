@@ -2,6 +2,7 @@
 type: reference
 title: "honua-sdk models"
 description: "Generated API reference for the request and result types the data-plane client exchanges."
+resource: "https://pypi.org/project/honua-sdk/"
 tags: [api-reference, models]
 ---
 # honua-sdk › Models

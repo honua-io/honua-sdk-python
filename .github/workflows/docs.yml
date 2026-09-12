@@ -58,6 +58,7 @@ jobs:
         run: python3 scripts/check-okf-bundle.py
       - name: Check GitBook SUMMARY.md is derived from the bundle
         run: python3 scripts/generate-summary.py --check
+
       - name: Build site
         run: mkdocs build --strict
 

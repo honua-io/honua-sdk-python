@@ -54,39 +54,100 @@ def test_honua_path_map_override(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.parametrize(
-    "path",
+    ("path", "source", "server_url", "locator"),
     [
-        "rest/services/test/FeatureServer/0",
-        "https://honua.example.com/rest/services/test/FeatureServer/0",
-        "https://honua.example.com/gis/rest/services/folder/test/FeatureServer/12?f=json",
+        ("rest/services/test/FeatureServer/0", "honua://services/test/0", None, {"serviceId": "test", "layerId": 0}),
+        ("/rest/services/test/FeatureServer/0/", "honua://services/test/0", None, {"serviceId": "test", "layerId": 0}),
+        (
+            "https://localhost:28446/rest/services/test/FeatureServer/0",
+            "honua://services/test/0",
+            "https://localhost:28446",
+            {"serviceId": "test", "layerId": 0},
+        ),
+        (
+            "https://honua.example.com/gis/rest/services/parcels/FeatureServer/12?f=json",
+            "honua://services/parcels/12",
+            "https://honua.example.com/gis",
+            {"serviceId": "parcels", "layerId": 12},
+        ),
     ],
 )
-def test_feature_server_layer_paths_are_canonicalized(path: str) -> None:
+def test_feature_server_layer_paths_resolve_to_service_and_layer(
+    path: str, source: str, server_url: str | None, locator: dict[str, object]
+) -> None:
+    """#205: the licensed GetCount probe passed both of the first forms and got
+    ``workspace-relative`` back, so GetCount queried the URL as a service id."""
+
     resolved = resolve(path)
     assert resolved.kind == "honua-uri"
-    assert resolved.source.endswith("/FeatureServer/0") is False
-    descriptor = descriptor_mapping(resolved)
-    assert descriptor["locator"]["layerId"] in (0, 12)
+    assert resolved.source == source
+    assert resolved.server_url == server_url
+    assert descriptor_mapping(resolved)["locator"] == locator
 
 
-def test_feature_server_layer_url_preserves_foldered_service_id() -> None:
-    resolved = resolve("https://honua.example.com/gis/rest/services/folder/test/FeatureServer/12")
-    descriptor = descriptor_mapping(resolved)
-    assert descriptor["locator"] == {"serviceId": "folder/test", "layerId": 12}
+def test_foldered_feature_server_url_is_rejected_not_escaped() -> None:
+    from honua_gp._errors import HonuaGpResolveError
+
+    with pytest.raises(HonuaGpResolveError, match="Foldered ArcGIS services"):
+        resolve("https://honua.example.com/gis/rest/services/folder/test/FeatureServer/12")
 
 
 def test_feature_server_layer_url_decodes_escaped_service_name() -> None:
     from honua_sdk.protocols._base import _service_path
 
-    resolved = resolve(
-        "https://honua.example.com/rest/services/My%20Service/FeatureServer/0"
-    )
+    resolved = resolve("https://honua.example.com/rest/services/My%20Service/FeatureServer/0")
     assert resolved.source == "honua://services/My Service/0"
     descriptor = descriptor_mapping(resolved)
     assert descriptor["locator"] == {"serviceId": "My Service", "layerId": 0}
     assert _service_path(descriptor["locator"]["serviceId"], "FeatureServer") == (
         "/rest/services/My%20Service/FeatureServer"
     )
+
+
+@pytest.mark.parametrize(
+    "configured",
+    [
+        "https://localhost:28446",
+        "https://LOCALHOST:28446/",
+    ],
+)
+def test_feature_server_url_on_configured_server_is_accepted(configured: str) -> None:
+    honua_gp.configure(base_url=configured, client=object())
+    resolved = resolve("https://localhost:28446/rest/services/test/FeatureServer/0")
+    assert descriptor_mapping(resolved)["locator"] == {"serviceId": "test", "layerId": 0}
+
+
+def test_feature_server_url_default_port_matches_configured_server() -> None:
+    honua_gp.configure(base_url="https://honua.example.com/gis", client=object())
+    resolved = resolve("https://honua.example.com:443/gis/rest/services/parcels/FeatureServer/3")
+    assert descriptor_mapping(resolved)["locator"] == {"serviceId": "parcels", "layerId": 3}
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://other.example.com/rest/services/test/FeatureServer/0",
+        "http://localhost:28446/rest/services/test/FeatureServer/0",
+        "https://localhost:28447/rest/services/test/FeatureServer/0",
+        "https://localhost:28446/gis/rest/services/test/FeatureServer/0",
+    ],
+)
+def test_feature_server_url_for_another_server_is_rejected(url: str) -> None:
+    from honua_gp._errors import HonuaGpResolveError
+
+    honua_gp.configure(base_url="https://localhost:28446", client=object())
+    with pytest.raises(HonuaGpResolveError, match="names the server"):
+        descriptor_mapping(resolve(url))
+
+
+def test_feature_server_url_is_checked_against_environment_before_bootstrap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from honua_gp._errors import HonuaGpResolveError
+
+    monkeypatch.setenv("HONUA_BASE_URL", "https://localhost:28446")
+    with pytest.raises(HonuaGpResolveError, match="names the server"):
+        descriptor_mapping(resolve("https://other.example.com/rest/services/test/FeatureServer/0"))
 
 
 def test_descriptor_mapping_parses_honua_uri_service_and_layer() -> None:

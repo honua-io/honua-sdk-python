@@ -63,9 +63,6 @@ class HonuaSession:
     _client: Any = field(default=None, repr=False)
     _admin: Any = field(default=None, repr=False)
     _processes: Any = field(default=None, repr=False)
-    _client_injected: bool = field(default=False, repr=False)
-    _admin_injected: bool = field(default=False, repr=False)
-    _processes_injected: bool = field(default=False, repr=False)
     _layers: dict[str, LayerAlias] = field(default_factory=dict, repr=False)
     _audit_writer: AuditWriter | None = field(default=None, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
@@ -126,44 +123,44 @@ class HonuaSession:
                 self._client = None
                 self._admin = None
                 self._processes = None
-                self._client_injected = False
-                self._admin_injected = False
-                self._processes_injected = False
             if client is not None:
                 self._client = client
-                self._client_injected = True
                 self._processes = None  # rebuild from client
-                self._processes_injected = False
             if admin_client is not None:
                 self._admin = admin_client
-                self._admin_injected = True
             if processes_client is not None:
                 self._processes = processes_client
-                self._processes_injected = True
 
     def configure_from_env(self) -> None:
-        """Pick up env settings without dropping explicitly injected clients."""
+        """Pick up ``HONUA_BASE_URL`` / ``HONUA_API_KEY`` / ``HONUA_BEARER_TOKEN``."""
 
         base_url = os.environ.get("HONUA_BASE_URL")
         api_key = os.environ.get("HONUA_API_KEY")
         bearer = os.environ.get("HONUA_BEARER_TOKEN")
         if base_url:
-            with self._lock:
-                injected = (
-                    self._client if self._client_injected else None,
-                    self._admin if self._admin_injected else None,
-                    self._processes if self._processes_injected else None,
-                )
-                self.configure(base_url=base_url, api_key=api_key, bearer_token=bearer)
-                if injected[0] is not None:
-                    self._client = injected[0]
-                    self._client_injected = True
-                if injected[1] is not None:
-                    self._admin = injected[1]
-                    self._admin_injected = True
-                if injected[2] is not None:
-                    self._processes = injected[2]
-                    self._processes_injected = True
+            self.configure(base_url=base_url, api_key=api_key, bearer_token=bearer)
+
+    def _bootstrap_from_env(self) -> None:
+        """Apply the documented environment to a session that has no ``base_url``.
+
+        Runs on the first lazy client build so ``import honua_gp`` followed
+        directly by a tool call honours ``HONUA_BASE_URL`` (arcpy scripts do
+        not call a configure step). Unlike :meth:`configure_from_env`, it only
+        fills settings the caller left unset: an explicit ``api_key`` /
+        ``bearer_token`` wins over the environment, and injected clients are
+        kept because no connection setting they were built from changes.
+        """
+
+        with self._lock:
+            if self.base_url:
+                return
+            base_url = os.environ.get("HONUA_BASE_URL")
+            if not base_url:
+                return
+            self.base_url = base_url
+            if self.api_key is None and self.bearer_token is None:
+                self.api_key = os.environ.get("HONUA_API_KEY") or None
+                self.bearer_token = os.environ.get("HONUA_BEARER_TOKEN") or None
 
     # ------------------------------------------------------------------
     # Client accessors (lazy)
@@ -246,9 +243,6 @@ class HonuaSession:
             self._client = None
             self._admin = None
             self._processes = None
-            self._client_injected = False
-            self._admin_injected = False
-            self._processes_injected = False
             self._layers = {}
             self._audit_writer = None
 
@@ -257,8 +251,7 @@ class HonuaSession:
     # ------------------------------------------------------------------
 
     def _build_client(self) -> Any:
-        if not self.base_url:
-            self.configure_from_env()
+        self._bootstrap_from_env()
         if not self.base_url:
             raise HonuaGpConfigurationError(
                 "honua_gp is not configured; call honua_gp.configure(base_url=...) "
@@ -274,8 +267,7 @@ class HonuaSession:
         return HonuaClient(self.base_url, **kwargs)
 
     def _build_admin_client(self) -> Any:
-        if not self.base_url:
-            self.configure_from_env()
+        self._bootstrap_from_env()
         if not self.base_url:
             raise HonuaGpConfigurationError(
                 "honua_gp is not configured; call honua_gp.configure(base_url=...) "

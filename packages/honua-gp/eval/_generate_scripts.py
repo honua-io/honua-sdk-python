@@ -4,7 +4,7 @@ Run once from the package root:
 
     python eval/_generate_scripts.py
 
-The generator emits 50 scripts plus matching golden references that
+The generator emits 51 scripts plus matching golden references that
 exercise the *currently* supported surface of ``honua_gp`` --
 session-backed (MakeFeatureLayer, MakeTableView), source-backed
 (SelectLayerByAttribute, GetCount, SearchCursor, UpdateCursor,
@@ -53,14 +53,23 @@ import honua_gp as arcpy
 
 if stub_active():
     install_stub()
-else:
-    # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
-    # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
-
+{live_configure}
 arcpy.env.workspace = "honua://services/{workspace}"
 arcpy.env.overwriteOutput = True
 
+'''
+
+
+LIVE_CONFIGURE_EXPLICIT = '''else:
+    # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
+    # so the script runs against the configured Honua deployment.
+    arcpy.configure_from_env()
+'''
+
+# Live mode without a configure call: an arcpy script never calls one, so the
+# first tool invocation has to pick HONUA_BASE_URL / HONUA_API_KEY up itself.
+LIVE_CONFIGURE_IMPLICIT = '''# Live mode: deliberately NO configure call -- the first tool invocation must
+# pick up HONUA_BASE_URL / HONUA_API_KEY from the environment by itself.
 '''
 
 
@@ -74,6 +83,7 @@ class ScriptSpec:
     stdout_marker: str
     is_expected_failure: bool = False
     response_emit: str = ""
+    explicit_configure: bool = True
 
 
 def _fl_emit(slug: str, var: str = "result") -> str:
@@ -110,6 +120,7 @@ def _supported(
     audit_lines: int,
     marker: str,
     response_emit: str = "",
+    explicit_configure: bool = True,
 ) -> ScriptSpec:
     spec = ScriptSpec(
         slug=slug,
@@ -119,6 +130,7 @@ def _supported(
         expected_audit_lines=audit_lines,
         stdout_marker=marker,
         response_emit=response_emit,
+        explicit_configure=explicit_configure,
     )
     SUPPORTED_TEMPLATES.append(spec)
     return spec
@@ -172,6 +184,31 @@ print(f"get_count_roads ok count={count}")
     1,
     "get_count_roads ok",
     response_emit=_val_emit("get_count_roads", "{'count': int(count)}"),
+)
+
+_supported(
+    "get_count_feature_server_url",
+    "transport",
+    "GetCount on a FeatureServer layer URL with environment-only configuration (#205).",
+    """import os
+
+from honua_gp._resolve import descriptor_mapping, resolve
+
+base_url = os.environ.get("HONUA_BASE_URL") or "https://honua.example.com"
+full_url = base_url.rstrip("/") + "/rest/services/test_service/FeatureServer/0"
+relative_path = "rest/services/test_service/FeatureServer/0"
+full_count = arcpy.management.GetCount(full_url)
+relative_count = arcpy.management.GetCount(relative_path)
+locator = descriptor_mapping(resolve(full_url))["locator"]
+print(f"get_count_feature_server_url ok full={full_count} relative={relative_count} locator={locator}")
+""",
+    2,
+    "get_count_feature_server_url ok",
+    response_emit=_val_emit(
+        "get_count_feature_server_url",
+        "{'full_url_count': int(full_count), 'relative_path_count': int(relative_count), 'locator': locator}",
+    ),
+    explicit_configure=False,
 )
 
 _supported(
@@ -548,7 +585,11 @@ _expected_failure("rename_then_describe", "    arcpy.management.Rename('legacy_p
 
 
 def _render(spec: ScriptSpec) -> str:
-    header = BOOTSTRAP.format(docstring=spec.docstring, workspace=spec.workspace)
+    header = BOOTSTRAP.format(
+        docstring=spec.docstring,
+        workspace=spec.workspace,
+        live_configure=LIVE_CONFIGURE_EXPLICIT if spec.explicit_configure else LIVE_CONFIGURE_IMPLICIT,
+    )
     body = spec.body
     if spec.response_emit:
         body = body + spec.response_emit
@@ -588,8 +629,8 @@ def _emit() -> None:
     GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
 
     specs: list[ScriptSpec] = SUPPORTED_TEMPLATES + EXPECTED_FAILURE_TEMPLATES
-    if len(specs) != 50:
-        raise SystemExit(f"Expected 50 scripts, got {len(specs)}")
+    if len(specs) != 51:
+        raise SystemExit(f"Expected 51 scripts, got {len(specs)}")
 
     for spec in specs:
         target = SCRIPTS_DIR / f"{spec.slug}.py"

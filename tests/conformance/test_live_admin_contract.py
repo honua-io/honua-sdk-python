@@ -14,7 +14,9 @@ import re
 import httpx
 import pytest
 
-from honua_admin import AsyncHonuaAdminClient, HonuaAdminClient
+# The conformance lane certifies an isolated honua-sdk wheel; skip there rather
+# than fail collection when honua-admin is not installed.
+honua_admin = pytest.importorskip("honua_admin")
 
 BASE_URL = os.environ.get("HONUA_CONTRACT_LIVE_URL")
 API_KEY = os.environ.get("HONUA_CONTRACT_LIVE_API_KEY", "")
@@ -59,7 +61,7 @@ def test_live_server_identity_matches_versioning_contract(raw_compatibility: dic
 
 def test_live_admin_server_is_supported_by_admin_sdk(raw_compatibility: dict[str, object]) -> None:
     assert BASE_URL is not None
-    with HonuaAdminClient(BASE_URL, api_key=API_KEY) as client:
+    with honua_admin.HonuaAdminClient(BASE_URL, api_key=API_KEY) as client:
         result = client.check_compatibility()
 
     assert result.reasons == []
@@ -74,7 +76,7 @@ def test_live_admin_server_is_supported_by_admin_sdk(raw_compatibility: dict[str
 @pytest.mark.anyio
 async def test_live_admin_server_is_supported_by_async_admin_sdk(raw_compatibility: dict[str, object]) -> None:
     assert BASE_URL is not None
-    async with AsyncHonuaAdminClient(BASE_URL, api_key=API_KEY) as client:
+    async with honua_admin.AsyncHonuaAdminClient(BASE_URL, api_key=API_KEY) as client:
         result = await client.check_compatibility()
 
     assert result.reasons == []

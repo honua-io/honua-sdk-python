@@ -59,6 +59,8 @@ from .auth import (
 )
 from .client import HonuaClient
 from .errors import (
+    FailureKind,
+    FieldFailure,
     HonuaAuthError,
     HonuaCapabilityNotSupportedError,
     HonuaError,
@@ -67,6 +69,8 @@ from .errors import (
     HonuaRateLimitError,
     HonuaTimeoutError,
     HonuaTransportError,
+    ProtocolMetadata,
+    TerminalFailureReceipt,
 )
 from .geocoding import HonuaGeocodingClient
 from .models import (
@@ -171,4 +175,8 @@ __all__ = [  # noqa: RUF022 -- grouped by category for human discoverability
     "HonuaTransportError",
     "HonuaTimeoutError",
     "HonuaGrpcError",
+    "FailureKind",
+    "FieldFailure",
+    "ProtocolMetadata",
+    "TerminalFailureReceipt",
 ]

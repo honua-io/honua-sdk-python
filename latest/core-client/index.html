@@ -1633,8 +1633,17 @@ protocol or feature name:</p>
     <span class="k">if</span> <span class="n">client</span><span class="o">.</span><span class="n">supports</span><span class="p">(</span><span class="s2">"geoservices-feature-service"</span><span class="p">):</span>
         <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_service_summaries</span><span class="p">()</span>
 </code></pre></div>
-<p>Older servers that do not expose <code>/api/v1/capabilities</code> fall back to readiness
-and GeoServices catalog discovery.</p>
+<blockquote>
+<p><strong>Today this always takes the fallback path.</strong> <code>capabilities()</code> requests
+<code>/api/v1/capabilities</code>, which no Honua server exposes - the server maps only
+<code>/api/v1/capabilities/manifest</code> - so the call 404s and degrades to readiness plus
+GeoServices catalog discovery. You still get a <code>DataPlaneCapabilities</code>, but its
+<code>features</code> are inferred rather than declared, and <code>supports()</code> answers from what the
+catalog implies. Tracked in
+<a href="https://github.com/honua-io/honua-sdk-python/issues/237">honua-sdk-python#237</a>; until
+it lands, read <code>GET /api/v1/capabilities/manifest</code> directly when you need the
+declared manifest.</p>
+</blockquote>
 <h2 id="shared-source-queries">Shared Source Queries<a class="headerlink" href="#shared-source-queries" title="Permanent link">&para;</a></h2>
 <p>For application code that wants the same shape across data protocols, prefer
 the shared Source/Query/Result API. <code>client.source(...)</code> binds a

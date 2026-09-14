@@ -1,8 +1,21 @@
 {
   "expected_failure": false,
   "plumbing": {
-    "audit_lines": 1,
+    "audit_lines": 3,
     "stdout_contains": "update_cursor_close_status ok"
+  },
+  "response": {
+    "add_count": 0,
+    "all_succeeded": true,
+    "closed_remaining": 0,
+    "delete_count": 0,
+    "update_count": 1,
+    "updated_rows": [
+      [
+        "ARCHIVED",
+        "Close Status Rd"
+      ]
+    ]
   },
   "schema_version": 2
 }

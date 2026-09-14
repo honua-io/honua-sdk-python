@@ -9,6 +9,7 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
     if candidate not in sys.path:
         sys.path.insert(0, candidate)
 
+from eval._emit import emit_response, schema_fingerprint
 from eval._stub import install_stub, stub_active
 
 import honua_gp as arcpy
@@ -25,4 +26,9 @@ arcpy.env.overwriteOutput = True
 
 desc = arcpy.Describe("segments")
 names = [field.name for field in desc.fields]
+srid = desc.spatialReference.factoryCode if desc.spatialReference else None
+emit_response(
+    "describe_segments_fields",
+    schema_fingerprint(desc.fields, shape_type=desc.shapeType, oid_field=desc.OIDFieldName, srid=srid),
+)
 print(f"describe_segments_fields ok fields={','.join(names)}")

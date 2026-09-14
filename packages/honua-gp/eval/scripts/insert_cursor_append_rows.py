@@ -1,4 +1,4 @@
-"""InsertCursor: append three rows."""
+"""InsertCursor: append three rows, then read the persisted rows back."""
 
 import sys
 from pathlib import Path
@@ -23,8 +23,16 @@ else:
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
+from eval._emit import apply_edits_fingerprint, edited_object_ids
+
 with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["OPEN", "Main St"])
     cursor.insertRow(["OPEN", "Elm Ave"])
     cursor.insertRow(["CLOSED", "Side Rd"])
+    edits = cursor.flush()
+added = edited_object_ids(edits, "add")
+with arcpy.da.SearchCursor("roads", ["OID@", "STATUS", "name"]) as cursor:
+    persisted_rows = sorted([row[1], row[2]] for row in cursor if str(row[0]) in added)
 print("insert_cursor_append_rows ok")
+from eval._emit import emit_response
+emit_response('insert_cursor_append_rows', {**apply_edits_fingerprint(edits), 'persisted_rows': persisted_rows})

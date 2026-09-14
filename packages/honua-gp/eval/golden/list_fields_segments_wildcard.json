@@ -1,5 +1,18 @@
 {
   "audit_lines": 1,
   "expected_failure": false,
+  "response": {
+    "field_count": 1,
+    "field_names": [
+      "status"
+    ],
+    "field_types": {
+      "status": "String"
+    },
+    "oid_field": null,
+    "shape_type": null,
+    "srid": null
+  },
+  "schema_version": 2,
   "stdout_contains": "list_fields_segments_wildcard ok"
 }

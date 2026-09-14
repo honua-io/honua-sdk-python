@@ -390,9 +390,18 @@ def _grade(
             )
         else:
             checks["response"] = "pass"
-    elif live_mode and golden is not None and not expected_failure:
-        # Live run, supported script, but no response oracle recorded yet.
-        checks["response"] = "unblessed"
+    elif live_mode and not expected_failure:
+        # Live run, supported script, but no response oracle recorded. An
+        # unblessed pass is not evidence (issue #202): a supported script
+        # must record what the server actually returned, so it fails.
+        checks["response"] = "fail"
+        return (
+            "fail",
+            False,
+            f"supported script {script.stem!r} has no response oracle -- make it emit one and bless it "
+            "(HONUA_GP_EVAL_USE_STUB=0 ... run_eval.py --update-golden)",
+            checks,
+        )
 
     return "pass", False, None, checks
 

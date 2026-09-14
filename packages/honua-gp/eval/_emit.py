@@ -123,4 +123,94 @@ def feature_layer_fingerprint(result: Any) -> dict[str, Any]:
     return fingerprint
 
 
-__all__ = ["emit_response", "feature_layer_fingerprint"]
+def schema_fingerprint(fields: Any, *, shape_type: Any = None, oid_field: Any = None, srid: Any = None) -> dict[str, Any]:
+    """Normalize a Describe/ListFields result into a seed-stable fingerprint.
+
+    ``fields`` is a sequence of ``FieldDescribe`` (or anything exposing
+    ``.name`` / ``.type``). The seeded ``segments`` / ``roads`` schemas are
+    fixed by ``tests/seed/client-compat-v1.sql`` and do not change between
+    live runs, so field names + types are a stable oracle -- unlike geometry
+    coordinates or generated object ids.
+    """
+
+    return {
+        "field_count": len(fields),
+        "field_names": [str(getattr(f, "name", "")) for f in fields],
+        "field_types": {str(getattr(f, "name", "")): getattr(f, "type", None) for f in fields},
+        "shape_type": shape_type,
+        "oid_field": oid_field,
+        "srid": srid,
+    }
+
+
+def apply_edits_fingerprint(result: Any) -> dict[str, Any]:
+    """Normalize an ``InsertCursor``/``UpdateCursor`` ``flush()`` return value.
+
+    ``flush()`` returns different shapes depending on transport: the stub's
+    ``_StubApplyEditsResult.to_dict()`` (a plain dict with ``adds`` /
+    ``updates`` / ``deletes`` lists) versus the live SDK's
+    ``honua_sdk.models.ApplyEditsResult`` dataclass (``add_results`` /
+    ``update_results`` / ``delete_results`` sequences of typed
+    ``EditOperationResult``, each carrying a server-assigned ``object_id``).
+    Only success *counts* are captured, never object ids -- those are not
+    stable oracles across repeated seed runs. ``result`` is ``None`` when
+    ``flush()`` had nothing buffered (e.g. an UpdateCursor predicate matched
+    zero rows against the current seed state) -- that is itself a valid,
+    deterministic oracle (all counts zero, vacuously succeeded), not an
+    absence of one.
+    """
+
+    if result is None:
+        return {"add_count": 0, "update_count": 0, "delete_count": 0, "all_succeeded": True}
+    if isinstance(result, Mapping):
+        adds, updates, deletes = result.get("adds", []), result.get("updates", []), result.get("deletes", [])
+        return {
+            "add_count": len(adds),
+            "update_count": len(updates),
+            "delete_count": len(deletes),
+            "all_succeeded": True,
+        }
+    add_results = getattr(result, "add_results", ())
+    update_results = getattr(result, "update_results", ())
+    delete_results = getattr(result, "delete_results", ())
+    all_succeeded = getattr(result, "all_succeeded", None)
+    if all_succeeded is None:
+        combined = [*add_results, *update_results, *delete_results]
+        all_succeeded = bool(combined) and all(getattr(r, "success", False) for r in combined)
+    return {
+        "add_count": len(add_results),
+        "update_count": len(update_results),
+        "delete_count": len(delete_results),
+        "all_succeeded": bool(all_succeeded),
+    }
+
+
+def edited_object_ids(result: Any, operation: str) -> set[str]:
+    """Return the server-assigned object ids of the successful ``operation`` edits.
+
+    ``operation`` is ``"add"``, ``"update"`` or ``"delete"``. The ids are
+    never frozen into a golden (they differ across seeds); scripts use them
+    to read back exactly the rows their own edit touched, so the response
+    oracle records what the dataset holds afterwards rather than what the
+    script submitted. Ids are compared as strings because
+    ``QueryFeature.id`` may be a ``str`` or an ``int``. The stub's plain-dict
+    result carries no server ids, so it yields an empty set.
+    """
+
+    if result is None or isinstance(result, Mapping):
+        return set()
+    results = getattr(result, f"{operation}_results", ())
+    return {
+        str(entry.object_id)
+        for entry in results
+        if getattr(entry, "success", False) and getattr(entry, "object_id", None) is not None
+    }
+
+
+__all__ = [
+    "apply_edits_fingerprint",
+    "edited_object_ids",
+    "emit_response",
+    "feature_layer_fingerprint",
+    "schema_fingerprint",
+]

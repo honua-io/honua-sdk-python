@@ -1,4 +1,4 @@
-"""Make a table view for inspection."""
+"""Make a filtered table view, then read the server rows through it."""
 
 import sys
 from pathlib import Path
@@ -23,5 +23,12 @@ else:
 arcpy.env.workspace = "honua://services/transport"
 arcpy.env.overwriteOutput = True
 
-arcpy.management.MakeTableView("segments_attrs", "segments_view")
-print("make_table_view ok")
+arcpy.management.MakeTableView("segments_attrs", "segments_view", "status = 'active'")
+# MakeTableView itself only registers a session alias; the observable result is
+# what the server returns when the view (and its where clause) is read.
+view_count = int(arcpy.management.GetCount("segments_view"))
+with arcpy.da.SearchCursor("segments_view", ["name", "status"]) as cursor:
+    view_rows = sorted([row[0], row[1]] for row in cursor)
+print(f"make_table_view ok count={view_count}")
+from eval._emit import emit_response
+emit_response('make_table_view', {'view_count': view_count, 'view_rows': view_rows})

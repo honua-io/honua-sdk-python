@@ -1589,9 +1589,13 @@
 <h2 id="server-compatibility-baseline">Server Compatibility Baseline<a class="headerlink" href="#server-compatibility-baseline" title="Permanent link">&para;</a></h2>
 <p>Release builds support Honua Server versions that meet all of these conditions:</p>
 <ul>
-<li><code>serverVersion</code> parses to at least <code>1.0.0</code>. Honua Server GA identities use
-  SemVer <code>1.x</code> values and may include build metadata such as <code>1.0.0+&lt;sha&gt;</code>.</li>
-<li>Pre-GA CalVer identities remain supported from <code>2026.3.0</code> onward.</li>
+<li><code>serverVersion</code> parses to at least <code>1.0.0</code>. Honua Server versions are
+  <code>&lt;year&gt;.&lt;release&gt;.&lt;patch&gt;</code> SemVer triples (the 2026.1 release reports
+  <code>2026.1.1</code>), may carry a prerelease suffix (<code>-rc.1</code>, <code>-nightly.N</code>) or build
+  metadata (<code>+&lt;sha&gt;</code>), and older builds reported <code>1.0.0+&lt;sha&gt;</code>. The major tracks
+  the year rather than compatibility, so there is one floor for every release
+  line, the same <code>1.0.0</code> the JS SDK uses; the control-plane API major below is
+  the breaking-change signal.</li>
 <li><code>releaseChannel</code> is <code>preview</code> or a later channel (<code>beta</code>, <code>rc</code>, <code>stable</code>, or
   <code>lts</code>).</li>
 <li><code>controlPlaneApi.major</code> is <code>1</code>.</li>
@@ -1609,6 +1613,22 @@ contains supported and unsupported server examples and is validated in CI by:</p
 </code></pre></div>
 <p>Update the matrix in the same PR as any SDK baseline change. The gate also
 checks that the JSON baseline matches the constants exported by <code>honua_admin</code>.</p>
+<p>The matrix includes the exact stable <code>1.0.0+32809f114c36c951b00beb5fe07a3c7082867909</code>
+identity reported in <a href="https://github.com/honua-io/honua-sdk-python/issues/219">#219</a>
+and the <code>2026.1.1</code> compatibility contract a 2026.1 server image returns. Both
+synchronous and asynchronous admin clients test those identities through the
+capabilities response parser, with independent rejection cases for an incompatible
+API major, base path, or release channel. These deterministic transport fixtures
+protect the runtime policy; they do not certify a deployed release candidate.</p>
+<p><code>tests/conformance/test_live_admin_contract.py</code> runs the same check against a
+live server when <code>HONUA_CONTRACT_LIVE_URL</code> and an admin
+<code>HONUA_CONTRACT_LIVE_API_KEY</code> are set:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HONUA_CONTRACT_LIVE_URL</span><span class="o">=</span>http://localhost:8080<span class="w"> </span><span class="nv">HONUA_CONTRACT_LIVE_API_KEY</span><span class="o">=</span>&lt;admin<span class="w"> </span>key&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>python3<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/conformance/test_live_admin_contract.py<span class="w"> </span>--run-integration<span class="w"> </span>-q
+</code></pre></div>
+<p>Published <code>honua-admin</code> 0.1.8 predates this correction and rejects both
+identities. The corrected baseline must be included in the admin package selected
+by the release train; source-level compatibility does not update an installed wheel.</p>
 <h2 id="public-api-snapshot">Public API Snapshot<a class="headerlink" href="#public-api-snapshot" title="Permanent link">&para;</a></h2>
 <p>The compatibility gate snapshots exported names, constructor and method
 signatures, enum members, and dataclass fields for the public SDK modules. This

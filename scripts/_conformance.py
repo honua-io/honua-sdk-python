@@ -205,6 +205,7 @@ class ConformanceTarget:
     sdk_source_sha: str | None = None
     sdk_wheel_filename: str | None = None
     sdk_wheel_sha256: str | None = None
+    sdk_wheel_source: str | None = None
     evidence_uri: str | None = None
     candidate_cut_at: str | None = None
     certification_tier: str = "nightly"
@@ -232,6 +233,7 @@ def load_target_from_env() -> ConformanceTarget:
         sdk_source_sha=os.environ.get("HONUA_SDK_SOURCE_SHA"),
         sdk_wheel_filename=os.environ.get("HONUA_SDK_WHEEL_FILENAME"),
         sdk_wheel_sha256=os.environ.get("HONUA_SDK_WHEEL_SHA256"),
+        sdk_wheel_source=os.environ.get("HONUA_SDK_WHEEL_SOURCE"),
         evidence_uri=os.environ.get("HONUA_EVIDENCE_URI"),
         candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
         certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
@@ -1416,6 +1418,7 @@ def build_certification_fragment(
             "sdk_source_sha": target.sdk_source_sha,
             "sdk_wheel_filename": target.sdk_wheel_filename,
             "sdk_wheel_sha256": target.sdk_wheel_sha256,
+            "sdk_wheel_source": target.sdk_wheel_source,
         }.items()
         if not value
     ]
@@ -1433,6 +1436,8 @@ def build_certification_fragment(
         raise ConformanceFixturesError(
             "sdk_wheel_sha256 must be a lowercase 64-character SHA-256 digest"
         )
+    if target.sdk_wheel_source != "pypi":
+        raise ConformanceFixturesError("sdk_wheel_source must be pypi")
 
     client_version = importlib.metadata.version("honua-sdk")
     payload_base64 = base64.b64encode(json.dumps(
@@ -1471,6 +1476,7 @@ def build_certification_fragment(
                 "client_package": {
                     "filename": target.sdk_wheel_filename,
                     "sha256": target.sdk_wheel_sha256,
+                    "source": target.sdk_wheel_source,
                 },
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
@@ -1512,6 +1518,7 @@ def build_certification_fragment(
                 "client_package": {
                     "filename": target.sdk_wheel_filename,
                     "sha256": target.sdk_wheel_sha256,
+                    "source": target.sdk_wheel_source,
                 },
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",

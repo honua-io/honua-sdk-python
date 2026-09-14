@@ -78,8 +78,9 @@ Process-backed shims run a supported subset against honua-server's
 ``analysis.Buffer``, ``management.Project``, ``analysis.SpatialJoin`` and
 ``management.Dissolve`` are **Partial** (documented deviations -- see the
 matrix). Their output name is bound to the job's inline FeatureLayer result:
-``GetCount`` / ``da.SearchCursor`` read it, but it is not a server layer and
-cannot feed another layer-aware tool. The remaining process-shaped
+``GetCount`` / ``da.SearchCursor`` read it, and ``management.Dissolve`` takes
+it as input through honua-server's ``geometry.dissolve``. It is not a server
+layer, so the other layer-aware tools refuse it. The remaining process-shaped
 operations (``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase``,
 ``management.Delete``, and ``management.CalculateField`` /
 ``Copy`` / ``CopyFeatures``) still raise ``HonuaGpUnsupportedError``:

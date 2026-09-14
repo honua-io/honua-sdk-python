@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import json
+import struct
 from pathlib import Path
 from typing import Any
 
@@ -180,14 +181,6 @@ def test_buffer_output_getcount_searchcursor_then_dissolve(_isolated_audit_dir: 
     honua_gp.management.MakeFeatureLayer("roads_buffer", "buffer_lyr")
     assert honua_gp.management.GetCount("buffer_lyr") == 2
 
-    # Chaining the inline output into a layer-aware tool is refused before
-    # submission; the requested output stays unbound instead of reading layer 0.
-    with pytest.raises(honua_gp.HonuaGpResolveError):
-        honua_gp.management.Dissolve("roads_buffer", "chained")
-    assert len(processes.calls) == 1
-    with pytest.raises(honua_gp.HonuaGpResolveError):
-        honua_gp.management.GetCount("chained")
-
     dissolved = honua_gp.management.Dissolve(INPUT, "roads_dissolved")
     assert processes.calls[1][1]["inputs"]["layerId"] == 0
     assert honua_gp.management.GetCount(dissolved[0]) == 1
@@ -198,6 +191,265 @@ def test_buffer_output_getcount_searchcursor_then_dissolve(_isolated_audit_dir: 
     # The only server reads were the two explicit reads of the input.
     assert [descriptor["id"] for descriptor in client.descriptors] == [INPUT]
     assert [call[0] for call in processes.calls] == ["analytics.buffer-aggregate", "generalization.dissolve"]
+
+
+def _decode_wkb_polygon(encoded: str) -> dict[str, Any]:
+    """Read a little-endian 2D WKB Polygon back into GeoJSON (test oracle)."""
+
+    raw = base64.b64decode(encoded)
+    byte_order, geometry_type, ring_count = struct.unpack_from("<BII", raw, 0)
+    assert (byte_order, geometry_type) == (1, 3)
+    offset, rings = 9, []
+    for _ in range(ring_count):
+        (point_count,) = struct.unpack_from("<I", raw, offset)
+        offset += 4
+        ring = [list(struct.unpack_from("<dd", raw, offset + 16 * i)) for i in range(point_count)]
+        offset += 16 * point_count
+        rings.append(ring)
+    assert offset == len(raw)
+    return {"type": "Polygon", "coordinates": rings}
+
+
+def _dissolve_result(groups: list[tuple[str, dict[str, Any]]], *, input_count: int, srid: int) -> dict[str, Any]:
+    """``geometry.dissolve``'s results document (GeometryDissolveJobExecutor)."""
+
+    return {
+        "outputFeatureLayer": {
+            "mediaType": "application/geo+json",
+            "value": {
+                "type": "FeatureCollection",
+                "processId": "geometry.dissolve",
+                "inputSrid": srid,
+                "inputCount": input_count,
+                "groupCount": len(groups),
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": geometry,
+                        "properties": {"processId": "geometry.dissolve", "groupKey": key, "inputSrid": srid},
+                    }
+                    for key, geometry in groups
+                ],
+            },
+        }
+    }
+
+
+class _Schema:
+    def __init__(self, srid: int | None) -> None:
+        self.srid = srid
+
+
+class _FeatureServer:
+    def __init__(self, calls: list[tuple[str, int]], service_id: str, srid: int | None) -> None:
+        self._calls = calls
+        self._service_id = service_id
+        self._srid = srid
+
+    def schema(self, layer_id: int) -> _Schema:
+        self._calls.append((self._service_id, layer_id))
+        return _Schema(self._srid)
+
+
+class _LayerClient(_LayerZeroClient):
+    """``_LayerZeroClient`` plus FeatureServer layer metadata in ``srid``."""
+
+    def __init__(self, srid: int | None = 3857) -> None:
+        super().__init__()
+        self.srid = srid
+        self.schema_calls: list[tuple[str, int]] = []
+
+    def feature_server(self, service_id: str) -> _FeatureServer:
+        return _FeatureServer(self.schema_calls, service_id, self.srid)
+
+
+def _configure_layers(*outcomes: tuple[str, Any], srid: int | None = 3857) -> tuple[_LayerClient, _ScriptedProcesses]:
+    client = _LayerClient(srid)
+    processes = _ScriptedProcesses(*outcomes)
+    honua_gp.configure(client=client, processes_client=processes)
+    honua_gp.env.workspace = "honua://services/roads"
+    honua_gp.env.overwriteOutput = True
+    return client, processes
+
+
+def test_buffer_output_chains_into_dissolve_via_geometry_dissolve(_isolated_audit_dir: Path) -> None:
+    client, processes = _configure_layers(
+        ("successful", _feature_layer(BUFFER_FEATURES)),
+        ("successful", _dissolve_result([("__all__", DISSOLVE_FEATURES[0]["geometry"])], input_count=2, srid=3857)),
+    )
+
+    honua_gp.analysis.Buffer(INPUT, "roads_buffer", "50 Meters")
+    assert honua_gp.management.GetCount("roads_buffer") == 2
+
+    result = honua_gp.management.Dissolve("roads_buffer", "chained")
+
+    assert str(result) == "chained"
+    process_id, payload = processes.calls[1]
+    assert process_id == "geometry.dissolve"
+    # The buffer output carries no srid member, so it is in the input layer's CRS.
+    assert client.schema_calls == [("roads", 0)]
+    assert set(payload["inputs"]) == {"wkbs", "srid"}
+    assert payload["inputs"]["srid"] == 3857
+    assert [_decode_wkb_polygon(wkb) for wkb in json.loads(payload["inputs"]["wkbs"])] == [
+        feature["geometry"] for feature in BUFFER_FEATURES
+    ]
+
+    # Two buffer polygons in, one dissolved polygon out -- never layer 0's five segments.
+    assert honua_gp.management.GetCount("chained") == 1
+    [(geometry, group_key)] = _rows("chained", ["SHAPE@JSON", "groupKey"])
+    assert json.loads(geometry) == DISSOLVE_FEATURES[0]["geometry"]
+    assert group_key == "__all__"
+    chained = honua_gp.get_session().get_layer("chained")
+    assert chained is not None
+    assert chained.output is not None
+    assert (chained.output.srid, chained.output.origin, chained.output.job_id) == (3857, INPUT, "job-2")
+    assert client.descriptors == []
+
+    # The audit line records the dispatched process and a placeholder, not the WKB.
+    records = [
+        json.loads(line)
+        for file in sorted(_isolated_audit_dir.glob("audit-*.jsonl"))
+        for line in file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    dissolve_record = next(record for record in records if record.get("function") == "management.Dissolve")
+    assert dissolve_record["process_id"] == "geometry.dissolve"
+    assert dissolve_record["process_inputs"] == {"wkbs": "<base64 WKB geometries of the input result>", "srid": 3857}
+
+
+def test_chained_dissolve_groups_by_dissolve_field_and_restores_the_values(_isolated_audit_dir: Path) -> None:
+    zoned = [
+        {**BUFFER_FEATURES[0], "properties": {"COUNT": 3, "zone": "north"}},
+        {**BUFFER_FEATURES[1], "properties": {"COUNT": 2, "zone": "south"}},
+        {
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[0, 2], [3, 2], [3, 4], [0, 4], [0, 2]]]},
+            "properties": {"COUNT": 1, "zone": "north"},
+        },
+    ]
+    north = {"type": "Polygon", "coordinates": [[[0, -1], [3, -1], [3, 4], [0, 4], [0, -1]]]}
+    south = BUFFER_FEATURES[1]["geometry"]
+    _client, processes = _configure_layers(
+        ("successful", _feature_layer(zoned)),
+        ("successful", _dissolve_result([('["north"]', north), ('["south"]', south)], input_count=3, srid=3857)),
+    )
+    honua_gp.analysis.Buffer(INPUT, "zones", "50 Meters")
+
+    honua_gp.management.Dissolve("zones", "by_zone", "zone")
+
+    inputs = processes.calls[1][1]["inputs"]
+    assert json.loads(inputs["groupKeys"]) == ['["north"]', '["south"]', '["north"]']
+    assert len(json.loads(inputs["wkbs"])) == 3
+    rows = _rows("by_zone", ["zone", "SHAPE@JSON"])
+    assert [(zone, json.loads(shape)) for zone, shape in rows] == [("north", north), ("south", south)]
+
+
+def test_chained_dissolve_rejects_a_group_the_server_was_not_asked_for(_isolated_audit_dir: Path) -> None:
+    zoned = [{**feature, "properties": {"zone": "north"}} for feature in BUFFER_FEATURES]
+    _configure_layers(
+        ("successful", _feature_layer(zoned)),
+        ("successful", _dissolve_result([('["east"]', DISSOLVE_FEATURES[0]["geometry"])], input_count=2, srid=3857)),
+    )
+    honua_gp.analysis.Buffer(INPUT, "zones", "50 Meters")
+
+    with pytest.raises(honua_gp.ExecuteError) as info:
+        honua_gp.management.Dissolve("zones", "by_zone", "zone")
+
+    assert info.value.error_kind == "unreadable_output"
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        honua_gp.management.GetCount("by_zone")
+
+
+def test_chained_dissolve_uses_the_srid_the_output_declares(_isolated_audit_dir: Path) -> None:
+    collection = _feature_layer(PROJECT_FEATURES)
+    collection["outputFeatureLayer"]["value"]["srid"] = 3857
+    client, processes = _configure_layers(
+        ("successful", collection),
+        ("successful", _dissolve_result([("__all__", {"type": "MultiPoint", "coordinates": [[1, 0], [2, 0], [3, 0]]})],
+                                        input_count=3, srid=3857)),
+        srid=4326,
+    )
+    honua_gp.management.Project(INPUT, "projected", 3857)
+
+    honua_gp.management.Dissolve("projected", "points")
+
+    assert processes.calls[1][1]["inputs"]["srid"] == 3857
+    assert client.schema_calls == []
+    assert honua_gp.management.GetCount("points") == 1
+
+
+@pytest.mark.parametrize(
+    ("features", "srid", "kwargs", "message"),
+    [
+        pytest.param([], 3857, {}, "empty GP job result", id="empty-output"),
+        pytest.param(
+            [{"type": "Feature", "geometry": None, "properties": {}}], 3857, {}, "null or empty geometry",
+            id="null-geometry",
+        ),
+        pytest.param(
+            [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": []}, "properties": {}}], 3857, {},
+            "null or empty geometry", id="empty-geometry",
+        ),
+        pytest.param(
+            [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [1, 2, 3, 4]}, "properties": {}}],
+            3857, {}, "2D or all be 3D", id="measured-geometry",
+        ),
+        pytest.param(BUFFER_FEATURES, None, {}, "spatial reference is unknown", id="unknown-srid"),
+        pytest.param(BUFFER_FEATURES, 3857, {"dissolve_field": "zone"}, "not an attribute", id="missing-field"),
+        pytest.param(BUFFER_FEATURES, 3857, {"where_clause": "COUNT > 2"}, "where_clause", id="where-clause"),
+    ],
+)
+def test_chained_dissolve_refuses_what_geometry_dissolve_cannot_take(
+    _isolated_audit_dir: Path, features: list[dict[str, Any]], srid: int | None, kwargs: dict[str, Any], message: str
+) -> None:
+    _client, processes = _configure_layers(("successful", _feature_layer(features)), srid=srid)
+    honua_gp.analysis.Buffer(INPUT, "roads_buffer", "50 Meters")
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError, match=message):
+        honua_gp.management.Dissolve("roads_buffer", "chained", **kwargs)
+
+    assert len(processes.calls) == 1
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        honua_gp.management.GetCount("chained")
+
+
+def test_chained_dissolve_refuses_a_selection_on_the_output(_isolated_audit_dir: Path) -> None:
+    _client, processes = _configure_layers(("successful", _feature_layer(BUFFER_FEATURES)))
+    honua_gp.analysis.Buffer(INPUT, "roads_buffer", "50 Meters")
+    honua_gp.management.MakeFeatureLayer("roads_buffer", "big", "COUNT > 2")
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError, match="cannot filter"):
+        honua_gp.management.Dissolve("big", "chained")
+
+    assert len(processes.calls) == 1
+
+
+class _SynchronousDissolve(_ScriptedProcesses):
+    """Answers ``geometry.dissolve`` inline, as honua-server does without ``Prefer: respond-async``."""
+
+    def execute(self, process_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if process_id != "geometry.dissolve":
+            return super().execute(process_id, payload)
+        self.calls.append((process_id, payload))
+        return _dissolve_result([("__all__", DISSOLVE_FEATURES[0]["geometry"])], input_count=2, srid=3857)
+
+
+def test_synchronous_execution_result_is_bound(_isolated_audit_dir: Path) -> None:
+    client = _LayerClient()
+    processes = _SynchronousDissolve(("successful", _feature_layer(BUFFER_FEATURES)))
+    honua_gp.configure(client=client, processes_client=processes)
+    honua_gp.env.workspace = "honua://services/roads"
+    honua_gp.env.overwriteOutput = True
+    honua_gp.analysis.Buffer(INPUT, "roads_buffer", "50 Meters")
+
+    result = honua_gp.management.Dissolve("roads_buffer", "chained")
+
+    assert result.job_id == ""
+    alias = honua_gp.get_session().get_layer("chained")
+    assert alias is not None
+    assert alias.output is not None
+    assert alias.output.job_id.startswith("inline-")
+    assert honua_gp.management.GetCount("chained") == 1
 
 
 def test_empty_output_binds_as_zero_features(_isolated_audit_dir: Path) -> None:

@@ -223,30 +223,33 @@ _supported(
     "Buffer, read the bound output with GetCount/SearchCursor, then Dissolve (#226).",
     """import json
 
-from honua_gp import HonuaGpResolveError
-
 input_count = int(arcpy.management.GetCount("roads"))
-result = arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
+result = arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="NONE")
 buffer_count = int(arcpy.management.GetCount(result[0]))
 with arcpy.da.SearchCursor("roads_buffer", ["SHAPE@JSON"]) as cursor:
     geometry_types = sorted({json.loads(row[0])["type"] for row in cursor})
-# The buffer output is an inline job result, not a server layer: a layer-aware
-# tool cannot take it as input and must refuse instead of reading layer 0.
-try:
-    arcpy.management.Dissolve("roads_buffer", "roads_buffer_dissolved")
-    chained = "ran"
-except HonuaGpResolveError:
-    chained = "refused"
+# The buffer output is an inline job result, not a server layer: Dissolve
+# sends its geometries to geometry.dissolve instead of reading layer 0.
+chained = arcpy.management.Dissolve(result[0], "roads_buffer_dissolved")
+chained_count = int(arcpy.management.GetCount(chained[0]))
+with arcpy.da.SearchCursor("roads_buffer_dissolved", ["SHAPE@JSON"]) as cursor:
+    chained_shapes = [json.loads(row[0]) for row in cursor]
+chained_types = sorted({shape["type"] for shape in chained_shapes})
+chained_parts = sum(len(shape["coordinates"]) if shape["type"].startswith("Multi") else 1 for shape in chained_shapes)
 dissolved = arcpy.management.Dissolve("roads", "roads_dissolved")
 dissolve_count = int(arcpy.management.GetCount(dissolved[0]))
-print(f"buffer_output_chain ok input={input_count} buffer={buffer_count} dissolve={dissolve_count} chained={chained}")
+print(
+    f"buffer_output_chain ok input={input_count} buffer={buffer_count} chained={chained_count} "
+    f"parts={chained_parts} dissolve={dissolve_count}"
+)
 """,
-    7,
+    9,
     "buffer_output_chain ok",
     response_emit=_val_emit(
         "buffer_output_chain",
         "{'input_count': input_count, 'buffer_count': buffer_count, 'buffer_geometry_types': geometry_types, "
-        "'chained_dissolve': chained, 'dissolve_count': dissolve_count}",
+        "'chained_count': chained_count, 'chained_geometry_types': chained_types, 'chained_parts': chained_parts, "
+        "'dissolve_count': dissolve_count}",
     ),
 )
 

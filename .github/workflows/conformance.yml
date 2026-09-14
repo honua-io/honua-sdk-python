@@ -7,6 +7,8 @@ name: Python SDK Conformance
 #
 # Unlike the scheduled, advisory staging-integration lane, this job runs on
 # every pull_request and push to trunk and is intended to be a required check.
+# PRs exercise the candidate wheel; trunk pushes and manual certification qualify
+# the exact public wheel separately.
 
 on:
   push:
@@ -47,6 +49,14 @@ env:
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
   CONFORMANCE_FIXTURES_VERSION: "0.2.0-alpha.1"
+  # Exact public wheel currently published on PyPI. This intentionally differs
+  # from honua-release's stale 0.1.10 client-artifact pin; the lane qualifies
+  # the bytes users can actually install while lock convergence remains owned
+  # by the release worklist.
+  HONUA_SDK_PUBLIC_VERSION: "0.1.11"
+  HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.11-py3-none-any.whl"
+  HONUA_SDK_PUBLIC_WHEEL_SHA256: "80ac6a25fa5fed0ee7d8dca4ca94d14c098d9f72a149c9e271b1a1d04b78c3e9"
+  HONUA_SDK_PUBLIC_SOURCE_SHA: "f7930b6e9c3ce47ade148bba3d4510eeffd2ccc4"
   # Current nightly image and its exact embedded source revision. Update these as
   # one identity so scheduled evidence never joins a candidate to unrelated seed
   # fixtures. Release dispatches continue to override both explicitly.
@@ -66,23 +76,73 @@ jobs:
           cache: pip
           cache-dependency-path: packages/honua-sdk/pyproject.toml
 
-      - name: Build and install honua-sdk wheel
+      - name: Build and install candidate honua-sdk wheel
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install build
-          python -m build --wheel --outdir dist packages/honua-sdk
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+          python -m build --wheel --no-isolation --outdir dist packages/honua-sdk
           wheel="$(find dist -maxdepth 1 -name 'honua_sdk-*.whl' -type f -print -quit)"
           [[ -n "${wheel}" ]]
+          wheel_filename="$(basename "${wheel}")"
           wheel_sha256="$(sha256sum "${wheel}" | cut -d ' ' -f 1)"
+          wheel_requirement="${RUNNER_TEMP}/honua-sdk-wheel-requirement.txt"
+          printf '%s --hash=sha256:%s\n' "$(realpath "${wheel}")" "${wheel_sha256}" > "${wheel_requirement}"
           python -m venv "${RUNNER_TEMP}/honua-sdk-certification"
-          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install --upgrade pip
-          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install "${wheel}" pytest
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --no-deps \
+            -r "${wheel_requirement}"
           {
             echo "HONUA_SDK_CERT_PYTHON=${RUNNER_TEMP}/honua-sdk-certification/bin/python"
             echo "HONUA_SDK_INSTALL_ROOT=${RUNNER_TEMP}/honua-sdk-certification"
-            echo "HONUA_SDK_WHEEL_FILENAME=$(basename "${wheel}")"
+            echo "HONUA_SDK_WHEEL_FILENAME=${wheel_filename}"
             echo "HONUA_SDK_WHEEL_SHA256=${wheel_sha256}"
+            echo "HONUA_SDK_WHEEL_SOURCE=github-actions"
+            echo "HONUA_SDK_SOURCE_SHA=${GITHUB_SHA}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Download and install exact public honua-sdk wheel
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python -m pip download \
+            --dest dist \
+            --no-deps \
+            --only-binary=:all: \
+            "honua-sdk==${HONUA_SDK_PUBLIC_VERSION}"
+          wheel="dist/${HONUA_SDK_PUBLIC_WHEEL}"
+          [[ -f "${wheel}" ]]
+          echo "${HONUA_SDK_PUBLIC_WHEEL_SHA256}  ${wheel}" | sha256sum --check --strict
+          wheel_requirement="${RUNNER_TEMP}/honua-sdk-wheel-requirement.txt"
+          printf '%s --hash=sha256:%s\n' "$(realpath "${wheel}")" "${HONUA_SDK_PUBLIC_WHEEL_SHA256}" > "${wheel_requirement}"
+          python -m venv "${RUNNER_TEMP}/honua-sdk-certification"
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+          "${RUNNER_TEMP}/honua-sdk-certification/bin/python" -m pip install \
+            --require-hashes \
+            --no-deps \
+            -r "${wheel_requirement}"
+          installed_version="$("${RUNNER_TEMP}/honua-sdk-certification/bin/python" -c \
+            'import importlib.metadata; print(importlib.metadata.version("honua-sdk"))')"
+          [[ "${installed_version}" == "${HONUA_SDK_PUBLIC_VERSION}" ]]
+          {
+            echo "HONUA_SDK_CERT_PYTHON=${RUNNER_TEMP}/honua-sdk-certification/bin/python"
+            echo "HONUA_SDK_INSTALL_ROOT=${RUNNER_TEMP}/honua-sdk-certification"
+            echo "HONUA_SDK_WHEEL_FILENAME=${HONUA_SDK_PUBLIC_WHEEL}"
+            echo "HONUA_SDK_WHEEL_SHA256=${HONUA_SDK_PUBLIC_WHEEL_SHA256}"
+            echo "HONUA_SDK_WHEEL_SOURCE=pypi"
+            echo "HONUA_SDK_SOURCE_SHA=${HONUA_SDK_PUBLIC_SOURCE_SHA}"
           } >> "${GITHUB_ENV}"
 
       - name: Verify fixture pin matches conformance/FIXTURES_VERSION
@@ -144,7 +204,7 @@ jobs:
               echo "::error::release certification requires a full 40-character server_seed_ref"
               exit 1
             fi
-            python - "${CANDIDATE_CUT_AT_INPUT}" <<'PY'
+            "${HONUA_SDK_CERT_PYTHON}" - "${CANDIDATE_CUT_AT_INPUT}" <<'PY'
           import sys
 
           from scripts._conformance import validate_candidate_cut_at
@@ -230,7 +290,6 @@ jobs:
             echo "HONUA_LAYER_ID=0"
             echo "HONUA_API_KEY=ClientCompatAdmin123!"
             echo "HONUA_SERVER_IMAGE_DIGEST=${image_digest}"
-            echo "HONUA_SDK_SOURCE_SHA=${GITHUB_SHA}"
             echo "HONUA_EVIDENCE_URI=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "HONUA_CANDIDATE_CUT_AT=${candidate_cut_at}"
             echo "HONUA_CERTIFICATION_TIER=${HONUA_CERTIFICATION_TIER}"
@@ -256,7 +315,7 @@ jobs:
       - name: Run shared-fixture conformance suite
         env:
           HONUA_CONFORMANCE_SUMMARY_PATH: conformance-summary.md
-          HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: protocol-certification-fragment.json
+          HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request' && 'protocol-certification-fragment.json' || '' }}
         run: |
           "${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance \
             -q \
@@ -269,7 +328,7 @@ jobs:
       - name: Enforce release evidence outcomes
         if: ${{ github.event.inputs.certification_tier == 'release' }}
         run: |
-          python - <<'PY'
+          "${HONUA_SDK_CERT_PYTHON}" - <<'PY'
           import json
           from pathlib import Path
           from scripts._conformance import validate_release_certification_fragment

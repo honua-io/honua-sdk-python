@@ -57,6 +57,7 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         sdk_source_sha=sdk_sha,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
         sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
         evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
@@ -103,6 +104,7 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["client_package"] == {
         "filename": "honua_sdk-9.9.9-py3-none-any.whl",
         "sha256": "d" * 64,
+        "source": "pypi",
     }
     assert passed["evidence_receipt"]["identity"]["client_package"] == passed["client_package"]
     assert passed["fixture_revision"] == "geospatial-grpc@fixture-v1"
@@ -132,6 +134,7 @@ def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch)
         sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
         sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
         evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
@@ -172,6 +175,7 @@ def test_certification_rejects_malformed_wheel_digest(monkeypatch) -> None:
         sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
         sdk_wheel_sha256="not-a-digest",
+        sdk_wheel_source="pypi",
         evidence_uri="local://test",
         candidate_cut_at="2026-08-20T00:00:00Z",
     )
@@ -214,6 +218,7 @@ def test_candidate_cut_changes_the_content_addressed_receipt(monkeypatch) -> Non
             sdk_source_sha="c" * 40,
             sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
             sdk_wheel_sha256="d" * 64,
+            sdk_wheel_source="pypi",
             evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
             candidate_cut_at=cut_at,
             certification_tier="release",
@@ -239,6 +244,7 @@ def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> 
         sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
         sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
         evidence_uri="https://github.com/honua-io/honua-sdk-python/actions/runs/1",
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",

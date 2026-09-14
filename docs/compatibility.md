@@ -18,9 +18,13 @@ The Python SDK compatibility gate protects two contracts:
 
 Release builds support Honua Server versions that meet all of these conditions:
 
-- `serverVersion` parses to at least `1.0.0`. Honua Server GA identities use
-  SemVer `1.x` values and may include build metadata such as `1.0.0+<sha>`.
-- Pre-GA CalVer identities remain supported from `2026.3.0` onward.
+- `serverVersion` parses to at least `1.0.0`. Honua Server versions are
+  `<year>.<release>.<patch>` SemVer triples (the 2026.1 release reports
+  `2026.1.1`), may carry a prerelease suffix (`-rc.1`, `-nightly.N`) or build
+  metadata (`+<sha>`), and older builds reported `1.0.0+<sha>`. The major tracks
+  the year rather than compatibility, so there is one floor for every release
+  line, the same `1.0.0` the JS SDK uses; the control-plane API major below is
+  the breaking-change signal.
 - `releaseChannel` is `preview` or a later channel (`beta`, `rc`, `stable`, or
   `lts`).
 - `controlPlaneApi.major` is `1`.
@@ -42,6 +46,27 @@ python scripts/compatibility_gate.py
 
 Update the matrix in the same PR as any SDK baseline change. The gate also
 checks that the JSON baseline matches the constants exported by `honua_admin`.
+
+The matrix includes the exact stable `1.0.0+32809f114c36c951b00beb5fe07a3c7082867909`
+identity reported in [#219](https://github.com/honua-io/honua-sdk-python/issues/219)
+and the `2026.1.1` compatibility contract a 2026.1 server image returns. Both
+synchronous and asynchronous admin clients test those identities through the
+capabilities response parser, with independent rejection cases for an incompatible
+API major, base path, or release channel. These deterministic transport fixtures
+protect the runtime policy; they do not certify a deployed release candidate.
+
+`tests/conformance/test_live_admin_contract.py` runs the same check against a
+live server when `HONUA_CONTRACT_LIVE_URL` and an admin
+`HONUA_CONTRACT_LIVE_API_KEY` are set:
+
+```bash
+HONUA_CONTRACT_LIVE_URL=http://localhost:8080 HONUA_CONTRACT_LIVE_API_KEY=<admin key> \
+  python3 -m pytest tests/conformance/test_live_admin_contract.py --run-integration -q
+```
+
+Published `honua-admin` 0.1.8 predates this correction and rejects both
+identities. The corrected baseline must be included in the admin package selected
+by the release train; source-level compatibility does not update an installed wheel.
 
 ## Public API Snapshot
 

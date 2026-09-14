@@ -33,6 +33,7 @@ def test_request_id_extracted_from_x_request_id_header() -> None:
     error = _to_http_error(response)
     assert isinstance(error, HonuaHttpError)
     assert error.request_id == "abc-123"
+    assert error.receipt.correlation_id == "abc-123"
 
 
 def test_headers_exposed_on_error() -> None:
@@ -104,6 +105,7 @@ def test_rate_limit_error_has_retry_after_and_request_id() -> None:
     error = _to_http_error(response)
     assert isinstance(error, HonuaRateLimitError)
     assert error.retry_after == pytest.approx(30.0)
+    assert error.receipt.retry_after_seconds == pytest.approx(30.0)
     assert error.request_id == "rl-9"
     assert error.headers.get("retry-after") == "30"
 
@@ -115,3 +117,16 @@ def test_honua_http_error_default_request_id_and_headers() -> None:
     error = HonuaHttpError(500, "boom")
     assert error.request_id is None
     assert error.headers == {}
+
+
+def test_direct_error_receipt_retains_explicit_request_id() -> None:
+    error = HonuaHttpError(500, "boom", request_id="direct-request")
+
+    assert error.receipt.correlation_id == "direct-request"
+
+
+def test_direct_rate_limit_receipt_retains_explicit_retry_after() -> None:
+    error = HonuaRateLimitError(429, "slow down", retry_after=2.5)
+
+    assert error.retry_after == pytest.approx(2.5)
+    assert error.receipt.retry_after_seconds == pytest.approx(2.5)

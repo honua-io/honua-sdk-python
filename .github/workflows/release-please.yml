@@ -6,11 +6,13 @@ on:
       - trunk
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   release-please:
+    permissions:
+      contents: write # Create release tags and releases.
+      pull-requests: write # Maintain the release PR.
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}

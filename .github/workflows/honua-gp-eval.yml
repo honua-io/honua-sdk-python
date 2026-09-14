@@ -2,6 +2,24 @@ name: honua-gp eval
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "pinned = the blocking pinned baseline (or a one-off override below); canary = the moving nightly-aot canary (reports drift, never fails its check-run)."
+        type: choice
+        options: [pinned, canary]
+        default: pinned
+      server_image:
+        description: "Override the honua-server image (repo:tag or repo@sha256:digest). Blank = the pinned candidate digest (pinned) or nightly-aot (canary)."
+        required: false
+        default: ""
+      seed_ref:
+        description: "pinned mode only: honua-server revision for the seed fixtures; required with server_image and must equal the image's org.opencontainers.image.revision label. The canary always seeds from that label."
+        required: false
+        default: ""
+  schedule:
+    # Moving canary (#201): the current nightly-aot build against its own seed
+    # revision. See the ephemeral-server-smoke job comment.
+    - cron: "17 14 * * *"
   push:
     branches: [trunk]
     paths:
@@ -23,7 +41,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The canary gets its own group so a scheduled run on trunk never cancels
+  # (or is cancelled by) the pinned verdict of a trunk push.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'canary-' || '' }}${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -134,23 +154,75 @@ jobs:
   # layer) -- several eval scripts mutate the seeded layer (InsertCursor /
   # UpdateCursor -> applyEdits) and those edits persist, so the oracles are
   # only deterministic against a database that has not been touched by a prior
-  # run. This job therefore targets a DEDICATED ``vars.HONUA_GP_EVAL_BASE_URL``
-  # variable, not the generic ``vars.HONUA_BASE_URL`` other lanes (e.g.
-  # conformance) point at a persistent shared staging server -- reusing that
-  # generic var here previously ran this job's value diff against a drifted,
-  # non-fresh database and produced spurious response-mismatch failures with
-  # no real regression (see PR discussion). Leaving the dedicated var unset
-  # (the default posture) spins up a fresh, ephemeral, per-run Docker target so
-  # the response oracles reproduce. Set ``vars.HONUA_GP_EVAL_BASE_URL``
-  # explicitly ONLY if you intentionally want this lane to smoke-test against a
-  # persistent target instead of the fresh seed -- expect the seed-pinned
-  # response oracles to drift/flake against a non-fresh database in that case
-  # (see docs/golden-eval.md).
+  # run. The lane therefore always spins up a fresh, ephemeral, per-run Docker
+  # target. ``vars.HONUA_GP_EVAL_BASE_URL`` (a persistent target) is honoured
+  # ONLY on a manual workflow_dispatch: a persistent server has no identity
+  # this job can bind, so it can never carry a push/pull_request verdict
+  # (#201), and the seed-pinned oracles drift against a non-fresh database
+  # (see docs/golden-eval.md). It deliberately does NOT read the generic
+  # ``vars.HONUA_BASE_URL`` other lanes point at shared staging.
+  #
+  # BASELINE DECISION (#201): this lane may NOT consume a moving upstream while
+  # it blocks a commit. It used to default to the moving ``nightly-aot`` tag
+  # plus an unpinned honua-server seed checkout (default-branch HEAD at run
+  # time), so a commit's verdict depended on whatever honua-server merged that
+  # day -- the class of problem honua-sdk-dotnet#300 fixed. It now runs in one
+  # of two modes:
+  #
+  #   * pinned (push / pull_request / default dispatch) -- BLOCKING. The server
+  #     image digest and the seed revision below are one identity: the seed is
+  #     checked out at exactly the revision the image was built from, and the
+  #     job fails if the pulled image's digest or its
+  #     ``org.opencontainers.image.revision`` label disagree with the pin.
+  #   * canary (daily schedule / dispatch mode=canary) -- NON-BLOCKING. Pulls
+  #     the moving ``nightly-aot`` tag, resolves it to an immutable digest and
+  #     revision, and seeds from that revision. Every step is non-fatal, so its
+  #     check-run on trunk HEAD never carries a failure conclusion; the verdict
+  #     goes to the ``gp-eval-canary-alert`` job, which creates/updates the open
+  #     issue titled "honua-gp moving canary drift" (the drift destination),
+  #     and to the ``honua-gp-canary-evidence`` artifact.
+  #
+  # Both modes record the verdict in ``smoke-identity.json`` (uploaded with the
+  # smoke artifacts) and the step summary, and separate the failure classes:
+  # ``environment-startup-failure`` (install, image identity, seed checkout,
+  # stack start/seed -- no GP was evaluated), ``gp-correctness-failure`` (the
+  # live eval ran and a script failed), ``eval-incomplete`` (the eval ran but
+  # skipped scripts, ran in stub mode, or produced no results) and
+  # ``not-executed``. Only ``passed`` -- every script executed live and passed
+  # -- counts as success.
+  #
+  # PINNED IDENTITY: 2026.1-rc.2 governed candidate (honua-release
+  # platform-manifest.yaml components.honua-server, snapshot 2026-09-12):
+  # honua-server@7ba422672e0c751843b17beb36e954a019cc19fb, image
+  # nightly-aot-7ba4226 = sha256:dd50cd81.... Verified live against this
+  # repo's #234 oracles: stack ready, SpatialJoin layer served, 50/50 live.
+  # (The previous 2026-08-19 conformance.yml pin, f897700, predates
+  # honua-server#4645's SRID-correct buffer that #234's MultiPolygon oracles
+  # encode.) The layer-aware ops (Buffer / SpatialJoin / Dissolve / Project,
+  # issue #157) depend on honua-server#2327, an ancestor of this revision.
+  #
+  # PROMOTION PATH -- move the pin only in a reviewed PR, both values together:
+  #   1. Pick the new identity: the governed candidate in honua-release's
+  #      platform-manifest.yaml (components.honua-server sha + digest), or a
+  #      nightly the canary reported ``passed`` for (its
+  #      ``smoke-identity.json`` records digest + revision).
+  #   2. Confirm the digest carries the revision label:
+  #        docker pull ghcr.io/honua-io/honua-server@<digest>
+  #        docker image inspect ghcr.io/honua-io/honua-server@<digest> \
+  #          --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+  #      and that the revision is fetchable from honua-server.
+  #   3. Dispatch this workflow on the PR branch with mode=pinned,
+  #      server_image=ghcr.io/honua-io/honua-server@<digest>, seed_ref=<revision>
+  #      and require verdict ``passed``. If oracles legitimately changed
+  #      upstream, refresh eval/golden in the same PR with the evidence.
+  #   4. Update HONUA_GP_EVAL_PINNED_IMAGE and HONUA_GP_EVAL_PINNED_SEED_REVISION
+  #      below, in that PR.
   #
   # This is NOT ArcGIS Pro parity: a licensed arcpy baseline does not exist in
   # this environment, so arcpy-level output equivalence stays out of scope and
   # is tracked separately.
   ephemeral-server-smoke:
+    name: ${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'gp-eval-moving-canary' || 'ephemeral-server-smoke' }}
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     needs: eval
@@ -158,19 +230,31 @@ jobs:
       contents: read
       packages: read
     environment: staging
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+      image: ${{ steps.identity.outputs.resolved }}
+      revision: ${{ steps.identity.outputs.revision }}
+      identity-source: ${{ steps.identity.outputs.source }}
     env:
-      # Dedicated var -- see the job-level comment above for why this must NOT
-      # read the generic ``vars.HONUA_BASE_URL``.
-      HONUA_BASE_URL: ${{ vars.HONUA_GP_EVAL_BASE_URL }}
+      HONUA_GP_EVAL_MODE: ${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'canary' || 'pinned' }}
+      HONUA_GP_EVAL_PINNED_IMAGE: ghcr.io/honua-io/honua-server@sha256:dd50cd81c057e37e73a6144572abdfc90d48de314d7625c54c4ef3b6eb65b0fd
+      HONUA_GP_EVAL_PINNED_SEED_REVISION: 7ba422672e0c751843b17beb36e954a019cc19fb
+      HONUA_GP_EVAL_CANARY_IMAGE: ghcr.io/honua-io/honua-server:nightly-aot
+      # Persistent-target override: manual dispatch only -- see the job comment.
+      HONUA_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && vars.HONUA_GP_EVAL_BASE_URL || '' }}
       HONUA_API_KEY: ${{ secrets.HONUA_API_KEY }}
-      # Use the immutable image/source pair verified by the conformance lane.
-      # Keep operator overrides paired so seed schema cannot drift from the image.
-      HONUA_LOCAL_SERVER_IMAGE: ${{ vars.HONUA_LOCAL_SERVER_IMAGE || 'ghcr.io/honua-io/honua-server@sha256:78e3088d64d832d3e2752c87d80bfcad201b414f4525989ca5d9a242cd5fee8a' }}
-      HONUA_LOCAL_SERVER_REVISION: ${{ vars.HONUA_LOCAL_SERVER_REVISION || 'f897700159e2791c9468c6ca85bb4e2a3a8d8433' }}
     steps:
+      # On the canary every step is non-fatal (continue-on-error) so the
+      # check-run never concludes failure; each step is gated on the outcome
+      # of the one it depends on, and the "Record smoke verdict" step turns
+      # the outcomes into the verdict.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        id: checkout
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
 
       - name: Setup Python
+        id: setup-python
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -178,6 +262,9 @@ jobs:
           cache-dependency-path: packages/honua-gp/pyproject.toml
 
       - name: Install packages
+        id: install
+        if: ${{ steps.checkout.outcome == 'success' && steps.setup-python.outcome == 'success' }}
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
           pip install --no-deps --no-build-isolation -e packages/honua-sdk
@@ -188,41 +275,124 @@ jobs:
         id: target
         run: |
           if [[ -n "${HONUA_BASE_URL}" ]]; then
-            echo "configured=true" >> "${GITHUB_OUTPUT}"
             echo "local_stack=false" >> "${GITHUB_OUTPUT}"
             {
               echo "## honua-gp smoke"
-              echo '- ``vars.HONUA_GP_EVAL_BASE_URL`` is configured; smoke-testing against that persistent target instead of a fresh local seed.'
-              echo '- WARNING: the response-value oracles in eval/golden/*.json are pinned to a fresh client-compat seed and MAY drift/flake against a non-fresh database.'
+              echo '- manual dispatch with ``vars.HONUA_GP_EVAL_BASE_URL`` configured; smoke-testing against that persistent target instead of a fresh local seed.'
+              echo '- WARNING: the server identity is unverified and the response-value oracles in eval/golden/*.json are pinned to a fresh client-compat seed, so they MAY drift/flake against a non-fresh database.'
             } >> "${GITHUB_STEP_SUMMARY}"
           else
-            echo "configured=true" >> "${GITHUB_OUTPUT}"
             echo "local_stack=true" >> "${GITHUB_OUTPUT}"
             {
-              echo "## honua-gp smoke"
-              echo '- ``vars.HONUA_GP_EVAL_BASE_URL`` not configured; standing up a fresh, ephemeral, seeded client-compat Docker target so the response-value oracles are deterministic.'
+              echo "## honua-gp smoke (${HONUA_GP_EVAL_MODE})"
+              echo '- standing up a fresh, ephemeral, seeded client-compat Docker target so the response-value oracles are deterministic.'
             } >> "${GITHUB_STEP_SUMMARY}"
           fi
 
-      - name: Checkout Honua Server seed fixtures
+      - name: Resolve honua-server image identity
+        id: identity
         if: ${{ steps.target.outputs.local_stack == 'true' }}
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
+        env:
+          REQUESTED_IMAGE: ${{ inputs.server_image }}
+          REQUESTED_SEED_REF: ${{ inputs.seed_ref }}
+        run: |
+          set -euo pipefail
+          if [[ "${HONUA_GP_EVAL_MODE}" == "canary" ]]; then
+            image="${REQUESTED_IMAGE:-${HONUA_GP_EVAL_CANARY_IMAGE}}"
+            seed_ref=""
+            source="moving-canary"
+          elif [[ -n "${REQUESTED_IMAGE}${REQUESTED_SEED_REF}" ]]; then
+            if [[ -z "${REQUESTED_IMAGE}" || -z "${REQUESTED_SEED_REF}" ]]; then
+              echo "::error::server_image and seed_ref override the pinned baseline as one identity; pass both."
+              exit 1
+            fi
+            image="${REQUESTED_IMAGE}"
+            seed_ref="${REQUESTED_SEED_REF}"
+            source="dispatch-override"
+          else
+            image="${HONUA_GP_EVAL_PINNED_IMAGE}"
+            seed_ref="${HONUA_GP_EVAL_PINNED_SEED_REVISION}"
+            source="pinned"
+          fi
+
+          docker pull "${image}"
+          resolved="$(docker image inspect "${image}" --format '{{index .RepoDigests 0}}')"
+          digest="${resolved##*@}"
+          revision="$(docker image inspect "${image}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::could not resolve an immutable digest for ${image} (got '${resolved}')."
+            exit 1
+          fi
+          if [[ ! "${revision}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::${image} carries no org.opencontainers.image.revision label (got '${revision}'); the seed fixtures cannot be bound to it."
+            exit 1
+          fi
+          if [[ "${source}" == "pinned" ]]; then
+            if [[ "${image}" != *"@${digest}" ]]; then
+              echo "::error::pulled digest ${digest} does not match the pinned image ${image}."
+              exit 1
+            fi
+            if [[ "${revision}" != "${seed_ref}" ]]; then
+              echo "::error::pinned image revision ${revision} does not match the pinned seed revision ${seed_ref}; update both pins together."
+              exit 1
+            fi
+          fi
+          # The canary seeds from the revision the moving image was built from,
+          # so image and seed still move as one identity.
+          seed_ref="${seed_ref:-${revision}}"
+
+          {
+            echo "image=${image}"
+            echo "resolved=${resolved}"
+            echo "digest=${digest}"
+            echo "revision=${revision}"
+            echo "seed_ref=${seed_ref}"
+            echo "source=${source}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "- Identity source: \`${source}\`"
+            echo "- Server image: \`${image}\`"
+            echo "- Resolved digest: \`${resolved}\`"
+            echo "- Image revision: \`${revision}\`"
+            echo "- Seed ref: \`${seed_ref}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Checkout Honua Server seed fixtures
+        id: seed-checkout
+        if: ${{ steps.target.outputs.local_stack == 'true' && steps.identity.outcome == 'success' }}
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: honua-io/honua-server
           path: honua-server
-          ref: ${{ env.HONUA_LOCAL_SERVER_REVISION }}
+          # The exact revision the server image was built from (see the
+          # identity step) -- never the default branch.
+          ref: ${{ steps.identity.outputs.seed_ref }}
 
       - name: Start seeded local Honua target
-        if: ${{ steps.target.outputs.local_stack == 'true' }}
+        id: stack
+        if: ${{ steps.target.outputs.local_stack == 'true' && steps.seed-checkout.outcome == 'success' }}
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
         env:
           COMPOSE_PROJECT_NAME: honua-gp-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          # Digest-qualified, so compose runs exactly the image the identity
+          # step resolved even if the canary's moving tag advances meanwhile.
+          HONUA_LOCAL_SERVER_IMAGE: ${{ steps.identity.outputs.resolved }}
+          HONUA_SERVER_REVISION: ${{ steps.identity.outputs.revision }}
         run: |
           set -euo pipefail
           server_root="${GITHUB_WORKSPACE}/honua-server"
+          seed_revision="$(git -C "${server_root}" rev-parse HEAD)"
+          if [[ "${seed_revision}" != "${HONUA_SERVER_REVISION}" ]]; then
+            echo "::error::checked-out seed revision ${seed_revision} does not match image revision ${HONUA_SERVER_REVISION}."
+            exit 1
+          fi
           compose_file="${server_root}/docker/client-compat/compose.yml"
           if [[ ! -f "${compose_file}" ]]; then
-            echo "::warning::honua-server compose file not found; skipping ephemeral smoke."
-            exit 0
+            # A missing fixture is failed evidence, never a skipped-green smoke.
+            echo "::error::honua-server@${seed_revision} has no docker/client-compat/compose.yml; the seeded target cannot be started."
+            exit 1
           fi
           override_file="${RUNNER_TEMP}/honua-gp-smoke.override.yml"
           cat > "${override_file}" <<YAML
@@ -282,9 +452,6 @@ jobs:
               ports:
                 - "5000:5000"
           YAML
-          docker pull "${HONUA_LOCAL_SERVER_IMAGE}"
-          image_revision="$(docker image inspect "${HONUA_LOCAL_SERVER_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
-          test "${image_revision}" = "$(git -C "${server_root}" rev-parse HEAD)"
           docker build \
             -t client-compat-seed:latest \
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \
@@ -350,6 +517,9 @@ jobs:
           fi
 
       - name: Run ephemeral smoke (live value diff -- honua_gp <-> real honua-server)
+        id: live
+        if: ${{ steps.install.outcome == 'success' && (steps.target.outputs.local_stack == 'false' || steps.stack.outcome == 'success') }}
+        continue-on-error: ${{ env.HONUA_GP_EVAL_MODE == 'canary' }}
         env:
           HONUA_GP_EVAL_USE_STUB: "0"
           HONUA_GP_AUDIT_DIR: ${{ runner.temp }}/honua-gp-smoke-audit
@@ -384,15 +554,218 @@ jobs:
             --pass-threshold 0.70 \
             --require-supported-pass-rate 1.0
 
+      - name: Record smoke verdict
+        id: verdict
+        if: always()
+        env:
+          LOCAL_STACK: ${{ steps.target.outputs.local_stack }}
+          OUTCOME_CHECKOUT: ${{ steps.checkout.outcome }}
+          OUTCOME_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
+          OUTCOME_INSTALL: ${{ steps.install.outcome }}
+          OUTCOME_TARGET: ${{ steps.target.outcome }}
+          OUTCOME_IDENTITY: ${{ steps.identity.outcome }}
+          OUTCOME_SEED_CHECKOUT: ${{ steps.seed-checkout.outcome }}
+          OUTCOME_STACK: ${{ steps.stack.outcome }}
+          OUTCOME_LIVE: ${{ steps.live.outcome }}
+          IDENTITY_SOURCE: ${{ steps.identity.outputs.source }}
+          IDENTITY_IMAGE: ${{ steps.identity.outputs.image }}
+          IDENTITY_DIGEST: ${{ steps.identity.outputs.digest }}
+          IDENTITY_REVISION: ${{ steps.identity.outputs.revision }}
+          IDENTITY_SEED_REF: ${{ steps.identity.outputs.seed_ref }}
+          SMOKE_RESULTS: packages/honua-gp/smoke-eval.json
+          SMOKE_IDENTITY: packages/honua-gp/smoke-identity.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          env = os.environ
+          local_stack = env.get("LOCAL_STACK") == "true"
+          harness = [
+              ("checkout", "OUTCOME_CHECKOUT"),
+              ("setup-python", "OUTCOME_SETUP_PYTHON"),
+              ("install", "OUTCOME_INSTALL"),
+              ("target", "OUTCOME_TARGET"),
+          ]
+          if local_stack:
+              harness += [
+                  ("image-identity", "OUTCOME_IDENTITY"),
+                  ("seed-checkout", "OUTCOME_SEED_CHECKOUT"),
+                  ("stack-start", "OUTCOME_STACK"),
+              ]
+          outcomes = {name: env.get(key) or "not-run" for name, key in harness}
+          outcomes["live-eval"] = env.get("OUTCOME_LIVE") or "not-run"
+
+          results = None
+          results_path = Path(env["SMOKE_RESULTS"])
+          if results_path.is_file():
+              try:
+                  results = json.loads(results_path.read_text(encoding="utf-8"))
+              except ValueError:
+                  results = None
+
+          failed_harness = [name for name, _ in harness if outcomes[name] != "success"]
+          live = outcomes["live-eval"]
+          if failed_harness:
+              verdict = "environment-startup-failure"
+              reason = "harness step(s) did not succeed: " + ", ".join(
+                  f"{name}={outcomes[name]}" for name in failed_harness
+              )
+          elif live in ("not-run", "skipped", "cancelled"):
+              verdict = "not-executed"
+              reason = f"live eval outcome {live}"
+          elif results is None:
+              verdict = "eval-incomplete"
+              reason = f"live eval outcome {live} but no readable {results_path}"
+          elif not results.get("liveMode"):
+              verdict = "eval-incomplete"
+              reason = "eval ran in stub mode, not against the live server"
+          elif results.get("failed", 0) > 0:
+              verdict = "gp-correctness-failure"
+              reason = "; ".join(
+                  f"{r['name']}: {r.get('reason') or 'failed'}"
+                  for r in results.get("results", [])
+                  if r.get("status") == "fail"
+              )
+          elif (
+              live != "success"
+              or results.get("skipped", 0) > 0
+              or results.get("supportedTotal", 0) == 0
+              or results.get("passed") != results.get("total")
+          ):
+              verdict = "eval-incomplete"
+              reason = (
+                  f"live eval outcome {live}; passed {results.get('passed')}/{results.get('total')}, "
+                  f"skipped {results.get('skipped')}, supported {results.get('supportedTotal')}"
+              )
+          else:
+              verdict = "passed"
+              reason = f"{results['passed']}/{results['total']} scripts passed live"
+
+          record = {
+              "schema": "honua-gp-smoke-identity.v1",
+              "mode": env["HONUA_GP_EVAL_MODE"],
+              "verdict": verdict,
+              "reason": reason,
+              "sdkCommit": env["GITHUB_SHA"],
+              "event": env["GITHUB_EVENT_NAME"],
+              "runUrl": env["RUN_URL"],
+              "target": "ephemeral-local-stack" if local_stack else "persistent-unverified",
+              "server": {
+                  "identitySource": env.get("IDENTITY_SOURCE") or None,
+                  "image": env.get("IDENTITY_IMAGE") or None,
+                  "digest": env.get("IDENTITY_DIGEST") or None,
+                  "revision": env.get("IDENTITY_REVISION") or None,
+                  "seedRef": env.get("IDENTITY_SEED_REF") or None,
+                  "pinnedImage": env["HONUA_GP_EVAL_PINNED_IMAGE"],
+                  "pinnedSeedRevision": env["HONUA_GP_EVAL_PINNED_SEED_REVISION"],
+              },
+              "outcomes": outcomes,
+              "eval": None
+              if results is None
+              else {
+                  key: results.get(key)
+                  for key in ("total", "passed", "failed", "skipped", "supportedTotal", "supportedPassed", "liveMode")
+              },
+          }
+          identity_path = Path(env["SMOKE_IDENTITY"])
+          identity_path.parent.mkdir(parents=True, exist_ok=True)
+          identity_path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          with open(env["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"verdict={verdict}\n")
+          with open(env["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"\n### Smoke verdict ({record['mode']}): `{verdict}`\n\n{reason}\n\n")
+              summary.write("| step | outcome |\n| --- | --- |\n")
+              for name, outcome in outcomes.items():
+                  summary.write(f"| {name} | {outcome} |\n")
+          print(json.dumps(record, indent=2, sort_keys=True))
+          PY
+          verdict="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["verdict"])' packages/honua-gp/smoke-identity.json)"
+          if [[ "${verdict}" == "passed" ]]; then
+            exit 0
+          fi
+          if [[ "${HONUA_GP_EVAL_MODE}" == "canary" ]]; then
+            echo "::warning::honua-gp moving canary verdict: ${verdict} (reported by gp-eval-canary-alert; this check-run does not fail)."
+            exit 0
+          fi
+          echo "::error::honua-gp pinned smoke verdict: ${verdict}"
+          exit 1
+
       # Without this the only trace of a live failure is the aggregate pass-rate
       # line -- the failing script names and their reasons live in the JSON.
       - name: Upload ephemeral smoke artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: honua-gp-smoke-eval
+          name: ${{ env.HONUA_GP_EVAL_MODE == 'canary' && 'honua-gp-canary-evidence' || 'honua-gp-smoke-eval' }}
           path: |
             packages/honua-gp/smoke-eval.json
             packages/honua-gp/smoke-eval.xml
+            packages/honua-gp/smoke-identity.json
           if-no-files-found: warn
           retention-days: 30
+
+  # Drift destination for the moving canary (#201). Keys off the smoke job's
+  # verdict output, not its result: the canary job always concludes success.
+  # An empty verdict (the canary was skipped, cancelled or timed out) is not
+  # ``passed`` and therefore raises the alert. This job itself may fail: a
+  # broken alert path is a real, actionable red.
+  gp-eval-canary-alert:
+    name: gp-eval moving canary alert
+    needs: [eval, ephemeral-server-smoke]
+    if: ${{ always() && (github.event_name == 'schedule' || inputs.mode == 'canary') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE_TITLE: honua-gp moving canary drift
+      VERDICT: ${{ needs.ephemeral-server-smoke.outputs.verdict }}
+      SMOKE_RESULT: ${{ needs.ephemeral-server-smoke.result }}
+      EVAL_RESULT: ${{ needs.eval.result }}
+      CANARY_IMAGE: ${{ needs.ephemeral-server-smoke.outputs.image }}
+      CANARY_REVISION: ${{ needs.ephemeral-server-smoke.outputs.revision }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SDK_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Create or update the canary drift issue
+        run: |
+          set -euo pipefail
+          verdict="${VERDICT:-not-executed}"
+          existing="$(gh issue list --state open --search "\"${ISSUE_TITLE}\" in:title" --json number,title \
+            --jq "map(select(.title == \"${ISSUE_TITLE}\")) | .[0].number // empty")"
+
+          if [[ "${verdict}" == "passed" ]]; then
+            echo "## honua-gp moving canary: passed" >> "${GITHUB_STEP_SUMMARY}"
+            echo "- \`${CANARY_IMAGE}\` (honua-server@${CANARY_REVISION}) is a promotion candidate for the pinned baseline." >> "${GITHUB_STEP_SUMMARY}"
+            if [[ -n "${existing}" ]]; then
+              gh issue comment "${existing}" --body "Canary verdict \`passed\` again on ${RUN_URL} against \`${CANARY_IMAGE}\` (honua-server@${CANARY_REVISION}). Close this issue once the drift that opened it is understood."
+            fi
+            exit 0
+          fi
+
+          body_file="${RUNNER_TEMP}/canary-drift.md"
+          {
+            echo "The scheduled \`honua-gp eval\` moving canary reported verdict **\`${verdict}\`**."
+            echo
+            echo "- Run: ${RUN_URL} (artifact \`honua-gp-canary-evidence\` holds \`smoke-identity.json\` and the per-script results)"
+            echo "- Server image: \`${CANARY_IMAGE:-unresolved}\`"
+            echo "- Server revision: \`${CANARY_REVISION:-unresolved}\`"
+            echo "- SDK commit: \`${SDK_COMMIT}\`"
+            echo "- Job results: eval=\`${EVAL_RESULT}\`, canary=\`${SMOKE_RESULT}\`"
+            echo
+            echo "Verdicts: \`environment-startup-failure\` means the image/seed/stack never came up (no GP was evaluated); \`gp-correctness-failure\` means a live GP script returned a wrong result; \`eval-incomplete\` / \`not-executed\` mean there is no full verdict."
+            echo
+            echo "This canary deliberately does not fail its check-run (#201): the blocking \`ephemeral-server-smoke\` lane stays on its pinned identity. Triage against honua-server; promote the pin only through the promotion path in \`.github/workflows/honua-gp-eval.yml\`."
+          } > "${body_file}"
+
+          if [[ -n "${existing}" ]]; then
+            gh issue comment "${existing}" --body-file "${body_file}"
+          else
+            gh issue create --title "${ISSUE_TITLE}" --body-file "${body_file}"
+          fi

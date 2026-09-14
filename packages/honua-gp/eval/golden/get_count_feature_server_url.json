@@ -1,0 +1,16 @@
+{
+  "expected_failure": false,
+  "plumbing": {
+    "audit_lines": 2,
+    "stdout_contains": "get_count_feature_server_url ok"
+  },
+  "response": {
+    "full_url_count": 10,
+    "locator": {
+      "layerId": 0,
+      "serviceId": "test_service"
+    },
+    "relative_path_count": 10
+  },
+  "schema_version": 2
+}

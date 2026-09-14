@@ -17,6 +17,21 @@ from . import _models as models
 from . import _proto_adapter as adapter
 
 
+def _rpc_metadata(error: grpc.RpcError, attribute: str) -> dict[str, list[object]]:
+    """Copy available gRPC metadata without allowing metadata access to mask the RPC failure."""
+    accessor = getattr(error, attribute, None)
+    if accessor is None:
+        return {}
+    try:
+        entries = accessor()
+    except (grpc.RpcError, RuntimeError):
+        return {}
+    copied: dict[str, list[object]] = {}
+    for key, value in entries or ():
+        copied.setdefault(str(key), []).append(value)
+    return copied
+
+
 def build_grpc_metadata(
     *,
     api_key: str | None = None,
@@ -149,7 +164,12 @@ class HonuaGrpcClient:
                 timeout=self._timeout,
             )
         except grpc.RpcError as e:
-            raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
+            raise HonuaGrpcError(
+                e.code(),
+                e.details() or str(e),
+                initial_metadata=_rpc_metadata(e, "initial_metadata"),
+                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
+            ) from e
         return adapter.from_proto_response(proto_response)
 
     def query_features_stream(
@@ -168,7 +188,12 @@ class HonuaGrpcClient:
                 if page.is_last_page:
                     break
         except grpc.RpcError as e:
-            raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
+            raise HonuaGrpcError(
+                e.code(),
+                e.details() or str(e),
+                initial_metadata=_rpc_metadata(e, "initial_metadata"),
+                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
+            ) from e
 
 
 class HonuaGrpcAsyncClient:
@@ -242,7 +267,12 @@ class HonuaGrpcAsyncClient:
                 timeout=self._timeout,
             )
         except grpc.aio.AioRpcError as e:
-            raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
+            raise HonuaGrpcError(
+                e.code(),
+                e.details() or str(e),
+                initial_metadata=_rpc_metadata(e, "initial_metadata"),
+                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
+            ) from e
         return adapter.from_proto_response(proto_response)
 
     async def query_features_stream(  # type: ignore[no-untyped-def]
@@ -262,4 +292,9 @@ class HonuaGrpcAsyncClient:
                 if page.is_last_page:
                     break
         except grpc.aio.AioRpcError as e:
-            raise HonuaGrpcError(e.code(), e.details() or str(e)) from e
+            raise HonuaGrpcError(
+                e.code(),
+                e.details() or str(e),
+                initial_metadata=_rpc_metadata(e, "initial_metadata"),
+                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
+            ) from e

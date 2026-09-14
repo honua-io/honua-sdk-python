@@ -4,6 +4,32 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### Environment configuration and FeatureServer layer URLs (#205)
+
+The licensed ArcPy `GetCount` parity probe failed twice before reaching the
+server: `import honua_gp` with `HONUA_BASE_URL` set still raised
+`HonuaGpConfigurationError`, and a FeatureServer layer URL resolved as a
+`workspace-relative` name, so the query went to a nonexistent endpoint.
+
+- The first lazy client build now applies `HONUA_BASE_URL` / `HONUA_API_KEY` /
+  `HONUA_BEARER_TOKEN` when no `base_url` is configured, so a script can call a
+  tool right after import. Only unset settings are filled: explicit
+  credentials and injected clients are kept.
+- `rest/services/<service>/FeatureServer/<layer>` paths and full URLs
+  (including a deployment path prefix such as `/gis`, a query string, and
+  percent-escaped service names) resolve to `honua://services/<service>/<layer>`.
+- A full URL naming a different server than the configured one raises
+  `HonuaGpResolveError` before any request, instead of answering from the
+  configured server. Foldered services (`rest/services/<folder>/<service>`)
+  raise too, because the SDK would send the folder as one escaped path segment.
+- `resolve_layer_id` raised `NameError` (an undefined `HonuaArcpyResolveError`)
+  on an invalid layer id; it now raises `HonuaGpResolveError`.
+- New tests: an installed-package consumer (non-editable installs, a separate
+  interpreter, env-only configuration, a real HTTP layer server), the GetCount
+  wire path over `httpx.MockTransport`, and the live eval script
+  `get_count_feature_server_url` graded against the client-compat seed's ten
+  layer-0 rows.
+
 ### `management.Describe` / `management.ListFields` promoted from stub to partial
 
 The highest-frequency real-world blocker across migrated scripts was schema

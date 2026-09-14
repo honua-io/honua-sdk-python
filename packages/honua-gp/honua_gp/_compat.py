@@ -119,7 +119,8 @@ def anchor_for(qualified_name: str) -> str:
 _OUTPUT_BINDING_NOTE = (
     "Output: the named output is bound to the job's inline FeatureLayer result "
     "(outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that "
-    "result, SHAPE@JSON is GeoJSON, and where clauses, edits, Describe, ListFields "
+    "result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features "
+    "(sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields "
     "or another layer-aware tool against it are rejected because nothing is "
     "persisted server-side. A missing or unreadable output raises ExecuteError; "
     "a failed or cancelled job keeps any prior alias and otherwise leaves the name "
@@ -480,6 +481,12 @@ COMPAT: dict[str, FunctionEntry] = {
             "statistics_fields / multi_part / unsplit_lines raises "
             "HonuaGpConfigurationError before submission instead of being "
             "silently dropped. A selection on in_features is forwarded as where. "
+            "When in_features is the bound output of an earlier GP tool, its "
+            "geometries are sent to the synchronous geometry.dissolve process as "
+            "base64 WKB (wkbs, srid, groupKeys from dissolve_field) and the "
+            "dissolve_field values are restored on each group; a where clause, a "
+            "selection, an empty result, null geometries or an unknown spatial "
+            "reference raise HonuaGpConfigurationError before submission. "
             + _OUTPUT_BINDING_NOTE
         ),
         param_map={

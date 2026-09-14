@@ -116,6 +116,13 @@ def submit_and_wait(
     job_id = _job_id(response)
     status = _status(response)
 
+    # A process that supports synchronous execution (the ``geometry.*``
+    # family) runs inline unless the client sends ``Prefer: respond-async``:
+    # honua-server then answers the execute request with the results document
+    # itself -- no StatusInfo, no job to poll.
+    if job_id is None and not status and any(str(key).startswith("output") for key in response):
+        return JobOutcome(job_id="", status=_TERMINAL_OK, status_info={}, results=response)
+
     # Some transports return the terminal status inline on the execute response
     # (a fast/synchronous job). Honour that before entering the poll loop.
     if status in _TERMINAL:

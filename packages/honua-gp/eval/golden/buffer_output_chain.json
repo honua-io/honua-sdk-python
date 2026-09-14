@@ -1,19 +1,27 @@
 {
   "expected_failure": false,
   "plumbing": {
-    "audit_lines": 7,
+    "audit_lines": 9,
     "stdout_contains": "buffer_output_chain ok"
   },
   "request": [
     {
       "function": "analysis.Buffer",
       "inputs": {
-        "dissolve": true,
+        "dissolve": false,
         "distance": 25.0,
         "layerId": 0,
         "unit": "meters"
       },
       "process_id": "analytics.buffer-aggregate"
+    },
+    {
+      "function": "management.Dissolve",
+      "inputs": {
+        "srid": 4326,
+        "wkbs": "<base64 WKB geometries of the input result>"
+      },
+      "process_id": "geometry.dissolve"
     },
     {
       "function": "management.Dissolve",
@@ -24,11 +32,15 @@
     }
   ],
   "response": {
-    "buffer_count": 1,
+    "buffer_count": 9,
     "buffer_geometry_types": [
+      "Polygon"
+    ],
+    "chained_count": 1,
+    "chained_geometry_types": [
       "MultiPolygon"
     ],
-    "chained_dissolve": "refused",
+    "chained_parts": 9,
     "dissolve_count": 1,
     "input_count": 10
   },

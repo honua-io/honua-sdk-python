@@ -15,6 +15,9 @@ computed here from those points:
 * Project to EPSG:3857: one point per input point at the spherical-Mercator
   coordinates computed from its longitude/latitude.
 * Dissolve: one MultiPoint whose coordinates are the input points.
+* Buffer 25 m per point, then Dissolve of that output: one polygon per located
+  point, then one feature whose part count is the number of groups of points
+  under 50 m apart, covering every point with vertices 25 m from the nearest.
 """
 
 from __future__ import annotations
@@ -189,10 +192,11 @@ def test_buffer_output_is_the_job_result_then_dissolve(
             list(cursor)
     assert where_info.value.error_kind == "unsupported_output_operation"
 
-    # The inline result is not a server layer: chaining it is refused and the
-    # requested output stays unbound instead of reading layer 0.
+    # The inline result is not a server layer: a layer-aware tool that only
+    # reads layers refuses it, and the requested output stays unbound instead
+    # of reading layer 0.
     with pytest.raises(honua_gp.HonuaGpResolveError):
-        honua_gp.management.Dissolve("gp226_buffer", "gp226_chained")
+        honua_gp.analysis.SpatialJoin("gp226_buffer", INPUT, "gp226_chained")
     with pytest.raises(honua_gp.HonuaGpResolveError):
         honua_gp.management.GetCount("gp226_chained")
 
@@ -204,6 +208,57 @@ def test_buffer_output_is_the_job_result_then_dissolve(
     assert {(round(x, 9), round(y, 9)) for x, y in dissolved_geometry["coordinates"]} == {
         (round(x, 9), round(y, 9)) for x, y in input_points
     }
+
+
+def _cluster_count(points: list[tuple[float, float]], threshold_m: float) -> int:
+    """Connected groups of points closer than ``threshold_m`` (union-find)."""
+
+    parent = list(range(len(points)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    for i in range(len(points)):
+        for j in range(i + 1, len(points)):
+            if _ground_distance_m(points[i], points[j]) < threshold_m:
+                parent[find(i)] = find(j)
+    return len({find(index) for index in range(len(points))})
+
+
+def _vertex_distances(geometry: dict[str, Any], points: list[tuple[float, float]]) -> list[float]:
+    vertices = [(vertex[0], vertex[1]) for polygon in _polygons(geometry) for ring in polygon for vertex in ring]
+    return [min(_ground_distance_m(vertex, point) for point in points) for vertex in vertices]
+
+
+def test_buffer_output_chains_into_dissolve(
+    input_features: list[dict[str, Any]], input_points: list[tuple[float, float]]
+) -> None:
+    buffered = honua_gp.analysis.Buffer(INPUT, "gp226_each", "25 Meters", dissolve_option="NONE")
+
+    # One 25 m polygon per located input row (rows without geometry have nothing to buffer).
+    assert honua_gp.management.GetCount(buffered[0]) == len(input_points)
+    polygons = [json.loads(shape) for (shape,) in _rows("gp226_each", ["SHAPE@JSON"])]
+    assert all(any(_covers(polygon, point) for polygon in polygons) for point in input_points)
+    for polygon in polygons:
+        distances = _vertex_distances(polygon, input_points)
+        assert 24.5 <= min(distances)
+        assert max(distances) <= 25.5
+
+    dissolved = honua_gp.management.Dissolve(buffered[0], "gp226_each_dissolved")
+
+    assert honua_gp.management.GetCount(dissolved[0]) == 1
+    [(shape,)] = _rows("gp226_each_dissolved", ["SHAPE@JSON"])
+    geometry = json.loads(shape)
+    # Disks around points under 50 m apart merge; every other disk stays its own part.
+    assert len(_polygons(geometry)) == _cluster_count(input_points, 50.0)
+    assert all(_covers(geometry, point) for point in input_points)
+    distances = _vertex_distances(geometry, input_points)
+    assert 24.5 <= min(distances)
+    assert max(distances) <= 25.5
+    assert honua_gp.management.GetCount(INPUT) == len(input_features)
 
 
 def test_project_output_matches_independent_mercator(

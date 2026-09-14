@@ -44,6 +44,12 @@ class OutputArtifact:
     job_id: str
     output_id: str
     features: tuple[Mapping[str, Any], ...]
+    srid: int | None = None
+    """Spatial reference of the geometries when the collection declares it
+    (``srid`` / ``inputSrid``); layer-aware outputs without one are in the
+    input layer's storage CRS."""
+    origin: str | None = None
+    """``honua://services/<service>/<layer>`` the job read, when known."""
 
     @property
     def source(self) -> str:
@@ -147,7 +153,17 @@ def read_output_artifact(
             f"its {output_id} output declares featureCount={declared} but carries {len(features)} features",
             compat_anchor,
         )
-    return OutputArtifact(function=function, job_id=job_id, output_id=output_id, features=tuple(features))
+    srid = next(
+        (
+            value
+            for value in (collection.get("srid"), collection.get("inputSrid"))
+            if isinstance(value, int) and not isinstance(value, bool) and value > 0
+        ),
+        None,
+    )
+    return OutputArtifact(
+        function=function, job_id=job_id, output_id=output_id, features=tuple(features), srid=srid
+    )
 
 
 @dataclass(frozen=True)

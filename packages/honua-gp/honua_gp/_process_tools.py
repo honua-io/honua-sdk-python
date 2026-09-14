@@ -30,8 +30,11 @@ have **no** layer-aware catalog counterpart, so they stay honest stubs; see
 
 from __future__ import annotations
 
+import json
+import re
+import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from ._audit import _redact_value, _shape_of, record_call
@@ -41,10 +44,11 @@ from ._errors import (
     HonuaGpConfigurationError,
     HonuaGpResolveError,
 )
-from ._output_artifact import read_output_artifact
+from ._output_artifact import OutputArtifact, read_output_artifact
 from ._process_jobs import JobOutcome, submit_and_wait
-from ._resolve import resolve_layer_id
+from ._resolve import descriptor_mapping, resolve, resolve_layer_id
 from ._session import HonuaSession, LayerAlias, get_session
+from ._wkb import WkbEncodingError, geojson_to_base64_wkb, position_count
 
 
 @dataclass(frozen=True)
@@ -159,6 +163,66 @@ class _ProjectedCall:
 
     inputs: dict[str, Any]
     output_name: str | None = None
+    process_id: str | None = None
+    """Replaces the manifest process id (Dissolve over a bound GP output)."""
+    origin: str | None = None
+    """``honua://services/<service>/<layer>`` the process reads; kept on the bound output."""
+    audit_inputs: dict[str, Any] | None = None
+    """Audit view of ``inputs`` when the payload carries encoded geometries."""
+    group_values: dict[str, dict[str, Any]] | None = None
+    """``geometry.dissolve`` group key -> the dissolve field values it stands for."""
+
+
+_HONUA_LAYER_URI = re.compile(r"^honua://services/(?P<service>[^/]+)/(?P<layer>\d+)$")
+
+
+def _layer_origin(value: Any, *, session: HonuaSession) -> str | None:
+    """Return the ``honua://services/<service>/<layer>`` a tool input resolves to, if any."""
+
+    try:
+        locator = descriptor_mapping(resolve(value, session=session), session=session).get("locator") or {}
+    except HonuaGpResolveError:
+        return None
+    service_id = locator.get("serviceId")
+    layer_id = locator.get("layerId")
+    if isinstance(service_id, str) and service_id and isinstance(layer_id, int) and not isinstance(layer_id, bool):
+        return f"honua://services/{service_id}/{layer_id}"
+    return None
+
+
+def _layer_srid(origin: str | None, *, session: HonuaSession) -> int | None:
+    """Read the spatial reference of the layer a job read from its FeatureServer metadata."""
+
+    match = _HONUA_LAYER_URI.match(origin or "")
+    client = session.client()
+    if match is None or not hasattr(client, "feature_server"):
+        return None
+    schema = client.feature_server(match["service"]).schema(int(match["layer"]))
+    srid = getattr(schema, "srid", None)
+    return srid if isinstance(srid, int) and not isinstance(srid, bool) and srid > 0 else None
+
+
+def _with_group_values(
+    artifact: OutputArtifact, group_values: Mapping[str, Mapping[str, Any]], *, compat_anchor: str | None
+) -> OutputArtifact:
+    """Put the dissolve field values back on each ``geometry.dissolve`` group feature."""
+
+    features = []
+    for feature in artifact.features:
+        properties = feature.get("properties")
+        properties = dict(properties) if isinstance(properties, Mapping) else {}
+        values = group_values.get(properties.get("groupKey"))
+        if values is None:
+            raise ExecuteError(
+                f"{artifact.function} job {artifact.job_id} returned a group "
+                f"{properties.get('groupKey')!r} it was not asked for; the output name was not bound "
+                "to any dataset.",
+                function=artifact.function,
+                error_kind="unreadable_output",
+                compat_anchor=compat_anchor,
+            )
+        features.append({**feature, "properties": {**properties, **values}})
+    return replace(artifact, features=tuple(features))
 
 
 def _reserve_output(name: Any, *, session: HonuaSession, projected: _ProjectedCall) -> None:
@@ -197,7 +261,7 @@ def _mark_requested_output(bound: Mapping[str, Any], session: HonuaSession) -> N
 
 def _bind_output(
     qualified: str,
-    output_name: str | None,
+    projected: _ProjectedCall,
     *,
     session: HonuaSession,
     outcome: JobOutcome,
@@ -216,9 +280,14 @@ def _bind_output(
     artifact = read_output_artifact(
         outcome.results,
         function=qualified,
-        job_id=outcome.job_id,
+        # A synchronous execution has no job id; keep each bound result distinct.
+        job_id=outcome.job_id or f"inline-{uuid.uuid4().hex}",
         compat_anchor=compat_anchor,
     )
+    artifact = replace(artifact, origin=projected.origin)
+    if projected.group_values:
+        artifact = _with_group_values(artifact, projected.group_values, compat_anchor=compat_anchor)
+    output_name = projected.output_name
     if not isinstance(output_name, str) or not output_name:
         return
     session.register_layer(
@@ -451,6 +520,7 @@ def _project_buffer(bound: Mapping[str, Any], *, session: HonuaSession, projecte
     if where:
         inputs["where"] = where
     projected.inputs = inputs
+    projected.origin = _layer_origin(bound.get("in_features"), session=session)
     _reserve_output(bound.get("out_feature_class"), session=session, projected=projected)
 
 
@@ -479,6 +549,7 @@ def _project_spatial_join(bound: Mapping[str, Any], *, session: HonuaSession, pr
     if where:
         inputs["where"] = where
     projected.inputs = inputs
+    projected.origin = _layer_origin(bound.get("target_features"), session=session)
     _reserve_output(bound.get("out_feature_class"), session=session, projected=projected)
 
 
@@ -509,8 +580,89 @@ def _match_option_to_predicate(match_option: Any, search_radius: Any) -> tuple[s
     return predicate, distance
 
 
+_GEOMETRY_DISSOLVE = "geometry.dissolve"
+
+
+def _project_dissolve_output(
+    bound: Mapping[str, Any], artifact: OutputArtifact, *, session: HonuaSession, projected: _ProjectedCall
+) -> None:
+    """Dissolve a bound GP output through ``geometry.dissolve``.
+
+    The layer-aware ``generalization.dissolve`` only reads a server layer, and
+    a GP output is an inline job result. ``geometry.dissolve`` unions base64
+    WKB geometries server-side, one feature per ``groupKeys`` value, so each
+    output feature is sent as WKB, keyed by its ``dissolve_field`` values, in
+    the result's spatial reference.
+    """
+
+    tool = "management.Dissolve"
+    name = bound.get("in_features")
+    _selection_where(name, session=session, tool=tool, param="in_features", filterable=False)
+    _reject_if_set(
+        tool, "where_clause", bound.get("where_clause"),
+        reason="honua_gp does not evaluate SQL against a GP job result.",
+    )
+    if not artifact.features:
+        raise HonuaGpConfigurationError(
+            f"{tool} in_features={name!r} is an empty GP job result; honua-server's geometry.dissolve "
+            "needs at least one geometry."
+        )
+    srid = artifact.srid or _layer_srid(artifact.origin, session=session)
+    if srid is None:
+        raise HonuaGpConfigurationError(
+            f"{tool} in_features={name!r} is a GP job result whose spatial reference is unknown, so it "
+            "cannot be sent to geometry.dissolve."
+        )
+
+    fields = [field.strip() for field in (_csv_fields(bound.get("dissolve_field")) or "").split(",") if field.strip()]
+    wkbs: list[str] = []
+    group_keys: list[str] = []
+    group_values: dict[str, dict[str, Any]] = {}
+    for index, feature in enumerate(artifact.features):
+        geometry = feature.get("geometry")
+        try:
+            if geometry is None or position_count(geometry) == 0:
+                raise HonuaGpConfigurationError(
+                    f"{tool} in_features={name!r} feature {index} has a null or empty geometry; "
+                    "geometry.dissolve rejects those."
+                )
+            wkbs.append(geojson_to_base64_wkb(geometry))
+        except WkbEncodingError as exc:
+            raise HonuaGpConfigurationError(f"{tool} in_features={name!r} feature {index}: {exc}.") from exc
+        if not fields:
+            continue
+        properties = feature.get("properties")
+        properties = properties if isinstance(properties, Mapping) else {}
+        missing = [field for field in fields if field not in properties]
+        if missing:
+            raise HonuaGpConfigurationError(
+                f"{tool} dissolve_field {', '.join(missing)} is not an attribute of {name!r} feature {index}."
+            )
+        values = {field: properties[field] for field in fields}
+        key = json.dumps([values[field] for field in fields], default=str)
+        group_keys.append(key)
+        group_values.setdefault(key, values)
+
+    inputs: dict[str, Any] = {"wkbs": json.dumps(wkbs), "srid": srid}
+    if fields:
+        inputs["groupKeys"] = json.dumps(group_keys)
+    projected.process_id = _GEOMETRY_DISSOLVE
+    projected.inputs = inputs
+    # The WKB (and how many geometries the earlier job returned) depends on the
+    # server's result, so the audit/eval request fingerprint records a placeholder.
+    projected.audit_inputs = {**inputs, "wkbs": "<base64 WKB geometries of the input result>"}
+    projected.origin = artifact.origin
+    projected.group_values = group_values or None
+    _reserve_output(bound.get("out_feature_class"), session=session, projected=projected)
+
+
 def _project_dissolve(bound: Mapping[str, Any], *, session: HonuaSession, projected: _ProjectedCall) -> None:
     _validate_dissolve_options(bound)
+    in_features = bound.get("in_features")
+    alias = session.get_layer(in_features) if isinstance(in_features, str) else None
+    if alias is not None and alias.output is not None:
+        _project_dissolve_output(bound, alias.output, session=session, projected=projected)
+        return
     layer_id = resolve_layer_id(bound.get("in_features"), session=session)
     inputs: dict[str, Any] = {"layerId": layer_id}
     group_fields = _csv_fields(bound.get("dissolve_field"))
@@ -523,6 +675,7 @@ def _project_dissolve(bound: Mapping[str, Any], *, session: HonuaSession, projec
     if where:
         inputs["where"] = where
     projected.inputs = inputs
+    projected.origin = _layer_origin(bound.get("in_features"), session=session)
     _reserve_output(bound.get("out_feature_class"), session=session, projected=projected)
 
 
@@ -535,6 +688,7 @@ def _project_project(bound: Mapping[str, Any], *, session: HonuaSession, project
         bound.get("in_dataset"), session=session, tool="management.Project", param="in_dataset", filterable=False
     )
     projected.inputs = {"layerId": layer_id, "targetSrid": target_srid}
+    projected.origin = _layer_origin(bound.get("in_dataset"), session=session)
     _reserve_output(bound.get("out_dataset"), session=session, projected=projected)
 
 
@@ -604,7 +758,7 @@ def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
             processes = session.processes_client()
             outcome: JobOutcome = submit_and_wait(
                 processes,
-                entry.process_id or "",
+                projected.process_id or entry.process_id or "",
                 projected.inputs,
                 function=qualified,
                 compat_anchor=anchor,
@@ -614,7 +768,7 @@ def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
             # failure/timeout above never reaches here, so no alias is ever
             # published for a dataset that does not exist (and a prior alias
             # under the same name, if any, is left untouched).
-            _bind_output(qualified, projected.output_name, session=session, outcome=outcome, compat_anchor=anchor)
+            _bind_output(qualified, projected, session=session, outcome=outcome, compat_anchor=anchor)
         except (ExecuteError, HonuaGpConfigurationError, HonuaGpResolveError):
             raise
         except Exception as exc:  # honua_sdk transport errors -- wrap, keep cause.
@@ -627,7 +781,7 @@ def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
             ) from exc
 
         output_name = projected.output_name or ""
-        record["process_id"] = entry.process_id
+        record["process_id"] = projected.process_id or entry.process_id
         # Record the projected process inputs (the actual payload POSTed to the
         # server's OGC execute endpoint) so the eval harness can diff the
         # dispatch/parameter-translation against a golden fingerprint. This is
@@ -636,8 +790,11 @@ def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
         # to the wrong process input is caught in BOTH modes, not just when a
         # real server happens to reject the malformed payload. Redacted with
         # the same heuristics as args/kwargs; the typed inputs (layerId,
-        # distance, unit, predicate, targetSrid) carry no secrets.
-        record["process_inputs"] = _redact_value(dict(projected.inputs), context="process_inputs")
+        # distance, unit, predicate, targetSrid) carry no secrets. Encoded
+        # geometries are recorded as a count (``audit_inputs``).
+        record["process_inputs"] = _redact_value(
+            dict(projected.audit_inputs or projected.inputs), context="process_inputs"
+        )
         record["job_id"] = outcome.job_id
         record["job_status"] = outcome.status
         record["result_shape"] = _shape_of({"output": output_name, "jobId": outcome.job_id})

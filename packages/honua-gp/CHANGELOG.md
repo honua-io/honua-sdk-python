@@ -4,6 +4,29 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### Dissolve takes a bound GP output (#226)
+
+`management.Dissolve` refused the bound output of `analysis.Buffer` (or any
+other layer-aware tool) because `generalization.dissolve` only reads a server
+layer. It now dissolves that result through honua-server's `geometry.dissolve`.
+
+- Each output feature's geometry is sent as base64 WKB (`wkbs`) with the
+  result's spatial reference (`srid`): the collection's `srid` / `inputSrid`
+  member, otherwise the input layer's FeatureServer spatial reference.
+  `dissolve_field` values become `groupKeys` and are restored on each dissolved
+  feature.
+- A where clause, a selection on the output, an empty result, a null or empty
+  geometry, a 4D geometry, a missing `dissolve_field` attribute or an unknown
+  spatial reference raise `HonuaGpConfigurationError` before submission. A
+  group the server was not asked for raises `unreadable_output`.
+- Synchronous execution results (the execute response is the results document)
+  are bound like job results.
+- The audit record carries the dispatched process id and a placeholder instead
+  of the WKB, so the eval request fingerprint is the same in stub and live mode.
+- Live proof on the pinned candidate: Buffer 25 m (NONE) -> GetCount /
+  SearchCursor -> Dissolve, graded by an independent cluster count.
+  `SpatialJoin` and `Project` still refuse a bound output.
+
 ### GP tool outputs bound to real job results (#226)
 
 `analysis.Buffer`, `analysis.SpatialJoin`, `management.Dissolve` and

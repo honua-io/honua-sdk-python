@@ -18,9 +18,9 @@ if str(_EVAL_ROOT) not in sys.path:
     sys.path.insert(0, str(_EVAL_ROOT))
 
 
-def test_eval_scripts_directory_contains_50_scripts() -> None:
+def test_eval_scripts_directory_contains_51_scripts() -> None:
     scripts = sorted(_PACKAGE_ROOT.glob("eval/scripts/*.py"))
-    assert len(scripts) == 50, f"Expected 50 scripts, found {len(scripts)}"
+    assert len(scripts) == 51, f"Expected 51 scripts, found {len(scripts)}"
 
 
 def test_eval_scripts_pair_with_golden_records() -> None:

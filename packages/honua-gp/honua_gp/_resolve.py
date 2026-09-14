@@ -21,6 +21,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from ._errors import HonuaGpResolveError
 from ._session import HonuaSession, LayerAlias, get_session
@@ -29,6 +30,10 @@ _HONUA_URI = re.compile(r"^honua://(?P<rest>.+)$")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
 _GDB_RE = re.compile(r"\.gdb([\\/]|$)", re.IGNORECASE)
 _SDE_RE = re.compile(r"\.sde([\\/]|$)", re.IGNORECASE)
+_FEATURE_SERVER_LAYER_RE = re.compile(
+    r"(?:^|/)rest/services/(?P<service>.+?)/FeatureServer/(?P<layer>\d+)/?(?:[?#].*)?$",
+    re.IGNORECASE,
+)
 _IN_MEMORY_PREFIXES = ("in_memory", "memory", "in_memory\\", "in_memory/")
 
 
@@ -41,6 +46,9 @@ class ResolvedSource:
     workspace: str | None = None
     layer: str | None = None
     raw: str | None = None
+    server_url: str | None = None
+    """Server root (everything before ``rest/services``) of an absolute
+    FeatureServer URL; ``None`` for relative paths and every other kind."""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +57,7 @@ class ResolvedSource:
             "workspace": self.workspace,
             "layer": self.layer,
             "raw": self.raw,
+            "server_url": self.server_url,
         }
 
 
@@ -98,13 +107,43 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
     if path in overrides:
         return ResolvedSource(source=overrides[path], kind="honua-uri", raw=raw)
 
-    # 4. in_memory / memory layer.
+    # 4. ArcGIS REST FeatureServer layer URL/path. ArcPy callers commonly pass
+    # the same live URL they use with the real arcpy module; canonicalize it to
+    # the shim's existing source URI instead of treating the URL as a workspace
+    # name and sending it as a service id.
+    feature_layer = _FEATURE_SERVER_LAYER_RE.search(path)
+    if feature_layer is not None:
+        service = unquote(feature_layer.group("service").strip("/"))
+        if "/" in service:
+            # The SDK addresses a service as ONE escaped path segment, so a
+            # foldered id would reach the server as ``folder%2Fname`` and 404.
+            raise HonuaGpResolveError(
+                raw,
+                hint=(
+                    "Foldered ArcGIS services (rest/services/<folder>/<service>/FeatureServer) "
+                    "are not addressable through honua_gp; map this URL to "
+                    "honua://services/<service>/<layer> with HONUA_GP_PATH_MAP."
+                ),
+            )
+        layer = feature_layer.group("layer")
+        prefix = path[: feature_layer.start()]
+        split = urlsplit(prefix)
+        server_url = prefix.rstrip("/") if split.scheme and split.netloc else None
+        return ResolvedSource(
+            source=f"honua://services/{service}/{layer}",
+            kind="honua-uri",
+            layer=layer,
+            raw=raw,
+            server_url=server_url,
+        )
+
+    # 5. in_memory / memory layer.
     lowered = path.lower()
     if lowered.startswith(_IN_MEMORY_PREFIXES):
         tail = path.split("/")[-1].split("\\")[-1]
         return ResolvedSource(source=f"in_memory:{tail}", kind="in-memory", raw=raw)
 
-    # 5. Absolute Windows / POSIX path.
+    # 6. Absolute Windows / POSIX path.
     if _WINDOWS_ABSOLUTE.match(path) or path.startswith("/") or path.startswith("\\\\"):
         normalized = path.replace("\\", "/")
         layer = normalized.rsplit("/", 1)[-1]
@@ -121,7 +160,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
             raw=raw,
         )
 
-    # 6. Fall back to workspace-relative name.
+    # 7. Fall back to workspace-relative name.
     return ResolvedSource(
         source=path,
         kind="workspace-relative",
@@ -158,6 +197,43 @@ def resolve_or_register_output(path: Any, *, session: HonuaSession | None = None
     return resolved
 
 
+def _server_key(url: str) -> tuple[str, str, int | None, str]:
+    split = urlsplit(url.strip())
+    scheme = split.scheme.lower()
+    try:
+        port = split.port
+    except ValueError:
+        port = None
+    if port is None:
+        port = {"http": 80, "https": 443}.get(scheme)
+    return scheme, (split.hostname or "").lower(), port, unquote(split.path).rstrip("/").lower()
+
+
+def _require_configured_server(resolved: ResolvedSource, session: HonuaSession) -> None:
+    """Reject an absolute FeatureServer URL that names a different server.
+
+    The shim sends every request to the configured ``base_url`` (or the
+    ``HONUA_BASE_URL`` the first client build picks up). Silently answering a
+    URL for another host from the configured one would return that server's
+    data under the wrong name, so a mismatch fails before any request.
+    """
+
+    if resolved.server_url is None:
+        return
+    configured = session.base_url or os.environ.get("HONUA_BASE_URL")
+    if not configured:
+        return
+    if _server_key(resolved.server_url) != _server_key(configured):
+        raise HonuaGpResolveError(
+            resolved.raw or resolved.source,
+            hint=(
+                f"The URL names the server {resolved.server_url!r} but honua_gp is configured "
+                f"for {configured!r}; point honua_gp.configure(base_url=...) or HONUA_BASE_URL "
+                "at that server, or pass the relative rest/services/<service>/FeatureServer/<layer> path."
+            ),
+        )
+
+
 def descriptor_mapping(
     resolved: ResolvedSource,
     *,
@@ -173,6 +249,7 @@ def descriptor_mapping(
     """
 
     session = session or get_session()
+    _require_configured_server(resolved, session)
     source = resolved.source
     workspace = resolved.workspace or session.workspace
 
@@ -237,7 +314,7 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     The ``layerId`` is taken from the resolved descriptor's ``locator.layerId``.
     ``descriptor_mapping`` defaults unrecognized paths to ``layerId=0``; a
     ``honua://services/<svc>/<n>`` URI yields ``<n>``. A non-integer or negative
-    layer id raises :class:`HonuaArcpyResolveError` so the caller surfaces the
+    layer id raises :class:`HonuaGpResolveError` so the caller surfaces the
     gap arcpy-style instead of POSTing an invalid process payload.
     """
 
@@ -246,7 +323,7 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     descriptor = descriptor_mapping(resolved, session=session)
     layer_id = descriptor.get("locator", {}).get("layerId")
     if not isinstance(layer_id, int) or isinstance(layer_id, bool) or layer_id < 0:
-        raise HonuaArcpyResolveError(
+        raise HonuaGpResolveError(
             str(path),
             hint=(
                 "Layer-aware geoprocessing requires a numeric layer id. Point "

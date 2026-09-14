@@ -140,6 +140,28 @@ class HonuaSession:
         if base_url:
             self.configure(base_url=base_url, api_key=api_key, bearer_token=bearer)
 
+    def _bootstrap_from_env(self) -> None:
+        """Apply the documented environment to a session that has no ``base_url``.
+
+        Runs on the first lazy client build so ``import honua_gp`` followed
+        directly by a tool call honours ``HONUA_BASE_URL`` (arcpy scripts do
+        not call a configure step). Unlike :meth:`configure_from_env`, it only
+        fills settings the caller left unset: an explicit ``api_key`` /
+        ``bearer_token`` wins over the environment, and injected clients are
+        kept because no connection setting they were built from changes.
+        """
+
+        with self._lock:
+            if self.base_url:
+                return
+            base_url = os.environ.get("HONUA_BASE_URL")
+            if not base_url:
+                return
+            self.base_url = base_url
+            if self.api_key is None and self.bearer_token is None:
+                self.api_key = os.environ.get("HONUA_API_KEY") or None
+                self.bearer_token = os.environ.get("HONUA_BEARER_TOKEN") or None
+
     # ------------------------------------------------------------------
     # Client accessors (lazy)
     # ------------------------------------------------------------------
@@ -229,6 +251,7 @@ class HonuaSession:
     # ------------------------------------------------------------------
 
     def _build_client(self) -> Any:
+        self._bootstrap_from_env()
         if not self.base_url:
             raise HonuaGpConfigurationError(
                 "honua_gp is not configured; call honua_gp.configure(base_url=...) "
@@ -244,6 +267,7 @@ class HonuaSession:
         return HonuaClient(self.base_url, **kwargs)
 
     def _build_admin_client(self) -> Any:
+        self._bootstrap_from_env()
         if not self.base_url:
             raise HonuaGpConfigurationError(
                 "honua_gp is not configured; call honua_gp.configure(base_url=...) "

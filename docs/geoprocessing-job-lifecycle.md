@@ -1,3 +1,10 @@
+---
+type: concept
+title: "How a geoprocessing job progresses"
+description: "The server contract a job follows from submission through polling to result retrieval, and where the SDK sits in it."
+resource: "honua://capability/jobs.durable-runtime"
+tags: [geoprocessing, jobs, lifecycle]
+---
 # Geoprocessing job lifecycle
 
 ## Server contract first

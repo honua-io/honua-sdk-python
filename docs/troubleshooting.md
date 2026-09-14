@@ -1,3 +1,9 @@
+---
+type: guide
+title: "When something does not work"
+description: "Base-URL selection, transport errors, auth rejections and the other failures readers actually hit, with the symptom listed before the cause."
+tags: [troubleshooting, errors]
+---
 # Python SDK Troubleshooting
 
 ## Base URL Selection

@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Examples per protocol wrapper"
+description: "Worked calls for each public protocol wrapper exposed by honua_sdk, so a reader can find the shape for the protocol they are on."
+tags: [examples, protocols]
+---
 # Protocol Examples
 
 These examples cover the public protocol wrappers exposed by `honua_sdk`.

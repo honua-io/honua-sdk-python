@@ -1,3 +1,10 @@
+---
+type: reference
+title: "Protocol-native client methods"
+description: "The original per-protocol methods kept for callers that need exact control over the request, alongside the higher-level Source facade."
+resource: "https://pypi.org/project/honua-sdk/"
+tags: [client, api, protocols]
+---
 # Core Client
 
 The SDK keeps the original protocol-native methods for callers that need exact
@@ -44,8 +51,15 @@ with HonuaClient("https://honua.example") as client:
         services = client.list_service_summaries()
 ```
 
-Older servers that do not expose `/api/v1/capabilities` fall back to readiness
-and GeoServices catalog discovery.
+> **Today this always takes the fallback path.** `capabilities()` requests
+> `/api/v1/capabilities`, which no Honua server exposes - the server maps only
+> `/api/v1/capabilities/manifest` - so the call 404s and degrades to readiness plus
+> GeoServices catalog discovery. You still get a `DataPlaneCapabilities`, but its
+> `features` are inferred rather than declared, and `supports()` answers from what the
+> catalog implies. Tracked in
+> [honua-sdk-python#237](https://github.com/honua-io/honua-sdk-python/issues/237); until
+> it lands, read `GET /api/v1/capabilities/manifest` directly when you need the
+> declared manifest.
 
 ## Shared Source Queries
 

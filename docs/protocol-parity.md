@@ -1,3 +1,10 @@
+---
+type: reference
+title: "Protocol parity against the JS SDK and server"
+description: "Which protocol surfaces the Python SDK covers relative to the JavaScript SDK and Honua Server, so a team can tell before committing to a language."
+resource: "https://github.com/honua-io/honua-sdk-python/blob/trunk/compatibility/sdk-coverage.v1.json"
+tags: [parity, coverage]
+---
 # Protocol Parity
 
 This tracks the Python SDK protocol surface against the JS SDK and Honua Server

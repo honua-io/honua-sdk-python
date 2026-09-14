@@ -1,3 +1,10 @@
+---
+type: reference
+title: "honua-sdk clients"
+description: "Generated API reference for the data-plane client classes and their methods."
+resource: "https://pypi.org/project/honua-sdk/"
+tags: [api-reference, honua-sdk]
+---
 # honua-sdk › Clients
 
 Two top-level clients share the same surface area and configuration model.

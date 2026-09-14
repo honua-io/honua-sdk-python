@@ -1,3 +1,10 @@
+---
+type: reference
+title: "honua-admin models"
+description: "Generated API reference for the request and result types the control-plane client exchanges."
+resource: "https://pypi.org/project/honua-admin/"
+tags: [api-reference, models]
+---
 # honua-admin › Models
 
 The model surface is grouped by admin domain — service catalog and

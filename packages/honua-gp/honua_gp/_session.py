@@ -18,6 +18,7 @@ from typing import Any
 
 from ._audit import AuditWriter, default_writer
 from ._errors import HonuaGpConfigurationError
+from ._output_artifact import OutputArtifact
 
 
 @dataclass
@@ -31,6 +32,9 @@ class LayerAlias:
     selection: dict[str, Any] = field(default_factory=dict)
     workspace: str | None = None
     kind: str = "layer"
+    output: OutputArtifact | None = None
+    """Inline job output a layer-aware GP tool bound to this name; ``None``
+    for aliases backed by a server layer."""
 
 
 @dataclass
@@ -64,6 +68,7 @@ class HonuaSession:
     _admin: Any = field(default=None, repr=False)
     _processes: Any = field(default=None, repr=False)
     _layers: dict[str, LayerAlias] = field(default_factory=dict, repr=False)
+    _unbound_outputs: dict[str, str] = field(default_factory=dict, repr=False)
     _audit_writer: AuditWriter | None = field(default=None, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
@@ -206,11 +211,27 @@ class HonuaSession:
                     f"Layer alias {alias.name!r} already exists; set arcpy.env.overwriteOutput = True to replace."
                 )
             self._layers[alias.name] = alias
+            self._unbound_outputs.pop(alias.name, None)
             return alias
 
     def get_layer(self, name: str) -> LayerAlias | None:
         with self._lock:
             return self._layers.get(name)
+
+    def mark_unbound_output(self, name: str, reason: str) -> None:
+        """Record a GP output name that has no result binding.
+
+        Set when a layer-aware tool reserves a name that has no prior alias;
+        cleared when the name is registered. Until then the name must not
+        resolve to a workspace dataset or layer 0.
+        """
+
+        with self._lock:
+            self._unbound_outputs[name] = reason
+
+    def unbound_output_reason(self, name: str) -> str | None:
+        with self._lock:
+            return self._unbound_outputs.get(name)
 
     def resolve_layer_or_source(self, name: str) -> str:
         """Return the underlying source string for an alias, or the input if none registered."""
@@ -244,6 +265,7 @@ class HonuaSession:
             self._admin = None
             self._processes = None
             self._layers = {}
+            self._unbound_outputs = {}
             self._audit_writer = None
 
     # ------------------------------------------------------------------

@@ -1,0 +1,273 @@
+"""Live-server proof for honua-sdk-python#226: GP outputs bind to real job results.
+
+Skipped unless ``HONUA_GP_LIVE_BASE_URL`` points at a seeded client-compat
+honua-server (see ``test_describe_list_fields_live.py`` for the docker recipe).
+``HONUA_GP_LIVE_API_KEY`` is sent when set; ``HONUA_GP_LIVE_SERVICE_ID``
+defaults to ``test_service``.
+
+The oracles do not come from honua_gp. The input points are read straight from
+the FeatureServer query endpoint with httpx, and the expected outputs are
+computed here from those points:
+
+* Buffer 25 m, dissolve ALL: one feature whose ``COUNT`` is the input count,
+  that contains every input point, and whose vertices all lie 25 m (ground
+  distance) from the nearest input point.
+* Project to EPSG:3857: one point per input point at the spherical-Mercator
+  coordinates computed from its longitude/latitude.
+* Dissolve: one MultiPoint whose coordinates are the input points.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+from typing import Any
+
+import httpx
+import pytest
+
+import honua_gp
+
+_BASE_URL = os.environ.get("HONUA_GP_LIVE_BASE_URL")
+_API_KEY = os.environ.get("HONUA_GP_LIVE_API_KEY")
+_SERVICE = os.environ.get("HONUA_GP_LIVE_SERVICE_ID", "test_service")
+INPUT = f"honua://services/{_SERVICE}/0"
+UNREACHABLE = f"honua://services/{_SERVICE}/99"
+_WGS84_RADIUS_M = 6378137.0
+_UNKNOWN_JOB_ID = "gp-00000000000000000000000000000000"
+
+pytestmark = pytest.mark.skipif(
+    not _BASE_URL,
+    reason="set HONUA_GP_LIVE_BASE_URL to run the #226 output-binding proof against a seeded honua-server.",
+)
+
+
+@pytest.fixture(autouse=True)
+def _live_session():
+    honua_gp.reset()
+    honua_gp.configure(base_url=_BASE_URL, api_key=_API_KEY)
+    # Workspace layer 0 is the input, so a layer-0 fallback reads the input points.
+    honua_gp.env.workspace = f"honua://services/{_SERVICE}"
+    honua_gp.env.overwriteOutput = True
+    yield
+    honua_gp.reset()
+
+
+def _query(where: str) -> list[dict[str, Any]]:
+    headers = {"X-API-Key": _API_KEY} if _API_KEY else {}
+    response = httpx.get(
+        f"{str(_BASE_URL).rstrip('/')}/rest/services/{_SERVICE}/FeatureServer/0/query",
+        params={"where": where, "outFields": "objectid", "returnGeometry": "true", "outSR": "4326", "f": "json"},
+        headers=headers,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()["features"]
+
+
+@pytest.fixture(scope="module")
+def input_features() -> list[dict[str, Any]]:
+    return _query("1=1")
+
+
+@pytest.fixture(scope="module")
+def input_points(input_features: list[dict[str, Any]]) -> list[tuple[float, float]]:
+    # The client-compat seed includes rows without geometry; they have no location to buffer or project.
+    points = [
+        (feature["geometry"]["x"], feature["geometry"]["y"]) for feature in input_features if feature.get("geometry")
+    ]
+    assert len(points) >= 2
+    return points
+
+
+def _rows(name: str, fields: list[str]) -> list[tuple[Any, ...]]:
+    with honua_gp.da.SearchCursor(name, fields) as cursor:
+        return list(cursor)
+
+
+def _ground_distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
+    mean_latitude = math.radians((a[1] + b[1]) / 2)
+    dx = math.radians(b[0] - a[0]) * math.cos(mean_latitude) * _WGS84_RADIUS_M
+    dy = math.radians(b[1] - a[1]) * _WGS84_RADIUS_M
+    return math.hypot(dx, dy)
+
+
+def _polygons(geometry: dict[str, Any]) -> list[list[list[list[float]]]]:
+    if geometry["type"] == "Polygon":
+        return [geometry["coordinates"]]
+    assert geometry["type"] == "MultiPolygon"
+    return geometry["coordinates"]
+
+
+def _ring_contains(ring: list[list[float]], point: tuple[float, float]) -> bool:
+    x, y = point
+    inside = False
+    for (x1, y1), (x2, y2) in zip(ring, ring[1:]):
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+            inside = not inside
+    return inside
+
+
+def _covers(geometry: dict[str, Any], point: tuple[float, float]) -> bool:
+    return any(
+        _ring_contains(polygon[0], point) and not any(_ring_contains(hole, point) for hole in polygon[1:])
+        for polygon in _polygons(geometry)
+    )
+
+
+def _mercator(point: tuple[float, float]) -> tuple[float, float]:
+    lon, lat = point
+    return (
+        _WGS84_RADIUS_M * math.radians(lon),
+        _WGS84_RADIUS_M * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)),
+    )
+
+
+class _Delegate:
+    def __init__(self, real: Any) -> None:
+        self._real = real
+
+    def execute(self, process_id: str, payload: dict[str, Any]) -> Any:
+        return self._real.execute(process_id, payload)
+
+    def job(self, job_id: str) -> Any:
+        return self._real.job(job_id)
+
+    def job_results(self, job_id: str) -> Any:
+        return self._real.job_results(job_id)
+
+    def dismiss_job(self, job_id: str) -> Any:
+        return self._real.dismiss_job(job_id)
+
+
+class _DismissOnSubmit(_Delegate):
+    """Cancels each job through the server's DELETE /jobs/{id} right after submission."""
+
+    def execute(self, process_id: str, payload: dict[str, Any]) -> Any:
+        response = self._real.execute(process_id, payload)
+        self._real.dismiss_job(response["jobID"])
+        return response
+
+
+class _ResultsGone(_Delegate):
+    """Fetches results the server no longer has.
+
+    honua-server refuses to dismiss a terminal job (HTTP 409), so a client
+    cannot make a real job's results expire; asking for the results of a job
+    id the server does not know returns the same not-found response.
+    """
+
+    def job_results(self, job_id: str) -> Any:
+        return self._real.job_results(_UNKNOWN_JOB_ID)
+
+
+def test_buffer_output_is_the_job_result_then_dissolve(
+    input_features: list[dict[str, Any]], input_points: list[tuple[float, float]]
+) -> None:
+    count = len(input_points)
+    assert honua_gp.management.GetCount(INPUT) == len(input_features)
+
+    result = honua_gp.analysis.Buffer(INPUT, "gp226_buffer", "25 Meters", dissolve_option="ALL")
+    assert str(result) == result[0] == result.getOutput(0) == "gp226_buffer"
+    assert honua_gp.management.GetCount(result[0]) == 1
+
+    [(shape, buffered_count)] = _rows("gp226_buffer", ["SHAPE@JSON", "COUNT"])
+    geometry = json.loads(shape)
+    assert buffered_count == count
+    assert all(_covers(geometry, point) for point in input_points)
+    vertices = [
+        (vertex[0], vertex[1]) for polygon in _polygons(geometry) for ring in polygon for vertex in ring
+    ]
+    distances = [min(_ground_distance_m(vertex, point) for point in input_points) for vertex in vertices]
+    assert 24.5 <= min(distances)
+    assert max(distances) <= 25.5
+
+    with pytest.raises(honua_gp.ExecuteError) as where_info:
+        _rows_filtered = honua_gp.da.SearchCursor("gp226_buffer", ["COUNT"], "COUNT > 1")
+        with _rows_filtered as cursor:
+            list(cursor)
+    assert where_info.value.error_kind == "unsupported_output_operation"
+
+    # The inline result is not a server layer: chaining it is refused and the
+    # requested output stays unbound instead of reading layer 0.
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        honua_gp.management.Dissolve("gp226_buffer", "gp226_chained")
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        honua_gp.management.GetCount("gp226_chained")
+
+    dissolved = honua_gp.management.Dissolve(INPUT, "gp226_dissolved")
+    assert honua_gp.management.GetCount(dissolved[0]) == 1
+    [(dissolved_shape,)] = _rows("gp226_dissolved", ["SHAPE@JSON"])
+    dissolved_geometry = json.loads(dissolved_shape)
+    assert dissolved_geometry["type"] == "MultiPoint"
+    assert {(round(x, 9), round(y, 9)) for x, y in dissolved_geometry["coordinates"]} == {
+        (round(x, 9), round(y, 9)) for x, y in input_points
+    }
+
+
+def test_project_output_matches_independent_mercator(
+    input_features: list[dict[str, Any]], input_points: list[tuple[float, float]]
+) -> None:
+    result = honua_gp.management.Project(INPUT, "gp226_mercator", 3857)
+
+    assert honua_gp.management.GetCount(result[0]) == len(input_features)
+    projected = sorted(
+        tuple(json.loads(shape)["coordinates"][:2]) for (shape,) in _rows("gp226_mercator", ["SHAPE@JSON"]) if shape
+    )
+    expected = sorted(_mercator(point) for point in input_points)
+    assert len(projected) == len(expected)
+    for (got_x, got_y), (want_x, want_y) in zip(projected, expected):
+        assert got_x == pytest.approx(want_x, abs=0.01)
+        assert got_y == pytest.approx(want_y, abs=0.01)
+
+
+def test_empty_output_is_a_bound_zero_feature_result() -> None:
+    where = "objectid > 1000000"
+    assert _query(where) == []
+
+    result = honua_gp.analysis.Buffer(INPUT, "gp226_empty", "25 Meters", where_clause=where)
+
+    assert honua_gp.management.GetCount(result[0]) == 0
+    assert _rows("gp226_empty", ["SHAPE@JSON"]) == []
+
+
+def test_failed_and_cancelled_overwrites_keep_the_prior_output(input_features: list[dict[str, Any]]) -> None:
+    honua_gp.management.Project(INPUT, "gp226_prior", 3857)
+    prior = honua_gp.get_session().get_layer("gp226_prior")
+    assert prior is not None
+
+    with pytest.raises(honua_gp.ExecuteError):
+        honua_gp.analysis.Buffer(UNREACHABLE, "gp226_prior", "25 Meters")
+    assert honua_gp.get_session().get_layer("gp226_prior") is prior
+
+    honua_gp.configure(processes_client=_DismissOnSubmit(honua_gp.get_session().processes_client()))
+    with pytest.raises(honua_gp.ExecuteError) as info:
+        honua_gp.analysis.Buffer(INPUT, "gp226_prior", "25 Meters")
+    assert info.value.error_kind == "dismissed"
+
+    assert honua_gp.get_session().get_layer("gp226_prior") is prior
+    assert honua_gp.management.GetCount("gp226_prior") == len(input_features)
+
+
+def test_unbound_outputs_never_fall_back_to_layer_zero(input_features: list[dict[str, Any]]) -> None:
+    real = honua_gp.get_session().processes_client()
+
+    with pytest.raises(honua_gp.ExecuteError):
+        honua_gp.analysis.Buffer(UNREACHABLE, "gp226_failed", "25 Meters")
+
+    honua_gp.configure(processes_client=_DismissOnSubmit(real))
+    with pytest.raises(honua_gp.ExecuteError) as cancelled:
+        honua_gp.analysis.Buffer(INPUT, "gp226_cancelled", "25 Meters")
+    assert cancelled.value.error_kind == "dismissed"
+
+    honua_gp.configure(processes_client=_ResultsGone(real))
+    with pytest.raises(honua_gp.ExecuteError):
+        honua_gp.analysis.Buffer(INPUT, "gp226_expired", "25 Meters")
+
+    # Each name would count the workspace's layer 0 (the input) if it fell back.
+    assert honua_gp.management.GetCount(INPUT) == len(input_features)
+    for name in ("gp226_failed", "gp226_cancelled", "gp226_expired"):
+        assert honua_gp.get_session().get_layer(name) is None
+        with pytest.raises(honua_gp.HonuaGpResolveError):
+            honua_gp.management.GetCount(name)

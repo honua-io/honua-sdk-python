@@ -35,10 +35,11 @@ def test_assess_inventory_buckets_supported_stub_and_out_of_scope() -> None:
     statuses = {row.qualified_name: (row.status, row.occurrences) for row in rows}
     # ``analysis.Clip`` is an honest stub: honua-server only exposes the
     # single-WKB ``geometry.clip`` op, with no layer-aware counterpart, so
-    # the layer-projection adapter cannot promote it. ``analysis.Buffer`` is
-    # now supported via the layer-aware analytics.buffer-aggregate projection.
+    # the layer-projection adapter cannot promote it. ``analysis.Buffer`` runs
+    # via analytics.buffer-aggregate but is partial: its output is an inline
+    # job result that cannot feed another layer-aware tool (#226).
     assert statuses["analysis.Clip"] == ("stub", 2)
-    assert statuses["analysis.Buffer"] == ("supported", 1)
+    assert statuses["analysis.Buffer"] == ("partial", 1)
     assert statuses["management.SelectLayerByLocation"] == ("stub", 1)
     assert statuses["management.MakeFeatureLayer"] == ("supported", 1)
     # sa.Fill is a real Spatial Analyst tool the shim does not wrap, so it lands
@@ -69,7 +70,7 @@ def test_assess_cli_writes_machine_readable_file(tmp_path: Path) -> None:
 
     machine = json.loads((tmp_path / "honua-gp-assessment.json").read_text(encoding="utf-8"))
     summary = machine["summary"]
-    # MakeFeatureLayer + Buffer are supported, SearchCursor is partial, Clip +
+    # MakeFeatureLayer is supported, Buffer + SearchCursor are partial, Clip +
     # SelectLayerByLocation are stubs, and sa.Fill is out-of-scope.
     assert summary["supported"] >= 1
     assert summary["partial"] >= 1

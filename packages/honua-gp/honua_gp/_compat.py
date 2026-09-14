@@ -116,6 +116,18 @@ def anchor_for(qualified_name: str) -> str:
 # those names so the next call can use the same workspace-relative path.
 
 
+_OUTPUT_BINDING_NOTE = (
+    "Output: the named output is bound to the job's inline FeatureLayer result "
+    "(outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that "
+    "result, SHAPE@JSON is GeoJSON, and where clauses, edits, Describe, ListFields "
+    "or another layer-aware tool against it are rejected because nothing is "
+    "persisted server-side. A missing or unreadable output raises ExecuteError; "
+    "a failed or cancelled job keeps any prior alias and otherwise leaves the name "
+    "unresolvable. A selection on an input the process cannot filter and "
+    "arcpy.env outputCoordinateSystem / extent / XYTolerance / XYResolution are "
+    "rejected before submission."
+)
+
 COMPAT: dict[str, FunctionEntry] = {
     # -----------------------------------------------------------------
     # analysis.* (15)
@@ -134,7 +146,7 @@ COMPAT: dict[str, FunctionEntry] = {
     # accurately instead of the previous Supported-but-broken claim.
     "analysis.Buffer": FunctionEntry(
         backend="process",
-        status="supported",
+        status="partial",
         process_id="analytics.buffer-aggregate",
         notes=(
             "Projects arcpy.analysis.Buffer onto honua-server's layer-aware "
@@ -143,7 +155,11 @@ COMPAT: dict[str, FunctionEntry] = {
             "NONE/ALL maps to dissolve=false/true. Runs as an async OGC API "
             "Processes job (submit + poll). Deviation: arcpy's per-feature "
             "FULL/LIST buffer side table is not modelled; dissolve is "
-            "all-or-nothing plus optional groupByFields."
+            "all-or-nothing plus optional groupByFields. line_side, "
+            "line_end_type, and method are validated against their arcpy "
+            "defaults (FULL/ROUND/PLANAR) and rejected with "
+            "HonuaGpConfigurationError otherwise -- never silently ignored. "
+            + _OUTPUT_BINDING_NOTE
         ),
         param_map={
             "in_features": "layerId",
@@ -230,8 +246,13 @@ COMPAT: dict[str, FunctionEntry] = {
             "(INTERSECT/CONTAINS/WITHIN/WITHIN_A_DISTANCE+search_radius -> "
             "intersects/contains/within/dwithin). Runs as an async job. "
             "Partial: arcpy's join_operation (ONE_TO_ONE vs ONE_TO_MANY), "
-            "join_type (KEEP_ALL/KEEP_COMMON), and field_mapping vocabulary are "
-            "not modelled; the process emits the server's carry-field join shape."
+            "join_type (KEEP_ALL/KEEP_COMMON), field_mapping, and "
+            "distance_field_name are not modelled; the process emits the "
+            "server's carry-field join shape. A nondefault value for any of "
+            "those four raises HonuaGpConfigurationError before submission "
+            "instead of being silently dropped. A selection on join_features is "
+            "rejected; one on target_features is forwarded as where. "
+            + _OUTPUT_BINDING_NOTE
         ),
         param_map={
             "target_features": "layerId",
@@ -455,7 +476,11 @@ COMPAT: dict[str, FunctionEntry] = {
             "async job. Partial: arcpy's statistics_fields (per-group SUM/MEAN/"
             "etc.) and multi_part / unsplit_lines flags are not modelled; the "
             "process emits one feature per group via the server's outStatistics "
-            "shape only when configured server-side."
+            "shape only when configured server-side. A nondefault "
+            "statistics_fields / multi_part / unsplit_lines raises "
+            "HonuaGpConfigurationError before submission instead of being "
+            "silently dropped. A selection on in_features is forwarded as where. "
+            + _OUTPUT_BINDING_NOTE
         ),
         param_map={
             "in_features": "layerId",
@@ -534,7 +559,7 @@ COMPAT: dict[str, FunctionEntry] = {
     ),
     "management.Project": FunctionEntry(
         backend="process",
-        status="supported",
+        status="partial",
         process_id="conversion.feature-project",
         notes=(
             "Projects arcpy.management.Project onto honua-server's "
@@ -543,7 +568,12 @@ COMPAT: dict[str, FunctionEntry] = {
             "and registers the named out_dataset as a session alias. Deviation: "
             "out_coor_system must be an EPSG/WKID code (int or numeric string); "
             "arcpy.SpatialReference objects and named transformations are not "
-            "resolvable by the shim."
+            "resolvable by the shim. transform_method, in_coor_system, "
+            "preserve_shape, max_deviation, and vertical are not modelled; a "
+            "nondefault value for any of them raises HonuaGpConfigurationError "
+            "before submission instead of being silently dropped. A selection on "
+            "in_dataset and arcpy.env.geographicTransformations are rejected. "
+            + _OUTPUT_BINDING_NOTE
         ),
         param_map={
             "in_dataset": "layerId",

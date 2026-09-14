@@ -75,9 +75,11 @@ with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
 
 Process-backed shims run a supported subset against honua-server's
 ``BuiltInProcessCatalog`` as asynchronous OGC API Processes jobs:
-``analysis.Buffer`` and ``management.Project`` are **Supported**, and
-``analysis.SpatialJoin`` plus ``management.Dissolve`` are **Partial**
-(documented deviations -- see the matrix). The remaining process-shaped
+``analysis.Buffer``, ``management.Project``, ``analysis.SpatialJoin`` and
+``management.Dissolve`` are **Partial** (documented deviations -- see the
+matrix). Their output name is bound to the job's inline FeatureLayer result:
+``GetCount`` / ``da.SearchCursor`` read it, but it is not a server layer and
+cannot feed another layer-aware tool. The remaining process-shaped
 operations (``analysis.Clip`` / ``Intersect`` / ``Union`` / ``Erase``,
 ``management.Delete``, and ``management.CalculateField`` /
 ``Copy`` / ``CopyFeatures``) still raise ``HonuaGpUnsupportedError``:
@@ -105,13 +107,13 @@ inventory to get a per-call TODO list against the compatibility matrix.
 - **Closed source:** distributed via private PyPI index; do not redistribute.
 - **MVP scope:** 64 functions (15 analysis + 20 management + 10 da + 19 sa);
   see [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md).
-- **Coverage today:** 15 supported entries and 14 partial entries
+- **Coverage today:** 13 supported entries and 16 partial entries
   (29 supported/partial) + 35 stubs. Supported: session-backed
-  ``MakeFeatureLayer`` / ``MakeTableView``, the two buffered ``da`` write
-  cursors (``InsertCursor`` / ``UpdateCursor``), and process-backed
-  ``analysis.Buffer`` / ``management.Project``. Partial:
+  ``MakeFeatureLayer`` / ``MakeTableView`` and the two buffered ``da`` write
+  cursors (``InsertCursor`` / ``UpdateCursor``). Partial:
   source-backed ``SelectLayerByAttribute`` / ``GetCount`` / ``da.SearchCursor``,
-  process-backed ``analysis.SpatialJoin`` / ``management.Dissolve``
+  process-backed ``analysis.Buffer`` / ``management.Project`` /
+  ``analysis.SpatialJoin`` / ``management.Dissolve``
   (documented deviations), and source-backed ``management.Describe`` /
   ``management.ListFields`` (schema introspection via the FeatureServer
   layer-metadata endpoint -- partial because raster Describe properties,

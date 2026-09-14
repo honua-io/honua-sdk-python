@@ -40,10 +40,14 @@ with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
         if row[1] == "CLOSED":
             cursor.deleteRow()
 
-# Process-backed shims (Buffer / Clip / Project / ...) currently raise
-# HonuaGpUnsupportedError because the arcpy-to-honua-server payload
-# adapter is not yet implemented. The migration tool reports them as
-# ``stub`` with a per-function ``honua-server#...`` tracking ticket.
+# Layer-aware process tools run as honua-server jobs; the output name is
+# bound to the job's result, so GetCount / SearchCursor read that result.
+arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
+buffer_count = int(arcpy.management.GetCount("roads_buffer"))
+
+# Tools without a layer-aware process (Clip / Intersect / ...) raise
+# HonuaGpUnsupportedError; the migration tool reports them as ``stub``
+# with a per-function tracking ticket.
 ```
 
 `honua_gp` resolves the `arcpy.env` workspace, output coordinate system,
@@ -104,6 +108,35 @@ If `processes.execute(...)` itself raises (e.g. a transport error from the
 OGC Processes client), the dispatcher rolls back any output aliases it
 registered during input projection, so a retry of the same call is not
 blocked by the duplicate-output guard.
+
+Layer-aware tool outputs (`analysis.Buffer`, `analysis.SpatialJoin`,
+`management.Dissolve`, `management.Project`): honua-server returns the
+FeatureLayer result by value in the job results document
+(`outputFeatureLayer`) and does not persist it as a server layer. The output
+name is bound to that result only after the job succeeds:
+
+* `Result[0]`, `getOutput(0)` and `str(result)` return the output name, and
+  `GetCount`, `da.SearchCursor` and `MakeFeatureLayer` against it read the
+  job's result. `SHAPE@JSON` is GeoJSON for these rows.
+* The result is read-only and is not a server layer. A where clause,
+  `SelectLayerByAttribute`, `UpdateCursor`, `InsertCursor`, `Describe`,
+  `ListFields`, or another layer-aware tool against it raises instead of
+  reading a different dataset.
+* A successful job whose results carry no FeatureLayer output raises
+  `ExecuteError` with `error_kind="missing_output"`; an unreadable one
+  (a by-reference href, a non-FeatureCollection value, a truncated collection)
+  raises with `error_kind="unreadable_output"`. An empty FeatureCollection is a
+  valid zero-feature result.
+* A failed, cancelled or timed-out job keeps any prior alias for the name.
+  A name with no prior alias stays unresolvable, so it never falls back to a
+  workspace dataset or layer 0.
+* A selection on an input layer (from `MakeFeatureLayer(where_clause=...)` or
+  `SelectLayerByAttribute`) is sent as the process `where` filter. Inputs the
+  process cannot filter (`SpatialJoin` join features, `Project` input) and
+  `arcpy.env` settings the process does not apply (`outputCoordinateSystem`
+  except for `Project`, `extent`, `XYTolerance`, `XYResolution`,
+  `geographicTransformations` for `Project`) raise
+  `HonuaGpConfigurationError` before any job is submitted.
 
 Cursor filters: `MakeFeatureLayer(where_clause=...)` and
 `SelectLayerByAttribute(...)` write the effective filter onto the layer

@@ -30,6 +30,7 @@ from .._errors import (
     HonuaGpResolveError,
     HonuaGpUnsupportedError,
 )
+from .._output_artifact import OUTPUT_READ_ONLY_REASON, OutputArtifactSource, output_source_for
 from .._resolve import descriptor_mapping, resolve
 from .._session import get_session
 
@@ -56,10 +57,13 @@ def _wrap_source_error(qualified: str, exc: BaseException) -> ExecuteError:
 
 def _client_source(name: str) -> Any:
     session = get_session()
+    alias = session.get_layer(name)
+    output_source = output_source_for(alias)
+    if output_source is not None:
+        return output_source, alias
     client = session.client()
     if not hasattr(client, "source"):
         raise HonuaGpConfigurationError("Configured Honua client does not expose Source facade.")
-    alias = session.get_layer(name)
     resolved = resolve(alias.name if alias is not None else name, session=session)
     descriptor = descriptor_mapping(resolved, session=session)
     return client.source(descriptor), alias
@@ -448,6 +452,8 @@ class UpdateCursor(_BaseCursor):
 
     def _open(self) -> None:
         self._source, self._alias = _client_source(self.in_table)
+        if isinstance(self._source, OutputArtifactSource):
+            raise self._source.refusal(self.qualified_name, OUTPUT_READ_ONLY_REASON)
 
     def _reset(self) -> None:
         self._iterator = None
@@ -565,6 +571,8 @@ class InsertCursor(_BaseCursor):
 
     def _open(self) -> None:
         self._source, self._alias = _client_source(self.in_table)
+        if isinstance(self._source, OutputArtifactSource):
+            raise self._source.refusal(self.qualified_name, OUTPUT_READ_ONLY_REASON)
 
     def reset(self) -> None:
         # Real ``arcpy.da.InsertCursor`` does not expose ``reset()``: there is

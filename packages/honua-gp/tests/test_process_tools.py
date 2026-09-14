@@ -49,7 +49,19 @@ class _FakeProcessesClient:
 
     def job_results(self, job_id: str) -> dict:
         self.results_fetches.append(job_id)
-        return {"jobID": job_id, "outputs": {"result": {"href": f"honua://jobs/{job_id}/result"}}}
+        # honua-server's results document: the outputs map, FeatureLayer by value.
+        return {
+            "outputFeatureLayer": {
+                "mediaType": "application/geo+json",
+                "value": {
+                    "type": "FeatureCollection",
+                    "featureCount": 1,
+                    "features": [
+                        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [1.0, 2.0]}, "properties": {}}
+                    ],
+                },
+            }
+        }
 
     def dismiss_job(self, job_id: str) -> None:
         self.dismissed.append(job_id)
@@ -150,6 +162,43 @@ def test_buffer_writes_single_audit_line(_isolated_audit_dir: Path) -> None:
     assert lines[0]["job_id"] == "job-1"
 
 
+def test_buffer_accepts_explicit_default_options(_isolated_audit_dir: Path) -> None:
+    """FULL/ROUND/PLANAR are the shim's implemented semantics; passing them
+    explicitly (rather than omitting them) must not be rejected."""
+
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    honua_gp.analysis.Buffer(
+        "honua://services/t/0", "out", "5 Meters",
+        "FULL", "round", "NONE", None, "planar",
+    )
+
+    assert proc.calls  # job submitted -- no validation error.
+
+
+@pytest.mark.parametrize(
+    ("index", "value"),
+    [
+        (3, "LEFT"),  # line_side
+        (4, "FLAT"),  # line_end_type
+        (7, "GEODESIC"),  # method
+    ],
+)
+def test_buffer_rejects_unsupported_line_and_method_options(
+    _isolated_audit_dir: Path, index: int, value: str
+) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+    args = ["honua://services/t/0", "out", "5 Meters", None, None, None, None, None]
+    args[index] = value
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError):
+        honua_gp.analysis.Buffer(*args)
+    # Rejected before submission -- no job, no wasted server-side call.
+    assert proc.calls == []
+
+
 # ---------------------------------------------------------------------------
 # analysis.SpatialJoin -> analytics.spatial-join
 # ---------------------------------------------------------------------------
@@ -205,6 +254,43 @@ def test_spatial_join_within_a_distance_without_radius_raises(_isolated_audit_di
     assert proc.calls == []
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "message_fragment"),
+    [
+        ({"join_operation": "JOIN_ONE_TO_MANY"}, "join_operation"),
+        ({"join_type": "KEEP_COMMON"}, "join_type"),
+        ({"field_mapping": "NAME 'NAME' true true false 50 Text"}, "field_mapping"),
+        ({"distance_field_name": "join_dist"}, "distance_field_name"),
+    ],
+)
+def test_spatial_join_rejects_unsupported_options(
+    _isolated_audit_dir: Path, kwargs: dict, message_fragment: str
+) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError) as info:
+        honua_gp.analysis.SpatialJoin(
+            "honua://services/addr/0", "honua://services/parcels/0", "out",
+            match_option="INTERSECT", **kwargs,
+        )
+    assert message_fragment in str(info.value)
+    assert proc.calls == []
+
+
+def test_spatial_join_accepts_explicit_default_options(_isolated_audit_dir: Path) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    honua_gp.analysis.SpatialJoin(
+        "honua://services/addr/0", "honua://services/parcels/0", "out",
+        join_operation="JOIN_ONE_TO_ONE", join_type="KEEP_ALL", field_mapping="",
+        match_option="INTERSECT",
+    )
+
+    assert proc.calls  # job submitted -- explicit defaults are not rejected.
+
+
 # ---------------------------------------------------------------------------
 # management.Dissolve -> generalization.dissolve
 # ---------------------------------------------------------------------------
@@ -221,6 +307,39 @@ def test_dissolve_projects_group_by_fields(_isolated_audit_dir: Path) -> None:
     process_id, payload = proc.calls[0]
     assert process_id == "generalization.dissolve"
     assert payload["inputs"] == {"layerId": 0, "groupByFields": "zoning,city"}
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message_fragment"),
+    [
+        ({"statistics_fields": "POP SUM"}, "statistics_fields"),
+        ({"multi_part": "SINGLE_PART"}, "multi_part"),
+        ({"multi_part": False}, "multi_part"),
+        ({"unsplit_lines": "UNSPLIT_LINES"}, "unsplit_lines"),
+        ({"unsplit_lines": True}, "unsplit_lines"),
+    ],
+)
+def test_dissolve_rejects_unsupported_options(
+    _isolated_audit_dir: Path, kwargs: dict, message_fragment: str
+) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError) as info:
+        honua_gp.management.Dissolve("honua://services/parcels/0", "out", **kwargs)
+    assert message_fragment in str(info.value)
+    assert proc.calls == []
+
+
+def test_dissolve_accepts_explicit_default_options(_isolated_audit_dir: Path) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    honua_gp.management.Dissolve(
+        "honua://services/parcels/0", "out", multi_part="MULTI_PART", unsplit_lines="DISSOLVE_LINES",
+    )
+
+    assert proc.calls  # job submitted -- explicit defaults are not rejected.
 
 
 # ---------------------------------------------------------------------------
@@ -298,8 +417,44 @@ def test_project_non_numeric_srid_raises(_isolated_audit_dir: Path) -> None:
     assert proc.calls == []
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "message_fragment"),
+    [
+        ({"transform_method": "WGS_1984_(ITRF00)_To_NAD_1983"}, "transform_method"),
+        ({"in_coor_system": 3857}, "in_coor_system"),
+        ({"preserve_shape": "PRESERVE_SHAPE"}, "preserve_shape"),
+        ({"preserve_shape": True}, "preserve_shape"),
+        ({"max_deviation": "10 Meters"}, "max_deviation"),
+        ({"vertical": "VERTICAL"}, "vertical"),
+        ({"vertical": True}, "vertical"),
+    ],
+)
+def test_project_rejects_unsupported_options(
+    _isolated_audit_dir: Path, kwargs: dict, message_fragment: str
+) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError) as info:
+        honua_gp.management.Project("honua://services/roads/0", "out", 4326, **kwargs)
+    assert message_fragment in str(info.value)
+    assert proc.calls == []
+
+
+def test_project_accepts_explicit_default_options(_isolated_audit_dir: Path) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+
+    honua_gp.management.Project(
+        "honua://services/roads/0", "out", 4326,
+        preserve_shape="NO_PRESERVE_SHAPE", vertical="NO_VERTICAL",
+    )
+
+    assert proc.calls  # job submitted -- explicit defaults are not rejected.
+
+
 # ---------------------------------------------------------------------------
-# Job lifecycle: failure, polling, rollback
+# Job lifecycle: failure, polling, output binding
 # ---------------------------------------------------------------------------
 
 
@@ -350,3 +505,149 @@ def test_unresolvable_layer_id_raises_resolve_error(_isolated_audit_dir: Path) -
     with pytest.raises(honua_gp.HonuaGpResolveError):
         honua_gp.management.Project("honua://services/roads/notalayer", "out", 4326)
     assert proc.calls == []
+
+
+def test_dismissed_job_raises_execute_error_and_registers_no_alias(_isolated_audit_dir: Path) -> None:
+    proc = _FakeProcessesClient(terminal_status="dismissed")
+    _configure(proc)
+
+    with pytest.raises(honua_gp.ExecuteError) as info:
+        honua_gp.management.Project("honua://services/s/0", "cancelled_out", 4326)
+    assert info.value.error_kind == "dismissed"
+    assert honua_gp.get_session().get_layer("cancelled_out") is None
+
+
+class _NoResultsProcessesClient(_FakeProcessesClient):
+    """Mirrors a job that reaches ``successful`` but returns no usable output.
+
+    Real ``/jobs/{id}/results`` documents can legitimately carry an empty
+    outputs map (e.g. an artifact was never persisted server-side) -- the
+    shim must treat that as a typed failure, not a successful ``Result``
+    bound to an imaginary dataset.
+    """
+
+    def job_results(self, job_id: str) -> dict:
+        self.results_fetches.append(job_id)
+        return {"jobID": job_id, "outputs": {}}
+
+
+def test_missing_output_binding_raises_execute_error_and_registers_no_alias(
+    _isolated_audit_dir: Path,
+) -> None:
+    proc = _NoResultsProcessesClient()
+    _configure(proc)
+
+    with pytest.raises(honua_gp.ExecuteError) as info:
+        honua_gp.management.Project("honua://services/s/0", "empty_out", 4326)
+    assert info.value.error_kind == "missing_output"
+    # The job genuinely ran (submitted + polled to success); only the final
+    # alias binding is refused.
+    assert proc.calls
+    assert honua_gp.get_session().get_layer("empty_out") is None
+
+
+def test_duplicate_output_without_overwrite_fails_before_job_submission(
+    _isolated_audit_dir: Path,
+) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+    honua_gp.management.Project("honua://services/s/0", "roads_wgs84", 4326)
+    assert len(proc.calls) == 1
+
+    honua_gp.env.overwriteOutput = False
+    with pytest.raises(honua_gp.HonuaGpConfigurationError):
+        honua_gp.management.Project("honua://services/other/0", "roads_wgs84", 3857)
+    # The fail-fast duplicate-output check runs before job submission -- no
+    # second job was ever created for the rejected call.
+    assert len(proc.calls) == 1
+
+
+def test_failed_overwrite_leaves_prior_alias_untouched(_isolated_audit_dir: Path) -> None:
+    """A prior successful output must survive a later failed overwrite attempt.
+
+    Reserving (not publishing) the output name ahead of submission means a
+    failed job never mutates the session's alias map at all, so the earlier,
+    real binding is never at risk of being clobbered by a job that never
+    finished.
+    """
+
+    proc = _FakeProcessesClient()
+    _configure(proc)
+    honua_gp.management.Project("honua://services/s/0", "scratch", 4326)
+    original_alias = honua_gp.get_session().get_layer("scratch")
+    assert original_alias is not None
+
+    failing_proc = _FakeProcessesClient(terminal_status="failed")
+    honua_gp.configure(processes_client=failing_proc)
+    honua_gp.env.overwriteOutput = True
+    with pytest.raises(honua_gp.ExecuteError):
+        honua_gp.management.Project("honua://services/other/0", "scratch", 3857)
+
+    assert honua_gp.get_session().get_layer("scratch") == original_alias
+
+
+# ---------------------------------------------------------------------------
+# Input selections and arcpy.env semantics
+# ---------------------------------------------------------------------------
+
+
+def test_input_layer_selection_is_forwarded_as_where(_isolated_audit_dir: Path) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+    honua_gp.management.MakeFeatureLayer("honua://services/t/0", "lyr", "name = 'a'")
+
+    honua_gp.analysis.Buffer("lyr", "buffered", "5 Meters", where_clause="OBJECTID > 0")
+    honua_gp.management.Dissolve("lyr", "dissolved")
+    honua_gp.analysis.SpatialJoin("lyr", "honua://services/t/1", "joined")
+
+    wheres = [payload["inputs"].get("where") for _, payload in proc.calls]
+    assert wheres == ["(name = 'a') AND (OBJECTID > 0)", "name = 'a'", "name = 'a'"]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda: honua_gp.analysis.SpatialJoin("honua://services/t/0", "lyr", "out"), id="join-features"),
+        pytest.param(lambda: honua_gp.management.Project("lyr", "out", 3857), id="project"),
+    ],
+)
+def test_selection_on_an_unfilterable_input_is_rejected(_isolated_audit_dir: Path, call) -> None:
+    proc = _FakeProcessesClient()
+    _configure(proc)
+    honua_gp.management.MakeFeatureLayer("honua://services/t/0", "lyr", "name = 'a'")
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError, match="selection"):
+        call()
+    assert proc.calls == []
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        honua_gp.management.GetCount("out")
+
+
+@pytest.mark.parametrize(
+    ("attribute", "value", "rejected", "allowed"),
+    [
+        ("outputCoordinateSystem", 3857, "analysis.Buffer", "management.Project"),
+        ("extent", "0 0 10 10", "management.Project", None),
+        ("XYTolerance", "0.001 Meters", "management.Dissolve", None),
+        ("geographicTransformations", "WGS_1984_(ITRF00)_To_NAD_1983", "management.Project", "analysis.Buffer"),
+    ],
+)
+def test_unapplied_environment_is_rejected_before_submission(
+    _isolated_audit_dir: Path, attribute: str, value: object, rejected: str, allowed: str | None
+) -> None:
+    calls = {
+        "analysis.Buffer": lambda: honua_gp.analysis.Buffer("honua://services/t/0", "out", "5 Meters"),
+        "management.Dissolve": lambda: honua_gp.management.Dissolve("honua://services/t/0", "out"),
+        "management.Project": lambda: honua_gp.management.Project("honua://services/t/0", "out", 4326),
+    }
+    proc = _FakeProcessesClient()
+    _configure(proc)
+    setattr(honua_gp.env, attribute, value)
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError, match=attribute):
+        calls[rejected]()
+    assert proc.calls == []
+
+    if allowed is not None:
+        calls[allowed]()
+        assert len(proc.calls) == 1

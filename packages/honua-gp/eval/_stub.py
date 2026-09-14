@@ -117,7 +117,23 @@ class _StubProcessesClient:
         return {"jobID": job_id, "status": "successful"}
 
     def job_results(self, job_id: str) -> dict[str, Any]:
-        return {"jobID": job_id, "outputs": {"result": {"href": f"honua://jobs/{job_id}/result"}}}
+        # honua-server returns the FeatureLayer output by value, keyed by output id.
+        return {
+            "outputFeatureLayer": {
+                "mediaType": "application/geo+json",
+                "value": {
+                    "type": "FeatureCollection",
+                    "featureCount": 1,
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
+                            "properties": {"COUNT": 1},
+                        }
+                    ],
+                },
+            }
+        }
 
     def dismiss_job(self, job_id: str) -> None:
         return None

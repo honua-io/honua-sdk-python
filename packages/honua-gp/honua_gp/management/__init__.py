@@ -47,6 +47,7 @@ from .._errors import (
     HonuaGpConfigurationError,
     HonuaGpResolveError,
 )
+from .._output_artifact import output_source_for
 from .._process_tools import Result, run_layer_process
 from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
@@ -64,6 +65,7 @@ def _make_layer_handler(session, bound: dict[str, Any]) -> LayerAlias:
     if not isinstance(source_path, str) or not source_path:
         raise HonuaGpConfigurationError("MakeFeatureLayer/MakeTableView requires an input source name.")
     resolved = resolve(source_path, session=session)
+    input_alias = session.get_layer(source_path)
     alias = LayerAlias(
         name=name,
         source=resolved.source,
@@ -71,6 +73,7 @@ def _make_layer_handler(session, bound: dict[str, Any]) -> LayerAlias:
         field_info=bound.get("field_info"),
         workspace=bound.get("workspace") or resolved.workspace or session.workspace,
         kind="table" if "out_view" in bound else "layer",
+        output=input_alias.output if input_alias is not None else None,
     )
     return session.register_layer(alias)
 
@@ -260,12 +263,14 @@ def _layer_count(session, alias: LayerAlias, where: str | None) -> int:
     instead of a misleading ``Selection(count=0)`` success.
     """
 
-    client = session.client()
-    if not hasattr(client, "source"):
-        raise HonuaGpConfigurationError("Configured Honua client does not expose Source facade.")
-    resolved = resolve(alias.name, session=session)
-    descriptor = descriptor_mapping(resolved, session=session)
-    source = client.source(descriptor)
+    source = output_source_for(alias)
+    if source is None:
+        client = session.client()
+        if not hasattr(client, "source"):
+            raise HonuaGpConfigurationError("Configured Honua client does not expose Source facade.")
+        resolved = resolve(alias.name, session=session)
+        descriptor = descriptor_mapping(resolved, session=session)
+        source = client.source(descriptor)
     result = source.query(where=where) if where else source.query()
     total = getattr(result, "total_count", None)
     if isinstance(total, int):
@@ -293,12 +298,15 @@ def GetCount(in_rows: Any) -> int:
         resolved = resolve(alias.name if alias is not None else in_rows, session=session)
         where = alias.where if alias is not None else None
 
-        client = session.client()
-        if not hasattr(client, "source"):
-            raise HonuaGpConfigurationError("Configured Honua client does not expose Source facade.")
-        descriptor = descriptor_mapping(resolved, session=session)
+        source = output_source_for(alias)
+        if source is None:
+            client = session.client()
+            if not hasattr(client, "source"):
+                raise HonuaGpConfigurationError("Configured Honua client does not expose Source facade.")
+            descriptor = descriptor_mapping(resolved, session=session)
         try:
-            source = client.source(descriptor)
+            if source is None:
+                source = client.source(descriptor)
             result = source.query(where=where) if where else source.query()
         except (ExecuteError, HonuaGpConfigurationError, HonuaGpResolveError):
             raise

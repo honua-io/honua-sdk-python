@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 import honua_gp
-from honua_gp._resolve import descriptor_mapping, resolve
+from honua_gp._resolve import descriptor_mapping, resolve, resolve_layer_id
 
 
 def test_alias_takes_precedence_over_other_classifications() -> None:
@@ -169,6 +169,20 @@ def test_descriptor_mapping_falls_back_to_workspace_context() -> None:
     descriptor = descriptor_mapping(resolved)
     assert descriptor["locator"]["serviceId"] == "transport"
     assert descriptor["locator"]["layerId"] == 0
+
+
+def test_resolve_layer_id_raises_typed_error_not_nameerror() -> None:
+    """A honua:// services URI with no layer segment has no locator.layerId
+    (descriptor_mapping leaves it unset), so resolve_layer_id must surface a
+    typed HonuaGpResolveError -- not crash with a NameError from a
+    misspelled exception class."""
+
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        resolve_layer_id("honua://services/transport")
+
+
+def test_resolve_layer_id_returns_numeric_layer_id() -> None:
+    assert resolve_layer_id("honua://services/transport/3") == 3
 
 
 def test_descriptor_mapping_round_trips_through_honua_sdk() -> None:

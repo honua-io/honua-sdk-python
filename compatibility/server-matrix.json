@@ -8,6 +8,96 @@
   },
   "cases": [
     {
+      "name": "issue-219-exact-trunk-server",
+      "description": "Issue #219's stable trunk identity must pass the GA baseline despite its full build SHA.",
+      "compatibility": {
+        "serverVersion": "1.0.0+32809f114c36c951b00beb5fe07a3c7082867909",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [],
+        "features": {}
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "name": "release-2026-1-server",
+      "description": "The 2026.1 release identity exactly as nightly-aot-3c52a4b reports it from /api/v1/admin/capabilities: the year-led major is a SemVer triple above the 1.0.0 floor.",
+      "compatibility": {
+        "serverVersion": "2026.1.1",
+        "releaseChannel": "stable",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [
+          {
+            "version": "metadata.honua.io/v2alpha1",
+            "deprecated": false
+          }
+        ],
+        "features": {
+          "metadataResources": true,
+          "manifestExport": false,
+          "manifestApply": false,
+          "manifestDryRun": false,
+          "manifestPrune": false
+        }
+      },
+      "expected": {
+        "supported": true,
+        "features": {
+          "metadataResources": true,
+          "manifestExport": false
+        }
+      }
+    },
+    {
+      "name": "release-2026-1-candidate-with-build-metadata",
+      "description": "A 2026.1 release candidate with build metadata passes on the rc channel.",
+      "compatibility": {
+        "serverVersion": "2026.1.1-rc.1+3c52a4b",
+        "releaseChannel": "rc",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [],
+        "features": {}
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "name": "release-2026-1-nightly",
+      "description": "A 2026.1 nightly clears the version floor but is held back by the release channel, not by a CalVer cutoff.",
+      "compatibility": {
+        "serverVersion": "2026.1.1-nightly.20260913",
+        "releaseChannel": "nightly",
+        "controlPlaneApi": {
+          "major": 1,
+          "basePath": "/api/v1/admin",
+          "deprecated": false
+        },
+        "metadataSchemas": [],
+        "features": {}
+      },
+      "expected": {
+        "supported": false,
+        "reasonsContain": [
+          "release channel"
+        ]
+      }
+    },
+    {
       "name": "ga-semver-server",
       "description": "The GA server identity uses SemVer 1.x with optional build metadata.",
       "compatibility": {
@@ -130,8 +220,8 @@
       }
     },
     {
-      "name": "server-version-below-baseline",
-      "description": "Pre-GA CalVer servers older than the minimum supported line are blocked.",
+      "name": "year-led-preview-server",
+      "description": "Year-led preview identities are measured against the same 1.0.0 floor as every other release line.",
       "compatibility": {
         "serverVersion": "2026.2.28-preview.1",
         "releaseChannel": "preview",
@@ -155,10 +245,7 @@
         }
       },
       "expected": {
-        "supported": false,
-        "reasonsContain": [
-          "below required"
-        ]
+        "supported": true
       }
     },
     {

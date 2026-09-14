@@ -85,27 +85,33 @@ Request fingerprints are written in any mode; response fingerprints only in
 live mode (the stub's canned `href` carries no real values and must never be
 frozen as an oracle).
 
-## Unblessed supported scripts must be explicit (`UNBLESSED_ALLOWLIST.json`)
+## Every supported script has a response oracle
 
-A live-mode run grades every non-`expected_failure` script's response layer
-against its golden `response` block. If a supported script has no `response`
-block at all, the harness does **not** silently pass it: it fails unless the
-script's stem is listed in `eval/UNBLESSED_ALLOWLIST.json` with a documented
-reason. This closes the gap issue #202 found -- an un-oracled supported
-script used to grade as an "unblessed" pass, so a response-parsing regression
-in an unblessed script's operation could sail through the live smoke lane
-silently.
+A supported (non-`expected_failure`) script with no golden `response` block
+used to grade as an "unblessed" pass in live mode, so a regression in its
+operation could pass the live smoke lane silently (issue #202). There is no
+unblessed set any more, and two checks keep it that way:
 
-Two ways a supported script ends up here:
+* In live mode, `run_eval.py` fails a supported script that has no `response`
+  block.
+* `tests/test_eval_harness.py::test_every_supported_script_has_a_response_oracle`
+  fails the unit tests (which run in the stub lane too) as soon as a supported
+  golden lacks one.
 
-* **Not yet blessed** -- bless it (see above) and commit the oracle. This is
-  the expected outcome for almost every case; a newly-added supported script
-  must be blessed before merge, or the live smoke lane fails on it.
-* **Genuinely not capturable** -- the operation makes no honua-server HTTP
-  round trip to fingerprint (e.g. `MakeTableView`/`MakeFeatureLayer`, which
-  only register a client-side session alias). Add an entry to
-  `UNBLESSED_ALLOWLIST.json` explaining why, instead of leaving the gap
-  implicit.
+The oracle must be an observable result, not the submitted payload:
+
+* **Schema introspection** (`Describe` / `ListFields`) records the field
+  names, types, OID field, shape type and SRID the server reported for the
+  seeded layer.
+* **Write cursors** (`InsertCursor` / `UpdateCursor`) record the applyEdits
+  counts **and** the rows read back with a `SearchCursor` afterwards: the rows
+  an insert persisted, the value an update left behind, and that a deleted row
+  is gone. `update_cursor_close_status` and `update_cursor_delete_closed`
+  insert their own fixture row and scope their edit to it by name, so they do
+  not depend on script order or leftovers from an earlier run.
+* **Session aliases** (`MakeTableView`) make no request by themselves, so the
+  script reads through the view (`GetCount` + `SearchCursor`) and records the
+  rows the server returned under the view's where clause.
 
 ## Determinism note (live mode)
 

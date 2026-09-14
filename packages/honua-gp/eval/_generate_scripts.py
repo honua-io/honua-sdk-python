@@ -166,12 +166,18 @@ print(f"make_feature_layer_then_select ok count={selection.count}")
 _supported(
     "make_table_view",
     "transport",
-    "Make a table view for inspection.",
-    """arcpy.management.MakeTableView("segments_attrs", "segments_view")
-print("make_table_view ok")
+    "Make a filtered table view, then read the server rows through it.",
+    """arcpy.management.MakeTableView("segments_attrs", "segments_view", "status = 'active'")
+# MakeTableView itself only registers a session alias; the observable result is
+# what the server returns when the view (and its where clause) is read.
+view_count = int(arcpy.management.GetCount("segments_view"))
+with arcpy.da.SearchCursor("segments_view", ["name", "status"]) as cursor:
+    view_rows = sorted([row[0], row[1]] for row in cursor)
+print(f"make_table_view ok count={view_count}")
 """,
-    1,
+    3,
     "make_table_view ok",
+    response_emit=_val_emit("make_table_view", "{'view_count': view_count, 'view_rows': view_rows}"),
 )
 
 _supported(
@@ -260,44 +266,86 @@ print(f"search_cursor_iterate ok rows={len(rows)}")
 _supported(
     "update_cursor_close_status",
     "transport",
-    "UpdateCursor: flip CLOSED rows to ARCHIVED.",
-    """with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+    "UpdateCursor: flip CLOSED rows to ARCHIVED, then read the rows back.",
+    """from eval._emit import apply_edits_fingerprint, edited_object_ids
+
+# The script owns its fixture row (scoped by name), so the oracle does not
+# depend on which other scripts ran first or on a previous run's leftovers.
+with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+    cursor.insertRow(["CLOSED", "Close Status Rd"])
+with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Close Status Rd'") as cursor:
     for row in cursor:
         if row[1] == "CLOSED":
             row[1] = "ARCHIVED"
             cursor.updateRow(row)
+    edits = cursor.flush()
+updated = edited_object_ids(edits, "update")
+with arcpy.da.SearchCursor("roads", ["OID@", "STATUS", "name"], "name = 'Close Status Rd'") as cursor:
+    rows = list(cursor)
+updated_rows = sorted([row[1], row[2]] for row in rows if str(row[0]) in updated)
+closed_remaining = sum(1 for row in rows if row[1] == "CLOSED")
 print("update_cursor_close_status ok")
 """,
-    1,
+    3,
     "update_cursor_close_status ok",
+    response_emit=_val_emit(
+        "update_cursor_close_status",
+        "{**apply_edits_fingerprint(edits), 'updated_rows': updated_rows, 'closed_remaining': closed_remaining}",
+    ),
 )
 
 _supported(
     "update_cursor_delete_closed",
     "transport",
-    "UpdateCursor: delete CLOSED rows.",
-    """with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"]) as cursor:
+    "UpdateCursor: delete CLOSED rows, then confirm they are gone.",
+    """from eval._emit import apply_edits_fingerprint, edited_object_ids
+
+# The script owns its fixture row (scoped by name), so there is always a CLOSED
+# row to delete -- a zero-delete run is a failure, not a vacuous pass.
+with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+    cursor.insertRow(["CLOSED", "Delete Closed Rd"])
+    inserted = edited_object_ids(cursor.flush(), "add")
+with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Delete Closed Rd'") as cursor:
     for row in cursor:
         if row[1] == "CLOSED":
             cursor.deleteRow()
+    edits = cursor.flush()
+deleted = edited_object_ids(edits, "delete")
+with arcpy.da.SearchCursor("roads", ["OID@", "STATUS"], "name = 'Delete Closed Rd'") as cursor:
+    rows = list(cursor)
 print("update_cursor_delete_closed ok")
 """,
-    1,
+    3,
     "update_cursor_delete_closed ok",
+    response_emit=_val_emit(
+        "update_cursor_delete_closed",
+        "{**apply_edits_fingerprint(edits), 'deleted_inserted_row': bool(inserted) and deleted == inserted, "
+        "'rows_remaining': len(rows)}",
+    ),
 )
 
 _supported(
     "insert_cursor_append_rows",
     "transport",
-    "InsertCursor: append three rows.",
-    """with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+    "InsertCursor: append three rows, then read the persisted rows back.",
+    """from eval._emit import apply_edits_fingerprint, edited_object_ids
+
+with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["OPEN", "Main St"])
     cursor.insertRow(["OPEN", "Elm Ave"])
     cursor.insertRow(["CLOSED", "Side Rd"])
+    edits = cursor.flush()
+added = edited_object_ids(edits, "add")
+with arcpy.da.SearchCursor("roads", ["OID@", "STATUS", "name"]) as cursor:
+    persisted_rows = sorted([row[1], row[2]] for row in cursor if str(row[0]) in added)
 print("insert_cursor_append_rows ok")
 """,
-    1,
+    2,
     "insert_cursor_append_rows ok",
+    response_emit=_val_emit(
+        "insert_cursor_append_rows",
+        "{**apply_edits_fingerprint(edits), 'persisted_rows': persisted_rows}",
+    ),
 )
 
 _supported(

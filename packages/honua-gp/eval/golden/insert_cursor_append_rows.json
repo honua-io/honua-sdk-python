@@ -1,13 +1,27 @@
 {
   "expected_failure": false,
   "plumbing": {
-    "audit_lines": 1,
+    "audit_lines": 2,
     "stdout_contains": "insert_cursor_append_rows ok"
   },
   "response": {
     "add_count": 3,
     "all_succeeded": true,
     "delete_count": 0,
+    "persisted_rows": [
+      [
+        "CLOSED",
+        "Side Rd"
+      ],
+      [
+        "OPEN",
+        "Elm Ave"
+      ],
+      [
+        "OPEN",
+        "Main St"
+      ]
+    ],
     "update_count": 0
   },
   "schema_version": 2

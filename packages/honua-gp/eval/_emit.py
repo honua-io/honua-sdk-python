@@ -185,8 +185,31 @@ def apply_edits_fingerprint(result: Any) -> dict[str, Any]:
     }
 
 
+def edited_object_ids(result: Any, operation: str) -> set[str]:
+    """Return the server-assigned object ids of the successful ``operation`` edits.
+
+    ``operation`` is ``"add"``, ``"update"`` or ``"delete"``. The ids are
+    never frozen into a golden (they differ across seeds); scripts use them
+    to read back exactly the rows their own edit touched, so the response
+    oracle records what the dataset holds afterwards rather than what the
+    script submitted. Ids are compared as strings because
+    ``QueryFeature.id`` may be a ``str`` or an ``int``. The stub's plain-dict
+    result carries no server ids, so it yields an empty set.
+    """
+
+    if result is None or isinstance(result, Mapping):
+        return set()
+    results = getattr(result, f"{operation}_results", ())
+    return {
+        str(entry.object_id)
+        for entry in results
+        if getattr(entry, "success", False) and getattr(entry, "object_id", None) is not None
+    }
+
+
 __all__ = [
     "apply_edits_fingerprint",
+    "edited_object_ids",
     "emit_response",
     "feature_layer_fingerprint",
     "schema_fingerprint",

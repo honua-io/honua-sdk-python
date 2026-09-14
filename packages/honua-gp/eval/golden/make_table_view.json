@@ -1,8 +1,33 @@
 {
   "expected_failure": false,
   "plumbing": {
-    "audit_lines": 1,
+    "audit_lines": 3,
     "stdout_contains": "make_table_view ok"
+  },
+  "response": {
+    "view_count": 5,
+    "view_rows": [
+      [
+        "alpha",
+        "active"
+      ],
+      [
+        "epsilon",
+        "active"
+      ],
+      [
+        "eta",
+        "active"
+      ],
+      [
+        "gamma",
+        "active"
+      ],
+      [
+        "iota",
+        "active"
+      ]
+    ]
   },
   "schema_version": 2
 }

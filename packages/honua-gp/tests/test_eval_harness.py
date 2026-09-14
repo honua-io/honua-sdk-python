@@ -30,6 +30,23 @@ def test_eval_scripts_pair_with_golden_records() -> None:
         assert golden.exists(), f"Missing golden file for {script.name}"
 
 
+def test_every_supported_script_has_a_response_oracle() -> None:
+    """A supported script must record what the server returned (#202).
+
+    Stub CI never grades the response layer, so without this check a new
+    supported script with no ``response`` block would only surface in the live
+    smoke lane. The unblessed set is empty and must stay empty.
+    """
+
+    unblessed = []
+    for golden_path in sorted(_PACKAGE_ROOT.glob("eval/golden/*.json")):
+        golden = json.loads(golden_path.read_text(encoding="utf-8"))
+        expected_failure = golden.get("expected_failure", "expected_failure" in golden_path.stem)
+        if not expected_failure and not golden.get("response"):
+            unblessed.append(golden_path.stem)
+    assert unblessed == [], f"supported eval scripts with no response oracle: {unblessed}"
+
+
 def test_committed_matrix_matches_generated_output() -> None:
     committed = (_PACKAGE_ROOT / "docs" / "compatibility-matrix.md").read_text(encoding="utf-8")
     generated = render_compat_matrix()
@@ -203,6 +220,47 @@ def test_grade_response_value_diff_is_live_only(tmp_path: Path) -> None:
     assert status == "fail"
     assert checks["response"] == "fail"
     assert reason is not None and "response value mismatch" in reason
+
+
+def test_grade_live_supported_script_without_response_oracle_fails(tmp_path: Path) -> None:
+    """Live mode never passes a supported script as "unblessed" (#202)."""
+
+    script = tmp_path / "make_widget_view.py"
+    script.write_text("", encoding="utf-8")
+    golden = {
+        "schema_version": 2,
+        "expected_failure": False,
+        "plumbing": {"audit_lines": 1, "stdout_contains": "make_widget_view ok"},
+    }
+    common = dict(exit_code=0, audit_lines=1, golden=golden, stdout="make_widget_view ok\n", stderr="")
+
+    status, _, reason, checks = _grade(script, response_actual={"view_count": 5}, live_mode=True, **common)
+    assert status == "fail"
+    assert checks["response"] == "fail"
+    assert reason is not None and "has no response oracle" in reason
+
+    # Stub mode grades no response layer, so the same golden still passes there.
+    status, _, _, checks = _grade(script, live_mode=False, **common)
+    assert status == "pass"
+    assert "response" not in checks
+
+
+def test_edited_object_ids_reads_successful_server_ids_only() -> None:
+    from _emit import edited_object_ids
+    from honua_sdk.models import ApplyEditsResult
+
+    result = ApplyEditsResult.from_dict(
+        {
+            "addResults": [{"objectId": 11, "success": True}, {"objectId": 12, "success": False}],
+            "deleteResults": [{"objectId": 7, "success": True}],
+        }
+    )
+    assert edited_object_ids(result, "add") == {"11"}
+    assert edited_object_ids(result, "delete") == {"7"}
+    assert edited_object_ids(result, "update") == set()
+    # The stub's dict result and an empty flush carry no server ids.
+    assert edited_object_ids({"adds": [{"attributes": {}}]}, "add") == set()
+    assert edited_object_ids(None, "add") == set()
 
 
 def test_run_script_always_rebuilds_pythonpath_when_host_sets_it(

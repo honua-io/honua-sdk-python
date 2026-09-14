@@ -143,7 +143,8 @@ All packages follow [Semantic Versioning](https://semver.org/). Major versions a
 The admin SDK uses `GET /api/v1/admin/capabilities` as the runtime compatibility
 source of truth. It currently expects:
 
-- server version `>= 2026.3.0`
+- server version `>= 1.0.0` for GA SemVer identities, or `>= 2026.3.0` for
+  pre-GA CalVer identities
 - control-plane API major `v1`
 - release channel `preview` or newer
 

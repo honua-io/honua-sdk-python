@@ -1,3 +1,9 @@
+---
+type: index
+title: "Analyst demo suite"
+description: "Demos built around the workflows Python is best at: GeoPandas ETL, data-quality reporting, spatial query exploration and async API services."
+tags: [examples, geopandas, analyst]
+---
 # Python Analyst Demo Suite
 
 The Python SDK demo suite is designed around workflows where Python is the best fit: GeoPandas ETL, data quality reporting, spatial query exploration, and async API services.

@@ -1,3 +1,10 @@
+---
+type: reference
+title: "honua-admin clients"
+description: "Generated API reference for the control-plane client used to manage connections, services and layers."
+resource: "https://pypi.org/project/honua-admin/"
+tags: [api-reference, honua-admin]
+---
 # honua-admin › Clients
 
 The admin SDK ships sync and async clients with parity to the data-plane

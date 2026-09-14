@@ -8,6 +8,116 @@ import honua_gp
 from honua_gp._session import get_session
 
 
+def test_client_bootstraps_from_environment(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _StubClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            captured["base_url"] = base_url
+            captured["kwargs"] = kwargs
+
+    import honua_sdk
+
+    monkeypatch.setattr(honua_sdk, "HonuaClient", _StubClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    monkeypatch.setenv("HONUA_API_KEY", "env-key")
+
+    built = get_session().client()
+
+    assert isinstance(built, _StubClient)
+    assert captured == {
+        "base_url": "https://env.example.com",
+        "kwargs": {"api_key": "env-key"},
+    }
+
+
+def test_environment_bootstrap_preserves_injected_admin_client(monkeypatch) -> None:
+    class _StubClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            pass
+
+    import honua_sdk
+
+    monkeypatch.setattr(honua_sdk, "HonuaClient", _StubClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    injected_admin = object()
+    honua_gp.configure(admin_client=injected_admin)
+
+    get_session().client()
+
+    assert get_session()._admin is injected_admin  # noqa: SLF001
+
+
+def test_environment_bootstrap_preserves_injected_data_client(monkeypatch) -> None:
+    class _StubAdminClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            pass
+
+    import honua_admin
+
+    monkeypatch.setattr(honua_admin, "HonuaAdminClient", _StubAdminClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    injected_client = object()
+    honua_gp.configure(client=injected_client)
+
+    get_session().admin_client()
+
+    assert get_session()._client is injected_client  # noqa: SLF001
+
+
+def test_environment_bootstrap_keeps_explicit_credentials(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _StubClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            captured["base_url"] = base_url
+            captured["kwargs"] = kwargs
+
+    import honua_sdk
+
+    monkeypatch.setattr(honua_sdk, "HonuaClient", _StubClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    monkeypatch.setenv("HONUA_API_KEY", "env-key")
+    monkeypatch.setenv("HONUA_BEARER_TOKEN", "env-bearer")
+    honua_gp.configure(bearer_token="explicit-bearer")
+
+    get_session().client()
+
+    assert captured == {
+        "base_url": "https://env.example.com",
+        "kwargs": {"bearer_token": "explicit-bearer"},
+    }
+
+
+def test_environment_bootstrap_does_not_override_configured_base_url(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _StubClient:
+        def __init__(self, base_url: str, **kwargs: Any) -> None:
+            captured["base_url"] = base_url
+            captured["kwargs"] = kwargs
+
+    import honua_sdk
+
+    monkeypatch.setattr(honua_sdk, "HonuaClient", _StubClient)
+    monkeypatch.setenv("HONUA_BASE_URL", "https://env.example.com")
+    monkeypatch.setenv("HONUA_API_KEY", "env-key")
+    honua_gp.configure(base_url="https://explicit.example.com")
+
+    get_session().client()
+
+    assert captured == {"base_url": "https://explicit.example.com", "kwargs": {}}
+
+
+def test_unconfigured_session_without_environment_still_raises(monkeypatch) -> None:
+    import pytest
+
+    monkeypatch.delenv("HONUA_BASE_URL", raising=False)
+
+    with pytest.raises(honua_gp.HonuaGpConfigurationError, match="HONUA_BASE_URL"):
+        get_session().client()
+
+
 def test_configure_invalidates_lazy_client_cache_on_base_url_change() -> None:
     """Changing ``base_url`` must drop any previously cached client so the
     next ``client()`` call rebuilds against the new endpoint. Without this,

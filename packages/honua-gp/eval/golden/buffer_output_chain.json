@@ -1,0 +1,36 @@
+{
+  "expected_failure": false,
+  "plumbing": {
+    "audit_lines": 7,
+    "stdout_contains": "buffer_output_chain ok"
+  },
+  "request": [
+    {
+      "function": "analysis.Buffer",
+      "inputs": {
+        "dissolve": true,
+        "distance": 25.0,
+        "layerId": 0,
+        "unit": "meters"
+      },
+      "process_id": "analytics.buffer-aggregate"
+    },
+    {
+      "function": "management.Dissolve",
+      "inputs": {
+        "layerId": 0
+      },
+      "process_id": "generalization.dissolve"
+    }
+  ],
+  "response": {
+    "buffer_count": 1,
+    "buffer_geometry_types": [
+      "MultiPolygon"
+    ],
+    "chained_dissolve": "refused",
+    "dissolve_count": 1,
+    "input_count": 10
+  },
+  "schema_version": 2
+}

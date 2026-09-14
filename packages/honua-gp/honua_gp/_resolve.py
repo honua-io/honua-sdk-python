@@ -24,6 +24,7 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from ._errors import HonuaGpResolveError
+from ._output_artifact import OUTPUT_SOURCE_PREFIX
 from ._session import HonuaSession, LayerAlias, get_session
 
 _HONUA_URI = re.compile(r"^honua://(?P<rest>.+)$")
@@ -96,6 +97,12 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
             layer=alias.name,
             raw=raw,
         )
+
+    # A GP output name whose job never succeeded has no binding; falling
+    # through would resolve it against the workspace (layer 0).
+    unbound_reason = session.unbound_output_reason(path)
+    if unbound_reason is not None:
+        raise HonuaGpResolveError(raw, hint=unbound_reason)
 
     # 2. Explicit honua:// URI.
     match = _HONUA_URI.match(path)
@@ -251,6 +258,16 @@ def descriptor_mapping(
     session = session or get_session()
     _require_configured_server(resolved, session)
     source = resolved.source
+    if source.startswith(OUTPUT_SOURCE_PREFIX):
+        raise HonuaGpResolveError(
+            resolved.raw or source,
+            hint=(
+                "It is the inline result of a completed GP job, not a server layer. "
+                "Layer-aware processes, Describe and ListFields need a "
+                "honua://services/<service>/<layer> input; persist the output through "
+                "an authorized server write contract first."
+            ),
+        )
     workspace = resolved.workspace or session.workspace
 
     service_id: str | None = None

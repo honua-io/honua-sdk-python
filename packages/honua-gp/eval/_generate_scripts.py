@@ -4,7 +4,7 @@ Run once from the package root:
 
     python eval/_generate_scripts.py
 
-The generator emits 51 scripts plus matching golden references that
+The generator emits 52 scripts plus matching golden references that
 exercise the *currently* supported surface of ``honua_gp`` --
 session-backed (MakeFeatureLayer, MakeTableView), source-backed
 (SelectLayerByAttribute, GetCount, SearchCursor, UpdateCursor,
@@ -209,6 +209,39 @@ print(f"get_count_feature_server_url ok full={full_count} relative={relative_cou
         "{'full_url_count': int(full_count), 'relative_path_count': int(relative_count), 'locator': locator}",
     ),
     explicit_configure=False,
+)
+
+_supported(
+    "buffer_output_chain",
+    "transport",
+    "Buffer, read the bound output with GetCount/SearchCursor, then Dissolve (#226).",
+    """import json
+
+from honua_gp import HonuaGpResolveError
+
+input_count = int(arcpy.management.GetCount("roads"))
+result = arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="ALL")
+buffer_count = int(arcpy.management.GetCount(result[0]))
+with arcpy.da.SearchCursor("roads_buffer", ["SHAPE@JSON"]) as cursor:
+    geometry_types = sorted({json.loads(row[0])["type"] for row in cursor})
+# The buffer output is an inline job result, not a server layer: a layer-aware
+# tool cannot take it as input and must refuse instead of reading layer 0.
+try:
+    arcpy.management.Dissolve("roads_buffer", "roads_buffer_dissolved")
+    chained = "ran"
+except HonuaGpResolveError:
+    chained = "refused"
+dissolved = arcpy.management.Dissolve("roads", "roads_dissolved")
+dissolve_count = int(arcpy.management.GetCount(dissolved[0]))
+print(f"buffer_output_chain ok input={input_count} buffer={buffer_count} dissolve={dissolve_count} chained={chained}")
+""",
+    7,
+    "buffer_output_chain ok",
+    response_emit=_val_emit(
+        "buffer_output_chain",
+        "{'input_count': input_count, 'buffer_count': buffer_count, 'buffer_geometry_types': geometry_types, "
+        "'chained_dissolve': chained, 'dissolve_count': dissolve_count}",
+    ),
 )
 
 _supported(
@@ -629,8 +662,8 @@ def _emit() -> None:
     GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
 
     specs: list[ScriptSpec] = SUPPORTED_TEMPLATES + EXPECTED_FAILURE_TEMPLATES
-    if len(specs) != 51:
-        raise SystemExit(f"Expected 51 scripts, got {len(specs)}")
+    if len(specs) != 52:
+        raise SystemExit(f"Expected 52 scripts, got {len(specs)}")
 
     for spec in specs:
         target = SCRIPTS_DIR / f"{spec.slug}.py"

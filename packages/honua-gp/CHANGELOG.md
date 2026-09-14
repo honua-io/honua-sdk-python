@@ -4,6 +4,40 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### GP tool outputs bound to real job results (#226)
+
+`analysis.Buffer`, `analysis.SpatialJoin`, `management.Dissolve` and
+`management.Project` registered the output name as an alias before the job ran
+and resolved it like a workspace name. A later `GetCount` or `SearchCursor`
+against the output therefore read the workspace's layer 0: against a seeded
+honua-server, `GetCount` on a 25 m dissolved Buffer output returned the input's
+10 points instead of 1 polygon.
+
+- honua-server returns these outputs by value (`outputFeatureLayer.value`, a
+  GeoJSON FeatureCollection). After the job succeeds the output name is bound
+  to that result, and `GetCount`, `da.SearchCursor` and `MakeFeatureLayer` read
+  it. Where clauses, edits, `Describe`, `ListFields` and chaining it into
+  another layer-aware tool raise, because nothing is persisted server-side.
+- A successful job with no FeatureLayer output raises `ExecuteError`
+  (`missing_output`); a by-reference href, a non-FeatureCollection value or a
+  truncated collection raises `unreadable_output`. An empty collection is a
+  zero-feature result.
+- A failed, cancelled or expired job keeps any prior alias; a name without one
+  stays unresolvable instead of falling back to layer 0.
+- Nondefault `line_side` / `line_end_type` / `method`, `join_operation` /
+  `join_type` / `field_mapping` / `distance_field_name`, `statistics_fields` /
+  `multi_part` / `unsplit_lines`, and `transform_method` / `in_coor_system` /
+  `preserve_shape` / `max_deviation` / `vertical` raise before submission.
+- A selection on an input layer is sent as the process `where`; a selection on
+  an input the process cannot filter and unapplied `arcpy.env` settings
+  (`outputCoordinateSystem`, `extent`, `XYTolerance`, `XYResolution`,
+  `geographicTransformations`) raise before submission.
+- `analysis.Buffer` and `management.Project` are reclassified from supported to
+  partial for these deviations.
+- New tests: fake-transport coverage for every binding and failure case, a
+  live-server test (`test_output_binding_live.py`) with oracles computed from
+  the raw FeatureServer input, and the live eval script `buffer_output_chain`.
+
 ### Environment configuration and FeatureServer layer URLs (#205)
 
 The licensed ArcPy `GetCount` parity probe failed twice before reaching the

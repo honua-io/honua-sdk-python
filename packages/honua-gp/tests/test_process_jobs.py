@@ -91,6 +91,42 @@ def test_submit_and_wait_timeout_dismisses_and_raises() -> None:
     assert transport.dismissed == ["j-1"]
 
 
+class _HttpError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"HTTP {status_code}: Job 'j-1' does not exist.")
+        self.status_code = status_code
+
+
+class _ResultsFail(_Transport):
+    def __init__(self, error: Exception) -> None:
+        super().__init__(["accepted", "successful"])
+        self._error = error
+
+    def job_results(self, job_id: str) -> dict:
+        self.results_for.append(job_id)
+        raise self._error
+
+
+@pytest.mark.parametrize("status_code", [404, 410])
+def test_submit_and_wait_results_gone_after_success_is_missing_output(status_code: int) -> None:
+    gone = _HttpError(status_code)
+    transport = _ResultsFail(gone)
+    with pytest.raises(ExecuteError) as info:
+        submit_and_wait(transport, "p.test", {}, function="test.tool", sleep=_no_sleep)
+    assert info.value.error_kind == "missing_output"
+    assert info.value.__cause__ is gone
+    assert "j-1" in str(info.value)
+    assert transport.results_for == ["j-1"]
+
+
+@pytest.mark.parametrize("error", [_HttpError(500), _HttpError(403), ConnectionError("reset")])
+def test_submit_and_wait_other_results_errors_propagate(error: Exception) -> None:
+    transport = _ResultsFail(error)
+    with pytest.raises(type(error)) as info:
+        submit_and_wait(transport, "p.test", {}, function="test.tool", sleep=_no_sleep)
+    assert info.value is error
+
+
 def test_submit_and_wait_missing_job_id_raises() -> None:
     transport = _Transport(["accepted"], with_job_id=False)
     with pytest.raises(ExecuteError) as info:

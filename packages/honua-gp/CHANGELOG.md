@@ -4,6 +4,21 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### Results gone after a successful job are a typed failure (#226)
+
+When a job succeeded but its `/jobs/{id}/results` fetch answered 404 or 410,
+the tool raised `ExecuteError` with the transport class name
+(`HonuaHttpError`) as its `error_kind`. It now raises
+`error_kind="missing_output"` with the HTTP error as its cause. As before, a
+prior output under the same name stays bound and a new name stays unbound.
+
+- On honua-server 548b7a5 this is what a caller sees once a successful job's
+  record has left the job store (retention expiry or store loss). The server
+  keeps that record for a fixed 7 days and rebuilds expired result packages
+  from it.
+- The live proof deletes a real successful job's record from the server's
+  Redis before its results are read (`HONUA_GP_LIVE_REDIS`).
+
 ### Dissolve takes a bound GP output (#226)
 
 `management.Dissolve` refused the bound output of `analysis.Buffer` (or any

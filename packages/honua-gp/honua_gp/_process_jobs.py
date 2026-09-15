@@ -19,6 +19,8 @@ OGC job status vocabulary (from honua-server's
 
 * ``accepted`` / ``running`` -- non-terminal, keep polling.
 * ``successful`` -- terminal success; results are fetched from ``/results``.
+  A 404/410 there (the job record expired or was lost) raises
+  ``ExecuteError(error_kind="missing_output")``.
 * ``failed`` -- terminal failure; raise ``ExecuteError``.
 * ``dismissed`` -- terminal cancellation; raise ``ExecuteError``.
 """
@@ -37,6 +39,9 @@ from ._errors import ExecuteError
 _TERMINAL_OK = "successful"
 _TERMINAL_ERROR = {"failed", "dismissed"}
 _TERMINAL = {_TERMINAL_OK, *_TERMINAL_ERROR}
+
+# HTTP statuses of a results fetch for a successful job whose results are gone.
+_RESULTS_GONE_STATUSES = frozenset({404, 410})
 
 # Default polling envelope. These mirror a conservative arcpy "wait for the GP
 # tool to finish" loop; callers can override per-tool when a process is known to
@@ -186,7 +191,22 @@ def _finalize(
 
     results: Mapping[str, Any] | None = None
     if job_id is not None:
-        fetched = processes.job_results(job_id)
+        try:
+            fetched = processes.job_results(job_id)
+        except Exception as exc:
+            if getattr(exc, "status_code", None) not in _RESULTS_GONE_STATUSES:
+                raise
+            # honua-server answers 404 no-such-job once a successful job's
+            # record has left its job store (retention expiry or store loss):
+            # the job succeeded, but there is no output left to bind.
+            raise ExecuteError(
+                f"{function} job {job_id} reported success but its results are no longer available "
+                f"({exc}); the output name was not bound to any dataset.",
+                function=function,
+                error_kind="missing_output",
+                compat_anchor=compat_anchor,
+                cause=exc,
+            ) from exc
         if isinstance(fetched, Mapping):
             results = fetched
     return JobOutcome(

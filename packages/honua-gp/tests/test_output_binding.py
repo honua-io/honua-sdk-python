@@ -69,7 +69,9 @@ def _feature_layer(features: list[dict[str, Any]], *, feature_count: int | None 
 
 
 class _ResultsGoneError(Exception):
-    """Stands in for the HTTP 404/410 a results fetch gets once job results expire."""
+    """Stands in for the HTTP 410 a results fetch gets once job results expire."""
+
+    status_code = 410
 
 
 class _QueryResult:
@@ -512,7 +514,7 @@ def test_missing_or_unreadable_output_is_a_typed_failure(
 
 @pytest.mark.parametrize(
     ("status", "error_kind"),
-    [("failed", "failed"), ("dismissed", "dismissed"), ("expired", "_ResultsGoneError")],
+    [("failed", "failed"), ("dismissed", "dismissed"), ("expired", "missing_output")],
 )
 def test_failed_cancelled_or_expired_job_leaves_output_unresolvable(
     _isolated_audit_dir: Path, status: str, error_kind: str

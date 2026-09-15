@@ -18,6 +18,13 @@ computed here from those points:
 * Buffer 25 m per point, then Dissolve of that output: one polygon per located
   point, then one feature whose part count is the number of groups of points
   under 50 m apart, covering every point with vertices 25 m from the nearest.
+
+Results that are gone after a job succeeds: honua-server keeps a terminal job
+record in its Redis job store for a fixed 7 days, and ``/jobs/{id}/results``
+rebuilds an expired result package from that record, so a test cannot wait
+for real expiry. Set ``HONUA_GP_LIVE_REDIS`` to the ``host:port`` of the
+server's Redis to delete a successful job's record before its results are
+read, which is the state expiry or store loss leaves behind.
 """
 
 from __future__ import annotations
@@ -25,15 +32,18 @@ from __future__ import annotations
 import json
 import math
 import os
+import socket
 from typing import Any
 
 import httpx
 import pytest
+from honua_sdk.errors import HonuaHttpError
 
 import honua_gp
 
 _BASE_URL = os.environ.get("HONUA_GP_LIVE_BASE_URL")
 _API_KEY = os.environ.get("HONUA_GP_LIVE_API_KEY")
+_REDIS = os.environ.get("HONUA_GP_LIVE_REDIS")
 _SERVICE = os.environ.get("HONUA_GP_LIVE_SERVICE_ID", "test_service")
 INPUT = f"honua://services/{_SERVICE}/0"
 UNREACHABLE = f"honua://services/{_SERVICE}/99"
@@ -156,13 +166,37 @@ class _DismissOnSubmit(_Delegate):
 class _ResultsGone(_Delegate):
     """Fetches results the server no longer has.
 
-    honua-server refuses to dismiss a terminal job (HTTP 409), so a client
-    cannot make a real job's results expire; asking for the results of a job
-    id the server does not know returns the same not-found response.
+    honua-server refuses to dismiss a terminal job (HTTP 409); asking for the
+    results of a job id the server does not know returns the not-found
+    response an expired job gets. ``_JobRecordLost`` removes a real job's record.
     """
 
     def job_results(self, job_id: str) -> Any:
         return self._real.job_results(_UNKNOWN_JOB_ID)
+
+
+def _redis_del(*keys: str) -> int:
+    host, _, port = str(_REDIS).rpartition(":")
+    command = [b"DEL", *(key.encode() for key in keys)]
+    request = b"*%d\r\n" % len(command) + b"".join(b"$%d\r\n%s\r\n" % (len(part), part) for part in command)
+    with socket.create_connection((host, int(port)), timeout=10) as connection:
+        connection.sendall(request)
+        reply = connection.recv(64)
+    assert reply.startswith(b":"), reply
+    return int(reply[1:].strip())
+
+
+class _JobRecordLost(_Delegate):
+    """Deletes a successful job's record from the server's job store, then reads its results."""
+
+    def __init__(self, real: Any) -> None:
+        super().__init__(real)
+        self.statuses: list[str] = []
+
+    def job_results(self, job_id: str) -> Any:
+        self.statuses.append(self._real.job(job_id)["status"])
+        assert _redis_del(f"controlplane:job:{job_id}", f"controlplane:job:gp-result:{job_id}") >= 1
+        return self._real.job_results(job_id)
 
 
 def test_buffer_output_is_the_job_result_then_dissolve(
@@ -317,8 +351,9 @@ def test_unbound_outputs_never_fall_back_to_layer_zero(input_features: list[dict
     assert cancelled.value.error_kind == "dismissed"
 
     honua_gp.configure(processes_client=_ResultsGone(real))
-    with pytest.raises(honua_gp.ExecuteError):
+    with pytest.raises(honua_gp.ExecuteError) as expired:
         honua_gp.analysis.Buffer(INPUT, "gp226_expired", "25 Meters")
+    assert expired.value.error_kind == "missing_output"
 
     # Each name would count the workspace's layer 0 (the input) if it fell back.
     assert honua_gp.management.GetCount(INPUT) == len(input_features)
@@ -326,3 +361,39 @@ def test_unbound_outputs_never_fall_back_to_layer_zero(input_features: list[dict
         assert honua_gp.get_session().get_layer(name) is None
         with pytest.raises(honua_gp.HonuaGpResolveError):
             honua_gp.management.GetCount(name)
+
+
+@pytest.mark.skipif(
+    not _REDIS,
+    reason="set HONUA_GP_LIVE_REDIS=<host:port> of the server's Redis to remove a successful job's record.",
+)
+def test_results_gone_after_success_are_a_typed_missing_output(
+    input_features: list[dict[str, Any]], input_points: list[tuple[float, float]]
+) -> None:
+    real = honua_gp.get_session().processes_client()
+    honua_gp.analysis.Buffer(INPUT, "gp226_lost", "25 Meters", dissolve_option="ALL")
+    prior = honua_gp.get_session().get_layer("gp226_lost")
+    assert prior is not None
+
+    lost = _JobRecordLost(real)
+    honua_gp.configure(processes_client=lost)
+    for name in ("gp226_lost", "gp226_lost_new"):
+        with pytest.raises(honua_gp.ExecuteError) as info:
+            honua_gp.analysis.Buffer(INPUT, name, "25 Meters", dissolve_option="ALL")
+        assert info.value.error_kind == "missing_output"
+        assert isinstance(info.value.__cause__, HonuaHttpError)
+        assert info.value.__cause__.status_code == 404
+    # Both jobs really succeeded before their records were removed.
+    assert lost.statuses == ["successful", "successful"]
+
+    honua_gp.configure(processes_client=real)
+    # The overwrite whose results were lost left the prior output bound to its own result.
+    assert honua_gp.get_session().get_layer("gp226_lost") is prior
+    [(shape, buffered_count)] = _rows("gp226_lost", ["SHAPE@JSON", "COUNT"])
+    assert buffered_count == len(input_points)
+    assert all(_covers(json.loads(shape), point) for point in input_points)
+    # The new name is unbound rather than the workspace's layer 0.
+    assert honua_gp.get_session().get_layer("gp226_lost_new") is None
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        honua_gp.management.GetCount("gp226_lost_new")
+    assert honua_gp.management.GetCount(INPUT) == len(input_features)

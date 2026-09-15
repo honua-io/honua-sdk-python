@@ -191,12 +191,12 @@ jobs:
   # ``not-executed``. Only ``passed`` -- every script executed live and passed
   # -- counts as success.
   #
-  # PINNED IDENTITY: 2026.1-rc.2 governed candidate (honua-release
-  # platform-manifest.yaml components.honua-server, snapshot 2026-09-12):
-  # honua-server@7ba422672e0c751843b17beb36e954a019cc19fb, image
-  # nightly-aot-7ba4226 = sha256:dd50cd81.... Verified live against this
-  # repo's #234 oracles: stack ready, SpatialJoin layer served, 50/50 live.
-  # (The previous 2026-08-19 conformance.yml pin, f897700, predates
+  # PINNED IDENTITY: 2026.1 candidate re-pin (honua-release PR #349,
+  # platform-manifest.yaml components.honua-server, 2026-09-15):
+  # honua-server@548b7a5263da5a3f2381eb43f232687cdf92b0bf, AOT image
+  # sha256:29974ee7.... Verified live on a fresh seed: SpatialJoin layer
+  # served, 52/52 live (supported 27/27). The previous pin was
+  # 7ba4226 = sha256:dd50cd81.... (The 2026-08-19 conformance.yml pin, f897700, predates
   # honua-server#4645's SRID-correct buffer that #234's MultiPolygon oracles
   # encode.) The layer-aware ops (Buffer / SpatialJoin / Dissolve / Project,
   # issue #157) depend on honua-server#2327, an ancestor of this revision.
@@ -237,8 +237,8 @@ jobs:
       identity-source: ${{ steps.identity.outputs.source }}
     env:
       HONUA_GP_EVAL_MODE: ${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'canary' || 'pinned' }}
-      HONUA_GP_EVAL_PINNED_IMAGE: ghcr.io/honua-io/honua-server@sha256:dd50cd81c057e37e73a6144572abdfc90d48de314d7625c54c4ef3b6eb65b0fd
-      HONUA_GP_EVAL_PINNED_SEED_REVISION: 7ba422672e0c751843b17beb36e954a019cc19fb
+      HONUA_GP_EVAL_PINNED_IMAGE: ghcr.io/honua-io/honua-server@sha256:29974ee7b722e3ae15c3b891024e5e70800f412188aeccf5ec3d32d9dac675c1
+      HONUA_GP_EVAL_PINNED_SEED_REVISION: 548b7a5263da5a3f2381eb43f232687cdf92b0bf
       HONUA_GP_EVAL_CANARY_IMAGE: ghcr.io/honua-io/honua-server:nightly-aot
       # Persistent-target override: manual dispatch only -- see the job comment.
       HONUA_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && vars.HONUA_GP_EVAL_BASE_URL || '' }}

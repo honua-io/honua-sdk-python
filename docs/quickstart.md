@@ -34,12 +34,12 @@ local install. Every read-only example on this page runs against it as written.
 |---|---|
 | Base URL | `https://demo.honua.io` |
 | FeatureServer service | `maui-buildings` |
-| Layer id | `13` (polygon; `id`, `height`, `class`, `name`) |
+| Layer id | `13` (polygon; `id`, `name`, `subtype`, `class`, `height`, `num_floors`, `render_height`, `height_source`) |
 | OGC API Features | `https://demo.honua.io/ogc/features/collections` |
 
-It is read-only: `/api/v1/admin/*` returns `401`. The **admin** and **gRPC**
-sections below therefore keep a `your-honua-server.com` placeholder and need a
-server of your own — see the
+It is read-only: `/api/v1/admin/*` returns `401`, and it publishes no geocode
+service. The **geocoding**, **admin** and **gRPC** sections below therefore keep
+a `your-honua-server.com` placeholder and need a server of your own — see the
 [Honua Server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md),
 whose gRPC listener is h2c on port **8081**.
 
@@ -122,20 +122,28 @@ appendix at the bottom of this file for the manual Esri JSON conversion.
 ```python
 import matplotlib.pyplot as plt
 
-ax = gdf.plot(column="status", legend=True, figsize=(12, 8))
-ax.set_title("Features from Honua Server")
+ax = gdf.plot(column="render_height", legend=True, figsize=(12, 8))
+ax.set_title("Maui building footprints by height")
 plt.savefig("features.png", dpi=150, bbox_inches="tight")
 plt.show()
 ```
 
-If your layer does not have a `"status"` column, drop the `column`
-argument or replace it with any attribute name from your dataset:
+`render_height` is populated for every feature in the demo layer
+(`COALESCE(height, num_floors * 3.0, 4.0)`); plain `height` is null for about
+70% of them, which would leave most of the map uncoloured. Against your own
+data, replace it with any attribute name, or drop the `column` argument to plot
+without a colour ramp:
 
 ```python
 gdf.plot(figsize=(12, 8))
 ```
 
-## Step 5: Add geocoding (60 seconds)
+## Step 5: Add geocoding (optional, 60 seconds)
+
+> **Needs your own server.** The public demo publishes no geocode service, so
+> this step uses a `your-honua-server.com` placeholder. Point it at a deployment
+> with a GeocodeServer, and geocode an address inside your own data's extent —
+> a point outside it plots off the map.
 
 Use `HonuaGeocodingClient` to forward-geocode an address and plot it on
 top of the feature map.
@@ -146,7 +154,7 @@ from shapely.geometry import Point
 
 from honua_sdk import HonuaGeocodingClient
 
-with HonuaGeocodingClient("https://demo.honua.io") as geocoder:
+with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
     results = geocoder.forward_geocode("1600 Pennsylvania Ave NW, Washington, DC")
 
 if results:
@@ -221,13 +229,10 @@ Here is the complete example in one copy-pasteable block:
 ```python
 """quickstart.py -- Honua SDK 5-minute demo."""
 
-import geopandas as gpd
 import matplotlib.pyplot as plt
-from shapely.geometry import Point
 
 from honua_sdk import (
     HonuaClient,
-    HonuaGeocodingClient,
     Query,
     SourceDescriptor,
     SourceLocator,
@@ -252,21 +257,8 @@ print(f"Found {len(result.features)} features")
 gdf = result.to_geodataframe()
 
 # --- Plot ------------------------------------------------------------------
-ax = gdf.plot(figsize=(12, 8), color="lightgrey", edgecolor="black")
-ax.set_title("Features from Honua Server")
-
-# --- Geocode and overlay ---------------------------------------------------
-with HonuaGeocodingClient(SERVER) as geocoder:
-    hits = geocoder.forward_geocode("1600 Pennsylvania Ave NW, Washington, DC")
-
-if hits:
-    top = hits[0]
-    point = gpd.GeoDataFrame(
-        [{"label": top.address, "geometry": Point(top.longitude, top.latitude)}],
-        geometry="geometry",
-        crs="EPSG:4326",
-    )
-    point.plot(ax=ax, color="red", markersize=80, zorder=5)
+ax = gdf.plot(column="render_height", legend=True, figsize=(12, 8))
+ax.set_title("Maui building footprints by height")
 
 plt.savefig("features.png", dpi=150, bbox_inches="tight")
 plt.show()

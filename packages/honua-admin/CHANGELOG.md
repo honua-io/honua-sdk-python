@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.9](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.8...python-admin-v0.1.9) (2026-09-18)
+
+
+### Bug Fixes
+
+* **admin:** hold every server release line to the one 1.0.0 floor ([#224](https://github.com/honua-io/honua-sdk-python/issues/224)) ([2e91603](https://github.com/honua-io/honua-sdk-python/commit/2e91603fe540136cb42bc9259bd8da9c2b4f8890))
+* **client:** align compatibility and redirect handling ([#220](https://github.com/honua-io/honua-sdk-python/issues/220)) ([f2714f0](https://github.com/honua-io/honua-sdk-python/commit/f2714f092e1c1c0bbaabc9da64b30a14c4bcaa6d))
+* **release:** reconcile Python package publication ([#208](https://github.com/honua-io/honua-sdk-python/issues/208)) ([f253264](https://github.com/honua-io/honua-sdk-python/commit/f2532648be815e2c7f7db337907e36626c536264))
+
 ## [0.1.8](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.7...python-admin-v0.1.8) (2026-08-10)
 
 

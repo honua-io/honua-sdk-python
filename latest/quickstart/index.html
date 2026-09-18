@@ -578,10 +578,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-5-add-geocoding-60-seconds" class="md-nav__link">
+  <a href="#step-5-add-geocoding-optional-60-seconds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 5: Add geocoding (60 seconds)
+        Step 5: Add geocoding (optional, 60 seconds)
       
     </span>
   </a>
@@ -1704,10 +1704,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-5-add-geocoding-60-seconds" class="md-nav__link">
+  <a href="#step-5-add-geocoding-optional-60-seconds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 5: Add geocoding (60 seconds)
+        Step 5: Add geocoding (optional, 60 seconds)
       
     </span>
   </a>
@@ -1853,7 +1853,7 @@ local install. Every read-only example on this page runs against it as written.<
 </tr>
 <tr>
 <td>Layer id</td>
-<td><code>13</code> (polygon; <code>id</code>, <code>height</code>, <code>class</code>, <code>name</code>)</td>
+<td><code>13</code> (polygon; <code>id</code>, <code>name</code>, <code>subtype</code>, <code>class</code>, <code>height</code>, <code>num_floors</code>, <code>render_height</code>, <code>height_source</code>)</td>
 </tr>
 <tr>
 <td>OGC API Features</td>
@@ -1861,9 +1861,9 @@ local install. Every read-only example on this page runs against it as written.<
 </tr>
 </tbody>
 </table>
-<p>It is read-only: <code>/api/v1/admin/*</code> returns <code>401</code>. The <strong>admin</strong> and <strong>gRPC</strong>
-sections below therefore keep a <code>your-honua-server.com</code> placeholder and need a
-server of your own — see the
+<p>It is read-only: <code>/api/v1/admin/*</code> returns <code>401</code>, and it publishes no geocode
+service. The <strong>geocoding</strong>, <strong>admin</strong> and <strong>gRPC</strong> sections below therefore keep
+a <code>your-honua-server.com</code> placeholder and need a server of your own — see the
 <a href="https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md">Honua Server quickstart</a>,
 whose gRPC listener is h2c on port <strong>8081</strong>.</p>
 <h2 id="step-1-install-takes-a-minute-or-two-on-first-install">Step 1: Install (takes a minute or two on first install)<a class="headerlink" href="#step-1-install-takes-a-minute-or-two-on-first-install" title="Permanent link">&para;</a></h2>
@@ -1926,16 +1926,25 @@ appendix at the bottom of this file for the manual Esri JSON conversion.</p>
 <h2 id="step-4-plot-the-data-60-seconds">Step 4: Plot the data (60 seconds)<a class="headerlink" href="#step-4-plot-the-data-60-seconds" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
-<span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">"status"</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Features from Honua Server"</span><span class="p">)</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">"render_height"</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Maui building footprints by height"</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"features.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </code></pre></div>
-<p>If your layer does not have a <code>"status"</code> column, drop the <code>column</code>
-argument or replace it with any attribute name from your dataset:</p>
+<p><code>render_height</code> is populated for every feature in the demo layer
+(<code>COALESCE(height, num_floors * 3.0, 4.0)</code>); plain <code>height</code> is null for about
+70% of them, which would leave most of the map uncoloured. Against your own
+data, replace it with any attribute name, or drop the <code>column</code> argument to plot
+without a colour ramp:</p>
 <div class="highlight"><pre><span></span><code><span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
 </code></pre></div>
-<h2 id="step-5-add-geocoding-60-seconds">Step 5: Add geocoding (60 seconds)<a class="headerlink" href="#step-5-add-geocoding-60-seconds" title="Permanent link">&para;</a></h2>
+<h2 id="step-5-add-geocoding-optional-60-seconds">Step 5: Add geocoding (optional, 60 seconds)<a class="headerlink" href="#step-5-add-geocoding-optional-60-seconds" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Needs your own server.</strong> The public demo publishes no geocode service, so
+this step uses a <code>your-honua-server.com</code> placeholder. Point it at a deployment
+with a GeocodeServer, and geocode an address inside your own data's extent —
+a point outside it plots off the map.</p>
+</blockquote>
 <p>Use <code>HonuaGeocodingClient</code> to forward-geocode an address and plot it on
 top of the feature map.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
@@ -1943,7 +1952,7 @@ top of the feature map.</p>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGeocodingClient</span>
 
-<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="s2">"https://your-honua-server.com"</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
     <span class="n">results</span> <span class="o">=</span> <span class="n">geocoder</span><span class="o">.</span><span class="n">forward_geocode</span><span class="p">(</span><span class="s2">"1600 Pennsylvania Ave NW, Washington, DC"</span><span class="p">)</span>
 
 <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
@@ -2006,13 +2015,10 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
 <p>Here is the complete example in one copy-pasteable block:</p>
 <div class="highlight"><pre><span></span><code><span class="sd">"""quickstart.py -- Honua SDK 5-minute demo."""</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">HonuaClient</span><span class="p">,</span>
-    <span class="n">HonuaGeocodingClient</span><span class="p">,</span>
     <span class="n">Query</span><span class="p">,</span>
     <span class="n">SourceDescriptor</span><span class="p">,</span>
     <span class="n">SourceLocator</span><span class="p">,</span>
@@ -2037,21 +2043,8 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
 <span class="n">gdf</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
 
 <span class="c1"># --- Plot ------------------------------------------------------------------</span>
-<span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">"lightgrey"</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">"black"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Features from Honua Server"</span><span class="p">)</span>
-
-<span class="c1"># --- Geocode and overlay ---------------------------------------------------</span>
-<span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
-    <span class="n">hits</span> <span class="o">=</span> <span class="n">geocoder</span><span class="o">.</span><span class="n">forward_geocode</span><span class="p">(</span><span class="s2">"1600 Pennsylvania Ave NW, Washington, DC"</span><span class="p">)</span>
-
-<span class="k">if</span> <span class="n">hits</span><span class="p">:</span>
-    <span class="n">top</span> <span class="o">=</span> <span class="n">hits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">point</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span>
-        <span class="p">[{</span><span class="s2">"label"</span><span class="p">:</span> <span class="n">top</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="s2">"geometry"</span><span class="p">:</span> <span class="n">Point</span><span class="p">(</span><span class="n">top</span><span class="o">.</span><span class="n">longitude</span><span class="p">,</span> <span class="n">top</span><span class="o">.</span><span class="n">latitude</span><span class="p">)}],</span>
-        <span class="n">geometry</span><span class="o">=</span><span class="s2">"geometry"</span><span class="p">,</span>
-        <span class="n">crs</span><span class="o">=</span><span class="s2">"EPSG:4326"</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">point</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"red"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">"render_height"</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Maui building footprints by height"</span><span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"features.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>

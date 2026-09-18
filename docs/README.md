@@ -12,57 +12,27 @@ This directory holds the long-form docs for the Honua Python SDKs
 [README](../README.md) covers installation and the high-level package map;
 the pages below are organized by audience.
 
-## The canonical shape
+Start at **[the Python SDK landing page](index.md)** — it carries the canonical
+idiom, the install matrix for both packages, and the "I want to…" routing table.
+This file is the directory map for people browsing the repository.
 
-```python
-from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+## What is here
 
-with HonuaClient("https://your-honua-server.com") as client:
-    source = client.source(
-        SourceDescriptor(
-            id="test_service",
-            protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="test_service", layer_id=0),
-        )
-    )
-    result = source.query(Query(where="status = 'active'", out_fields=["*"]))
-    for feature in result.features[:3]:
-        print(feature.id, feature.properties)
-```
-
-## I want to...
-
-| Goal                            | Start here                                                      |
-|---------------------------------|-----------------------------------------------------------------|
-| Query features in 5 minutes     | [quickstart.md](quickstart.md)                                  |
-| Stream features over gRPC       | [../INSTALL.md#with-grpc](../INSTALL.md#with-grpc)              |
-| Build an ETL pipeline           | [../examples/geospatial_etl/](../examples/geospatial_etl/)      |
-| Wire a FastAPI service          | [../examples/fastapi_spatial_service.py](../examples/fastapi_spatial_service.py) |
-| Manage services & connections   | [../packages/honua-admin/](../packages/honua-admin/)            |
-| Understand the protocol matrix  | [protocol-parity.md](protocol-parity.md)                        |
-| Diagnose an error               | [quickstart.md#common-errors](quickstart.md#common-errors)      |
-
-## Get Started
-
-- [quickstart.md](quickstart.md) -- 5-minute setup, install, and first query
-  against a running Honua server.
-- [examples.md](examples.md) -- runnable demo catalog (geospatial ETL,
-  spatial-query cookbook, FastAPI scaffold, data-quality report).
-
-## Reference
-
-- [core-client.md](core-client.md) -- `Source` / `Query` / `Result` facade,
+- [index.md](index.md) — the landing page for both packages.
+- [quickstart.md](quickstart.md) — five-minute setup and first query against
+  the public demo server.
+- [core-client.md](core-client.md) — the `Source` / `Query` / `Result` facade,
   protocol routing, and capability checks.
-- [protocol-examples.md](protocol-examples.md) -- per-protocol recipes for
-  FeatureServer, OGC API Features, STAC, OData, WFS/WMS/WMTS, and geocoding.
-- [protocol-parity.md](protocol-parity.md) -- supported protocol matrix and
-  capability coverage by client surface.
-- [auth.md](auth.md) -- bearer tokens, API keys, and refreshable auth
-  providers (sync and async).
-- [compatibility.md](compatibility.md) -- server compatibility baseline and
-  the release gate policy enforced by `check_compatibility()`.
-- [troubleshooting.md](troubleshooting.md) -- common errors, HTTP envelopes,
-  and how to read `HonuaHttpError` payloads.
+- [protocol-examples.md](protocol-examples.md) — per-protocol recipes.
+- [protocol-parity.md](protocol-parity.md) — supported protocol matrix.
+- [auth.md](auth.md) — API keys, bearer tokens, refreshable providers.
+- [pagination.md](pagination.md), [retries-and-timeouts.md](retries-and-timeouts.md)
+  — cross-cutting client behaviour.
+- [compatibility.md](compatibility.md) — server baseline and the release gate.
+- [troubleshooting.md](troubleshooting.md) — reading `HonuaHttpError` payloads.
+- [examples.md](examples.md), [demo-suite.md](demo-suite.md) — runnable demos.
+- [honua-gp/](honua-gp/README.md) — the proprietary ArcPy shim.
+- [reference/](reference/honua-sdk/clients.md) — generated API reference.
 
 ## Project process
 

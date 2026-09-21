@@ -32,7 +32,7 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
         if: always()
         with:
           sarif_file: trivy-results.sarif
@@ -57,7 +57,7 @@ jobs:
           results_format: sarif
           publish_results: ${{ github.event_name != 'pull_request' }}
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v3
         with:
           sarif_file: results.sarif
           category: scorecard

@@ -143,7 +143,7 @@ def test_admin_delegate_uses_honua_js_cli(tmp_path: Any, monkeypatch: pytest.Mon
 
     assert cli._delegate_control_plane(["admin", "install", "status"], runner=runner) == 0
     assert seen["command"][1:] == [str(binary), "admin", "install", "status"]
-    assert Path(seen["command"][0]).name == "node"
+    assert Path(seen["command"][0]).stem.lower() == "node"
 
 
 def test_admin_delegate_skips_python_shim_on_path(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:

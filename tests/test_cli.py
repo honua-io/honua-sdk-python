@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -116,6 +117,62 @@ def test_style_apply_writes_image(tmp_path: Any, patch_client: Any) -> None:
 
 def test_main_returns_2_for_no_command() -> None:
     assert cli.main([]) == 2
+
+
+def test_main_forwards_admin_before_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, list[str]] = {}
+
+    def delegate(argv: list[str]) -> int:
+        seen["argv"] = argv
+        return 7
+
+    monkeypatch.setattr(cli, "_delegate_control_plane", delegate)
+    assert cli.main(["admin", "install", "status", "--directory", ".honua"]) == 7
+    assert seen["argv"] == ["admin", "install", "status", "--directory", ".honua"]
+
+
+def test_admin_delegate_uses_honua_js_cli(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    binary = tmp_path / "bin.js"
+    binary.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    monkeypatch.setenv("HONUA_JS_CLI", str(binary))
+    seen: dict[str, list[str]] = {}
+
+    def runner(command: list[str]) -> int:
+        seen["command"] = command
+        return 0
+
+    assert cli._delegate_control_plane(["admin", "install", "status"], runner=runner) == 0
+    assert seen["command"][1:] == [str(binary), "admin", "install", "status"]
+    assert Path(seen["command"][0]).name == "node"
+
+
+def test_admin_delegate_skips_python_shim_on_path(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    shim = tmp_path / "honua"
+    shim.write_text("#!/usr/bin/python3\nfrom honua_sdk.cli import main\n", encoding="utf-8")
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
+    assert cli._control_plane_cli() is None
+    assert cli._delegate_control_plane(["admin"]) == 127
+
+
+def test_sibling_js_cli_reads_checkout_layout(tmp_path: Any) -> None:
+    origin = tmp_path / "honua-sdk-python" / "packages" / "honua-sdk" / "honua_sdk" / "cli.py"
+    binary = tmp_path / "honua-sdk-js" / "dist" / "src" / "cli" / "bin.js"
+    origin.parent.mkdir(parents=True)
+    binary.parent.mkdir(parents=True)
+    origin.write_text("# cli\n", encoding="utf-8")
+    binary.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    assert cli._sibling_js_cli(origin) == binary
+    assert cli._sibling_js_cli(tmp_path / "cli.py") is None
+
+
+def test_admin_delegate_explains_missing_js_cli(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
+    assert cli._delegate_control_plane(["admin", "install", "local"]) == 127
+    assert "@honua/sdk-js" in capsys.readouterr().err
 
 
 def test_main_handles_http_error(monkeypatch: pytest.MonkeyPatch) -> None:

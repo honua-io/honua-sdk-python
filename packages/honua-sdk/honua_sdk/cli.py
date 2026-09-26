@@ -26,6 +26,11 @@ Commands
     Emit or read-only replay a canonical, sanitized diagnostic bundle for local
     support review. It never uploads or persists raw HTTP traffic.
 
+``honua admin``
+    Not implemented here. Those control-plane verbs belong to the
+    ``@honua/sdk-js`` CLI. This entry point forwards ``admin`` to that binary
+    when it is on ``PATH`` or named by ``HONUA_JS_CLI``.
+
 The base URL is read from ``--base-url`` or the ``HONUA_BASE_URL`` environment
 variable; an optional API key from ``--api-key`` or ``HONUA_API_KEY``.
 """
@@ -37,6 +42,7 @@ import contextlib
 import json
 import os
 import platform
+import shutil
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -430,8 +436,94 @@ def _dispatch_style(args: argparse.Namespace, out: Any) -> int:
     return 2
 
 
+def _sibling_js_cli(origin: Path | None = None) -> Path | None:
+    """Find ``bin.js`` when this package sits next to an ``honua-sdk-js`` checkout.
+
+    Layout: ``<root>/honua-sdk-python/packages/honua-sdk/honua_sdk/cli.py`` and
+    ``<root>/honua-sdk-js/dist/src/cli/bin.js``. Installed wheels do not match
+    this shape, so the lookup returns nothing.
+    """
+    here = (origin or Path(__file__)).resolve()
+    if len(here.parents) < 5:
+        return None
+    candidate = here.parents[4] / "honua-sdk-js" / "dist" / "src" / "cli" / "bin.js"
+    return candidate if candidate.is_file() else None
+
+
+def _control_plane_cli() -> Path | None:
+    """Locate the ``@honua/sdk-js`` binary that owns ``honua admin``.
+
+    ``HONUA_JS_CLI`` wins. Otherwise the first ``honua`` on ``PATH`` that is
+    not this Python console script is used. A script that imports
+    ``honua_sdk`` is the data-plane shim and is skipped so forwarding cannot
+    recurse into itself. A sibling ``honua-sdk-js`` checkout is the last resort.
+    """
+    override = os.environ.get("HONUA_JS_CLI", "").strip()
+    if override:
+        candidate = Path(override)
+        return candidate if candidate.is_file() else None
+    own = Path(sys.argv[0]).resolve() if sys.argv and sys.argv[0] else None
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if not directory:
+            continue
+        candidate = Path(directory) / "honua"
+        if not candidate.is_file():
+            continue
+        try:
+            if own is not None and candidate.resolve() == own:
+                continue
+            head = candidate.read_text(encoding="utf-8", errors="ignore")[:400]
+        except OSError:
+            continue
+        if "honua_sdk" in head:
+            continue
+        return candidate
+    return _sibling_js_cli()
+
+
+def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
+    """Forward ``honua admin ...`` to the JavaScript control-plane CLI."""
+    binary = _control_plane_cli()
+    if binary is None:
+        sys.stderr.write(
+            "error: `honua admin` is the @honua/sdk-js control-plane CLI. "
+            "This `honua` is the Python data-plane client and does not install, "
+            "operate, or publish. Put the JavaScript `honua` on PATH, or set "
+            "HONUA_JS_CLI to its bin.js.\n"
+        )
+        return 127
+    command = [str(binary), *argv]
+    if binary.suffix == ".js":
+        node = shutil.which("node")
+        if node is None:
+            sys.stderr.write("error: node is required to launch the JavaScript honua CLI\n")
+            return 127
+        command = [node, *command]
+    if runner is not None:
+        return int(runner(command))
+    try:
+        os.execv(command[0], command)
+    except OSError as exc:
+        sys.stderr.write(f"error: could not launch the JavaScript honua CLI: {exc.strerror}\n")
+        return 127
+    return 127  # pragma: no cover — execv does not return
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Entry point for the ``honua`` console script."""
+    """Entry point for the ``honua`` console script.
+
+    A real console invocation forwards to the ``@honua/sdk-js`` CLI when that
+    binary can be found, so ``honua map`` and ``honua admin`` are the same
+    program the 2026.1 skills describe. Calls that pass ``argv`` explicitly
+    stay in this data-plane parser unless the first token is ``admin``.
+    Set ``HONUA_PYTHON_CLI=1`` to keep the console script here.
+    """
+    forwarded = list(sys.argv[1:] if argv is None else argv)
+    use_control_plane = forwarded[:1] == ["admin"] or (
+        argv is None and os.environ.get("HONUA_PYTHON_CLI") != "1" and _control_plane_cli() is not None
+    )
+    if use_control_plane:
+        return _delegate_control_plane(forwarded)
     parser = build_parser()
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)

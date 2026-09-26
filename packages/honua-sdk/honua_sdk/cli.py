@@ -444,7 +444,8 @@ def _sibling_js_cli(origin: Path | None = None) -> Path | None:
     this shape, so the lookup returns nothing.
     """
     here = (origin or Path(__file__)).resolve()
-    if len(here.parents) < 5:
+    minimum_checkout_depth = 5
+    if len(here.parents) < minimum_checkout_depth:
         return None
     candidate = here.parents[4] / "honua-sdk-js" / "dist" / "src" / "cli" / "bin.js"
     return candidate if candidate.is_file() else None
@@ -502,7 +503,7 @@ def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
     if runner is not None:
         return int(runner(command))
     try:
-        os.execv(command[0], command)
+        os.execv(command[0], command)  # noqa: S606 — deliberate process replacement for the console entry point
     except OSError as exc:
         sys.stderr.write(f"error: could not launch the JavaScript honua CLI: {exc.strerror}\n")
         return 127

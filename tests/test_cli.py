@@ -146,6 +146,15 @@ def test_admin_delegate_uses_honua_js_cli(tmp_path: Any, monkeypatch: pytest.Mon
     assert Path(seen["command"][0]).stem.lower() == "node"
 
 
+def test_control_plane_cli_finds_windows_cmd_shim(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    command = tmp_path / "honua.cmd"
+    command.write_text("@echo off\r\nnode bin.js %*\r\n", encoding="utf-8")
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
+    assert cli._control_plane_cli() == command
+
+
 def test_admin_delegate_skips_python_shim_on_path(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     shim = tmp_path / "honua"
     shim.write_text("#!/usr/bin/python3\nfrom honua_sdk.cli import main\n", encoding="utf-8")

@@ -467,18 +467,21 @@ def _control_plane_cli() -> Path | None:
     for directory in os.environ.get("PATH", "").split(os.pathsep):
         if not directory:
             continue
-        candidate = Path(directory) / "honua"
-        if not candidate.is_file():
-            continue
-        try:
-            if own is not None and candidate.resolve() == own:
+        for name in ("honua", "honua.exe", "honua.cmd", "honua.ps1"):
+            candidate = Path(directory) / name
+            if not candidate.is_file():
                 continue
-            head = candidate.read_text(encoding="utf-8", errors="ignore")[:400]
-        except OSError:
-            continue
-        if "honua_sdk" in head:
-            continue
-        return candidate
+            if candidate.suffix.lower() not in {".cmd", ".bat", ".exe", ".js"} and not os.access(candidate, os.X_OK):
+                continue
+            try:
+                if own is not None and candidate.resolve() == own:
+                    continue
+                head = candidate.read_text(encoding="utf-8", errors="ignore")[:400]
+            except OSError:
+                continue
+            if "honua_sdk" in head:
+                continue
+            return candidate
     return _sibling_js_cli()
 
 

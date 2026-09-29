@@ -11,7 +11,7 @@
       "extra-files": [
         {
           "type": "json",
-          "path": "conformance/protocol-certification.v1.json",
+          "path": "/conformance/protocol-certification.v1.json",
           "jsonpath": "$.clientVersion"
         }
       ],

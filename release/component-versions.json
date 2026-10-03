@@ -1,0 +1,10 @@
+{
+  "format": "honua.component-versions/v1",
+  "component": "honua-sdk-python",
+  "contractVersions": {
+    "protocol-factories": "1"
+  },
+  "schemaVersions": {
+    "diagnostic-bundle": "1.0"
+  }
+}

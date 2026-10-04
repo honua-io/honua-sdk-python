@@ -12,6 +12,7 @@ import argparse
 import io
 import json
 import re
+import types
 from typing import Any
 
 import httpx
@@ -304,6 +305,25 @@ def test_proposal_read_wait_times_out(server: FakeAdminServer, capsys: pytest.Ca
     assert "still AwaitingApproval after 0s" in err
 
 
+def test_proposal_read_wait_caps_sleep_at_remaining_time(
+    server: FakeAdminServer, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clock = [100.0]
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock[0] += seconds
+
+    monkeypatch.setattr(cli, "time", types.SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep))
+    code, out, err = run(capsys, "proposal", "read", "prop-1", "--wait", "--wait-timeout", "0.25", "--json")
+    assert code == 1
+    assert json.loads(out)["status"] == "AwaitingApproval"
+    assert sleeps == [pytest.approx(0.25)]
+    assert len(server.requests) == 1
+    assert "still AwaitingApproval after 0.25s" in err
+
+
 def test_proposal_read_without_wait_and_unknown_id(
     server: FakeAdminServer, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -416,7 +436,9 @@ def test_datasource_create_usage_errors(
     assert server.requests == []
 
 
-def test_body_validation(server: FakeAdminServer, capsys: pytest.CaptureFixture[str], tmp_path: Any) -> None:
+def test_body_validation(
+    server: FakeAdminServer, capsys: pytest.CaptureFixture[str], tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     not_object = tmp_path / "list.json"
     not_object.write_text("[1, 2]")
     code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", str(not_object))
@@ -437,6 +459,14 @@ def test_body_validation(server: FakeAdminServer, capsys: pytest.CaptureFixture[
     huge.write_text(" " * (cli._MAX_BODY_BYTES + 1))
     code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", str(huge))
     assert (code, "exceeds 1 MiB" in err) == (2, True)
+
+    monkeypatch.setattr("sys.stdin", io.StringIO("{}" + " " * cli._MAX_BODY_BYTES))
+    code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", "-")
+    assert (code, "--body stdin exceeds 1 MiB" in err) == (2, True)
+
+    monkeypatch.setattr("sys.stdin", io.StringIO("{}" + "\u00e9" * (cli._MAX_BODY_BYTES // 2)))
+    code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", "-")
+    assert (code, "--body stdin exceeds 1 MiB" in err) == (2, True)
     assert server.requests == []
 
 

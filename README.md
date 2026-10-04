@@ -134,8 +134,10 @@ an edited GeoDataFrame back into `apply_edits` payloads.
 
 ### OGC API Features
 
-The OGC API Features collection id of a published layer is its layer id, so
-the `maui-zoning` layer above is collection `"2"`:
+The server advertises each layer's OGC API Features collection id in
+`collections()`; the id comes from the layer's publication, so it is not
+always the layer id. On the demo publication the `maui-zoning` layer above is
+collection `"2"`; on your own server, pick the id from `collections()`:
 
 ```python
 from honua_sdk import HonuaClient

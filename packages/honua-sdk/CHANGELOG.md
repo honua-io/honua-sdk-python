@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.12...python-sdk-v0.1.13) (2026-10-04)
+
+
+### Features
+
+* **cli:** ship the operator workflow in the PyPI command-line clients ([#264](https://github.com/honua-io/honua-sdk-python/issues/264)) ([0d637c7](https://github.com/honua-io/honua-sdk-python/commit/0d637c786c758085618ba5c633fd0a9a69ba5cf6))
+
 ## [0.1.12](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.11...python-sdk-v0.1.12) (2026-09-29)
 
 

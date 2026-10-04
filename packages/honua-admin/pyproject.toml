@@ -28,6 +28,9 @@ dependencies = [
   "honua-sdk>=0.1.1,<0.2",
 ]
 
+[project.scripts]
+honua-admin = "honua_admin.cli:main"
+
 [project.urls]
 Homepage = "https://honua.io"
 Documentation = "https://honua-io.github.io/honua-sdk-python/latest/"

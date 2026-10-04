@@ -74,6 +74,8 @@
         "OgcStyleSummary",
         "OgcStylesList",
         "OgcStylesheet",
+        "OperationProposalDetail",
+        "OperationProposalSummary",
         "PublishLayerRequest",
         "PublishedLayerSummary",
         "ResourceMetadata",
@@ -782,6 +784,11 @@
               "kind": "method",
               "signature": "(self, request: 'ManifestApplyRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ManifestApplyResult'"
             },
+            "approve_proposal": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'OperationProposalDetail'"
+            },
             "check_compatibility": {
               "async": true,
               "kind": "method",
@@ -856,6 +863,11 @@
               "kind": "method",
               "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[MetadataResource, str | None]'"
             },
+            "get_proposal": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OperationProposalDetail'"
+            },
             "get_service_settings": {
               "async": true,
               "kind": "method",
@@ -891,6 +903,11 @@
               "kind": "method",
               "signature": "(self, kind: 'str | None' = None, namespace: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[MetadataResource]'"
             },
+            "list_proposals": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, status: 'str | None' = None, kind: 'str | None' = None, requested_by: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[OperationProposalSummary]'"
+            },
             "list_services": {
               "async": true,
               "kind": "method",
@@ -905,6 +922,11 @@
               "async": true,
               "kind": "method",
               "signature": "(self, conn_id: 'str', request: 'PublishLayerRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'PublishedLayerSummary'"
+            },
+            "reject_proposal": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, id: 'str', reason: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'OperationProposalDetail'"
             },
             "rotate_encryption_key": {
               "async": true,
@@ -1158,6 +1180,10 @@
               "kind": "method",
               "signature": "(self, request: 'ManifestApplyRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ManifestApplyResult'"
             },
+            "approve_proposal": {
+              "kind": "method",
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'OperationProposalDetail'"
+            },
             "check_compatibility": {
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'AdminCompatibilityCheckResult'"
@@ -1218,6 +1244,10 @@
               "kind": "method",
               "signature": "(self, kind: 'str', ns: 'str', name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[MetadataResource, str | None]'"
             },
+            "get_proposal": {
+              "kind": "method",
+              "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OperationProposalDetail'"
+            },
             "get_service_settings": {
               "kind": "method",
               "signature": "(self, name: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ServiceSettingsResponse'"
@@ -1246,6 +1276,10 @@
               "kind": "method",
               "signature": "(self, kind: 'str | None' = None, namespace: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[MetadataResource]'"
             },
+            "list_proposals": {
+              "kind": "method",
+              "signature": "(self, *, status: 'str | None' = None, kind: 'str | None' = None, requested_by: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[OperationProposalSummary]'"
+            },
             "list_services": {
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
@@ -1257,6 +1291,10 @@
             "publish_layer": {
               "kind": "method",
               "signature": "(self, conn_id: 'str', request: 'PublishLayerRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'PublishedLayerSummary'"
+            },
+            "reject_proposal": {
+              "kind": "method",
+              "signature": "(self, id: 'str', reason: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'OperationProposalDetail'"
             },
             "rotate_encryption_key": {
               "kind": "method",
@@ -3103,6 +3141,189 @@
           "module": "honua_admin._models",
           "qualname": "OgcStylesheet",
           "signature": "(style_id: 'str', encoding: \"'StyleEncoding'\", media_type: 'str', content: 'str') -> None"
+        },
+        "OperationProposalDetail": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "proposal_id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "status"
+            },
+            {
+              "annotation": "str",
+              "name": "summary"
+            },
+            {
+              "annotation": "str",
+              "name": "risk_level"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "diff"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "dry_run"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "blocking_reasons"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "warnings"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "created_at"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "updated_at"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "requested_by"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "requested_by_agent"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "finding_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "autonomy_rule"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "action_discriminator"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "guardrail_tier"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "resolved_by"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "resolution_reason"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "execution_operation_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "resolved_at"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'OperationProposalDetail'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OperationProposalDetail",
+          "signature": "(proposal_id: 'str', kind: 'str', status: 'str', summary: 'str', risk_level: 'str', diff: 'list[str]' = <factory>, dry_run: 'list[str]' = <factory>, blocking_reasons: 'list[str]' = <factory>, warnings: 'list[str]' = <factory>, created_at: 'str | None' = None, updated_at: 'str | None' = None, requested_by: 'str | None' = None, requested_by_agent: 'str | None' = None, finding_id: 'str | None' = None, autonomy_rule: 'str | None' = None, action_discriminator: 'str | None' = None, guardrail_tier: 'str | None' = None, resolved_by: 'str | None' = None, resolution_reason: 'str | None' = None, execution_operation_id: 'str | None' = None, resolved_at: 'str | None' = None) -> None"
+        },
+        "OperationProposalSummary": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "proposal_id"
+            },
+            {
+              "annotation": "str",
+              "name": "kind"
+            },
+            {
+              "annotation": "str",
+              "name": "status"
+            },
+            {
+              "annotation": "str",
+              "name": "summary"
+            },
+            {
+              "annotation": "str",
+              "name": "risk_level"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "created_at"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "updated_at"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "requested_by"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "requested_by_agent"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "finding_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "autonomy_rule"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "action_discriminator"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'OperationProposalSummary'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "OperationProposalSummary",
+          "signature": "(proposal_id: 'str', kind: 'str', status: 'str', summary: 'str', risk_level: 'str', created_at: 'str | None' = None, updated_at: 'str | None' = None, requested_by: 'str | None' = None, requested_by_agent: 'str | None' = None, finding_id: 'str | None' = None, autonomy_rule: 'str | None' = None, action_discriminator: 'str | None' = None) -> None"
         },
         "PublishLayerRequest": {
           "fields": [

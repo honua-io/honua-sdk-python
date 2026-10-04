@@ -33,13 +33,14 @@ local install. Every read-only example on this page runs against it as written.
 | | |
 |---|---|
 | Base URL | `https://demo.honua.io` |
-| FeatureServer service | `maui-buildings` |
-| Layer id | `13` (polygon; `id`, `name`, `subtype`, `class`, `height`, `num_floors`, `render_height`, `height_source`) |
-| OGC API Features | `https://demo.honua.io/ogc/features/collections` |
+| FeatureServer service | `maui-zoning` |
+| Layer id | `2` (polygon; `id`, `zone_code`, `zone_dist`, `cp_area`, `island`) |
+| OGC API Features | `https://demo.honua.io/ogc/features/collections` (collection `2`) |
+| Geocoding | `https://demo.honua.io` (`HonuaGeocodingClient`) |
 
-It is read-only: `/api/v1/admin/*` returns `401`, and it publishes no geocode
-service. The **geocoding**, **admin** and **gRPC** sections below therefore keep
-a `your-honua-server.com` placeholder and need a server of your own — see the
+It is a shared, read-only demo: `/api/v1/admin/*` returns `401`. The **gRPC**
+step and the **editing** recipe below therefore keep a `your-honua-server.com`
+placeholder and need a server of your own — see the
 [Honua Server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md),
 whose gRPC listener is h2c on port **8081**.
 
@@ -59,12 +60,12 @@ from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 with HonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="maui-buildings",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
-    result = source.query(Query(where="height > 10", out_fields=["id", "height"]))
+    result = source.query(Query(where="island = 'Maui'", out_fields=["*"]))
 
 print(f"Found {len(result.features)} features")
 for feature in result.features[:3]:
@@ -79,8 +80,8 @@ feature's underlying protocol payload (for FeatureServer that is the
 GeoServices JSON shape with `"attributes"` and `"geometry"` sub-keys), and
 `result.raw_legacy` holds the underlying query envelope, when you need it.
 
-> **Legacy / compact form.** `client.query_features("maui-buildings",
-> layer_id=13, where="1=1", return_geometry=True, out_fields=["*"])`
+> **Legacy / compact form.** `client.query_features("maui-zoning",
+> layer_id=2, where="1=1", return_geometry=True, out_fields=["*"])`
 > still works and returns the raw GeoServices dict; prefer it only for
 > one-liners. The `Source` API above is the recommended idiom and
 > returns typed `Result`/`QueryFeature` objects.
@@ -107,7 +108,9 @@ Esri JSON geometries and the layer's `spatialReference`:
 ```python
 from honua_sdk.geopandas import features_to_geodataframe
 
-raw = client.query_features("maui-buildings", layer_id=13, where="height > 10")
+with HonuaClient("https://demo.honua.io") as client:
+    raw = client.query_features("maui-zoning", layer_id=2, where="island = 'Maui'")
+
 gdf = features_to_geodataframe(raw)
 ```
 
@@ -122,15 +125,13 @@ appendix at the bottom of this file for the manual Esri JSON conversion.
 ```python
 import matplotlib.pyplot as plt
 
-ax = gdf.plot(column="render_height", legend=True, figsize=(12, 8))
-ax.set_title("Maui building footprints by height")
+ax = gdf.plot(column="cp_area", legend=True, figsize=(12, 8))
+ax.set_title("Maui zoning by community plan area")
 plt.savefig("features.png", dpi=150, bbox_inches="tight")
 plt.show()
 ```
 
-`render_height` is populated for every feature in the demo layer
-(`COALESCE(height, num_floors * 3.0, 4.0)`); plain `height` is null for about
-70% of them, which would leave most of the map uncoloured. Against your own
+`cp_area` is the community plan area of each zoning polygon. Against your own
 data, replace it with any attribute name, or drop the `column` argument to plot
 without a colour ramp:
 
@@ -140,13 +141,9 @@ gdf.plot(figsize=(12, 8))
 
 ## Step 5: Add geocoding (optional, 60 seconds)
 
-> **Needs your own server.** The public demo publishes no geocode service, so
-> this step uses a `your-honua-server.com` placeholder. Point it at a deployment
-> with a GeocodeServer, and geocode an address inside your own data's extent —
-> a point outside it plots off the map.
-
 Use `HonuaGeocodingClient` to forward-geocode an address and plot it on
-top of the feature map.
+top of the feature map. Geocode an address inside your data's extent — a point
+outside it plots off the map.
 
 ```python
 import geopandas as gpd
@@ -154,8 +151,8 @@ from shapely.geometry import Point
 
 from honua_sdk import HonuaGeocodingClient
 
-with HonuaGeocodingClient("https://your-honua-server.com") as geocoder:
-    results = geocoder.forward_geocode("1600 Pennsylvania Ave NW, Washington, DC")
+with HonuaGeocodingClient("https://demo.honua.io") as geocoder:
+    results = geocoder.forward_geocode("Kahului Airport, Maui, Hawaii")
 
 if results:
     top = results[0]
@@ -180,23 +177,30 @@ and `attributes`.
 
 ## Step 6: Query via gRPC (optional, 60 seconds)
 
+> **Needs your own server.** This step uses a `your-honua-server.com:8081`
+> placeholder. Point it at your
+> server's gRPC address (the Honua Server quickstart serves h2c on port 8081),
+> and replace `maui-zoning` / `2` with the service and layer id of one of your
+> published layers.
+
 If your Honua server exposes a gRPC endpoint, you can use `HonuaGrpcClient`
 for high-throughput streaming queries. Install the gRPC extras first:
 
 ```bash
-pip install honua-sdk[grpc]
+pip install "honua-sdk[grpc]"
 ```
 
 > **Dev-only**: pass `credentials=` (TLS) in production. `insecure=True` disables transport security and should never reach production deployments.
 
+<!-- doc-run: blocked https://github.com/honua-io/honua-sdk-python/issues/259 -->
 ```python
 from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
 
 with HonuaGrpcClient("your-honua-server.com:8081", insecure=True) as grpc_client:
     # Unary query
     request = QueryFeaturesRequest(
-        service_id="test_service",
-        layer_id=0,
+        service_id="maui-zoning",
+        layer_id=2,
         return_geometry=True,
     )
     response = grpc_client.query_features(request)
@@ -211,11 +215,12 @@ For async usage, swap in `HonuaGrpcAsyncClient`:
 
 > **Dev-only**: pass `credentials=` (TLS) in production. `insecure=True` disables transport security and should never reach production deployments.
 
+<!-- doc-run: blocked https://github.com/honua-io/honua-sdk-python/issues/259 -->
 ```python
 from honua_sdk.grpc import HonuaGrpcAsyncClient, QueryFeaturesRequest
 
 async with HonuaGrpcAsyncClient("your-honua-server.com:8081", insecure=True) as grpc_client:
-    request = QueryFeaturesRequest(service_id="test_service", layer_id=0)
+    request = QueryFeaturesRequest(service_id="maui-zoning", layer_id=2)
     response = await grpc_client.query_features(request)
 
     async for page in grpc_client.query_features_stream(request):
@@ -244,12 +249,12 @@ SERVER = "https://demo.honua.io"
 with HonuaClient(SERVER) as client:
     source = client.source(
         SourceDescriptor(
-            id="maui-buildings",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
-    result = source.query(Query(where="1=1", out_fields=["*"]))
+    result = source.query(Query(where="island = 'Maui'", out_fields=["*"]))
 
 print(f"Found {len(result.features)} features")
 
@@ -257,8 +262,8 @@ print(f"Found {len(result.features)} features")
 gdf = result.to_geodataframe()
 
 # --- Plot ------------------------------------------------------------------
-ax = gdf.plot(column="render_height", legend=True, figsize=(12, 8))
-ax.set_title("Maui building footprints by height")
+ax = gdf.plot(column="cp_area", legend=True, figsize=(12, 8))
+ax.set_title("Maui zoning by community plan area")
 
 plt.savefig("features.png", dpi=150, bbox_inches="tight")
 plt.show()
@@ -284,7 +289,10 @@ response yourself, the JSON shape is straightforward. Each feature has
 import geopandas as gpd
 from shapely.geometry import shape
 
-raw = client.query_features("maui-buildings", layer_id=13, where="height > 10")
+from honua_sdk import HonuaClient
+
+with HonuaClient("https://demo.honua.io") as client:
+    raw = client.query_features("maui-zoning", layer_id=2, where="island = 'Maui'")
 features = raw.get("features", [])
 
 rows = []
@@ -326,32 +334,69 @@ The SDK raises a small hierarchy of typed errors. Catch broadly with
 Example:
 
 ```python
-from honua_sdk import HonuaClient, HonuaRateLimitError, HonuaAuthError
+from honua_sdk import (
+    HonuaAuthError,
+    HonuaClient,
+    HonuaRateLimitError,
+    Query,
+    SourceDescriptor,
+    SourceLocator,
+)
 
-try:
-    result = source.query(Query(where="status = 'active'"))
-except HonuaAuthError:
-    raise SystemExit("Auth failed -- check HONUA_API_KEY")
-except HonuaRateLimitError as exc:
-    print(f"Rate limited; retry after {exc.retry_after}s")
+SERVER = "https://demo.honua.io"
+ZONING = SourceDescriptor(
+    id="maui-zoning",
+    protocol="geoservices-feature-service",
+    locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+)
+
+with HonuaClient(SERVER) as client:
+    try:
+        result = client.source(ZONING).query(Query(where="island = 'Maui'"))
+    except HonuaAuthError:
+        raise SystemExit("Auth failed -- check the client's api_key or bearer_token")
+    except HonuaRateLimitError as exc:
+        print(f"Rate limited; retry after {exc.retry_after}s")
 ```
 
 ### Recipe: rate-limit retry on mutating calls
 
-The SDK already retries safe methods (`GET`, `HEAD`, ...) on 429 automatically,
-honouring the `Retry-After` header. If you have opted `POST` into `retry_methods`
-on the client and still want application-level retries -- for example, to log
-backoff explicitly or to bound the number of attempts -- catch
-`HonuaRateLimitError` and sleep for `exc.retry_after`:
+The SDK already retries idempotent methods (`GET`, `HEAD`, `PUT`, `DELETE`,
+`OPTIONS`) on 429 automatically, honouring the `Retry-After` header. It never
+retries `POST`, so a mutating call such as `apply_edits` raises
+`HonuaRateLimitError` on the first 429. To retry it at the application level --
+for example, to log backoff explicitly or to bound the number of attempts --
+catch `HonuaRateLimitError`, sleep for `exc.retry_after`, and send the same
+`idempotency_key` on every attempt so the server can de-duplicate the edit.
 
+This recipe writes to a layer, so run it against a server of your own. Set
+`HONUA_API_KEY` to an API key that may edit, and `HONUA_EDIT_SERVICE` to a
+FeatureServer service whose first layer accepts updates (the service declares
+the `Update` capability). The recipe re-saves the first feature of that layer
+unchanged, so it leaves your data as it was:
+
+<!-- doc-run: blocked https://github.com/honua-io/honua-release/issues/423 -->
 ```python
+import os
 import time
+import uuid
+
 from honua_sdk import HonuaClient, HonuaRateLimitError
 
-with HonuaClient(SERVER, retry_methods={"GET", "POST"}) as client:
+service_id = os.environ["HONUA_EDIT_SERVICE"]
+
+with HonuaClient("https://your-honua-server.com", api_key=os.environ["HONUA_API_KEY"]) as client:
+    layer_id = client.feature_server(service_id).metadata()["layers"][0]["id"]
+    first = client.query_features(service_id, layer_id, return_geometry=False)["features"][0]
+    edit_key = uuid.uuid4().hex  # one key for every attempt of this edit
     for attempt in range(5):
         try:
-            client.apply_edits("svc", 0, adds=[{"attributes": {"OBJECTID": 1}}])
+            client.apply_edits(
+                service_id,
+                layer_id,
+                updates=[{"attributes": first["attributes"]}],
+                idempotency_key=edit_key,
+            )
             break
         except HonuaRateLimitError as exc:
             wait_s = exc.retry_after or 2 ** attempt
@@ -366,19 +411,20 @@ with HonuaClient(SERVER, retry_methods={"GET", "POST"}) as client:
 `HonuaTimeoutError` fires when a single request exceeds the client's configured
 timeout. For occasional slow queries, retry the same call with a one-shot
 `client.with_options(timeout=...)` override -- this returns a lightweight clone
-that shares the underlying transport, so it does not reconnect:
+that shares the underlying transport, so it does not reconnect. `SERVER` and
+`ZONING` are the ones defined in the example above:
 
 ```python
 from honua_sdk import HonuaClient, HonuaTimeoutError, Query
 
+query = Query(where="island = 'Maui'")
+
 with HonuaClient(SERVER, timeout=5.0) as client:
     try:
-        result = source.query(Query(where="status = 'active'"))
+        result = client.source(ZONING).query(query)
     except HonuaTimeoutError:
         # One-shot bigger budget; original client keeps its 5s default.
-        result = client.with_options(timeout=60.0).query_features(
-            "svc", 0, where="status = 'active'"
-        )
+        result = client.with_options(timeout=60.0).source(ZONING).query(query)
 ```
 
 See [troubleshooting.md](troubleshooting.md) for more.

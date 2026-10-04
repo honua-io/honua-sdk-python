@@ -52,11 +52,11 @@ pip install ./packages/honua-sdk ./packages/honua-admin
 pip install "./packages/honua-sdk[grpc,geopandas,raster]" ./packages/honua-admin
 ```
 
-Or straight from GitHub without cloning, pinned to a release tag (replace
-with the newest `python-sdk-v*` tag):
+Or straight from GitHub without cloning, pinned to a release tag
+(`python-sdk-v0.1.12` is the `honua-sdk` release that Honua 2026.1 ships):
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.11#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.12#subdirectory=packages/honua-sdk"
 ```
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it
@@ -65,20 +65,25 @@ not `.`.
 
 ## Quick Start
 
+Check the install against the public, anonymous demo server at
+`https://demo.honua.io`. Its `maui-zoning` FeatureServer publishes zoning
+polygons as layer `2`. To query your own server, change the base URL, service
+and layer.
+
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
-with HonuaClient(base_url="https://your-honua-server.com") as client:
+with HonuaClient(base_url="https://demo.honua.io") as client:
     # Query features through the shared Source/Query/Result API
     source = client.source(
         SourceDescriptor(
-            id="parcels",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="parcels", layer_id=0),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
     result = source.query(
-        Query(where="status = 'active'", out_fields=["*"])
+        Query(where="island = 'Maui'", out_fields=["*"])
     )
 
     print(f"Found {len(result.features)} features")
@@ -90,26 +95,39 @@ returned to the pool when the block exits, even if a request raises.
 
 ## With gRPC
 
+gRPC needs a server of your own, for example one started with the Honua
+Server quickstart. Install the `grpc` extra (`pip install "honua-sdk[grpc]"`). The
+[Honua Server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md)
+serves plaintext gRPC (h2c) on port **8081**. Replace
+`your-honua-server.com:8081` with that address, and `maui-zoning` / `2` with
+the service and layer id of one of your published layers:
+
+<!-- doc-run: blocked https://github.com/honua-io/honua-sdk-python/issues/259 -->
+```python
+from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
+
+request = QueryFeaturesRequest(service_id="maui-zoning", layer_id=2)
+
+# Local dev: plaintext channel (must opt in explicitly)
+with HonuaGrpcClient("your-honua-server.com:8081", insecure=True) as client:
+    # Stream features
+    for page in client.query_features_stream(request):
+        print(f"Page with {len(page.features)} features")
+```
+
+In production, terminate TLS in front of the gRPC listener and pass channel
+credentials instead of `insecure=True`:
+
+<!-- doc-run: skip reason="needs a TLS-terminated gRPC endpoint; the runnable h2c form is the block above" -->
 ```python
 import grpc
 
-from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
-
-request = QueryFeaturesRequest(service_id="parcels", layer_id=0)
-
-# Production: TLS via channel credentials
 with HonuaGrpcClient(
     "grpc.your-honua-server.com:443",
     credentials=grpc.ssl_channel_credentials(),
 ) as client:
-    # Stream features
     for page in client.query_features_stream(request):
-        print(page)
-
-# Local dev: plaintext channel (must opt in explicitly)
-with HonuaGrpcClient("localhost:50051", insecure=True) as client:
-    for page in client.query_features_stream(request):
-        print(page)
+        print(f"Page with {len(page.features)} features")
 ```
 
 The constructor takes `target` positionally; pass exactly one of
@@ -163,15 +181,15 @@ surface:
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
-with HonuaClient(base_url="https://your-honua-server.com") as client:
+with HonuaClient(base_url="https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="parcels",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="parcels", layer_id=0),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
-    result = source.query(Query(where="status = 'active'", out_fields=["*"]))
+    result = source.query(Query(where="island = 'Maui'", out_fields=["*"]))
     for feature in result.features:
         # Typed ``QueryFeature`` -- attributes live under ``.properties``.
         print(feature.id, feature.properties)

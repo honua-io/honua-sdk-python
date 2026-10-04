@@ -116,11 +116,16 @@ with HonuaGrpcClient("your-honua-server.com:8081", insecure=True) as client:
 ```
 
 In production, terminate TLS in front of the gRPC listener and pass channel
-credentials instead of `insecure=True`:
+credentials instead of `insecure=True`. Replace `grpc.your-honua-server.com:443`
+with the `host:port` of that TLS endpoint:
 
-<!-- doc-run: skip reason="needs a TLS-terminated gRPC endpoint; the runnable h2c form is the block above" -->
+<!-- doc-run: blocked https://github.com/honua-io/honua-release/issues/423 -->
 ```python
 import grpc
+
+from honua_sdk.grpc import HonuaGrpcClient, QueryFeaturesRequest
+
+request = QueryFeaturesRequest(service_id="maui-zoning", layer_id=2)
 
 with HonuaGrpcClient(
     "grpc.your-honua-server.com:443",
@@ -136,10 +141,17 @@ in [docs/quickstart.md](docs/quickstart.md#step-6-query-via-grpc-optional-60-sec
 
 ## Admin
 
+Admin needs a server of your own: the public demo returns `401` for
+`/api/v1/admin/*`. Set `HONUA_API_KEY` to an admin API key for your server (the
+[honua-server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md)
+shows how to mint one with `HONUA_ADMIN_PASSWORD`).
+
 ```python
+import os
+
 from honua_admin import HonuaAdminClient
 
-with HonuaAdminClient("https://your-honua-server.com", api_key="honua-api-key") as admin:
+with HonuaAdminClient("https://your-honua-server.com", api_key=os.environ["HONUA_API_KEY"]) as admin:
     compatibility = admin.check_compatibility()
     if not compatibility.supported:
         raise RuntimeError("; ".join(compatibility.reasons))

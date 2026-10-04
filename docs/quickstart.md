@@ -362,9 +362,11 @@ with HonuaClient(SERVER) as client:
 ### Recipe: rate-limit retry on mutating calls
 
 The SDK already retries idempotent methods (`GET`, `HEAD`, `PUT`, `DELETE`,
-`OPTIONS`) on 429 automatically, honouring the `Retry-After` header. It never
-retries `POST`, so a mutating call such as `apply_edits` raises
-`HonuaRateLimitError` on the first 429. To retry it at the application level --
+`OPTIONS`) on 429 automatically, honouring the `Retry-After` header. `POST` is
+not retried unless you opt in by adding it to `retry_methods` on the retry
+transport (see [Retries and timeouts](retries-and-timeouts.md)), so by default a
+mutating call such as `apply_edits` raises `HonuaRateLimitError` on the first
+429. To retry it at the application level --
 for example, to log backoff explicitly or to bound the number of attempts --
 catch `HonuaRateLimitError`, sleep for `exc.retry_after`, and send the same
 `idempotency_key` on every attempt so the server can de-duplicate the edit.

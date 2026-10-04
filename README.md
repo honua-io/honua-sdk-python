@@ -223,7 +223,7 @@ with HonuaAdminClient("https://your-honua-server.com", api_key=os.environ["HONUA
 | GIS interop | `Result.to_geodataframe()`, `features_to_geodataframe` (Esri JSON aware), raster results via `rasterio`/`rioxarray` (`[raster]` extra) |
 | gRPC streaming | `honua_sdk.grpc.HonuaGrpcClient` / `HonuaGrpcAsyncClient` for unary + streaming feature queries (`[grpc]` extra) |
 | Sync + async | `HonuaClient` / `AsyncHonuaClient` in lockstep (sync clients generated from the async source of truth) |
-| Automatic retry | 429/502/503/504 with exponential backoff and `Retry-After` support for idempotent methods (never `POST`); configurable via `max_retries` |
+| Automatic retry | 429/502/503/504 with exponential backoff and `Retry-After` support for idempotent methods (`POST` only when opted in via `retry_methods` on the retry transport); configurable via `max_retries` |
 | Typed errors | `HonuaAuthError`, `HonuaRateLimitError`, `HonuaHttpError`, `HonuaTimeoutError`, `HonuaTransportError` — see [common errors](docs/quickstart.md#common-errors) |
 | CLI | `honua` (services / layers / style apply / sanitized `doctor` diagnostics) and `honua-migrate` (offline ArcPy script scan / translate / run, plus `.pyt` / `.atbx` toolbox and GP-service classification, with optional server-attested toolbox translation verdicts via `--server`) |
 | Quality gates | mypy `strict` workspace-wide, 94% coverage gate, public-API [compatibility snapshot](docs/compatibility.md), per-capability [SDK coverage snapshot](docs/sdk-coverage.md), live-server [conformance lane](.github/workflows/conformance.yml) against shared [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) fixtures |

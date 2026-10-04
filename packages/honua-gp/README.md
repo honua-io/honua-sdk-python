@@ -11,7 +11,16 @@ carries its own `LICENSE` that overrides the surrounding monorepo Apache-2.0
 grant.
 
 Customers replace `import arcpy` with `import honua_gp as arcpy` and point
-the shim at a Honua base URL. Every shim call dispatches through one of three
+the shim at a Honua base URL.
+
+This directory is the only geoprocessing distribution in the repository.
+An earlier unpublished distribution, `honua-arcpy`, re-exported this package
+as `honua_arcpy` and warned on import. It was never published and has been
+removed. Replace `import honua_arcpy` with `import honua_gp as arcpy`. The
+implementation is this package. See
+[`docs/migration/gp-import.md`](../../docs/migration/gp-import.md).
+
+Every shim call dispatches through one of three
 existing clients -- `honua_sdk.HonuaClient`, `honua_admin.HonuaAdminClient`, or
 `honua_sdk.protocols.OgcProcessesClient` -- and emits an audit JSONL record so
 the migration tool can build a fine-tuning corpus.

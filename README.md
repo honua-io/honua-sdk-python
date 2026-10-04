@@ -26,9 +26,7 @@ Two independently installable, Apache-2.0 packages live under `packages/`:
 
 Also in this repo: [`packages/honua-gp`](packages/honua-gp/), a proprietary
 geoprocessing compatibility layer for teams migrating scripts from ArcGIS
-`arcpy` (separate license, not published), and
-[`packages/honua-arcpy`](packages/honua-arcpy/), a deprecated shim that
-re-exports it.
+`arcpy` (separate license, not published). Import it as `honua_gp`.
 
 ## Status
 
@@ -285,5 +283,5 @@ Do not open public issues for security reports.
 ## License
 
 `honua-sdk` and `honua-admin` are licensed under
-[Apache-2.0](LICENSE). `packages/honua-gp` and `packages/honua-arcpy` are
-proprietary (see their respective `LICENSE` files) and are not published.
+[Apache-2.0](LICENSE). `packages/honua-gp` is proprietary (see its `LICENSE`)
+and is not published.

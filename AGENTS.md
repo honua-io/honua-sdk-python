@@ -10,8 +10,7 @@ geospatial server. Three independently installable packages live under
 |---------|-----------|---------|-------------|
 | `packages/honua-sdk` | `honua-sdk` | Apache-2.0 | Data-plane client: feature queries, geocoding, multi-protocol clients (GeoServices/OGC/STAC/OData/WFS/WMS/WMTS/scenes), gRPC streaming, GeoPandas integration. |
 | `packages/honua-admin` | `honua-admin` | Apache-2.0 | Control-plane client: services, connections, layers, styles, metadata, manifests, compatibility checks. Depends on `honua-sdk`. |
-| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer (drop-in-style API for teams migrating from ArcGIS `arcpy`). Linted/tested under its own lenient gate, not the workspace-root strict rules. |
-| `packages/honua-arcpy` | `honua-arcpy` | Proprietary (do-not-upload) | Deprecated backward-compat shim that re-exports `honua-gp` and warns. Retained only so legacy `import honua_arcpy` keeps working; do not add code here. |
+| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer (drop-in-style API for teams migrating from ArcGIS `arcpy`). Linted/tested under its own lenient gate, not the workspace-root strict rules. The only distribution in that directory; import `honua_gp`. |
 
 Status: alpha (`0.x`); APIs may change before 1.0.
 

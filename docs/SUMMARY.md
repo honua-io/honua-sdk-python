@@ -18,6 +18,7 @@
 * [Authenticate a client](auth.md)
 * [Collect a support bundle](diagnostic-bundles.md)
 * [Hand an ArcPy inventory to the codemod](honua-gp/scanner-handoff.md)
+* [Import the geoprocessing package](migration/gp-import.md)
 * [When something does not work](troubleshooting.md)
 
 ## Concepts

@@ -29,9 +29,6 @@ extend-exclude = [
   # honua-gp is a separately-developed package; it is linted under its
   # own (lenient) gate rather than this workspace-root strict rule set.
   "packages/honua-gp",
-  # honua-arcpy is a deprecated backward-compat shim that only re-exports
-  # honua-gp; it is excluded from the strict workspace lint gate.
-  "packages/honua-arcpy",
 ]
 
 [tool.ruff.lint]

@@ -4,6 +4,12 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### Unpublished re-export distribution removed
+
+`packages/honua-arcpy` re-exported `honua_gp` as `honua_arcpy` and warned on
+import. That distribution was never published. It has been removed. Import
+`honua_gp`. See `docs/migration/gp-import.md`.
+
 ### Results gone after a successful job are a typed failure (#226)
 
 When a job succeeded but its `/jobs/{id}/results` fetch answered 404 or 410,
@@ -133,9 +139,9 @@ see the `management.Describe` / `management.ListFields` manifest notes in
   and "ArcGIS" now appear only as descriptive references to the migration
   target. Branded public symbols and env vars were renamed accordingly
   (`HonuaArcpy*Error` -> `HonuaGp*Error`, `HONUA_ARCPY_*` -> `HONUA_GP_*`),
-  and the console entry point is now `honua-gp`. A deprecated `honua-arcpy`
-  shim package re-exports `honua_gp` and emits a `DeprecationWarning` so the
-  legacy `import honua_arcpy` keeps working.
+  and the console entry point is now `honua-gp`. The rename left an unpublished
+  `honua-arcpy` re-export that warned on `import honua_arcpy`. That re-export
+  has been removed; import `honua_gp`.
 
 ## Unreleased
 

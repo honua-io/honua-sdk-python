@@ -14,11 +14,8 @@ arcpy.configure(base_url="https://honua.example.com", api_key="...")
 ```
 
 Point the session at a Honua base URL, then call the supported tools. The
-package README
-([`packages/honua-gp/README.md`](../../packages/honua-gp/README.md)) and the
-compatibility matrix
-([`packages/honua-gp/docs/compatibility-matrix.md`](../../packages/honua-gp/docs/compatibility-matrix.md))
-are the behaviour reference.
+behaviour reference is `packages/honua-gp/README.md` and
+`packages/honua-gp/docs/compatibility-matrix.md`.
 
 ## Previous distribution
 

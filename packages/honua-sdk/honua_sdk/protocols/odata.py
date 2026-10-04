@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping
+from urllib.parse import urljoin
 
 import httpx
 
@@ -374,6 +375,7 @@ class ODataClient(_SyncProtocol):
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        response_url = urljoin(str(self.client._base_url), path.lstrip("/"))
         skip = int((extra_params or {}).get("$skip", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -381,7 +383,10 @@ class ODataClient(_SyncProtocol):
                 break
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                page = self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
+                response_url = urljoin(response_url, next_href)
+                page = self._json_href(
+                    response_url, timeout=timeout, extra_headers=extra_headers
+                )
             else:
                 page_params = _odata_params(
                     query=query,
@@ -762,6 +767,7 @@ class AsyncODataClient(_AsyncProtocol):
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        response_url = urljoin(str(self.client._base_url), path.lstrip("/"))
         skip = int((extra_params or {}).get("$skip", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -769,7 +775,10 @@ class AsyncODataClient(_AsyncProtocol):
                 break
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                page = await self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
+                response_url = urljoin(response_url, next_href)
+                page = await self._json_href(
+                    response_url, timeout=timeout, extra_headers=extra_headers
+                )
             else:
                 page_params = _odata_params(
                     query=query,

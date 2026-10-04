@@ -9,7 +9,7 @@ import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urljoin, urlsplit
 
 import httpx
 
@@ -355,13 +355,16 @@ class _SyncProtocol:
         self,
         href: str,
         *,
+        response_url: str | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        path, params = _path_and_params_from_href(href)
+        resolved_href = urljoin(response_url or str(self.client._base_url), href)
+        _, params = _path_and_params_from_href(resolved_href)
+        parsed_href = urlsplit(resolved_href)
         return self._json(
             "GET",
-            path,
+            resolved_href.removesuffix(f"?{parsed_href.query}") if parsed_href.query else resolved_href,
             params=params,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -464,13 +467,16 @@ class _AsyncProtocol:
         self,
         href: str,
         *,
+        response_url: str | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        path, params = _path_and_params_from_href(href)
+        resolved_href = urljoin(response_url or str(self.client._base_url), href)
+        _, params = _path_and_params_from_href(resolved_href)
+        parsed_href = urlsplit(resolved_href)
         return await self._json(
             "GET",
-            path,
+            resolved_href.removesuffix(f"?{parsed_href.query}") if parsed_href.query else resolved_href,
             params=params,
             timeout=timeout,
             extra_headers=extra_headers,

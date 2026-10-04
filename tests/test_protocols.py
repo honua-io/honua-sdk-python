@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+import pytest
 
 from honua_sdk import HonuaClient
 from honua_sdk.protocols import BinaryResponse, ODataQuery
@@ -247,6 +248,32 @@ def test_odata_query_helpers_and_iterators() -> None:
             "custom": "seed",
         },
         {"$skip": "2", "$top": "2"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "next_link",
+    [
+        "https://example.test/honua/odata/Layers(4)/Features?$skip=2&$top=2",
+        "/honua/odata/Layers(4)/Features?$skip=2&$top=2",
+    ],
+)
+def test_odata_next_link_preserves_reverse_proxy_base_path(next_link: str) -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if len(seen) == 1:
+            return httpx.Response(200, json={"value": [{"ObjectId": 1}], "@odata.nextLink": next_link})
+        return httpx.Response(200, json={"value": [{"ObjectId": 2}]})
+
+    with HonuaClient("https://example.test/honua/", transport=httpx.MockTransport(handler)) as client:
+        features = client.odata().features_all(layer_id=4, page_size=1, limit=2)
+
+    assert [feature["ObjectId"] for feature in features] == [1, 2]
+    assert seen == [
+        "/honua/odata/Layers(4)/Features?%24top=1&%24skip=0",
+        "/honua/odata/Layers(4)/Features?%24skip=2&%24top=2",
     ]
 
 

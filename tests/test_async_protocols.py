@@ -223,6 +223,34 @@ async def test_async_odata_query_helpers_and_iterators() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "next_link",
+    [
+        "https://example.test/honua/odata/Layers(4)/Features?$skip=2&$top=2",
+        "/honua/odata/Layers(4)/Features?$skip=2&$top=2",
+    ],
+)
+async def test_async_odata_next_link_preserves_reverse_proxy_base_path(next_link: str) -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if len(seen) == 1:
+            return httpx.Response(200, json={"value": [{"ObjectId": 1}], "@odata.nextLink": next_link})
+        return httpx.Response(200, json={"value": [{"ObjectId": 2}]})
+
+    async with AsyncHonuaClient(
+        "https://example.test/honua/", transport=httpx.MockTransport(handler)
+    ) as client:
+        features = await client.odata().features_all(layer_id=4, page_size=1, limit=2)
+
+    assert [feature["ObjectId"] for feature in features] == [1, 2]
+    assert seen == [
+        "/honua/odata/Layers(4)/Features?%24top=1&%24skip=0",
+        "/honua/odata/Layers(4)/Features?%24skip=2&%24top=2",
+    ]
+
+
 async def test_async_wms_response_helper_returns_binary_metadata() -> None:
     seen: dict[str, str] = {}
 

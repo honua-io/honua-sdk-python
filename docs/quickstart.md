@@ -178,10 +178,10 @@ and `attributes`.
 ## Step 6: Query via gRPC (optional, 60 seconds)
 
 > **Needs your own server.** This step uses a `your-honua-server.com:8081`
-> placeholder. Point it at your
-> server's gRPC address (the Honua Server quickstart serves h2c on port 8081),
-> and replace `maui-zoning` / `2` with the service and layer id of one of your
-> published layers.
+> placeholder. Point it at your server's gRPC address (the Honua Server
+> quickstart serves h2c on port 8081), and replace `maui-zoning` / `2` with
+> the service and layer id of one of your published layers.
+
 
 If your Honua server exposes a gRPC endpoint, you can use `HonuaGrpcClient`
 for high-throughput streaming queries. Install the gRPC extras first:

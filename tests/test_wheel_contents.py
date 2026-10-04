@@ -53,7 +53,15 @@ EXPECTED_CONTENTS: dict[str, tuple[str, ...]] = {
         "honua_admin/_endpoints.py",
         # AST-walking arcpy inventory scanner.
         "honua_admin/_arcpy_scanner.py",
+        # Operator command line behind the ``honua-admin`` console script.
+        "honua_admin/cli.py",
     ),
+}
+
+# Console scripts each wheel must declare in ``entry_points.txt``.
+EXPECTED_CONSOLE_SCRIPTS: dict[str, tuple[str, ...]] = {
+    "honua-sdk": ("honua = honua_sdk.cli:main", "honua-migrate = honua_sdk.migration._cli:main"),
+    "honua-admin": ("honua-admin = honua_admin.cli:main",),
 }
 
 
@@ -123,3 +131,17 @@ def test_wheel_ships_license_text(package: str) -> None:
         f"{package} wheel ships no LICENSE file under *.dist-info/\n"
         f"wheel members:\n" + "\n".join(sorted(members))
     )
+
+
+@pytest.mark.parametrize("package", sorted(EXPECTED_CONSOLE_SCRIPTS))
+def test_wheel_declares_console_scripts(package: str) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        wheel_path = _build_wheel(PACKAGES_DIR / package, Path(tmp))
+        with zipfile.ZipFile(wheel_path) as archive:
+            entry_points = next(
+                (archive.read(m).decode() for m in archive.namelist() if m.endswith(".dist-info/entry_points.txt")),
+                "",
+            )
+    lines = {line.strip() for line in entry_points.splitlines()}
+    missing = [script for script in EXPECTED_CONSOLE_SCRIPTS[package] if script not in lines]
+    assert not missing, f"{package} wheel does not declare {missing}:\n{entry_points}"

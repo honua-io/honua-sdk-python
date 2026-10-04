@@ -162,7 +162,7 @@ if results:
         [{"label": top.address, "geometry": Point(top.longitude, top.latitude)}],
         geometry="geometry",
         crs="EPSG:4326",
-    )
+    ).to_crs(gdf.crs)  # geocoder returns WGS84; plot in the layer's CRS
 
     ax = gdf.plot(figsize=(12, 8), color="lightgrey", edgecolor="black")
     point.plot(ax=ax, color="red", markersize=80, zorder=5)
@@ -393,12 +393,16 @@ with HonuaClient("https://your-honua-server.com", api_key=os.environ["HONUA_API_
     edit_key = uuid.uuid4().hex  # one key for every attempt of this edit
     for attempt in range(5):
         try:
-            client.apply_edits(
+            result = client.apply_edits_result(
                 service_id,
                 layer_id,
                 updates=[{"attributes": first["attributes"]}],
                 idempotency_key=edit_key,
             )
+            if not result.all_succeeded:
+                # Row-level failures come back as HTTP 200 with success=false.
+                errors = [r.error for r in result.update_results if not r.success]
+                raise SystemExit(f"Edit rejected: {errors}")
             break
         except HonuaRateLimitError as exc:
             wait_s = exc.retry_after or 2 ** attempt

@@ -166,6 +166,29 @@ async def test_query_features_all_returns_typed_paginated_features() -> None:
     assert seen == [("0", "2"), ("2", "1")]
 
 
+async def test_query_features_all_continues_after_server_capped_short_page() -> None:
+    seen_offsets: list[int] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        offset = int(request.url.params["resultOffset"])
+        seen_offsets.append(offset)
+        page_ids = range(offset + 1, min(offset + 6, 10))
+        return httpx.Response(
+            200,
+            json={
+                "features": [{"attributes": {"objectid": object_id}} for object_id in page_ids],
+                "exceededTransferLimit": offset + 5 < 9,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        features = await client.query_features_all("parcels", 0, page_size=1000)
+
+    assert [feature.object_id for feature in features] == list(range(1, 10))
+    assert seen_offsets == [0, 5]
+
+
 async def test_query_features_all_stops_on_non_advancing_cursor() -> None:
     # issue #107.4: a server that ignores ``resultOffset`` returns the same
     # full page with exceededTransferLimit=true forever. The non-advancing

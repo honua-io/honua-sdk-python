@@ -20,6 +20,7 @@ distributed from this monorepo with its own `LICENSE` (see
 * [Scanner handoff](scanner-handoff.md) -- how a `scan_arcpy_script`
   inventory becomes a per-call TODO list via `honua-gp assess`.
 * Package README: [`packages/honua-gp/README.md`](../../packages/honua-gp/README.md).
+* [Geoprocessing import](../migration/gp-import.md) -- import `honua_gp`. The unpublished re-export distribution has been removed.
 * Example end-to-end script:
   [`packages/honua-gp/examples/buffer_clip_roundtrip.py`](../../packages/honua-gp/examples/buffer_clip_roundtrip.py).
 

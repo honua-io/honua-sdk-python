@@ -22,14 +22,29 @@ Commands
     ``style apply``; the bytes are written to ``--out`` (or stdout). It relies
     on :meth:`HonuaClient.export_map`.
 
+``honua query SERVICE_ID LAYER_ID``
+    Query one FeatureServer layer (``--where``, ``--out-fields``,
+    ``--order-by``, ``--limit``, ``--offset``) and print the server's GeoJSON
+    (default) or Esri JSON page, or only the matching count with ``--count``.
+    It relies on :meth:`HonuaClient.query_features`. One request is made; a
+    page cut short by the server carries ``exceededTransferLimit``.
+
 ``honua doctor``
     Emit or read-only replay a canonical, sanitized diagnostic bundle for local
     support review. It never uploads or persists raw HTTP traffic.
 
+``honua datasource | layer | proposal``
+    The operator workflow from ``honua-admin`` (``pip install honua-admin``):
+    create and test datasources, publish and unpublish layers, and read,
+    approve or reject operation proposals. The same commands ship as the
+    ``honua-admin`` console script; see :mod:`honua_admin.cli`.
+
 ``honua admin``
-    Not implemented here. Those control-plane verbs belong to the
-    ``@honua/sdk-js`` CLI. This entry point forwards ``admin`` to that binary
-    when it is on ``PATH`` or named by ``HONUA_JS_CLI``.
+    Forwards to the ``@honua/sdk-js`` CLI when that binary is on ``PATH`` or
+    named by ``HONUA_JS_CLI``.
+
+A server or transport refusal exits ``1`` with ``error: HTTP <status>: ...``
+on stderr; a usage error exits ``2``.
 
 The base URL is read from ``--base-url`` or the ``HONUA_BASE_URL`` environment
 variable; an optional API key from ``--api-key`` or ``HONUA_API_KEY``.
@@ -39,6 +54,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib
 import json
 import os
 import platform
@@ -151,6 +167,38 @@ def _cmd_layers(args: argparse.Namespace, out: Any) -> int:
         _print_table(rows, ["id", "name", "type", "geometryType"], out)
     else:
         _emit_json(rows, out)
+    return 0
+
+
+def _cmd_query(args: argparse.Namespace, out: Any) -> int:
+    extra_params: dict[str, Any] = {}
+    if args.count:
+        extra_params["returnCountOnly"] = "true"
+    else:
+        extra_params["f"] = args.format
+        if args.order_by is not None:
+            extra_params["orderByFields"] = args.order_by
+        if args.limit is not None:
+            extra_params["resultRecordCount"] = args.limit
+        if args.offset is not None:
+            extra_params["resultOffset"] = args.offset
+    with _make_client(args) as client:
+        document = client.query_features(
+            args.service_id,
+            args.layer_id,
+            where=args.where,
+            out_fields=args.out_fields,
+            return_geometry=not args.count,
+            extra_params=extra_params,
+        )
+    if args.count:
+        count = document.get("count")
+        if args.json:
+            _emit_json({"count": count}, out)
+        else:
+            out.write(f"{count}\n")
+    else:
+        _emit_json(document, out)
     return 0
 
 
@@ -360,6 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common_connection_args(services)
     services.add_argument("--format", choices=("json", "table"), default="json")
+    services.add_argument("--json", dest="format", action="store_const", const="json", help="Same as --format json.")
     services.set_defaults(func=_cmd_services)
 
     # honua layers SERVICE_ID
@@ -370,7 +419,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common_connection_args(layers)
     layers.add_argument("service_id", help="Catalog service identifier.")
     layers.add_argument("--format", choices=("json", "table"), default="json")
+    layers.add_argument("--json", dest="format", action="store_const", const="json", help="Same as --format json.")
     layers.set_defaults(func=_cmd_layers)
+
+    _add_query_parser(subparsers)
 
     # honua style apply SERVICE_ID
     style = subparsers.add_parser("style", help="Style operations.")
@@ -427,7 +479,51 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--output", required=True, help="Destination JSON file. The command never uploads.")
     doctor.set_defaults(func=_cmd_doctor)
 
+    _add_operator_commands(subparsers)
     return parser
+
+
+def _add_query_parser(subparsers: Any) -> None:
+    """``honua query SERVICE_ID LAYER_ID``."""
+    query = subparsers.add_parser(
+        "query",
+        help="Query a FeatureServer layer's features, or count them.",
+        description="Query one FeatureServer layer. Prints the server's GeoJSON (default) or Esri JSON page.",
+    )
+    _add_common_connection_args(query)
+    query.add_argument("service_id", help="Catalog service identifier.")
+    query.add_argument("layer_id", type=int, help="Numeric layer index within the FeatureServer.")
+    query.add_argument("--where", default="1=1", help="GeoServices WHERE clause (default: 1=1).")
+    query.add_argument("--out-fields", default="*", help="Comma-separated fields to return (default: *).")
+    query.add_argument("--order-by", default=None, help="orderByFields, e.g. 'name ASC'.")
+    query.add_argument("--limit", type=int, default=None, help="Maximum features in the page (resultRecordCount).")
+    query.add_argument("--offset", type=int, default=None, help="Features to skip (resultOffset).")
+    query.add_argument("--format", choices=("geojson", "json"), default="geojson", help="Response format.")
+    query.add_argument("--count", action="store_true", help="Print only the number of matching features.")
+    query.add_argument("--json", action="store_true", help='With --count, print {"count": N}.')
+    query.set_defaults(func=_cmd_query)
+
+
+def _add_operator_commands(subparsers: Any) -> None:
+    """Mount ``honua-admin``'s datasource/layer/proposal groups, or a pointer to install it."""
+    try:
+        admin_cli = importlib.import_module("honua_admin.cli")
+    except ImportError:
+        admin_cli = None
+    if admin_cli is not None and hasattr(admin_cli, "add_operator_commands"):
+        admin_cli.add_operator_commands(subparsers)
+        return
+    for name in ("datasource", "layer", "proposal"):
+        stub = subparsers.add_parser(name, help=f"{name} commands (requires honua-admin).", add_help=False)
+        stub.add_argument("rest", nargs=argparse.REMAINDER)
+        stub.set_defaults(func=_missing_admin)
+
+
+def _missing_admin(args: argparse.Namespace, out: Any) -> int:
+    sys.stderr.write(
+        f"error: `honua {args.command}` needs the control-plane package: pip install 'honua-admin>=0.1.10'\n"
+    )
+    return 2
 
 
 def _dispatch_style(args: argparse.Namespace, out: Any) -> int:
@@ -491,9 +587,9 @@ def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
     if binary is None:
         sys.stderr.write(
             "error: `honua admin` is the @honua/sdk-js control-plane CLI. "
-            "This `honua` is the Python data-plane client and does not install, "
-            "operate, or publish. Put the JavaScript `honua` on PATH, or set "
-            "HONUA_JS_CLI to its bin.js.\n"
+            "Put the JavaScript `honua` on PATH, or set HONUA_JS_CLI to its bin.js. "
+            "The Python operator commands are `honua datasource|layer|proposal` "
+            "(or the `honua-admin` script from honua-admin).\n"
         )
         return 127
     command = [str(binary), *argv]

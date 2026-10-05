@@ -288,6 +288,64 @@ class KeyRotationResult:
 
 
 @dataclass(frozen=True, slots=True)
+class OperationProposalSummary:
+    """One row of ``GET /api/v1/admin/proposals``."""
+
+    proposal_id: str
+    kind: str
+    status: str
+    summary: str
+    risk_level: str
+    created_at: str | None = None
+    updated_at: str | None = None
+    requested_by: str | None = None
+    requested_by_agent: str | None = None
+    finding_id: str | None = None
+    autonomy_rule: str | None = None
+    action_discriminator: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OperationProposalSummary:
+        d = _snake_keys(data)
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class OperationProposalDetail:
+    """A guardrail-routed operation proposal and its resolution state."""
+
+    proposal_id: str
+    kind: str
+    status: str
+    summary: str
+    risk_level: str
+    diff: list[str] = field(default_factory=list)
+    dry_run: list[str] = field(default_factory=list)
+    blocking_reasons: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+    requested_by: str | None = None
+    requested_by_agent: str | None = None
+    finding_id: str | None = None
+    autonomy_rule: str | None = None
+    action_discriminator: str | None = None
+    guardrail_tier: str | None = None
+    resolved_by: str | None = None
+    resolution_reason: str | None = None
+    execution_operation_id: str | None = None
+    resolved_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OperationProposalDetail:
+        d = _snake_keys(data)
+        for name in ("diff", "dry_run", "blocking_reasons", "warnings"):
+            if not isinstance(d.get(name), list):
+                d.pop(name, None)
+        return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
 class ResourceMetadata:
     id: str | None
     name: str

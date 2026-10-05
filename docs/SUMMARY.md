@@ -5,6 +5,7 @@
 * [Honua Python SDK](index.md)
 * [Long-form documentation map](README.md)
 * [What this repository owns](features/README.md)
+* [Command-line clients](cli/README.md)
 * [Analyst demo suite](demo-suite.md)
 * [Runnable examples](examples.md)
 * [honua-gp compatibility shim](honua-gp/README.md)
@@ -16,8 +17,10 @@
 ## Guides
 
 * [Authenticate a client](auth.md)
+* [Run the operator workflow from a terminal](cli/operator-workflow.md)
 * [Collect a support bundle](diagnostic-bundles.md)
 * [Hand an ArcPy inventory to the codemod](honua-gp/scanner-handoff.md)
+* [Import the geoprocessing package](migration/gp-import.md)
 * [When something does not work](troubleshooting.md)
 
 ## Concepts
@@ -26,6 +29,7 @@
 
 ## Reference
 
+* [Command reference](cli/reference.md)
 * [SDK compatibility policy](compatibility.md)
 * [Protocol-native client methods](core-client.md)
 * [Codemod translation coverage](honua-gp/codemod-translation-coverage.md)

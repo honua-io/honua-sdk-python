@@ -12,7 +12,9 @@ from honua_sdk import HonuaGrpcError as RootHonuaGrpcError
 from honua_sdk.grpc import HonuaGrpcError as GrpcModuleHonuaGrpcError
 from honua_sdk.grpc import build_grpc_metadata
 from honua_sdk.grpc._client import HonuaGrpcAsyncClient, HonuaGrpcClient
-from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
+from honua_sdk.grpc._generated.geospatial.v1 import common_pb2 as common
+from honua_sdk.grpc._generated.geospatial.v1 import feature_service_pb2 as pb2
+from honua_sdk.grpc._generated.geospatial.v1 import spatial_types_pb2 as spatial
 from honua_sdk.grpc._models import (
     GeometryType,
     QueryFeaturesRequest,
@@ -36,7 +38,7 @@ class TestClientConstruction:
 
     @patch("honua_sdk.grpc._client.grpc.insecure_channel")
     @patch(
-        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
     def test_creates_insecure_channel_when_opted_in(
         self, mock_stub_cls: MagicMock, mock_insecure: MagicMock
@@ -53,7 +55,7 @@ class TestClientConstruction:
 
     @patch("honua_sdk.grpc._client.grpc.secure_channel")
     @patch(
-        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
     def test_creates_secure_channel_when_credentials_provided(
         self, mock_stub_cls: MagicMock, mock_secure: MagicMock
@@ -73,7 +75,7 @@ class TestClientConstruction:
         client.close()
 
     @patch(
-        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
     def test_uses_provided_channel(self, mock_stub_cls: MagicMock) -> None:
         channel = MagicMock()
@@ -84,7 +86,7 @@ class TestClientConstruction:
         client.close()
 
     @patch(
-        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
     def test_context_manager(self, mock_stub_cls: MagicMock) -> None:
         channel = MagicMock()
@@ -95,7 +97,7 @@ class TestClientConstruction:
 
     @patch("honua_sdk.grpc._client.grpc.insecure_channel")
     @patch(
-        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
     def test_context_manager_closes_owned_channel(
         self, mock_stub_cls: MagicMock, mock_insecure: MagicMock
@@ -121,7 +123,7 @@ class TestQueryFeatures:
         """Create a client with a mocked stub."""
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
@@ -133,7 +135,7 @@ class TestQueryFeatures:
 
         proto_resp = pb2.QueryFeaturesResponse()
         proto_resp.object_id_field_name = "OBJECTID"
-        proto_resp.geometry_type = pb2.GEOMETRY_TYPE_POINT
+        proto_resp.geometry_type = common.GEOMETRY_TYPE_POINT
         proto_resp.count = 100
         mock_stub.QueryFeatures.return_value = proto_resp
 
@@ -172,7 +174,7 @@ class TestQueryFeatures:
         channel = MagicMock()
         metadata = [("authorization", "Bearer token123")]
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
@@ -242,7 +244,7 @@ class TestQueryFeaturesStream:
         """Create a client with a mocked stub."""
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
@@ -254,7 +256,7 @@ class TestQueryFeaturesStream:
 
         page1 = pb2.FeaturePage()
         page1.object_id_field_name = "OBJECTID"
-        page1.geometry_type = pb2.GEOMETRY_TYPE_POINT
+        page1.geometry_type = common.GEOMETRY_TYPE_POINT
         f1 = page1.features.add()
         f1.id = 1
         page1.is_last_page = False
@@ -366,7 +368,7 @@ class TestAsyncClient:
 
     @patch("honua_sdk.grpc._client.grpc.aio.insecure_channel")
     @patch(
-        "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+        "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
     )
     def test_creates_insecure_channel_when_opted_in(
         self, mock_stub_cls: MagicMock, mock_insecure: MagicMock
@@ -384,7 +386,7 @@ class TestAsyncClient:
     def test_query_features_wraps_aio_rpc_errors(self) -> None:
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             mock_stub.QueryFeatures = AsyncMock(
@@ -405,7 +407,7 @@ class TestAsyncClient:
     def test_query_features_passes_timeout_deadline(self) -> None:
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             mock_stub.QueryFeatures = AsyncMock(return_value=pb2.QueryFeaturesResponse())
@@ -422,7 +424,7 @@ class TestAsyncClient:
     def test_query_features_stream_yields_pages(self) -> None:
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
@@ -430,7 +432,7 @@ class TestAsyncClient:
 
         page1 = pb2.FeaturePage()
         page1.object_id_field_name = "OBJECTID"
-        page1.geometry_type = pb2.GEOMETRY_TYPE_POINT
+        page1.geometry_type = common.GEOMETRY_TYPE_POINT
         page1.features.add().id = 1
         page1.is_last_page = False
 
@@ -454,7 +456,7 @@ class TestAsyncClient:
     def test_query_features_stream_passes_timeout_deadline(self) -> None:
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             stub_cls.return_value = mock_stub
@@ -516,7 +518,7 @@ class TestPerCallAuthMetadata:
         provider = _RotatingAuthProvider()
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             mock_stub.QueryFeatures.return_value = pb2.QueryFeaturesResponse()
@@ -540,7 +542,7 @@ class TestPerCallAuthMetadata:
         provider = _RotatingAuthProvider()
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             mock_stub.QueryFeatures.return_value = pb2.QueryFeaturesResponse()
@@ -562,7 +564,7 @@ class TestPerCallAuthMetadata:
         provider = _AsyncOnlyAuthProvider()
         channel = MagicMock()
         with patch(
-            "honua_sdk.grpc._generated.honua.v1.feature_service_pb2_grpc.FeatureServiceStub"
+            "honua_sdk.grpc._generated.geospatial.v1.feature_service_pb2_grpc.FeatureServiceStub"
         ) as stub_cls:
             mock_stub = MagicMock()
             mock_stub.QueryFeatures = AsyncMock(return_value=pb2.QueryFeaturesResponse())

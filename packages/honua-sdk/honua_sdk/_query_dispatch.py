@@ -313,6 +313,12 @@ def _extend_collected_query_features(
     return limit is not None and len(collected) >= limit
 
 
+def _feature_server_count(page: Any) -> int | None:
+    """Return a FeatureServer count-only result when the page carries one."""
+    count = getattr(page, "raw", {}).get("count")
+    return count if isinstance(count, int) and not isinstance(count, bool) else None
+
+
 def collect_query_pages(
     client: Any,
     query: FeatureQuery,
@@ -329,10 +335,12 @@ def collect_query_pages(
     limit = query.limit
 
     if normalized_protocol == "feature-server":
+        feature_server_last_page: Any = None
         for page in client.feature_server(query.source).query_pages(
             **feature_server_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
         ):
             pages_seen += 1
+            feature_server_last_page = page
             exceeded = bool(page.exceeded_transfer_limit)
             page_features = [
                 query_feature_from_feature_server(
@@ -342,7 +350,7 @@ def collect_query_pages(
             ]
             if _extend_collected_query_features(collected, page_features, limit):
                 break
-        return tuple(collected), exceeded, None, pages_seen
+        return tuple(collected), exceeded, _feature_server_count(feature_server_last_page), pages_seen
 
     if normalized_protocol == "ogc-features":
         last_page: Any = None
@@ -416,10 +424,12 @@ async def collect_query_pages_async(
     limit = query.limit
 
     if normalized_protocol == "feature-server":
+        feature_server_last_page: Any = None
         async for page in client.feature_server(query.source).query_pages(
             **feature_server_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
         ):
             pages_seen += 1
+            feature_server_last_page = page
             exceeded = bool(page.exceeded_transfer_limit)
             page_features = [
                 query_feature_from_feature_server(
@@ -429,7 +439,7 @@ async def collect_query_pages_async(
             ]
             if _extend_collected_query_features(collected, page_features, limit):
                 break
-        return tuple(collected), exceeded, None, pages_seen
+        return tuple(collected), exceeded, _feature_server_count(feature_server_last_page), pages_seen
 
     if normalized_protocol == "ogc-features":
         last_page: Any = None

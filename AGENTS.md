@@ -10,8 +10,7 @@ geospatial server. Three independently installable packages live under
 |---------|-----------|---------|-------------|
 | `packages/honua-sdk` | `honua-sdk` | Apache-2.0 | Data-plane client: feature queries, geocoding, multi-protocol clients (GeoServices/OGC/STAC/OData/WFS/WMS/WMTS/scenes), gRPC streaming, GeoPandas integration. |
 | `packages/honua-admin` | `honua-admin` | Apache-2.0 | Control-plane client: services, connections, layers, styles, metadata, manifests, compatibility checks. Depends on `honua-sdk`. |
-| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer (drop-in-style API for teams migrating from ArcGIS `arcpy`). Linted/tested under its own lenient gate, not the workspace-root strict rules. |
-| `packages/honua-arcpy` | `honua-arcpy` | Proprietary (do-not-upload) | Deprecated backward-compat shim that re-exports `honua-gp` and warns. Retained only so legacy `import honua_arcpy` keeps working; do not add code here. |
+| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer (drop-in-style API for teams migrating from ArcGIS `arcpy`). Linted/tested under its own lenient gate, not the workspace-root strict rules. The only distribution in that directory; import `honua_gp`. |
 
 Status: alpha (`0.x`); APIs may change before 1.0.
 
@@ -246,3 +245,10 @@ This machine runs many agents concurrently (**Codex + Claude**, often via agentf
 2. **Commit and push when you finish a task** so your worktree can be reclaimed. An hourly job (`honua-clean`) removes a worktree ONLY when it is clean AND fully pushed (merged, remote-gone, or idle >=2d). Dirty or unpushed worktrees are NEVER touched — but uncommitted/unpushed work blocks reclamation and is at risk if the instance is reset. Build artifacts (bin/obj and untracked node_modules) are reclaimed automatically and safely.
 
 3. **Commit hygiene — no agent attribution.** Author every commit as the repo owner only (git identity: Mike McDougall <mike@honua.io>). Do **NOT** add any agent/tool attribution to commits: no `Co-Authored-By: Claude ...`, no `Co-Authored-By: Codex ...` (or other bot co-authors), and no "Generated with Claude Code" / "Generated with Codex" / "🤖" lines in the message or PR body. Write a plain, descriptive commit message and stop.
+
+## Component release versions
+
+`release/component-versions.json` is read by the honua-release nightly resolver
+at the published source commit. Update this declaration in the same PR as any
+contract or schema version bump. The next release-please publication carries
+changes to the declaration into the published source used by the resolver.

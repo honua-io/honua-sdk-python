@@ -1328,7 +1328,7 @@ class HonuaClient:
             if remaining is not None:
                 page_features = page_features[:remaining]
             features.extend(page_features)
-            if len(page.features) < record_count or not page.exceeded_transfer_limit:
+            if not page.features or not page.exceeded_transfer_limit:
                 break
             offset += len(page.features)
 
@@ -1613,4 +1613,3 @@ class HonuaClient:
         if not 200 <= response.status_code < 300:
             raise _to_http_error(response)
         return response
-

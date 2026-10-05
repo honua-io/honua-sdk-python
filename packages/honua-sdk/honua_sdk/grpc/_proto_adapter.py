@@ -4,14 +4,24 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
+    from honua_sdk.grpc._generated.geospatial.v1 import (
+        common_pb2 as common,
+    )
+    from honua_sdk.grpc._generated.geospatial.v1 import (
+        feature_service_pb2 as pb2,
+    )
 
 from . import _models as models
 
 
 def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesRequest:
     """Convert domain request to proto message."""
-    from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
+    from honua_sdk.grpc._generated.geospatial.v1 import (
+        common_pb2 as common,
+    )
+    from honua_sdk.grpc._generated.geospatial.v1 import (
+        feature_service_pb2 as pb2,
+    )
 
     msg = pb2.QueryFeaturesRequest()
     msg.service_id = request.service_id
@@ -27,8 +37,8 @@ def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesR
         msg.out_sr.wkid = request.out_sr.wkid
         msg.out_sr.latest_wkid = request.out_sr.latest_wkid
         msg.out_sr.wkt = request.out_sr.wkt
-    msg.result_offset = request.result_offset
-    msg.result_record_count = request.result_record_count
+    msg.result_offset_long = request.result_offset
+    msg.result_record_count_long = request.result_record_count
     if request.order_by:
         msg.order_by = request.order_by
     msg.return_distinct = request.return_distinct
@@ -37,10 +47,11 @@ def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesR
     msg.return_extent_only = request.return_extent_only
     if request.out_statistics:
         for stat in request.out_statistics:
-            s = pb2.StatisticDefinition()
-            s.on_statistic_field = stat.on_statistic_field
+            s = common.StatisticDefinition(
+                on_statistic_field=stat.on_statistic_field,
+                out_statistic_field_name=stat.out_statistic_field_name,
+            )
             s.statistic_type = stat.statistic_type.value  # type: ignore[assignment]
-            s.out_statistic_field_name = stat.out_statistic_field_name
             msg.out_statistics.append(s)
     if request.group_by:
         msg.group_by.extend(request.group_by)
@@ -54,7 +65,7 @@ def to_proto_request(request: models.QueryFeaturesRequest) -> pb2.QueryFeaturesR
         msg.spatial_filter.distance_unit = sf.distance_unit.value  # type: ignore[assignment]
         msg.spatial_filter.nearest_count = sf.nearest_count
         msg.spatial_filter.return_distance = sf.return_distance
-        geometry_spatial_reference: pb2.SpatialReference | None = None
+        geometry_spatial_reference: common.SpatialReference | None = None
         if sf.spatial_reference:
             msg.spatial_filter.spatial_reference.wkid = sf.spatial_reference.wkid
             msg.spatial_filter.spatial_reference.latest_wkid = sf.spatial_reference.latest_wkid
@@ -265,17 +276,22 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912 -- p
     return None
 
 
-def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference | None]:
+def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, common.SpatialReference | None]:
     """Convert an Esri JSON geometry dict to a proto Geometry message."""
-    from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
+    from honua_sdk.grpc._generated.geospatial.v1 import (
+        common_pb2 as common,
+    )
+    from honua_sdk.grpc._generated.geospatial.v1 import (
+        spatial_types_pb2 as spatial,
+    )
 
-    msg = pb2.Geometry()
-    spatial_reference = _extract_spatial_reference(geom, pb2)
+    msg = spatial.Geometry()
+    spatial_reference = _extract_spatial_reference(geom, common)
     has_z_hint = bool(geom.get("hasZ"))
     has_m_hint = bool(geom.get("hasM"))
 
     if "x" in geom and "y" in geom:
-        point = pb2.PointGeometry(x=geom["x"], y=geom["y"])
+        point = spatial.PointGeometry(x=geom["x"], y=geom["y"])
         if "z" in geom:
             point.z = geom["z"]
         if "m" in geom:
@@ -289,18 +305,18 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference 
         # Walking the corners (xmin,ymin)->(xmin,ymax)->(xmax,ymax)->(xmax,ymin)
         # yields a clockwise ring; the reverse order is CCW and would be read
         # as a hole, producing an inverted/empty bbox spatial filter over gRPC.
-        ring = pb2.CoordinateSequence(coords=[
-            pb2.Coordinate(x=geom["xmin"], y=geom["ymin"]),
-            pb2.Coordinate(x=geom["xmin"], y=geom["ymax"]),
-            pb2.Coordinate(x=geom["xmax"], y=geom["ymax"]),
-            pb2.Coordinate(x=geom["xmax"], y=geom["ymin"]),
-            pb2.Coordinate(x=geom["xmin"], y=geom["ymin"]),
+        ring = spatial.CoordinateSequence(coords=[
+            spatial.Coordinate(x=geom["xmin"], y=geom["ymin"]),
+            spatial.Coordinate(x=geom["xmin"], y=geom["ymax"]),
+            spatial.Coordinate(x=geom["xmax"], y=geom["ymax"]),
+            spatial.Coordinate(x=geom["xmax"], y=geom["ymin"]),
+            spatial.Coordinate(x=geom["xmin"], y=geom["ymin"]),
         ])
-        msg.polygon.CopyFrom(pb2.PolygonGeometry(rings=[ring]))
+        msg.polygon.CopyFrom(spatial.PolygonGeometry(rings=[ring]))
     elif "points" in geom:
         points = []
         for pt in geom["points"]:
-            p = pb2.PointGeometry(x=pt[0], y=pt[1])
+            p = spatial.PointGeometry(x=pt[0], y=pt[1])
             _set_coordinate_ordinates(
                 p,
                 pt,
@@ -308,25 +324,25 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, pb2.SpatialReference 
                 has_m_hint=has_m_hint,
             )
             points.append(p)
-        msg.multi_point.CopyFrom(pb2.MultiPointGeometry(points=points))
+        msg.multi_point.CopyFrom(spatial.MultiPointGeometry(points=points))
     elif "paths" in geom:
         paths = []
         for path in geom["paths"]:
             coords = [
-                _to_proto_coordinate(c, pb2, has_z_hint=has_z_hint, has_m_hint=has_m_hint)
+                _to_proto_coordinate(c, spatial, has_z_hint=has_z_hint, has_m_hint=has_m_hint)
                 for c in path
             ]
-            paths.append(pb2.CoordinateSequence(coords=coords))
-        msg.polyline.CopyFrom(pb2.PolylineGeometry(paths=paths))
+            paths.append(spatial.CoordinateSequence(coords=coords))
+        msg.polyline.CopyFrom(spatial.PolylineGeometry(paths=paths))
     elif "rings" in geom:
         rings = []
         for ring in geom["rings"]:
             coords = [
-                _to_proto_coordinate(c, pb2, has_z_hint=has_z_hint, has_m_hint=has_m_hint)
+                _to_proto_coordinate(c, spatial, has_z_hint=has_z_hint, has_m_hint=has_m_hint)
                 for c in ring
             ]
-            rings.append(pb2.CoordinateSequence(coords=coords))
-        msg.polygon.CopyFrom(pb2.PolygonGeometry(rings=rings))
+            rings.append(spatial.CoordinateSequence(coords=coords))
+        msg.polygon.CopyFrom(spatial.PolygonGeometry(rings=rings))
 
     return msg, spatial_reference
 
@@ -377,7 +393,7 @@ def _to_proto_coordinate(
     return coordinate
 
 
-def _extract_spatial_reference(geom: dict[str, Any], pb2_module: Any) -> pb2.SpatialReference | None:
+def _extract_spatial_reference(geom: dict[str, Any], pb2_module: Any) -> common.SpatialReference | None:
     spatial_reference = geom.get("spatialReference")
     if not isinstance(spatial_reference, dict):
         return None
@@ -397,4 +413,4 @@ def _extract_spatial_reference(geom: dict[str, Any], pb2_module: Any) -> pb2.Spa
     if sr.wkid == 0 and sr.latest_wkid == 0 and not sr.wkt:
         return None
 
-    return cast("pb2.SpatialReference", sr)
+    return cast("common.SpatialReference", sr)

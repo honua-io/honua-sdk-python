@@ -56,6 +56,8 @@ from ._models import (
     OgcStyleMetadata,
     OgcStylesheet,
     OgcStylesList,
+    OperationProposalDetail,
+    OperationProposalSummary,
     PublishedLayerSummary,
     PublishLayerRequest,
     SecureConnectionDetail,
@@ -1872,6 +1874,164 @@ class HonuaAdminClient:
             idempotency_key=idempotency_key,
         )
         return LayerStyleResponse.from_dict(data)
+
+    # ======================================================================
+    # Operation proposals
+    # ======================================================================
+
+    def list_proposals(
+        self,
+        *,
+        status: str | None = None,
+        kind: str | None = None,
+        requested_by: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> list[OperationProposalSummary]:
+        """List guardrail-routed operation proposals.
+
+        Args:
+            status: Case-insensitive lifecycle filter (``AwaitingApproval``,
+                ``Succeeded``, ...).
+            kind: Case-insensitive operation-class filter; the server
+                ignores values it cannot parse.
+            requested_by: Case-insensitive match on the requesting principal.
+
+        Returns:
+            Typed :class:`OperationProposalSummary` rows; empty when the
+            server returns no ``proposals`` array.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server responded with a non-success status
+                (``503`` when the durable control plane is not composed).
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        params = {
+            key: value
+            for key, value in (("status", status), ("kind", kind), ("requestedBy", requested_by))
+            if value is not None
+        }
+        data = self._request_json(
+            "GET",
+            "/api/v1/admin/proposals",
+            params=params or None,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        rows = data.get("proposals") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            return []
+        return [OperationProposalSummary.from_dict(row) for row in rows if isinstance(row, dict)]
+
+    def get_proposal(
+        self,
+        id: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> OperationProposalDetail:
+        """Fetch one operation proposal with its plan and resolution state.
+
+        Args:
+            id: Opaque proposal identifier; URL-encoded.
+
+        Returns:
+            An :class:`OperationProposalDetail`.
+
+        Per-request options (``timeout`` / ``extra_headers``) are forwarded
+        to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server responded with a non-success status
+                (``404`` for an unknown or other-tenant proposal).
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        proposal_id = encode_path_segment(id)
+        data = self._request_json(
+            "GET",
+            f"/api/v1/admin/proposals/{proposal_id}",
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        return OperationProposalDetail.from_dict(data)
+
+    def approve_proposal(
+        self,
+        id: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> OperationProposalDetail:
+        """Approve an operation proposal and apply it through the gateway.
+
+        The server enforces separation of duties: the principal that
+        requested a proposal cannot approve it.
+
+        Args:
+            id: Opaque proposal identifier; URL-encoded.
+
+        Returns:
+            The :class:`OperationProposalDetail` after approval.
+
+        Per-request options (``timeout`` / ``extra_headers`` /
+        ``idempotency_key``) are forwarded to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server refused the approval (``403`` for a
+                self-approval or a caller without approve authority, ``404``
+                for an unknown proposal, ``409`` when it cannot be applied).
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        proposal_id = encode_path_segment(id)
+        data = self._request_json(
+            "POST",
+            f"/api/v1/admin/proposals/{proposal_id}/approve",
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        )
+        return OperationProposalDetail.from_dict(data)
+
+    def reject_proposal(
+        self,
+        id: str,
+        reason: str,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> OperationProposalDetail:
+        """Reject an operation proposal with a required reason.
+
+        Args:
+            id: Opaque proposal identifier; URL-encoded.
+            reason: Non-blank rejection reason recorded on the proposal.
+
+        Returns:
+            The :class:`OperationProposalDetail` after rejection.
+
+        Per-request options (``timeout`` / ``extra_headers`` /
+        ``idempotency_key``) are forwarded to :meth:`_request`.
+
+        Raises:
+            HonuaHttpError: The server refused the rejection (``400`` for a
+                blank reason, ``403``, ``404``, or ``409``).
+            HonuaTransportError: The request failed at the transport layer.
+        """
+        proposal_id = encode_path_segment(id)
+        data = self._request_json(
+            "POST",
+            f"/api/v1/admin/proposals/{proposal_id}/reject",
+            json_body={"reason": reason},
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        )
+        return OperationProposalDetail.from_dict(data)
 
     # ======================================================================
     # Config

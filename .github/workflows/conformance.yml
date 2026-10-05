@@ -48,7 +48,7 @@ env:
   PYTHON_VERSION: "3.11"
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
-  CONFORMANCE_FIXTURES_VERSION: "0.2.0-alpha.1"
+  CONFORMANCE_FIXTURES_VERSION: "1.0.0"
   # Exact public wheel currently published on PyPI. This intentionally differs
   # from honua-release's stale 0.1.10 client-artifact pin; the lane qualifies
   # the bytes users can actually install while lock convergence remains owned

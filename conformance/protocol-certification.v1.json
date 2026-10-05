@@ -3,7 +3,7 @@
   "sourceRepository": "honua-io/honua-sdk-python",
   "canonicalClient": "Honua SDK Python",
   "clientVersion": "0.1.13",
-  "fixtureRevision": "geospatial-grpc@0.2.0-alpha.1",
+  "fixtureRevision": "geospatial-grpc@1.0.0",
   "operations": [
     {
       "capability_key": "serve.geoservices-root",

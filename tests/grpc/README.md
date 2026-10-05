@@ -25,5 +25,11 @@ Local verification for #259:
 - Before regeneration: **4 failed**, all with gRPC `UNIMPLEMENTED`.
 - After regeneration, same Docker cases/image/seed: **4 passed**.
 - Focused gRPC contract/adapter/client and wheel-content tests: **85 passed**.
+- Full repository suite with optional raster/FastAPI dependencies and local
+  `honua-gp` available: **1,809 passed, 0 skipped**, combined coverage **94.68%**
+  (94% required).
+- Clean installed candidate wheel with the declared minimum `grpcio==1.70.0`
+  and `protobuf==5.29.0`, run outside the source checkout: **4 passed** against
+  the same pinned Docker target.
 - Remote pinned generation, invoked outside the SDK checkout, reproduces the
   committed bindings without a diff.

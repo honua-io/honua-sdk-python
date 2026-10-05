@@ -19,6 +19,21 @@ env:
   FORCE_COLOR: "1"
 
 jobs:
+  grpc-interop:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install candidate SDK and test dependencies
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
+          python -m pip install --no-deps --no-build-isolation ./packages/honua-sdk
+      - name: Verify gRPC against pinned nightly-ff5f567 server
+        run: python -m pytest tests/grpc -q --run-integration --tb=short
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -270,7 +285,11 @@ jobs:
             "honua_sdk/_retry_core.py" \
             "honua_sdk/grpc/" \
             "honua_sdk/migration/" \
-            "honua_sdk/grpc/_generated/honua/v1/feature_service_pb2.pyi"; do
+            "honua_sdk/grpc/_generated/geospatial/v1/feature_service_pb2.pyi" \
+            "honua_sdk/grpc/_generated/geospatial/v1/common_pb2.py" \
+            "honua_sdk/grpc/_generated/geospatial/v1/spatial_types_pb2.py" \
+            "honua_sdk/grpc/_generated/geospatial/v1/execution_types_pb2.py" \
+            "honua_sdk/grpc/_generated/geospatial/v1/workspace_artifact_types_pb2.py"; do
             if echo "$contents" | grep -q "$expected"; then
               echo "  ok: $expected"
             else

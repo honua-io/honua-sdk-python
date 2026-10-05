@@ -19,3 +19,11 @@ Python service implementation or mock transport. Before regenerating the SDK,
 all four fail with `UNIMPLEMENTED: Service is unimplemented.` The normal local
 suite excludes this opt-in live-server module; explicitly requested interop
 runs fail on infrastructure errors rather than skipping cases.
+
+Local verification for #259:
+
+- Before regeneration: **4 failed**, all with gRPC `UNIMPLEMENTED`.
+- After regeneration, same Docker cases/image/seed: **4 passed**.
+- Focused gRPC contract/adapter/client and wheel-content tests: **85 passed**.
+- Remote pinned generation, invoked outside the SDK checkout, reproduces the
+  committed bindings without a diff.

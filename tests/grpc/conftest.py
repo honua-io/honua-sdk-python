@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import subprocess
 import time
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.error import URLError
@@ -24,7 +25,7 @@ def _fetch(path: str) -> bytes:
     for delay in (0, 10, 30, 60, 120):
         time.sleep(delay)
         try:
-            with urlopen(url, timeout=15) as response:  # noqa: S310 -- fixed HTTPS repository URL
+            with urlopen(url, timeout=15) as response:
                 return response.read()
         except URLError:
             if delay == 120:
@@ -50,7 +51,8 @@ def grpc_target(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         "image": SERVER_IMAGE,
         "ports": ["127.0.0.1::5001"],
     }}}))
-    command = ["docker", "compose", "-p", root.name, "-f", str(compose), "-f", str(override)]
+    command = ["docker", "compose", "-p", f"grpc-interop-{uuid.uuid4().hex[:12]}",
+               "-f", str(compose), "-f", str(override)]
 
     def run(*args: str, input_text: str | None = None) -> str:
         result = subprocess.run(  # noqa: S603 -- fixed Docker commands, no shell
@@ -60,6 +62,11 @@ def grpc_target(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
         return result.stdout.strip()
 
     try:
+        # pg_isready over the Unix socket can succeed during image initialization,
+        # before PostgreSQL restarts to listen on TCP. Wait for TCP before Honua's migrations.
+        run("up", "-d", "--wait", "postgres", "redis")
+        run("exec", "-T", "postgres", "sh", "-c",
+            "until pg_isready -h postgres -U postgres; do sleep 1; done")
         run("up", "-d", "--no-build", "--wait", "--wait-timeout", "180", "honua")
         run("exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "honua_compat",
             "-v", "ON_ERROR_STOP=1", input_text=seed)

@@ -5,7 +5,9 @@ from itertools import pairwise
 
 import pytest
 
-from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2 as pb2
+from honua_sdk.grpc._generated.geospatial.v1 import common_pb2 as common
+from honua_sdk.grpc._generated.geospatial.v1 import feature_service_pb2 as pb2
+from honua_sdk.grpc._generated.geospatial.v1 import spatial_types_pb2 as spatial
 from honua_sdk.grpc import _proto_adapter as adapter
 from honua_sdk.grpc._models import (
     DistanceUnit,
@@ -76,8 +78,8 @@ class TestToProtoRequest:
         )
         proto = adapter.to_proto_request(req)
 
-        assert proto.result_offset == 10
-        assert proto.result_record_count == 50
+        assert proto.result_offset_long == 10
+        assert proto.result_record_count_long == 50
         assert proto.order_by == "name ASC"
         assert proto.return_distinct is True
 
@@ -112,7 +114,7 @@ class TestToProtoRequest:
 
         assert len(proto.out_statistics) == 1
         assert proto.out_statistics[0].on_statistic_field == "area"
-        assert proto.out_statistics[0].statistic_type == pb2.STATISTIC_TYPE_SUM
+        assert proto.out_statistics[0].statistic_type == common.STATISTIC_TYPE_SUM
         assert proto.out_statistics[0].out_statistic_field_name == "total_area"
         assert list(proto.group_by) == ["state"]
 
@@ -330,17 +332,17 @@ class TestFromProtoPage:
 
     def test_page_with_features(
         self,
-        proto_spatial_reference: pb2.SpatialReference,
-        proto_point_feature: pb2.Feature,
+        proto_spatial_reference: common.SpatialReference,
+        proto_point_feature: spatial.Feature,
     ) -> None:
         page = pb2.FeaturePage()
         page.object_id_field_name = "OBJECTID"
-        page.geometry_type = pb2.GEOMETRY_TYPE_POINT
+        page.geometry_type = common.GEOMETRY_TYPE_POINT
         page.spatial_reference.CopyFrom(proto_spatial_reference)
 
         fd = page.fields.add()
         fd.name = "name"
-        fd.field_type = pb2.FIELD_TYPE_STRING
+        fd.field_type = common.FIELD_TYPE_STRING
         fd.length = 255
         fd.nullable = True
 
@@ -380,52 +382,52 @@ class TestConvertAttribute:
     """Tests for individual attribute value conversion."""
 
     def test_string_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.string_value = "hello"
         assert adapter._convert_attribute(attr) == "hello"
 
     def test_int32_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.int32_value = 42
         assert adapter._convert_attribute(attr) == 42
 
     def test_int64_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.int64_value = 9999999999
         assert adapter._convert_attribute(attr) == 9999999999
 
     def test_double_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.double_value = 3.14
         assert adapter._convert_attribute(attr) == pytest.approx(3.14)
 
     def test_float_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.float_value = 2.5
         assert adapter._convert_attribute(attr) == pytest.approx(2.5)
 
     def test_bool_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.bool_value = True
         assert adapter._convert_attribute(attr) is True
 
     def test_datetime_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.datetime_value = 1709251200000  # 2024-03-01 UTC ms
         assert adapter._convert_attribute(attr) == 1709251200000
 
     def test_bytes_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         attr.bytes_value = b"\x00\x01"
         assert adapter._convert_attribute(attr) == b"\x00\x01"
 
     def test_null_value(self) -> None:
-        attr = pb2.AttributeValue()
-        attr.null_value = pb2.NULL_VALUE
+        attr = common.AttributeValue()
+        attr.null_value = common.NULL_VALUE
         assert adapter._convert_attribute(attr) is None
 
     def test_unset_value(self) -> None:
-        attr = pb2.AttributeValue()
+        attr = common.AttributeValue()
         assert adapter._convert_attribute(attr) is None
 
 
@@ -438,7 +440,7 @@ class TestConvertGeometry:
     """Tests for geometry proto -> Esri JSON conversion."""
 
     def test_point(self) -> None:
-        geom = pb2.Geometry()
+        geom = spatial.Geometry()
         geom.point.x = -122.4194
         geom.point.y = 37.7749
         result = adapter._convert_geometry(geom)
@@ -446,7 +448,7 @@ class TestConvertGeometry:
         assert result == {"x": pytest.approx(-122.4194), "y": pytest.approx(37.7749)}
 
     def test_point_with_z(self) -> None:
-        geom = pb2.Geometry()
+        geom = spatial.Geometry()
         geom.point.x = 0.0
         geom.point.y = 0.0
         geom.point.z = 100.0
@@ -456,7 +458,7 @@ class TestConvertGeometry:
         assert result["z"] == pytest.approx(100.0)
 
     def test_multi_point(self) -> None:
-        geom = pb2.Geometry()
+        geom = spatial.Geometry()
         p1 = geom.multi_point.points.add()
         p1.x = 1.0
         p1.y = 2.0
@@ -468,7 +470,7 @@ class TestConvertGeometry:
         assert result == {"points": [[1.0, 2.0], [3.0, 4.0]]}
 
     def test_multi_point_with_m_only(self) -> None:
-        geom = pb2.Geometry()
+        geom = spatial.Geometry()
         p = geom.multi_point.points.add()
         p.x = 1.0
         p.y = 2.0
@@ -480,7 +482,7 @@ class TestConvertGeometry:
         # geometry-level hasM flag so a third ordinate reads as M, not Z.
         assert result == {"points": [[1.0, 2.0, 9.0]], "hasM": True}
 
-    def test_polyline(self, proto_polyline_feature: pb2.Feature) -> None:
+    def test_polyline(self, proto_polyline_feature: spatial.Feature) -> None:
         result = adapter._convert_geometry(proto_polyline_feature.geometry)
 
         assert result is not None
@@ -489,7 +491,7 @@ class TestConvertGeometry:
         assert result["paths"][0] == [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]]
 
     def test_polyline_with_m_only(self) -> None:
-        geom = pb2.Geometry()
+        geom = spatial.Geometry()
         path = geom.polyline.paths.add()
         coord = path.coords.add()
         coord.x = 0.0
@@ -504,7 +506,7 @@ class TestConvertGeometry:
         assert result["hasM"] is True
         assert "hasZ" not in result
 
-    def test_polygon(self, proto_polygon_feature: pb2.Feature) -> None:
+    def test_polygon(self, proto_polygon_feature: spatial.Feature) -> None:
         result = adapter._convert_geometry(proto_polygon_feature.geometry)
 
         assert result is not None
@@ -512,7 +514,7 @@ class TestConvertGeometry:
         assert len(result["rings"]) == 1
         assert len(result["rings"][0]) == 5  # closed ring
 
-    def test_multi_polygon(self, proto_multi_polygon_feature: pb2.Feature) -> None:
+    def test_multi_polygon(self, proto_multi_polygon_feature: spatial.Feature) -> None:
         result = adapter._convert_geometry(proto_multi_polygon_feature.geometry)
 
         assert result is not None
@@ -521,6 +523,6 @@ class TestConvertGeometry:
         assert len(result["rings"]) == 2
 
     def test_no_shape(self) -> None:
-        geom = pb2.Geometry()
+        geom = spatial.Geometry()
         result = adapter._convert_geometry(geom)
         assert result is None

@@ -7,7 +7,16 @@ from typing import Any
 import httpx
 import pytest
 
-from honua_sdk import CallableAuthProvider, DataPlaneCapabilities, FeatureQuery, HonuaClient, HonuaHttpError
+from honua_sdk import (
+    CallableAuthProvider,
+    DataPlaneCapabilities,
+    FeatureQuery,
+    HonuaClient,
+    HonuaHttpError,
+    Query,
+    SourceDescriptor,
+    SourceLocator,
+)
 from honua_sdk.errors import HonuaTransportError
 
 
@@ -216,6 +225,47 @@ def test_query_features_all_pages_until_transfer_limit_clears() -> None:
 
     assert [feature.object_id for feature in features] == [1, 2, 3]
     assert seen == [("0", "2"), ("2", "1")]
+
+
+def test_query_features_all_continues_after_server_capped_short_page() -> None:
+    seen_offsets: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offset = int(request.url.params["resultOffset"])
+        seen_offsets.append(offset)
+        page_ids = range(offset + 1, min(offset + 6, 10))
+        return httpx.Response(
+            200,
+            json={
+                "features": [{"attributes": {"objectid": object_id}} for object_id in page_ids],
+                "exceededTransferLimit": offset + 5 < 9,
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        features = client.query_features_all("parcels", 0, page_size=1000)
+
+    assert [feature.object_id for feature in features] == list(range(1, 10))
+    assert seen_offsets == [0, 5]
+
+
+def test_source_query_maps_feature_server_count_only_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["returnCountOnly"] == "true"
+        return httpx.Response(200, json={"count": 9})
+
+    descriptor = SourceDescriptor(
+        id="parcels",
+        protocol="geoservices-feature-service",
+        locator=SourceLocator(service_id="parcels", layer_id=0),
+    )
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        result = client.source(descriptor).query(Query(aggregation={"return_count_only": True}))
+
+    assert result.features == ()
+    assert result.total_count == 9
 
 
 def test_query_features_all_stops_on_non_advancing_cursor() -> None:

@@ -368,7 +368,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
             yield page
             page_count = len(page.features)
             total += page_count
-            if page_count < record_count or not page.exceeded_transfer_limit:
+            if page_count == 0 or not page.exceeded_transfer_limit:
                 break
             offset += page_count
 
@@ -1189,7 +1189,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
             yield page
             page_count = len(page.features)
             total += page_count
-            if page_count < record_count or not page.exceeded_transfer_limit:
+            if page_count == 0 or not page.exceeded_transfer_limit:
                 break
             offset += page_count
 

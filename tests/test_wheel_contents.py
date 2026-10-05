@@ -43,7 +43,11 @@ EXPECTED_CONTENTS: dict[str, tuple[str, ...]] = {
         "honua_sdk/migration/",
         # The generated gRPC type stub is the type signal for the streaming
         # client; a wheel that drops it ships an untyped grpc surface.
-        "honua_sdk/grpc/_generated/honua/v1/feature_service_pb2.pyi",
+        "honua_sdk/grpc/_generated/geospatial/v1/feature_service_pb2.pyi",
+        "honua_sdk/grpc/_generated/geospatial/v1/common_pb2.py",
+        "honua_sdk/grpc/_generated/geospatial/v1/spatial_types_pb2.py",
+        "honua_sdk/grpc/_generated/geospatial/v1/execution_types_pb2.py",
+        "honua_sdk/grpc/_generated/geospatial/v1/workspace_artifact_types_pb2.py",
     ),
     "honua-admin": (
         "honua_admin/py.typed",

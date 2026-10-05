@@ -2,9 +2,11 @@
   "format": "honua.component-versions/v1",
   "component": "honua-sdk-python",
   "contractVersions": {
-    "protocol-factories": "1"
+    "protocol-factories": "1",
+    "grpc": "v1"
   },
   "schemaVersions": {
-    "diagnostic-bundle": "1.0"
+    "diagnostic-bundle": "1.0",
+    "geospatial.v1": "1.0.0"
   }
 }

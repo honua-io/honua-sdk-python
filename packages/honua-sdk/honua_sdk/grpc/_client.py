@@ -124,7 +124,7 @@ class HonuaGrpcClient:
                 "Provide `credentials`, a pre-configured `channel`, or set `insecure=True` explicitly."
             )
 
-        from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2_grpc
+        from honua_sdk.grpc._generated.geospatial.v1 import feature_service_pb2_grpc
 
         self._stub = feature_service_pb2_grpc.FeatureServiceStub(self._channel)  # type: ignore[no-untyped-call]
 
@@ -227,7 +227,7 @@ class HonuaGrpcAsyncClient:
                 "Provide `credentials`, a pre-configured `channel`, or set `insecure=True` explicitly."
             )
 
-        from honua_sdk.grpc._generated.honua.v1 import feature_service_pb2_grpc
+        from honua_sdk.grpc._generated.geospatial.v1 import feature_service_pb2_grpc
 
         self._stub = feature_service_pb2_grpc.FeatureServiceStub(self._channel)  # type: ignore[no-untyped-call]
 

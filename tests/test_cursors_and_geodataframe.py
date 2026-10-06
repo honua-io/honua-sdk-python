@@ -218,9 +218,12 @@ def test_update_cursor_batch_size_flushes_mid_iteration() -> None:
     assert len(cursor.results) == 2
 
 
-def test_sdkpy_001_update_cursor_snapshots_rows_before_flushing() -> None:
-    requests: list[str] = []
-    edited: set[int] = set()
+def _pending_handler(
+    requests: list[tuple[str | None, str | None]],
+    edited: set[int],
+    total: int = 4,
+):
+    """FeatureServer mock: ``status = 'pending'`` rows, offset paging, ``objectIds``."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/applyEdits"):
@@ -228,25 +231,67 @@ def test_sdkpy_001_update_cursor_snapshots_rows_before_flushing() -> None:
             ids = {item["attributes"]["objectid"] for item in payload["updates"]}
             edited.update(ids)
             return httpx.Response(200, json={"updateResults": [{"success": True} for _ in ids]})
-        requests.append("query")
-        pending = [oid for oid in range(1, 5) if oid not in edited]
-        offset = int(request.url.params.get("resultOffset", "0"))
+        params = request.url.params
+        requests.append((params.get("returnGeometry"), params.get("objectIds")))
+        pending = [oid for oid in range(1, total + 1) if oid not in edited]
+        if params.get("objectIds"):
+            wanted = {int(oid) for oid in params["objectIds"].split(",")}
+            pending = [oid for oid in pending if oid in wanted]
+        offset = int(params.get("resultOffset", "0"))
         rows = pending[offset : offset + 2]
         return httpx.Response(
             200,
             json={
-                "features": [{"attributes": {"objectid": oid, "status": "pending"}} for oid in rows],
+                "features": [
+                    {"attributes": {"objectid": oid, "status": "pending"}, "geometry": {"x": oid, "y": oid}}
+                    for oid in rows
+                ],
                 "exceededTransferLimit": offset + len(rows) < len(pending),
             },
         )
 
-    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+    return handler
+
+
+def test_sdkpy_001_update_cursor_snapshots_rows_before_flushing() -> None:
+    requests: list[tuple[str | None, str | None]] = []
+    edited: set[int] = set()
+
+    with HonuaClient(
+        "http://example.test", transport=httpx.MockTransport(_pending_handler(requests, edited))
+    ) as client:
         with client.source(_descriptor()).update_cursor(where="status = 'pending'", batch_size=1) as cursor:
             for row in cursor:
                 cursor.update_row(row, attributes={"status": "done"})
 
     assert edited == {1, 2, 3, 4}
-    assert requests == ["query", "query"]
+    # Geometry-free id snapshot (two pages), then one row fetch per batch of ids.
+    assert requests == [
+        ("false", None),
+        ("false", None),
+        ("true", "1"),
+        ("true", "2"),
+        ("true", "3"),
+        ("true", "4"),
+    ]
+
+
+def test_update_cursor_fetches_rows_lazily_per_batch() -> None:
+    requests: list[tuple[str | None, str | None]] = []
+    edited: set[int] = set()
+
+    with HonuaClient(
+        "http://example.test", transport=httpx.MockTransport(_pending_handler(requests, edited))
+    ) as client:
+        cursor = client.source(_descriptor()).update_cursor(where="status = 'pending'", batch_size=2)
+        rows = iter(cursor)
+        first = next(rows)
+        # Only the id snapshot and the first batch of full rows are loaded.
+        assert first.object_id == 1
+        assert first.feature.geometry is not None
+        assert requests == [("false", None), ("false", None), ("true", "1,2")]
+        assert [row.object_id for row in rows] == [2, 3, 4]
+    assert requests[-1] == ("true", "3,4")
 
 
 def test_sdkpy_006_insert_cursor_raises_for_row_failure() -> None:

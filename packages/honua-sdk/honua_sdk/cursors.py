@@ -95,6 +95,49 @@ def _esri_feature_from(
     return feature
 
 
+def _search_kwargs(
+    query_kwargs: Mapping[str, Any],
+    where: str | None,
+    geometry_filter: Mapping[str, Any] | None,
+    fields: tuple[str, ...] | None,
+) -> dict[str, Any]:
+    kwargs = dict(query_kwargs)
+    if where is not None:
+        kwargs.setdefault("where", where)
+    if geometry_filter is not None:
+        kwargs.setdefault("spatial_filter", {"geometry": geometry_filter})
+    if fields is not None:
+        attr_fields = [f for f in fields if f != SHAPE_TOKEN]
+        if attr_fields and "out_fields" not in kwargs:
+            kwargs["out_fields"] = attr_fields
+    return kwargs
+
+
+def _snapshot_object_id(row: Row) -> int:
+    object_id = row.object_id
+    if object_id is None:
+        raise ValueError("UpdateCursor rows need an object id (OBJECTID) to snapshot the query.")
+    return object_id
+
+
+def _chunk_overrides(stream_kwargs: Mapping[str, Any], object_ids: Sequence[int]) -> dict[str, Any]:
+    """Query overrides that re-fetch one snapshot chunk by object id.
+
+    The original predicate stays applied, so rows edited elsewhere since the
+    snapshot drop out, and any caller offset is reset so it cannot skip rows
+    inside the chunk.
+    """
+    query = stream_kwargs.get("query")
+    base = (query.get("extra_params") if isinstance(query, Mapping) else getattr(query, "extra_params", None)) or {}
+    extra_params = {
+        **dict(base),
+        **dict(stream_kwargs.get("extra_params") or {}),
+        "objectIds": ",".join(str(oid) for oid in object_ids),
+        "resultOffset": 0,
+    }
+    return {"extra_params": extra_params}
+
+
 class SearchCursor:
     """Lazy row iterator over a source query (``arcpy.da.SearchCursor`` analogue).
 
@@ -123,17 +166,11 @@ class SearchCursor:
     def fields(self) -> tuple[str, ...] | None:
         return self._fields
 
-    def _rows(self) -> Iterator[Row]:
-        kwargs = dict(self._query_kwargs)
-        if self._where is not None:
-            kwargs.setdefault("where", self._where)
-        if self._geometry_filter is not None:
-            kwargs.setdefault("spatial_filter", {"geometry": self._geometry_filter})
-        if self._fields is not None:
-            attr_fields = [f for f in self._fields if f != SHAPE_TOKEN]
-            if attr_fields and "out_fields" not in kwargs:
-                kwargs["out_fields"] = attr_fields
-        for feature in self._source.stream(**kwargs):
+    def _stream_kwargs(self) -> dict[str, Any]:
+        return _search_kwargs(self._query_kwargs, self._where, self._geometry_filter, self._fields)
+
+    def _rows(self, **overrides: Any) -> Iterator[Row]:
+        for feature in self._source.stream(**{**self._stream_kwargs(), **overrides}):
             yield Row(feature=feature)
 
     def __iter__(self) -> Iterator[Any]:
@@ -182,8 +219,7 @@ class _BaseWriteCursor:
         self._buffer.results.append(result)
         if not result.all_succeeded:
             failed = sum(
-                not item.success
-                for item in (*result.add_results, *result.update_results, *result.delete_results)
+                not item.success for item in (*result.add_results, *result.update_results, *result.delete_results)
             )
             raise HonuaError(f"applyEdits reported {failed} failed row operation(s).")
 
@@ -265,9 +301,19 @@ class UpdateCursor(_BaseWriteCursor):
         )
 
     def __iter__(self) -> Iterator[Row]:
-        # Snapshot the query before allowing writes. Otherwise a batch flush can
-        # change the predicate while an offset-paged search is still advancing.
-        yield from list(self._search.rows())
+        # Snapshot the matching object ids (geometry-free) before allowing
+        # writes: a batch flush can otherwise change the predicate while an
+        # offset-paged search is still advancing. Full rows are then fetched
+        # lazily one batch of ids at a time, so memory stays bounded.
+        object_ids = [_snapshot_object_id(row) for row in self._search._rows(return_geometry=False)]
+        stream_kwargs = self._search._stream_kwargs()
+        for start in range(0, len(object_ids), self._buffer.batch_size):
+            chunk = object_ids[start : start + self._buffer.batch_size]
+            wanted = set(chunk)
+            for row in self._search._rows(**_chunk_overrides(stream_kwargs, chunk)):
+                if row.object_id in wanted:
+                    wanted.discard(row.object_id)
+                    yield row
 
     def update_row(
         self,
@@ -341,17 +387,11 @@ class AsyncSearchCursor:
     def fields(self) -> tuple[str, ...] | None:
         return self._fields
 
-    async def _rows(self) -> AsyncIterator[Row]:
-        kwargs = dict(self._query_kwargs)
-        if self._where is not None:
-            kwargs.setdefault("where", self._where)
-        if self._geometry_filter is not None:
-            kwargs.setdefault("spatial_filter", {"geometry": self._geometry_filter})
-        if self._fields is not None:
-            attr_fields = [f for f in self._fields if f != SHAPE_TOKEN]
-            if attr_fields and "out_fields" not in kwargs:
-                kwargs["out_fields"] = attr_fields
-        async for feature in self._source.stream(**kwargs):
+    def _stream_kwargs(self) -> dict[str, Any]:
+        return _search_kwargs(self._query_kwargs, self._where, self._geometry_filter, self._fields)
+
+    async def _rows(self, **overrides: Any) -> AsyncIterator[Row]:
+        async for feature in self._source.stream(**{**self._stream_kwargs(), **overrides}):
             yield Row(feature=feature)
 
     async def __aiter__(self) -> AsyncIterator[Any]:
@@ -434,9 +474,16 @@ class AsyncUpdateCursor(_BaseWriteCursor):
         )
 
     async def __aiter__(self) -> AsyncIterator[Row]:
-        rows = [row async for row in self._search.rows()]
-        for row in rows:
-            yield row
+        # See UpdateCursor.__iter__: snapshot ids, then fetch rows per batch.
+        object_ids = [_snapshot_object_id(row) async for row in self._search._rows(return_geometry=False)]
+        stream_kwargs = self._search._stream_kwargs()
+        for start in range(0, len(object_ids), self._buffer.batch_size):
+            chunk = object_ids[start : start + self._buffer.batch_size]
+            wanted = set(chunk)
+            async for row in self._search._rows(**_chunk_overrides(stream_kwargs, chunk)):
+                if row.object_id in wanted:
+                    wanted.discard(row.object_id)
+                    yield row
 
     def update_row(
         self,

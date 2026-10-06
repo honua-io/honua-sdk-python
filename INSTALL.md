@@ -53,10 +53,10 @@ pip install "./packages/honua-sdk[grpc,geopandas,raster]" ./packages/honua-admin
 ```
 
 Or straight from GitHub without cloning, pinned to a release tag
-(`python-sdk-v0.1.12` is the `honua-sdk` release that Honua 2026.1 ships):
+(`python-sdk-v0.1.14` is the current published `honua-sdk` release):
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.12#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.14#subdirectory=packages/honua-sdk"
 ```
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it

@@ -83,23 +83,32 @@ request raises.
 ### Async
 
 ```python
+import asyncio
+
 from honua_sdk import AsyncHonuaClient, Query, SourceDescriptor, SourceLocator
 
-async with AsyncHonuaClient("https://demo.honua.io") as client:
-    source = client.source(
-        SourceDescriptor(
-            id="maui-zoning",
-            protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+async def main() -> None:
+    async with AsyncHonuaClient("https://demo.honua.io") as client:
+        source = client.source(
+            SourceDescriptor(
+                id="maui-zoning",
+                protocol="geoservices-feature-service",
+                locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+            )
         )
-    )
-    result = await source.query(Query(where="island = 'Maui'", out_fields=["*"]))
-    async for feature in source.stream(Query(where="zone_code = '929'")):  # parks
-        print(feature.id, feature.properties)
+        result = await source.query(Query(where="island = 'Maui'", out_fields=["*"]))
+        print(f"Found {len(result.features)} features")
+        async for feature in source.stream(Query(where="zone_code = '929'")):  # parks
+            print(feature.id, feature.properties)
+
+
+asyncio.run(main())
 ```
 
-Works with FastAPI, asyncio pipelines, Jupyter async, and any other async
-framework. Sync and async clients share identical method names, retry, and
+Works with FastAPI, asyncio pipelines, Jupyter, and any other async
+framework. `asyncio.run(main())` is for scripts; Jupyter and IPython already run
+an event loop, where `asyncio.run` raises `RuntimeError`, so call
+`await main()` in a notebook cell instead. Sync and async clients share identical method names, retry, and
 error-handling behavior.
 
 Protocol IDs follow the canonical cross-SDK names

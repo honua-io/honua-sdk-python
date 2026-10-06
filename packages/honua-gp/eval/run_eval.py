@@ -25,9 +25,8 @@ three independent layers, from weakest to strongest:
 
 Honest scope: stub mode grades layers 1-2 (dispatch plumbing + request
 fingerprint). Live mode adds layer 3 (round-trip correctness against a real
-Honua server). Neither layer verifies ArcGIS Pro output parity -- that requires
-a licensed arcpy run and is out of scope here (tracked separately). See
-``docs/golden-eval.md``.
+Honua server). Desktop-client compatibility evidence is recorded separately as
+honua-release#425. See ``docs/golden-eval.md``.
 
 Run from the package root::
 

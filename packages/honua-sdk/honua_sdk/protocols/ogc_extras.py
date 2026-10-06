@@ -144,10 +144,31 @@ class OgcTilesClient(_SyncProtocol):
     def collection_tilesets(self, collection_id: FeatureId) -> JsonObject:
         return self._json("GET", f"{_ogc_collection_path(self.root, collection_id)}/tiles")
 
-    def tile(self, tile_matrix_set_id: str, tile_matrix: str, row: int, col: int, *, collection_id: FeatureId | None = None) -> bytes:
+    def tile(
+        self,
+        tile_matrix_set_id: str,
+        tile_matrix: str,
+        row: int,
+        col: int,
+        *,
+        collection_id: FeatureId | None = None,
+        response_format: str | None = None,
+        extra_params: Params = None,
+    ) -> bytes:
+        """Fetch a tile in the default encoding or a requested format.
+
+        ``response_format`` is sent as the OGC ``f`` query parameter (for
+        example, ``"png"`` for a rendered raster tile). ``extra_params``
+        passes deployment-specific query parameters and takes precedence over
+        ``response_format`` when it also contains ``f``. Omitting both keeps
+        the historical request URL unchanged.
+        """
         prefix = f"{self.root}/tiles" if collection_id is None else f"{_ogc_collection_path(self.root, collection_id)}/tiles"
         path = f"{prefix}/{_encode_path_segment(tile_matrix_set_id)}/{_encode_path_segment(tile_matrix)}/{row}/{col}"
-        return self._bytes(path)
+        if response_format is None and extra_params is None:
+            return self._bytes(path)
+        defaults = {"f": response_format} if response_format is not None else None
+        return self._bytes(path, params=_params(defaults, extra_params))
 
 
 class OgcCoveragesClient(_SyncProtocol):
@@ -308,10 +329,27 @@ class AsyncOgcTilesClient(_AsyncProtocol):
     async def collection_tilesets(self, collection_id: FeatureId) -> JsonObject:
         return await self._json("GET", f"{_ogc_collection_path(self.root, collection_id)}/tiles")
 
-    async def tile(self, tile_matrix_set_id: str, tile_matrix: str, row: int, col: int, *, collection_id: FeatureId | None = None) -> bytes:
+    async def tile(
+        self,
+        tile_matrix_set_id: str,
+        tile_matrix: str,
+        row: int,
+        col: int,
+        *,
+        collection_id: FeatureId | None = None,
+        response_format: str | None = None,
+        extra_params: Params = None,
+    ) -> bytes:
+        """Fetch a tile in the default encoding or a requested format.
+
+        See :meth:`OgcTilesClient.tile` for parameter semantics.
+        """
         prefix = f"{self.root}/tiles" if collection_id is None else f"{_ogc_collection_path(self.root, collection_id)}/tiles"
         path = f"{prefix}/{_encode_path_segment(tile_matrix_set_id)}/{_encode_path_segment(tile_matrix)}/{row}/{col}"
-        return await self._bytes(path)
+        if response_format is None and extra_params is None:
+            return await self._bytes(path)
+        defaults = {"f": response_format} if response_format is not None else None
+        return await self._bytes(path, params=_params(defaults, extra_params))
 
 
 class AsyncOgcCoveragesClient(_AsyncProtocol):

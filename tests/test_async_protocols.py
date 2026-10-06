@@ -116,6 +116,33 @@ async def test_async_ogc_maps_tiles_coverages_and_processes_build_expected_paths
     assert seen[4]["query"] == {"f": "tiff"}
 
 
+async def test_async_ogc_tiles_tile_supports_raster_format_and_extra_params() -> None:
+    seen: list[dict[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params.multi_items()))
+        return httpx.Response(200, content=b"\x89PNG\r\n\x1a\n")
+
+    transport = httpx.MockTransport(handler)
+    async with AsyncHonuaClient("http://example.test", transport=transport) as client:
+        tiles = client.ogc_tiles()
+        assert await tiles.tile("WebMercatorQuad", "0", 0, 0) == b"\x89PNG\r\n\x1a\n"
+        assert await tiles.tile(
+            "WebMercatorQuad",
+            "0",
+            0,
+            0,
+            collection_id="admin/bounds",
+            response_format="png",
+            extra_params={"style": "night"},
+        ) == b"\x89PNG\r\n\x1a\n"
+        assert await tiles.tile(
+            "WebMercatorQuad", "0", 0, 0, response_format="png", extra_params={"f": "jpeg"}
+        ) == b"\x89PNG\r\n\x1a\n"
+
+    assert seen == [{}, {"f": "png", "style": "night"}, {"f": "jpeg"}]
+
+
 async def test_async_stac_classic_ogc_and_odata_build_expected_paths() -> None:
     seen: list[dict[str, Any]] = []
 

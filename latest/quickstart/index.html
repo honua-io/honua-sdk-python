@@ -1908,7 +1908,19 @@ returns typed <code>Result</code>/<code>QueryFeature</code> objects.</p>
 <h2 id="step-3-convert-to-geodataframe-10-seconds">Step 3: Convert to GeoDataFrame (10 seconds)<a class="headerlink" href="#step-3-convert-to-geodataframe-10-seconds" title="Permanent link">&para;</a></h2>
 <p>A <code>Result</code> from the <code>Source</code> API converts directly with one call -- no
 Shapely glue code required:</p>
-<div class="highlight"><pre><span></span><code><span class="n">gdf</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
+        <span class="n">SourceDescriptor</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"island = 'Maui'"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">]))</span>
+
+<span class="n">gdf</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
 </code></pre></div>
@@ -1919,6 +1931,7 @@ normalized features and resolves the CRS from the query's spatial reference.</p>
 a list of feature dicts, use <code>features_to_geodataframe</code>, which also accepts
 Esri JSON geometries and the layer's <code>spatialReference</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geopandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">features_to_geodataframe</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
 <span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">raw</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="s2">"island = 'Maui'"</span><span class="p">)</span>
@@ -1932,6 +1945,18 @@ appendix at the bottom of this file for the manual Esri JSON conversion.</p>
 <h2 id="step-4-plot-the-data-60-seconds">Step 4: Plot the data (60 seconds)<a class="headerlink" href="#step-4-plot-the-data-60-seconds" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
+        <span class="n">SourceDescriptor</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"island = 'Maui'"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">]))</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
+
 <span class="n">ax</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">"cp_area"</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"Maui zoning by community plan area"</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"features.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">)</span>
@@ -1940,16 +1965,39 @@ appendix at the bottom of this file for the manual Esri JSON conversion.</p>
 <p><code>cp_area</code> is the community plan area of each zoning polygon. Against your own
 data, replace it with any attribute name, or drop the <code>column</code> argument to plot
 without a colour ramp:</p>
-<div class="highlight"><pre><span></span><code><span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
+        <span class="n">SourceDescriptor</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"island = 'Maui'"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">]))</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
+
+<span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
 </code></pre></div>
 <h2 id="step-5-add-geocoding-optional-60-seconds">Step 5: Add geocoding (optional, 60 seconds)<a class="headerlink" href="#step-5-add-geocoding-optional-60-seconds" title="Permanent link">&para;</a></h2>
 <p>Use <code>HonuaGeocodingClient</code> to forward-geocode an address and plot it on
 top of the feature map. Geocode an address inside your data's extent — a point
 outside it plots off the map.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGeocodingClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">HonuaGeocodingClient</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span>
+        <span class="n">SourceDescriptor</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span>
+            <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+            <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"island = 'Maui'"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">]))</span><span class="o">.</span><span class="n">to_geodataframe</span><span class="p">()</span>
 
 <span class="k">with</span> <span class="n">HonuaGeocodingClient</span><span class="p">(</span><span class="s2">"https://demo.honua.io"</span><span class="p">)</span> <span class="k">as</span> <span class="n">geocoder</span><span class="p">:</span>
     <span class="n">results</span> <span class="o">=</span> <span class="n">geocoder</span><span class="o">.</span><span class="n">forward_geocode</span><span class="p">(</span><span class="s2">"Kahului Airport, Maui, Hawaii"</span><span class="p">)</span>
@@ -2009,14 +2057,21 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
 <p><strong>Dev-only</strong>: pass <code>credentials=</code> (TLS) in production. <code>insecure=True</code> disables transport security and should never reach production deployments.</p>
 </blockquote>
 <!-- doc-run: blocked https://github.com/honua-io/honua-sdk-python/issues/259 -->
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">,</span> <span class="n">QueryFeaturesRequest</span>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 
-<span class="k">async</span> <span class="k">with</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">(</span><span class="s2">"your-honua-server.com:8081"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
-    <span class="n">request</span> <span class="o">=</span> <span class="n">QueryFeaturesRequest</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">,</span> <span class="n">QueryFeaturesRequest</span>
 
-    <span class="k">async</span> <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features_stream</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Streamed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features"</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">HonuaGrpcAsyncClient</span><span class="p">(</span><span class="s2">"your-honua-server.com:8081"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">grpc_client</span><span class="p">:</span>
+        <span class="n">request</span> <span class="o">=</span> <span class="n">QueryFeaturesRequest</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Received </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features via gRPC"</span><span class="p">)</span>
+
+        <span class="k">async</span> <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">grpc_client</span><span class="o">.</span><span class="n">query_features_stream</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Streamed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">)</span><span class="si">}</span><span class="s2"> features"</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </code></pre></div>
 <h2 id="full-script">Full script<a class="headerlink" href="#full-script" title="Permanent link">&para;</a></h2>
 <p>Here is the complete example in one copy-pasteable block:</p>
@@ -2216,18 +2271,24 @@ unchanged, so it leaves your data as it was:</p>
 <p><code>HonuaTimeoutError</code> fires when a single request exceeds the client's configured
 timeout. For occasional slow queries, retry the same call with a one-shot
 <code>client.with_options(timeout=...)</code> override -- this returns a lightweight clone
-that shares the underlying transport, so it does not reconnect. <code>SERVER</code> and
-<code>ZONING</code> are the ones defined in the example above:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">HonuaTimeoutError</span><span class="p">,</span> <span class="n">Query</span>
+that shares the underlying transport, so it does not reconnect:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">HonuaTimeoutError</span><span class="p">,</span> <span class="n">Query</span><span class="p">,</span> <span class="n">SourceDescriptor</span><span class="p">,</span> <span class="n">SourceLocator</span>
+
+<span class="n">server</span> <span class="o">=</span> <span class="s2">"https://demo.honua.io"</span>
+<span class="n">zoning</span> <span class="o">=</span> <span class="n">SourceDescriptor</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span>
+    <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+    <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"maui-zoning"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+<span class="p">)</span>
 
 <span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"island = 'Maui'"</span><span class="p">)</span>
 
-<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">server</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">ZONING</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">zoning</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">HonuaTimeoutError</span><span class="p">:</span>
         <span class="c1"># One-shot bigger budget; original client keeps its 5s default.</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">60.0</span><span class="p">)</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">ZONING</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">with_options</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">60.0</span><span class="p">)</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">zoning</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
 </code></pre></div>
 <p>See <a href="../troubleshooting/">troubleshooting.md</a> for more.</p>
 

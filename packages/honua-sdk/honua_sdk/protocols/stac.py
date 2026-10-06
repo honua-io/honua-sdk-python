@@ -24,7 +24,7 @@ from ._base import (
     _normalize_page_limit,
     _normalize_total_limit,
     _params,
-    _path_and_params_from_href,
+    _resolve_continuation_href,
     _SyncProtocol,
 )
 
@@ -32,6 +32,7 @@ from ._base import (
 def _stac_post_next_request(
     link: Mapping[str, Any],
     original_body: Mapping[str, Any] | None,
+    response_url: str,
 ) -> tuple[str, dict[str, str], dict[str, Any]]:
     """Build the (path, params, body) for a STAC POST ``next`` link.
 
@@ -39,7 +40,7 @@ def _stac_post_next_request(
     ``body`` is merged onto the original request body; otherwise the link body is
     the complete next request body.
     """
-    path, params = _path_and_params_from_href(str(link["href"]))
+    path, params = _resolve_continuation_href(str(link["href"]), response_url)
     raw_link_body = link.get("body")
     link_body = dict(raw_link_body) if isinstance(raw_link_body, Mapping) else {}
     body = (
@@ -107,6 +108,9 @@ class StacClient(_SyncProtocol):
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        # URL the current page was actually served from (post-redirect); a
+        # relative ``rel="next"`` href resolves against it.
+        response_url: str | None = None
         offset = int((extra_params or {}).get("offset", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -114,12 +118,18 @@ class StacClient(_SyncProtocol):
                 break
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                page = self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
+                page, response_url = self._json_href_page(
+                    next_href,
+                    response_url=response_url,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
             else:
                 params = _params(extra_params, {"limit": page_limit, "offset": offset})
-                page = self.items(
-                    collection_id,
-                    extra_params=params,
+                page, response_url = self._json_page(
+                    "GET",
+                    f"{self.root}/collections/{_encode_path_segment(str(collection_id))}/items",
+                    params=params,
                     timeout=timeout,
                     extra_headers=extra_headers,
                 )
@@ -245,6 +255,9 @@ class StacClient(_SyncProtocol):
         next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
         previous_next_href: str | None = None
+        # URL the current page was actually served from (post-redirect); a
+        # relative ``rel="next"`` href resolves against it.
+        response_url: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -254,8 +267,10 @@ class StacClient(_SyncProtocol):
             if next_link is not None and str(next_link.get("method", "GET")).upper() == "POST":
                 # STAC POST /search continuation: re-POST to the next href with
                 # the link's body so the continuation token/body is preserved.
-                post_path, post_params, post_body = _stac_post_next_request(next_link, json_body)
-                page = self._json(
+                post_path, post_params, post_body = _stac_post_next_request(
+                    next_link, json_body, response_url or str(self.client._base_url)
+                )
+                page, response_url = self._json_page(
                     "POST",
                     post_path,
                     params=post_params or None,
@@ -264,16 +279,29 @@ class StacClient(_SyncProtocol):
                     extra_headers=extra_headers,
                 )
             elif next_href is not None:
-                page = self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
+                page, response_url = self._json_href_page(
+                    next_href,
+                    response_url=response_url,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
             elif json_body is not None:
                 page_body = {**json_body, "limit": page_limit, "offset": offset}
-                page = self.search(
-                    json_body=page_body, timeout=timeout, extra_headers=extra_headers
+                page, response_url = self._json_page(
+                    "POST",
+                    f"{self.root}/search",
+                    json_body=page_body,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
             else:
                 page_params = _params(params, {"limit": page_limit, "offset": offset})
-                page = self.search(
-                    params=page_params, timeout=timeout, extra_headers=extra_headers
+                page, response_url = self._json_page(
+                    "GET",
+                    f"{self.root}/search",
+                    params=page_params,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
 
             yield page
@@ -395,6 +423,9 @@ class AsyncStacClient(_AsyncProtocol):
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        # URL the current page was actually served from (post-redirect); a
+        # relative ``rel="next"`` href resolves against it.
+        response_url: str | None = None
         offset = int((extra_params or {}).get("offset", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -402,12 +433,18 @@ class AsyncStacClient(_AsyncProtocol):
                 break
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                page = await self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
+                page, response_url = await self._json_href_page(
+                    next_href,
+                    response_url=response_url,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
             else:
                 params = _params(extra_params, {"limit": page_limit, "offset": offset})
-                page = await self.items(
-                    collection_id,
-                    extra_params=params,
+                page, response_url = await self._json_page(
+                    "GET",
+                    f"{self.root}/collections/{_encode_path_segment(str(collection_id))}/items",
+                    params=params,
                     timeout=timeout,
                     extra_headers=extra_headers,
                 )
@@ -534,6 +571,9 @@ class AsyncStacClient(_AsyncProtocol):
         next_link: Mapping[str, Any] | None = None
         next_href: str | None = None
         previous_next_href: str | None = None
+        # URL the current page was actually served from (post-redirect); a
+        # relative ``rel="next"`` href resolves against it.
+        response_url: str | None = None
         offset = int((params or json_body or {}).get("offset", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -543,8 +583,10 @@ class AsyncStacClient(_AsyncProtocol):
             if next_link is not None and str(next_link.get("method", "GET")).upper() == "POST":
                 # STAC POST /search continuation: re-POST to the next href with
                 # the link's body so the continuation token/body is preserved.
-                post_path, post_params, post_body = _stac_post_next_request(next_link, json_body)
-                page = await self._json(
+                post_path, post_params, post_body = _stac_post_next_request(
+                    next_link, json_body, response_url or str(self.client._base_url)
+                )
+                page, response_url = await self._json_page(
                     "POST",
                     post_path,
                     params=post_params or None,
@@ -553,16 +595,29 @@ class AsyncStacClient(_AsyncProtocol):
                     extra_headers=extra_headers,
                 )
             elif next_href is not None:
-                page = await self._json_href(next_href, timeout=timeout, extra_headers=extra_headers)
+                page, response_url = await self._json_href_page(
+                    next_href,
+                    response_url=response_url,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
             elif json_body is not None:
                 page_body = {**json_body, "limit": page_limit, "offset": offset}
-                page = await self.search(
-                    json_body=page_body, timeout=timeout, extra_headers=extra_headers
+                page, response_url = await self._json_page(
+                    "POST",
+                    f"{self.root}/search",
+                    json_body=page_body,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
             else:
                 page_params = _params(params, {"limit": page_limit, "offset": offset})
-                page = await self.search(
-                    params=page_params, timeout=timeout, extra_headers=extra_headers
+                page, response_url = await self._json_page(
+                    "GET",
+                    f"{self.root}/search",
+                    params=page_params,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
 
             yield page

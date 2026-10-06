@@ -22,6 +22,8 @@ Params = Mapping[str, Any] | None
 class SupportsSyncRequest(Protocol):
     """The synchronous request surface a facade client depends on."""
 
+    _base_url: httpx.URL
+
     def _request_json(
         self,
         method: str,
@@ -56,6 +58,8 @@ class SupportsSyncRequest(Protocol):
 
 class SupportsAsyncRequest(Protocol):
     """The asynchronous request surface a facade client depends on."""
+
+    _base_url: httpx.URL
 
     async def _request_json(
         self,

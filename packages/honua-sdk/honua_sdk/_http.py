@@ -17,6 +17,7 @@ from anyio import to_thread
 from .auth import SENSITIVE_AUTH_HEADER_NAMES, AuthProvider, normalize_auth_headers
 from .errors import (
     HonuaAuthError,
+    HonuaError,
     HonuaHttpError,
     HonuaRateLimitError,
     HonuaTimeoutError,
@@ -204,6 +205,25 @@ def _extract_trusted_authority(url: httpx.URL) -> tuple[str, str, int | None]:
     ``Authorization`` / ``X-API-Key`` headers over plaintext.
     """
     return (url.scheme, url.host, url.port)
+
+
+def _ensure_same_origin_continuation(url: httpx.URL, base_url: httpx.URL) -> None:
+    """Refuse an absolute request URL outside the client's configured origin.
+
+    Pagination continuation links (``@odata.nextLink``, STAC ``rel="next"``)
+    are server-controlled and may be absolute. A caller-supplied
+    :class:`httpx.Client` applies its own default headers / ``auth`` to every
+    request and bypasses the SDK's trusted-authority hook, so following such a
+    link to another ``(scheme, host, port)`` would leak those credentials.
+    Fail closed for every client instead of following it.
+    """
+    if _extract_trusted_authority(url) == _extract_trusted_authority(base_url):
+        return
+    raise HonuaError(
+        f"Refusing to follow continuation URL {url.scheme}://{url.netloc.decode('ascii')} "
+        "outside the client's configured origin "
+        f"{base_url.scheme}://{base_url.netloc.decode('ascii')}."
+    )
 
 
 def _apply_sensitive_auth_headers(

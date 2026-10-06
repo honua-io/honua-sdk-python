@@ -134,6 +134,7 @@ class StacClient(_SyncProtocol):
                     extra_headers=extra_headers,
                 )
 
+            followed_continuation = next_href is not None
             yield page
             page_items = _features_from_page(page)
             fetched += len(page_items)
@@ -146,6 +147,8 @@ class StacClient(_SyncProtocol):
                 return
             previous_next_href = next_href
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_items) < page_limit:
                     break
                 offset += len(page_items)
@@ -304,6 +307,7 @@ class StacClient(_SyncProtocol):
                     extra_headers=extra_headers,
                 )
 
+            followed_continuation = next_href is not None
             yield page
             page_items = _features_from_page(page)
             fetched += len(page_items)
@@ -319,6 +323,8 @@ class StacClient(_SyncProtocol):
                 return
             previous_next_href = next_signature
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_items) < page_limit:
                     break
                 offset += len(page_items)
@@ -449,6 +455,7 @@ class AsyncStacClient(_AsyncProtocol):
                     extra_headers=extra_headers,
                 )
 
+            followed_continuation = next_href is not None
             yield page
             page_items = _features_from_page(page)
             fetched += len(page_items)
@@ -461,6 +468,8 @@ class AsyncStacClient(_AsyncProtocol):
                 return
             previous_next_href = next_href
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_items) < page_limit:
                     break
                 offset += len(page_items)
@@ -620,6 +629,7 @@ class AsyncStacClient(_AsyncProtocol):
                     extra_headers=extra_headers,
                 )
 
+            followed_continuation = next_href is not None
             yield page
             page_items = _features_from_page(page)
             fetched += len(page_items)
@@ -635,6 +645,8 @@ class AsyncStacClient(_AsyncProtocol):
                 return
             previous_next_href = next_signature
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_items) < page_limit:
                     break
                 offset += len(page_items)

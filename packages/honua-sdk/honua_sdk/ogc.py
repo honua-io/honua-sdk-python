@@ -11,6 +11,7 @@ import httpx
 
 from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from ._http import _encode_path_segment
+from .protocols._base import _resolve_continuation_href
 
 FeatureId = str | int
 JsonObject = dict[str, Any]
@@ -111,6 +112,7 @@ def _next_link(response: Mapping[str, Any]) -> str | None:
 
 
 def _path_and_params_from_href(href: str) -> tuple[str, dict[str, str]]:
+    """Split an href for compatibility with callers of the legacy helper."""
     parsed = urlsplit(href)
     path = parsed.path or href
     return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
@@ -630,6 +632,10 @@ class HonuaOgcFeatureCollection:
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        response_url = (
+            f"{str(self.client._base_url).rstrip('/')}/ogc/features/collections/"
+            f"{_encode_path_segment(str(self.collection_id))}/items"
+        )
         for page in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
@@ -637,7 +643,8 @@ class HonuaOgcFeatureCollection:
 
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                path, params = _path_and_params_from_href(next_href)
+                path, params = _resolve_continuation_href(next_href, response_url)
+                response_url = path
                 response = self.client._request_json(
                     "GET",
                     path,
@@ -1294,6 +1301,10 @@ class AsyncHonuaOgcFeatureCollection:
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        response_url = (
+            f"{str(self.client._base_url).rstrip('/')}/ogc/features/collections/"
+            f"{_encode_path_segment(str(self.collection_id))}/items"
+        )
         for page in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
@@ -1301,7 +1312,8 @@ class AsyncHonuaOgcFeatureCollection:
 
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                path, params = _path_and_params_from_href(next_href)
+                path, params = _resolve_continuation_href(next_href, response_url)
+                response_url = path
                 response = await self.client._request_json(
                     "GET",
                     path,

@@ -29,6 +29,7 @@
 
 ## Reference
 
+* [Audit platform-20261006: issue 281 receipts](audit/platform-20261006/issue-281.md)
 * [Command reference](cli/reference.md)
 * [SDK compatibility policy](compatibility.md)
 * [Protocol-native client methods](core-client.md)

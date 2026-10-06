@@ -727,6 +727,7 @@ class OgcRecordsCollectionClient:
                     type=type,
                 )
 
+            followed_continuation = next_href is not None
             yield page
             page_records = _records_from_page(page)
             fetched += len(page_records)
@@ -739,6 +740,8 @@ class OgcRecordsCollectionClient:
                 return
             previous_next_href = next_href
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_records) < page_limit:
                     break
                 current_offset += len(page_records)
@@ -1052,6 +1055,7 @@ class AsyncOgcRecordsCollectionClient:
                     type=type,
                 )
 
+            followed_continuation = next_href is not None
             yield page
             page_records = _records_from_page(page)
             fetched += len(page_records)
@@ -1064,6 +1068,8 @@ class AsyncOgcRecordsCollectionClient:
                 return
             previous_next_href = next_href
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_records) < page_limit:
                     break
                 current_offset += len(page_records)

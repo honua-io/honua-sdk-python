@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.11](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.10...python-admin-v0.1.11) (2026-10-06)
+
+
+### Bug Fixes
+
+* **cli:** bound proposal wait sleeps and reject oversized stdin bodies ([ca855f5](https://github.com/honua-io/honua-sdk-python/commit/ca855f52b85ebcfb7d6ff97eac8cc7a9b098831f))
+* **cli:** reject non-finite --wait-timeout and bound --body - on raw stdin bytes ([776c710](https://github.com/honua-io/honua-sdk-python/commit/776c71080b9c1297e05bc1f581da877404d2629a))
+* post-merge review findings from [#264](https://github.com/honua-io/honua-sdk-python/issues/264) ([0cfd569](https://github.com/honua-io/honua-sdk-python/commit/0cfd5698af3244d7eb18cf1e56b6dee06c3134fa))
+
 ## [0.1.10](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.9...python-admin-v0.1.10) (2026-10-04)
 
 

@@ -48,18 +48,23 @@ Requires Python 3.11+.
 
 ## Minimal Example
 
+The examples read the public, anonymous demo server at `https://demo.honua.io`
+and its `maui-zoning` FeatureServer (layer `2`: zoning polygons with
+`zone_code`, `zone_dist`, `cp_area` and `island`). To use your own server,
+change the base URL, service and layer.
+
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 
-with HonuaClient("https://your-honua-server.com") as client:
+with HonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="parcels",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="parcels", layer_id=0),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
-    result = source.query(Query(where="status = 'active'", out_fields=["*"]))
+    result = source.query(Query(where="island = 'Maui'", out_fields=["*"]))
     print(f"Found {len(result.features)} features")
     for feature in result.features[:3]:
         print(feature.id, feature.properties)
@@ -80,17 +85,17 @@ request raises.
 ```python
 from honua_sdk import AsyncHonuaClient, Query, SourceDescriptor, SourceLocator
 
-async with AsyncHonuaClient("https://your-honua-server.com") as client:
+async with AsyncHonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="parcels",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="parcels", layer_id=0),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
-    result = await source.query(Query(where="status = 'active'", out_fields=["*"]))
-    async for feature in source.stream(Query(where="status = 'active'")):
-        print(feature.properties, feature.geometry)
+    result = await source.query(Query(where="island = 'Maui'", out_fields=["*"]))
+    async for feature in source.stream(Query(where="zone_code = '929'")):  # parks
+        print(feature.id, feature.properties)
 ```
 
 Works with FastAPI, asyncio pipelines, Jupyter async, and any other async

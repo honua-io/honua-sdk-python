@@ -18,10 +18,10 @@ The emitter is a no-op unless ``HONUA_GP_EVAL_RESULT_DIR`` is set (the harness
 sets it), so the scripts stay runnable by hand and in stub CI without writing
 stray files.
 
-This is NOT an ArcGIS Pro parity check: the response fingerprint is pinned to
-the honua-server client-compat seed, not to a licensed arcpy baseline. It
+The response fingerprint is pinned to the honua-server client-compat seed. It
 verifies that ``honua_gp`` round-trips correctly against the real Honua
-server; arcpy-level output parity remains license-gated and out of scope here.
+server; desktop-client compatibility evidence is recorded separately as
+honua-release#425.
 """
 
 from __future__ import annotations

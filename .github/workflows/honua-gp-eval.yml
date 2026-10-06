@@ -55,6 +55,7 @@ env:
 jobs:
   eval:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -225,6 +226,7 @@ jobs:
     name: ${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'gp-eval-moving-canary' || 'ephemeral-server-smoke' }}
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: eval
     permissions:
       contents: read
@@ -718,6 +720,7 @@ jobs:
     needs: [eval, ephemeral-server-smoke]
     if: ${{ always() && (github.event_name == 'schedule' || inputs.mode == 'canary') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: write

@@ -67,11 +67,11 @@ pip install "./packages/honua-sdk[grpc,geopandas,raster]"
 pip install ./packages/honua-sdk ./packages/honua-admin
 ```
 
-Or straight from GitHub without cloning, pinned to a release tag (replace
-with the newest `python-sdk-v*` tag):
+Or straight from GitHub without cloning, pinned to a release tag
+(`python-sdk-v0.1.12` is the `honua-sdk` release that Honua 2026.1 ships):
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.11#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.12#subdirectory=packages/honua-sdk"
 ```
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it holds
@@ -94,7 +94,11 @@ shared tool config only) — install the per-package directories, not `.`.
 ## Quick start
 
 Query features through the canonical `Source` / `Query` / `Result` API and
-convert to a GeoDataFrame in one call:
+convert to a GeoDataFrame in one call. The examples below read the public,
+anonymous demo server at `https://demo.honua.io` and its `maui-zoning`
+FeatureServer (layer `2`: zoning polygons with `zone_code`, `zone_dist`,
+`cp_area` and `island`). To use your own server, change the base URL, service
+and layer.
 
 ```python
 from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
@@ -102,12 +106,12 @@ from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
 with HonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="maui-buildings",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
-    result = source.query(Query(where="status = 'active'", out_fields=["*"]))
+    result = source.query(Query(where="island = 'Maui'", out_fields=["*"]))
 
     print(f"Found {len(result.features)} features")
     for feature in result.features[:3]:
@@ -128,6 +132,11 @@ an edited GeoDataFrame back into `apply_edits` payloads.
 
 ### OGC API Features
 
+The server advertises each layer's OGC API Features collection id in
+`collections()`; the id comes from the layer's publication, so it is not
+always the layer id. On the demo publication the `maui-zoning` layer above is
+collection `"2"`; on your own server, pick the id from `collections()`:
+
 ```python
 from honua_sdk import HonuaClient
 
@@ -135,9 +144,9 @@ with HonuaClient("https://demo.honua.io") as client:
     ogc = client.ogc_features()
     collections = ogc.collections()
 
-    parcels = ogc.collection("parcels")
-    items = parcels.items(limit=100, filter="status = 'active'")
-    feature = parcels.item("123")
+    zoning = ogc.collection("2")
+    items = zoning.items(limit=100, filter="island = 'Maui'")
+    feature = zoning.item(items["features"][0]["id"])
 ```
 
 ### Geocoding
@@ -162,9 +171,9 @@ from honua_sdk import AsyncHonuaClient, Query, SourceDescriptor, SourceLocator
 async with AsyncHonuaClient("https://demo.honua.io") as client:
     source = client.source(
         SourceDescriptor(
-            id="maui-buildings",
+            id="maui-zoning",
             protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="maui-buildings", layer_id=13),
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
         )
     )
     result = await source.query(Query(where="1=1"))
@@ -172,7 +181,15 @@ async with AsyncHonuaClient("https://demo.honua.io") as client:
 
 ### Admin client
 
+Admin needs a server of your own: the public demo returns `401` for
+`/api/v1/admin/*`. Install `honua-admin`, then set `HONUA_API_KEY` to an admin
+API key for your server (the
+[honua-server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md)
+shows how to mint one with `HONUA_ADMIN_PASSWORD`).
+
 ```python
+import os
+
 from honua_admin import HonuaAdminClient
 
 # Admin needs a server of your own: the public demo returns 401 for /api/v1/admin/*.
@@ -206,7 +223,7 @@ with HonuaAdminClient("https://your-honua-server.com", api_key=os.environ["HONUA
 | GIS interop | `Result.to_geodataframe()`, `features_to_geodataframe` (Esri JSON aware), raster results via `rasterio`/`rioxarray` (`[raster]` extra) |
 | gRPC streaming | `honua_sdk.grpc.HonuaGrpcClient` / `HonuaGrpcAsyncClient` for unary + streaming feature queries (`[grpc]` extra) |
 | Sync + async | `HonuaClient` / `AsyncHonuaClient` in lockstep (sync clients generated from the async source of truth) |
-| Automatic retry | 429/502/503 with exponential backoff and `Retry-After` support; configurable via `max_retries`, `retry_methods` |
+| Automatic retry | 429/502/503/504 with exponential backoff and `Retry-After` support for idempotent methods (`POST` only when opted in via `retry_methods` on the retry transport); configurable via `max_retries` |
 | Typed errors | `HonuaAuthError`, `HonuaRateLimitError`, `HonuaHttpError`, `HonuaTimeoutError`, `HonuaTransportError` — see [common errors](docs/quickstart.md#common-errors) |
 | CLI | `honua` (services / layers / style apply / sanitized `doctor` diagnostics) and `honua-migrate` (offline ArcPy script scan / translate / run, plus `.pyt` / `.atbx` toolbox and GP-service classification, with optional server-attested toolbox translation verdicts via `--server`) |
 | Quality gates | mypy `strict` workspace-wide, 94% coverage gate, public-API [compatibility snapshot](docs/compatibility.md), per-capability [SDK coverage snapshot](docs/sdk-coverage.md), live-server [conformance lane](.github/workflows/conformance.yml) against shared [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) fixtures |
@@ -242,6 +259,11 @@ at [honua.io](https://honua.io) and
 | [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) | Vendor-neutral gRPC protocol standard; source of this repo's conformance fixtures |
 
 ## Development
+
+Run these from a clone of this repository (see [Install](#install)). Besides
+Python 3.11+, the test suite needs Node.js with `node` on `PATH`: the `honua`
+CLI forwards `honua admin ...` to the JavaScript CLI, and `tests/test_cli.py`
+checks that forwarding.
 
 ```bash
 # Editable install of both packages with extras

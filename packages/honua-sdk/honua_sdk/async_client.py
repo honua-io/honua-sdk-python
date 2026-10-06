@@ -15,6 +15,7 @@ from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
 from ._http import (
     _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
+    _ensure_same_origin_continuation,
     _extract_trusted_authority,
     _normalize_base_url,
     _to_http_error,
@@ -1573,8 +1574,16 @@ class AsyncHonuaClient:
         # path segments during base-URL resolution. Join onto the base URL's
         # path prefix so sub-path deployments (e.g. behind a reverse proxy at
         # ``/honua/``) are not silently rewritten to the bare endpoint path.
-        raw_path = join_base_path(self._base_url, path)
-        url = self._base_url.copy_with(raw_path=encode_request_path(raw_path))
+        parsed_path = httpx.URL(path)
+        if parsed_path.is_absolute_url:
+            # Absolute URLs only arrive from server-supplied pagination links;
+            # never follow one off the configured origin (a caller-supplied
+            # httpx client would attach its own credentials there).
+            _ensure_same_origin_continuation(parsed_path, self._base_url)
+            url = parsed_path
+        else:
+            raw_path = join_base_path(self._base_url, path)
+            url = self._base_url.copy_with(raw_path=encode_request_path(raw_path))
         merged_headers = merge_request_headers(headers, extra_headers, idempotency_key)
         request_kwargs: dict[str, Any] = {
             "method": method,

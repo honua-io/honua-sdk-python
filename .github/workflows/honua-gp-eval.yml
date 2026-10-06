@@ -104,9 +104,9 @@ jobs:
           #     wrong-payload bug would sail through.
           #
           # This lane does NOT verify response round-trip correctness (the stub
-          # returns a canned href, not real geometry) and does NOT verify ArcGIS
-          # Pro output parity (no arcpy license exists; tracked separately). The
-          # live-server value diff runs in the ``ephemeral-server-smoke`` job.
+          # returns a canned href, not real geometry). The live-server value
+          # diff runs in the ``ephemeral-server-smoke`` job. Desktop-client
+          # compatibility evidence is recorded separately as honua-release#425.
           #
           # ``--require-supported-pass-rate 1.0`` makes this blocking per-PR
           # lane fail on ANY regression in a *supported* (mapped) script,
@@ -219,9 +219,8 @@ jobs:
   #   4. Update HONUA_GP_EVAL_PINNED_IMAGE and HONUA_GP_EVAL_PINNED_SEED_REVISION
   #      below, in that PR.
   #
-  # This is NOT ArcGIS Pro parity: a licensed arcpy baseline does not exist in
-  # this environment, so arcpy-level output equivalence stays out of scope and
-  # is tracked separately.
+  # Desktop-client compatibility evidence is recorded separately as
+  # honua-release#425.
   ephemeral-server-smoke:
     name: ${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'gp-eval-moving-canary' || 'ephemeral-server-smoke' }}
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}

@@ -1,6 +1,6 @@
 """GetCount over FeatureServer layer URLs with environment-only configuration (#205).
 
-The licensed ArcPy parity probe set ``HONUA_BASE_URL``, imported the shim and
+A compatibility probe set ``HONUA_BASE_URL``, imported the shim and
 called ``GetCount`` on a live FeatureServer layer URL. The shim raised a
 configuration error, and once configured it classified the URL as a
 workspace-relative name and queried a nonexistent endpoint. These tests drive

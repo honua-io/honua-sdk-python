@@ -226,7 +226,10 @@ COVERAGE: tuple[CoverageEntry, ...] = (
     CoverageEntry(
         key="serve.ogc-api-tiles",
         status="covered",
-        entrypoints=("honua_sdk.protocols.OgcTilesClient", "honua_sdk.protocols.AsyncOgcTilesClient"),
+        entrypoints=(
+            "honua_sdk.protocols.OgcTilesClient.tile",
+            "honua_sdk.protocols.AsyncOgcTilesClient.tile",
+        ),
     ),
     CoverageEntry(
         key="serve.ogc-api-coverages",

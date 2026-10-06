@@ -22,7 +22,7 @@ protocol adapters.
 | GeoServices GeometryServer | `client.geometry_server()` | New in Python | Discovery plus project, buffer, simplify, and generic operation helpers are available. |
 | OGC API Features | `client.ogc_features()` | Matches core JS shape | Landing, conformance, collections, queryables, item pages, item iterators, collect-all paging, and item CRUD are available. |
 | OGC API Maps | `client.ogc_maps()` | New in Python | Landing, conformance, OpenAPI, map, styled map, and map tileset helpers are available. |
-| OGC API Tiles | `client.ogc_tiles()` | New in Python | Landing, conformance, collections, tile matrix sets, tilesets, and tile helpers are available. |
+| OGC API Tiles | `client.ogc_tiles()` | New in Python | Landing, conformance, collections, tile matrix sets, tilesets, and tile helpers are available; tile requests support `response_format` and deployment-specific `extra_params`. |
 | OGC API Coverages | `client.ogc_coverages()` | New in Python | Thin wrapper is present for the advertised endpoint family; server support may vary by deployment. |
 | OGC API Processes | `client.ogc_processes()` | New in Python | Included because Honua Server exposes the surface; useful for integration test coverage. |
 | OGC API Records | `client.ogc_records()` | New in Python | Landing, conformance, OpenAPI, collections, queryables, record search pages, record iterators, and record detail helpers are available. |

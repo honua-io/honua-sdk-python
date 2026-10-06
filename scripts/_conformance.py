@@ -1287,13 +1287,16 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
 }
 
 # This denominator is deliberately independent of the cases implemented by this
-# harness. Public gRPC operations remain required even though the candidate lane
-# does not exercise them yet, so release evidence fails closed in the meantime.
+# harness. Public gRPC reads and FeatureServer applyEdits stay required even
+# though the candidate lane does not exercise them yet, so release evidence
+# fails closed until a live case observes each cell. replica_sync_surface is a
+# metadata probe (sync-capability) and must not satisfy apply-edits.
 REQUIRED_CERTIFICATION_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     {
         *((surface, operation) for _, surface, operation, _ in CASE_CERTIFICATION.values()),
         ("grpc-feature-service", "query-features"),
         ("grpc-feature-service", "query-features-stream"),
+        ("geoservices-featureserver", "apply-edits"),
     }
 )
 

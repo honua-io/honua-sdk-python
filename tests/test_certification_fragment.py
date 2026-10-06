@@ -327,3 +327,65 @@ def test_sdkpy_007_sync_metadata_probe_is_not_edit_certification() -> None:
         "sync-capability",
         ["positive", "metadata"],
     )
+
+
+def test_apply_edits_stays_required_when_grpc_cases_join_the_harness(monkeypatch) -> None:
+    """Closing the two gRPC cells must not complete scope without a live applyEdits case.
+
+    REQUIRED_CERTIFICATION_OPERATIONS is fixed at import from the current harness
+    plus the independent cells. A later harness that adds live gRPC cases makes
+    those cells observed, but geoservices-featureserver/apply-edits stays required
+    and unobserved, so release validation still fails closed.
+    """
+    import scripts._conformance as conformance
+
+    extended = dict(conformance.CASE_CERTIFICATION)
+    extended["grpc_query_features"] = (
+        "grpc.feature-service",
+        "grpc-feature-service",
+        "query-features",
+        ["positive"],
+    )
+    extended["grpc_query_features_stream"] = (
+        "grpc.feature-service",
+        "grpc-feature-service",
+        "query-features-stream",
+        ["positive"],
+    )
+    monkeypatch.setattr(conformance, "CASE_CERTIFICATION", extended)
+    monkeypatch.setitem(
+        conformance.CERTIFICATION_PROTOCOL_CONTEXT,
+        "grpc-feature-service",
+        ("1.0", "grpc"),
+    )
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
+        evidence_uri="https://evidence.invalid/run/1",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+        certification_tier="release",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in extended]
+
+    fragment = conformance.build_certification_fragment(
+        FixtureBundle(Path("."), "fixture-v1"), target, cases
+    )
+
+    observed = {(row["surface"], row["operation"]) for row in fragment["observations"]}
+    required = {
+        (row["surface"], row["operation"]) for row in fragment["operation_scope"]["required_operations"]
+    }
+    assert ("geoservices-featureserver", "apply-edits") in required
+    assert ("geoservices-featureserver", "apply-edits") not in observed
+    assert observed == required - {("geoservices-featureserver", "apply-edits")}
+    assert fragment["operation_scope"]["complete"] is False
+    sync = next(row for row in fragment["observations"] if row["capability_key"] == "sync.featureserver-replicas")
+    assert sync["operation"] == "sync-capability"
+    with pytest.raises(AssertionError, match="operation scope is incomplete"):
+        conformance.validate_release_certification_fragment(fragment)

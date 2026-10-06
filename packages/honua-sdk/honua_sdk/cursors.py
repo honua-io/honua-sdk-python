@@ -25,6 +25,7 @@ from collections.abc import (
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
+from .errors import HonuaError
 from .models import ApplyEditsResult, QueryFeature
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -127,9 +128,7 @@ class SearchCursor:
         if self._where is not None:
             kwargs.setdefault("where", self._where)
         if self._geometry_filter is not None:
-            extra = dict(kwargs.get("extra_params") or {})
-            extra.setdefault("geometry", self._geometry_filter)
-            kwargs["extra_params"] = extra
+            kwargs.setdefault("spatial_filter", {"geometry": self._geometry_filter})
         if self._fields is not None:
             attr_fields = [f for f in self._fields if f != SHAPE_TOKEN]
             if attr_fields and "out_fields" not in kwargs:
@@ -179,6 +178,15 @@ class _BaseWriteCursor:
         """All :class:`ApplyEditsResult` envelopes returned by flushed batches."""
         return tuple(self._buffer.results)
 
+    def _record_result(self, result: ApplyEditsResult) -> None:
+        self._buffer.results.append(result)
+        if not result.all_succeeded:
+            failed = sum(
+                not item.success
+                for item in (*result.add_results, *result.update_results, *result.delete_results)
+            )
+            raise HonuaError(f"applyEdits reported {failed} failed row operation(s).")
+
 
 class InsertCursor(_BaseWriteCursor):
     """Batched feature inserts (``arcpy.da.InsertCursor`` analogue).
@@ -216,7 +224,7 @@ class InsertCursor(_BaseWriteCursor):
             self._source.apply_edits(adds=self._buffer.adds, rollback_on_failure=self._rollback_on_failure),
         )
         self._buffer.adds = []
-        self._buffer.results.append(result)
+        self._record_result(result)
         return result
 
     def __enter__(self) -> "InsertCursor":
@@ -257,7 +265,9 @@ class UpdateCursor(_BaseWriteCursor):
         )
 
     def __iter__(self) -> Iterator[Row]:
-        yield from self._search.rows()
+        # Snapshot the query before allowing writes. Otherwise a batch flush can
+        # change the predicate while an offset-paged search is still advancing.
+        yield from list(self._search.rows())
 
     def update_row(
         self,
@@ -293,7 +303,7 @@ class UpdateCursor(_BaseWriteCursor):
             self._source.apply_edits(updates=self._buffer.updates, rollback_on_failure=self._rollback_on_failure),
         )
         self._buffer.updates = []
-        self._buffer.results.append(result)
+        self._record_result(result)
         return result
 
     def __enter__(self) -> "UpdateCursor":
@@ -336,9 +346,7 @@ class AsyncSearchCursor:
         if self._where is not None:
             kwargs.setdefault("where", self._where)
         if self._geometry_filter is not None:
-            extra = dict(kwargs.get("extra_params") or {})
-            extra.setdefault("geometry", self._geometry_filter)
-            kwargs["extra_params"] = extra
+            kwargs.setdefault("spatial_filter", {"geometry": self._geometry_filter})
         if self._fields is not None:
             attr_fields = [f for f in self._fields if f != SHAPE_TOKEN]
             if attr_fields and "out_fields" not in kwargs:
@@ -391,7 +399,7 @@ class AsyncInsertCursor(_BaseWriteCursor):
             await self._source.apply_edits(adds=self._buffer.adds, rollback_on_failure=self._rollback_on_failure),
         )
         self._buffer.adds = []
-        self._buffer.results.append(result)
+        self._record_result(result)
         return result
 
     async def __aenter__(self) -> "AsyncInsertCursor":
@@ -426,7 +434,8 @@ class AsyncUpdateCursor(_BaseWriteCursor):
         )
 
     async def __aiter__(self) -> AsyncIterator[Row]:
-        async for row in self._search.rows():
+        rows = [row async for row in self._search.rows()]
+        for row in rows:
             yield row
 
     def update_row(
@@ -461,7 +470,7 @@ class AsyncUpdateCursor(_BaseWriteCursor):
             await self._source.apply_edits(updates=self._buffer.updates, rollback_on_failure=self._rollback_on_failure),
         )
         self._buffer.updates = []
-        self._buffer.results.append(result)
+        self._record_result(result)
         return result
 
     async def __aenter__(self) -> "AsyncUpdateCursor":

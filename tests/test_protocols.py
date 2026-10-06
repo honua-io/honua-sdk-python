@@ -10,6 +10,22 @@ from honua_sdk.errors import HonuaError
 from honua_sdk.protocols import BinaryResponse, ODataQuery
 
 
+def test_sdkpy_005_odata_stops_after_final_continuation_page() -> None:
+    skips: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        skips.append(request.url.params.get("$skip"))
+        page = len(skips)
+        links = {"@odata.nextLink": f"/odata/Features?$skip={page}&$top=1"} if page == 1 else {}
+        return httpx.Response(200, json={"value": [{"ObjectId": page}], **links})
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        pages = list(client.odata().features_pages(page_size=1))
+
+    assert len(pages) == 2
+    assert skips == ["0", "1"]
+
+
 def test_protocol_factories_build_expected_geoservices_paths() -> None:
     seen: list[dict[str, Any]] = []
 

@@ -194,6 +194,30 @@ def test_sync_items_pages_follows_next_link() -> None:
     assert len(seen_paths) == 2
 
 
+def test_sdkpy_002_items_pages_preserves_reverse_proxy_base_path() -> None:
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        if len(seen_paths) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "features": [{"id": 1}],
+                    "links": [{"rel": "next", "href": "items?offset=1&limit=1"}],
+                },
+            )
+        return httpx.Response(200, json={"features": [], "links": []})
+
+    with HonuaClient("http://example.test/honua/", transport=httpx.MockTransport(handler)) as client:
+        list(client.ogc_features().collection("parcels").items_pages(page_size=1))
+
+    assert seen_paths == [
+        "/honua/ogc/features/collections/parcels/items",
+        "/honua/ogc/features/collections/parcels/items",
+    ]
+
+
 def test_sync_items_pages_breaks_on_short_final_page_without_next_link() -> None:
     """When a page returns fewer features than requested and has no next
     link, iteration should stop without issuing further requests."""

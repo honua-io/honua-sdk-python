@@ -36,12 +36,10 @@ strongest:
   dispatch -> real HTTP -> response-parse loop round-trips correctly, which a
   canned-response stub can never check.
 
-* **ArcGIS Pro parity is NOT verified anywhere.** No licensed arcpy runtime
-  exists in this environment, so the golden values are not diffed against a
-  real ArcGIS Pro baseline. The response oracles are pinned to what
-  honua-server computes for the client-compat seed, not to what ArcGIS Pro
-  would return. arcpy-level output equivalence remains license-gated and is
-  tracked separately.
+* This harness verifies only the protocol request and response behavior
+  described above. Response oracles are pinned to what honua-server computes
+  for the client-compat seed. Desktop-client compatibility evidence is
+  recorded separately as honua-release#425.
 
 ## Golden schema (v2)
 

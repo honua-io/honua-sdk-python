@@ -84,6 +84,33 @@ def test_ogc_maps_tiles_coverages_and_processes_build_expected_paths() -> None:
     assert seen[4]["query"] == {"f": "tiff"}
 
 
+def test_ogc_tiles_tile_supports_raster_format_and_extra_params() -> None:
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params.multi_items()))
+        return httpx.Response(200, content=b"\x89PNG\r\n\x1a\n")
+
+    transport = httpx.MockTransport(handler)
+    with HonuaClient("http://example.test", transport=transport) as client:
+        tiles = client.ogc_tiles()
+        assert tiles.tile("WebMercatorQuad", "0", 0, 0) == b"\x89PNG\r\n\x1a\n"
+        assert tiles.tile(
+            "WebMercatorQuad",
+            "0",
+            0,
+            0,
+            collection_id="admin/bounds",
+            response_format="png",
+            extra_params={"style": "night"},
+        ) == b"\x89PNG\r\n\x1a\n"
+        assert tiles.tile(
+            "WebMercatorQuad", "0", 0, 0, response_format="png", extra_params={"f": "jpeg"}
+        ) == b"\x89PNG\r\n\x1a\n"
+
+    assert seen == [{}, {"f": "png", "style": "night"}, {"f": "jpeg"}]
+
+
 def test_stac_classic_ogc_and_odata_build_expected_paths() -> None:
     seen: list[dict[str, Any]] = []
 

@@ -251,6 +251,12 @@ def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> 
     )
     cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
     fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    # This test isolates receipt binding after the independent scope gate.
+    fragment["operation_scope"]["complete"] = True
+    fragment["operation_scope"]["required_operations"] = [
+        {"surface": row["surface"], "operation": row["operation"]}
+        for row in fragment["observations"]
+    ]
     fragment["observations"][0]["evidence_receipt"]["identity"]["candidate_cut_at"] = (
         "2026-08-20T00:00:01Z"
     )
@@ -282,3 +288,42 @@ def test_machine_readable_certification_contract_matches_case_mapping() -> None:
     ) == expected
     assert contract["canonicalClient"] == "Honua SDK Python"
     assert contract["clientVersion"] == package["project"]["version"]
+
+
+def test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope(monkeypatch) -> None:
+    """SDKPY-003: REST-only evidence must not certify public gRPC operations."""
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
+        evidence_uri="https://evidence.invalid/run/1",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+        certification_tier="release",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+
+    assert fragment["operation_scope"]["complete"] is False
+    assert {("grpc-feature-service", "query-features"), ("grpc-feature-service", "query-features-stream")} <= {
+        (row["surface"], row["operation"]) for row in fragment["operation_scope"]["required_operations"]
+    }
+    with pytest.raises(AssertionError, match="operation scope is incomplete"):
+        validate_release_certification_fragment(fragment)
+
+
+def test_sdkpy_007_sync_metadata_probe_is_not_edit_certification() -> None:
+    """SDKPY-007: metadata-only evidence must not claim an apply-edits capability."""
+    capability, surface, operation, facets = CASE_CERTIFICATION["replica_sync_surface"]
+
+    assert capability == "sync.featureserver-replicas"
+    assert (surface, operation, facets) == (
+        "geoservices-featureserver",
+        "sync-capability",
+        ["positive", "metadata"],
+    )

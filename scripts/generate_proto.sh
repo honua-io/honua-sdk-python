@@ -74,7 +74,14 @@ if result:
 for path in output.rglob("*.py*"):
     text = path.read_text().replace(
         "from geospatial.v1 import", "from honua_sdk.grpc._generated.geospatial.v1 import",
-    ).replace("'geospatial.v1.", "'honua_sdk.grpc._generated.geospatial.v1.")
+    )
+    # Descriptor builders need the installed Python module path. Do not rewrite
+    # gRPC method/service strings: those are canonical protocol identifiers.
+    text = re.sub(
+        r"(BuildTopDescriptorsAndMessages\(DESCRIPTOR, )'geospatial\.v1\.",
+        r"\1'honua_sdk.grpc._generated.geospatial.v1.",
+        text,
+    )
     path.write_text(text)
 for directory in (output / "geospatial", output / "geospatial/v1"):
     (directory / "__init__.py").touch()

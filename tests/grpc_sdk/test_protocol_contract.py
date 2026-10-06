@@ -1,6 +1,7 @@
 """Canonical protocol invariants, independent of same-stub mock responses."""
 from __future__ import annotations
 
+import inspect
 import pickle
 from unittest.mock import MagicMock
 
@@ -49,3 +50,12 @@ def test_public_pagination_uses_int64_wire_fields(value: int) -> None:
 def test_generated_messages_use_installable_module_names() -> None:
     request = pb2.QueryFeaturesRequest(service_id="test_service", layer_id=0)
     assert pickle.loads(pickle.dumps(request)) == request  # noqa: S301 -- local trusted message
+
+
+def test_sdkpy_low_generate_proto_preserves_grpc_service_name() -> None:
+    """The generated server registration must use the canonical wire service name."""
+    from honua_sdk.grpc._generated.geospatial.v1 import feature_service_pb2_grpc
+
+    source = inspect.getsource(feature_service_pb2_grpc.add_FeatureServiceServicer_to_server)
+    assert "'geospatial.v1.FeatureService'" in source
+    assert "'honua_sdk.grpc._generated.geospatial.v1.FeatureService'" not in source

@@ -1279,12 +1279,23 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
         "serve.geoservices-featureserver", "geoservices-featureserver", "temporal-query", ["positive", "boundary"]
     ),
     "replica_sync_surface": (
-        "editing.featureserver-edits", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
+        "sync.featureserver-replicas", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
     ),
     "analysis_process_list": (
         "process.ogc-api-processes", "ogc-api-processes", "list-processes", ["positive", "metadata"]
     ),
 }
+
+# This denominator is deliberately independent of the cases implemented by this
+# harness. Public gRPC operations remain required even though the candidate lane
+# does not exercise them yet, so release evidence fails closed in the meantime.
+REQUIRED_CERTIFICATION_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        *((surface, operation) for _, surface, operation, _ in CASE_CERTIFICATION.values()),
+        ("grpc-feature-service", "query-features"),
+        ("grpc-feature-service", "query-features-stream"),
+    }
+)
 
 CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
 CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-public-v1"
@@ -1549,9 +1560,11 @@ def build_certification_fragment(
             "cut_at": target.candidate_cut_at,
         },
         "operation_scope": {
-            "complete": (
-                {case.name for case, _ in case_results} == set(CASE_CERTIFICATION)
-            ),
+            "complete": {
+                (CASE_CERTIFICATION[case.name][1], CASE_CERTIFICATION[case.name][2])
+                for case, _ in case_results
+            }
+            == REQUIRED_CERTIFICATION_OPERATIONS,
             "owner_issue": CERTIFICATION_SCOPE_OWNER,
             "disposition": (
                 "The live cases are a bounded initial certification slice; the complete public/addressable "
@@ -1559,10 +1572,7 @@ def build_certification_fragment(
             ),
             "required_operations": [
                 {"surface": surface, "operation": operation}
-                for surface, operation in sorted({
-                    (surface, operation)
-                    for _, surface, operation, _ in CASE_CERTIFICATION.values()
-                })
+                for surface, operation in sorted(REQUIRED_CERTIFICATION_OPERATIONS)
             ],
         },
         "observations": observations,

@@ -51,7 +51,7 @@
       ]
     },
     {
-      "capability_key": "editing.featureserver-edits",
+      "capability_key": "sync.featureserver-replicas",
       "surface": "geoservices-featureserver",
       "operation": "sync-capability",
       "scenario_facets": [

@@ -324,6 +324,28 @@ def test_proposal_read_wait_caps_sleep_at_remaining_time(
     assert "still AwaitingApproval after 0.25s" in err
 
 
+@pytest.mark.parametrize("timeout", ["nan", "inf", "-inf", "-1"])
+def test_proposal_read_rejects_non_finite_or_negative_wait_timeout(
+    server: FakeAdminServer, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, timeout: str
+) -> None:
+    clock = [100.0]
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock[0] += seconds
+        if len(sleeps) > 5:
+            raise AssertionError(f"--wait-timeout {timeout} kept polling")
+
+    monkeypatch.setattr(cli, "time", types.SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep))
+    code, out, err = run(capsys, "proposal", "read", "prop-1", "--wait", f"--wait-timeout={timeout}")
+    assert code == 2
+    assert out == ""
+    assert "--wait-timeout must be a finite, non-negative number of seconds" in err
+    assert sleeps == []
+    assert server.requests == []
+
+
 def test_proposal_read_without_wait_and_unknown_id(
     server: FakeAdminServer, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -467,6 +489,20 @@ def test_body_validation(
     monkeypatch.setattr("sys.stdin", io.StringIO("{}" + "\u00e9" * (cli._MAX_BODY_BYTES // 2)))
     code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", "-")
     assert (code, "--body stdin exceeds 1 MiB" in err) == (2, True)
+
+    # CRLF input is measured as raw bytes, not after universal-newline decoding.
+    crlf = b"{}" + b"\r\n" * ((cli._MAX_BODY_BYTES // 2) + 1)
+    crlf_file = tmp_path / "crlf.json"
+    crlf_file.write_bytes(crlf)
+    code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", str(crlf_file))
+    assert (code, "--body file exceeds 1 MiB" in err) == (2, True)
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(crlf), encoding="utf-8"))
+    code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", "-")
+    assert (code, "--body stdin exceeds 1 MiB" in err) == (2, True)
+
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b'{"x": "\xff"}'), encoding="utf-8"))
+    code, _, err = run(capsys, "layer", "publish", "conn-1", "--body", "-")
+    assert (code, "readable JSON file" in err) == (2, True)
     assert server.requests == []
 
 

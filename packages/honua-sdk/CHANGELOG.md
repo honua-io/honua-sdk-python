@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.14](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.13...python-sdk-v0.1.14) (2026-10-06)
+
+
+### Bug Fixes
+
+* regenerate canonical geospatial gRPC clients ([#270](https://github.com/honua-io/honua-sdk-python/issues/270)) ([093ae09](https://github.com/honua-io/honua-sdk-python/commit/093ae09ac78c68874104f2cbc506cc2664fb0224))
+* **sdk-python:** FeatureServer pagination must continue past short pages and honour returnCountOnly ([#272](https://github.com/honua-io/honua-sdk-python/issues/272)) ([64871ab](https://github.com/honua-io/honua-sdk-python/commit/64871ab421c44d39c104594d64927e06436e356c))
+* **sdk-python:** refuse cross-origin pagination links and resolve next links against the final response URL ([9932150](https://github.com/honua-io/honua-sdk-python/commit/993215005bcf1aff4adcda7fef92974e82879d7d))
+* **sdk-python:** resolve pagination links against the response URL (no duplicated reverse-proxy base path) ([b1b5156](https://github.com/honua-io/honua-sdk-python/commit/b1b51569a19e9c26b9d713fafbc28d62be6355ef))
+* **sdk-python:** resolve pagination links against the response URL (no duplicated reverse-proxy base path) ([dd3bdcb](https://github.com/honua-io/honua-sdk-python/commit/dd3bdcb8caf6085bae64e4bcebe4d191bd5745c5))
+
+
+### Documentation
+
+* make the getting-started docs run against the 2026.1 candidate ([#257](https://github.com/honua-io/honua-sdk-python/issues/257)) ([d92dd37](https://github.com/honua-io/honua-sdk-python/commit/d92dd37efaff61a57db38d7e3cb07247a4027d40))
+
 ## [0.1.13](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.12...python-sdk-v0.1.13) (2026-10-04)
 
 

@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import math
 import os
 import sys
 import time
@@ -146,7 +147,7 @@ def _read_body(path: str | None) -> dict[str, Any]:
         return {}
     try:
         if path == "-":
-            text = sys.stdin.read(_MAX_BODY_BYTES + 1)
+            text = _read_stdin_body()
         else:
             source = Path(path.removeprefix("@"))
             if source.stat().st_size > _MAX_BODY_BYTES:
@@ -160,6 +161,20 @@ def _read_body(path: str | None) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise CliUsageError("--body must contain a JSON object")
     return _snake_keys(payload)
+
+
+def _read_stdin_body() -> str:
+    """Read at most 1 MiB of raw stdin bytes, then decode, so the limit matches ``--body FILE``."""
+    stream = getattr(sys.stdin, "buffer", None)
+    if stream is None:  # a text-only replacement stream (embedding, tests): measure its encoded size
+        text = str(sys.stdin.read(_MAX_BODY_BYTES + 1))
+        if len(text.encode("utf-8")) > _MAX_BODY_BYTES:
+            raise CliUsageError("--body stdin exceeds 1 MiB")
+        return text
+    raw = stream.read(_MAX_BODY_BYTES + 1)
+    if len(raw) > _MAX_BODY_BYTES:
+        raise CliUsageError("--body stdin exceeds 1 MiB")
+    return bytes(raw).decode("utf-8")
 
 
 def _build(model: type[Any], body: Mapping[str, Any], overrides: Mapping[str, Any]) -> Any:
@@ -290,11 +305,18 @@ def _cmd_proposal_list(args: argparse.Namespace, out: TextIO) -> int:
 
 
 def _cmd_proposal_read(args: argparse.Namespace, out: TextIO) -> int:
+    if not math.isfinite(args.wait_timeout) or args.wait_timeout < 0:
+        raise CliUsageError("--wait-timeout must be a finite, non-negative number of seconds")
     deadline = time.monotonic() + args.wait_timeout
     with _make_client(args) as client:
         proposal = client.get_proposal(args.proposal_id)
-        while args.wait and proposal.status not in TERMINAL_PROPOSAL_STATUSES and time.monotonic() < deadline:
-            time.sleep(_POLL_INTERVAL_SECONDS)
+        while args.wait and proposal.status not in TERMINAL_PROPOSAL_STATUSES:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
+            if time.monotonic() >= deadline:
+                break
             proposal = client.get_proposal(args.proposal_id)
     _emit_record(proposal, args, out)
     if args.wait and proposal.status not in TERMINAL_PROPOSAL_STATUSES:

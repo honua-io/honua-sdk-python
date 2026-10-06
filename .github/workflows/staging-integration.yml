@@ -1,13 +1,15 @@
 name: Python SDK Staging Integration
 
+# Daily + manual only. The smoke targets the `staging` environment, whose
+# client-compat binding (HONUA_CLIENT_COMPAT_BINDING_JSON) expires after at most
+# 30 days and is refreshed outside this repository. When it went stale the
+# lane failed 50/54 push and pull-request runs in one week without saying
+# anything about the change under test, so it no longer runs per push/PR; a
+# scheduled failure opens or updates one tracking issue instead (job below).
 on:
   workflow_dispatch:
   schedule:
     - cron: "0 9 * * *"
-  push:
-    branches: [trunk]
-  pull_request:
-    branches: [trunk]
 
 env:
   PYTHON_VERSION: "3.11"
@@ -20,15 +22,12 @@ permissions:
   contents: read
 
 concurrency:
-  # Supersede stale pull-request heads only: a newer push to the same PR cancels the
-  # in-flight run for the old head. push/schedule/dispatch runs get a unique group
-  # (run_id), so trunk and manual runs are never cancelled or coalesced.
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Every schedule/dispatch run gets a unique group (run_id): never cancelled or coalesced.
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   staging-smoke:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -262,3 +261,51 @@ jobs:
           override_file="${RUNNER_TEMP}/python-smoke-compose.override.yml"
 
           docker compose -f "${compose_file}" -f "${override_file}" down -v || true
+
+  # One tracking issue for the scheduled smoke: a failure opens it (or comments on
+  # the open one); a later green run comments so the owner can close it.
+  staging-smoke-alert:
+    name: staging smoke tracking issue
+    needs: staging-smoke
+    if: ${{ always() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE_TITLE: Python SDK staging smoke is failing
+      SMOKE_RESULT: ${{ needs.staging-smoke.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SDK_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Create or update the staging smoke tracking issue
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --state open --search "\"${ISSUE_TITLE}\" in:title" --json number,title \
+            --jq "map(select(.title == \"${ISSUE_TITLE}\")) | .[0].number // empty")"
+
+          if [[ "${SMOKE_RESULT}" == "success" ]]; then
+            if [[ -n "${existing}" ]]; then
+              gh issue comment "${existing}" --body "Scheduled staging smoke passed again on ${RUN_URL} (SDK \`${SDK_COMMIT}\`). Close this issue once the cause is understood."
+            fi
+            exit 0
+          fi
+
+          body_file="${RUNNER_TEMP}/staging-smoke.md"
+          {
+            echo "The scheduled \`Python SDK Staging Integration\` run finished with job result **\`${SMOKE_RESULT}\`**."
+            echo
+            echo "- Run: ${RUN_URL} (artifacts hold the JUnit report and smoke results)"
+            echo "- SDK commit: \`${SDK_COMMIT}\`"
+            echo
+            echo "A \`SmokeConfigError: Client-compat binding is stale\` means the \`staging\` environment variable \`HONUA_CLIENT_COMPAT_BINDING_JSON\` must be regenerated (expiry window is at most 30 days); re-run with workflow_dispatch after refreshing it."
+          } > "${body_file}"
+
+          if [[ -n "${existing}" ]]; then
+            gh issue comment "${existing}" --body-file "${body_file}"
+          else
+            gh issue create --title "${ISSUE_TITLE}" --body-file "${body_file}"
+          fi

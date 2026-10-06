@@ -68,10 +68,10 @@ pip install ./packages/honua-sdk ./packages/honua-admin
 ```
 
 Or straight from GitHub without cloning, pinned to a release tag
-(`python-sdk-v0.1.12` is the `honua-sdk` release that Honua 2026.1 ships):
+(`python-sdk-v0.1.14` is the current published `honua-sdk` release):
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.12#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.14#subdirectory=packages/honua-sdk"
 ```
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it holds
@@ -166,18 +166,29 @@ Every HTTP workflow has an async counterpart with the same factory and method
 names — works with FastAPI, asyncio pipelines, and Jupyter:
 
 ```python
+import asyncio
+
 from honua_sdk import AsyncHonuaClient, Query, SourceDescriptor, SourceLocator
 
-async with AsyncHonuaClient("https://demo.honua.io") as client:
-    source = client.source(
-        SourceDescriptor(
-            id="maui-zoning",
-            protocol="geoservices-feature-service",
-            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+async def main() -> None:
+    async with AsyncHonuaClient("https://demo.honua.io") as client:
+        source = client.source(
+            SourceDescriptor(
+                id="maui-zoning",
+                protocol="geoservices-feature-service",
+                locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+            )
         )
-    )
-    result = await source.query(Query(where="1=1"))
+        result = await source.query(Query(where="1=1"))
+        print(f"Found {len(result.features)} features")
+
+
+asyncio.run(main())
 ```
+
+`asyncio.run(main())` is for scripts. Jupyter and IPython already run an event
+loop, where `asyncio.run` raises `RuntimeError`; call `await main()` in a
+notebook cell instead.
 
 ### Admin client
 
@@ -254,7 +265,7 @@ at [honua.io](https://honua.io) and
 | [honua-server](https://github.com/honua-io/honua-server) | Flagship multi-protocol geospatial server this SDK talks to |
 | [honua-sdk-js](https://github.com/honua-io/honua-sdk-js) | JavaScript/TypeScript SDKs + MCP server |
 | [honua-sdk-dotnet](https://github.com/honua-io/honua-sdk-dotnet) | .NET SDKs |
-| [honua-console](https://github.com/honua-io/honua-console) | Unified web console (Studio, Catalog, Operate, Share) |
+| [honua-console](https://github.com/honua-io/honua-console) | Display-and-approve web console; Studio is Preview and is not part of the qualified 2026.1 scope |
 | honua-qgis-plugin | QGIS plugin (private preview; repo not yet public) |
 | [geospatial-grpc](https://github.com/honua-io/geospatial-grpc) | Vendor-neutral gRPC protocol standard; source of this repo's conformance fixtures |
 

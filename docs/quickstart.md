@@ -92,6 +92,18 @@ A `Result` from the `Source` API converts directly with one call -- no
 Shapely glue code required:
 
 ```python
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+
+with HonuaClient("https://demo.honua.io") as client:
+    source = client.source(
+        SourceDescriptor(
+            id="maui-zoning",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+        )
+    )
+    result = source.query(Query(where="island = 'Maui'", out_fields=["*"]))
+
 gdf = result.to_geodataframe()
 print(gdf.head())
 print(gdf.crs)
@@ -107,6 +119,7 @@ Esri JSON geometries and the layer's `spatialReference`:
 
 ```python
 from honua_sdk.geopandas import features_to_geodataframe
+from honua_sdk import HonuaClient
 
 with HonuaClient("https://demo.honua.io") as client:
     raw = client.query_features("maui-zoning", layer_id=2, where="island = 'Maui'")
@@ -125,6 +138,18 @@ appendix at the bottom of this file for the manual Esri JSON conversion.
 ```python
 import matplotlib.pyplot as plt
 
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+
+with HonuaClient("https://demo.honua.io") as client:
+    source = client.source(
+        SourceDescriptor(
+            id="maui-zoning",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+        )
+    )
+    gdf = source.query(Query(where="island = 'Maui'", out_fields=["*"])).to_geodataframe()
+
 ax = gdf.plot(column="cp_area", legend=True, figsize=(12, 8))
 ax.set_title("Maui zoning by community plan area")
 plt.savefig("features.png", dpi=150, bbox_inches="tight")
@@ -136,6 +161,18 @@ data, replace it with any attribute name, or drop the `column` argument to plot
 without a colour ramp:
 
 ```python
+from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+
+with HonuaClient("https://demo.honua.io") as client:
+    source = client.source(
+        SourceDescriptor(
+            id="maui-zoning",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+        )
+    )
+    gdf = source.query(Query(where="island = 'Maui'", out_fields=["*"])).to_geodataframe()
+
 gdf.plot(figsize=(12, 8))
 ```
 
@@ -147,9 +184,20 @@ outside it plots off the map.
 
 ```python
 import geopandas as gpd
+import matplotlib.pyplot as plt
 from shapely.geometry import Point
 
-from honua_sdk import HonuaGeocodingClient
+from honua_sdk import HonuaClient, HonuaGeocodingClient, Query, SourceDescriptor, SourceLocator
+
+with HonuaClient("https://demo.honua.io") as client:
+    source = client.source(
+        SourceDescriptor(
+            id="maui-zoning",
+            protocol="geoservices-feature-service",
+            locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+        )
+    )
+    gdf = source.query(Query(where="island = 'Maui'", out_fields=["*"])).to_geodataframe()
 
 with HonuaGeocodingClient("https://demo.honua.io") as geocoder:
     results = geocoder.forward_geocode("Kahului Airport, Maui, Hawaii")
@@ -217,14 +265,21 @@ For async usage, swap in `HonuaGrpcAsyncClient`:
 
 <!-- doc-run: blocked https://github.com/honua-io/honua-sdk-python/issues/259 -->
 ```python
+import asyncio
+
 from honua_sdk.grpc import HonuaGrpcAsyncClient, QueryFeaturesRequest
 
-async with HonuaGrpcAsyncClient("your-honua-server.com:8081", insecure=True) as grpc_client:
-    request = QueryFeaturesRequest(service_id="maui-zoning", layer_id=2)
-    response = await grpc_client.query_features(request)
+async def main() -> None:
+    async with HonuaGrpcAsyncClient("your-honua-server.com:8081", insecure=True) as grpc_client:
+        request = QueryFeaturesRequest(service_id="maui-zoning", layer_id=2)
+        response = await grpc_client.query_features(request)
+        print(f"Received {len(response.features)} features via gRPC")
 
-    async for page in grpc_client.query_features_stream(request):
-        print(f"Streamed {len(page.features)} features")
+        async for page in grpc_client.query_features_stream(request):
+            print(f"Streamed {len(page.features)} features")
+
+
+asyncio.run(main())
 ```
 
 ## Full script
@@ -417,20 +472,26 @@ with HonuaClient("https://your-honua-server.com", api_key=os.environ["HONUA_API_
 `HonuaTimeoutError` fires when a single request exceeds the client's configured
 timeout. For occasional slow queries, retry the same call with a one-shot
 `client.with_options(timeout=...)` override -- this returns a lightweight clone
-that shares the underlying transport, so it does not reconnect. `SERVER` and
-`ZONING` are the ones defined in the example above:
+that shares the underlying transport, so it does not reconnect:
 
 ```python
-from honua_sdk import HonuaClient, HonuaTimeoutError, Query
+from honua_sdk import HonuaClient, HonuaTimeoutError, Query, SourceDescriptor, SourceLocator
+
+server = "https://demo.honua.io"
+zoning = SourceDescriptor(
+    id="maui-zoning",
+    protocol="geoservices-feature-service",
+    locator=SourceLocator(service_id="maui-zoning", layer_id=2),
+)
 
 query = Query(where="island = 'Maui'")
 
-with HonuaClient(SERVER, timeout=5.0) as client:
+with HonuaClient(server, timeout=5.0) as client:
     try:
-        result = client.source(ZONING).query(query)
+        result = client.source(zoning).query(query)
     except HonuaTimeoutError:
         # One-shot bigger budget; original client keeps its 5s default.
-        result = client.with_options(timeout=60.0).source(ZONING).query(query)
+        result = client.with_options(timeout=60.0).source(zoning).query(query)
 ```
 
 See [troubleshooting.md](troubleshooting.md) for more.

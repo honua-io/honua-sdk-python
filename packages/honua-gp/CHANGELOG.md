@@ -84,7 +84,7 @@ honua-server, `GetCount` on a 25 m dissolved Buffer output returned the input's
 
 ### Environment configuration and FeatureServer layer URLs (#205)
 
-The licensed ArcPy `GetCount` parity probe failed twice before reaching the
+A `GetCount` compatibility probe failed twice before reaching the
 server: `import honua_gp` with `HONUA_BASE_URL` set still raised
 `HonuaGpConfigurationError`, and a FeatureServer layer URL resolved as a
 `workspace-relative` name, so the query went to a nonexistent endpoint.

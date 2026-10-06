@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from honua_sdk import AsyncHonuaClient, HonuaClient
+from honua_sdk.errors import HonuaError
 from honua_sdk.protocols import BinaryResponse, ODataQuery
 
 
@@ -435,3 +436,111 @@ async def test_async_ogc_records_top_level_aliases_and_search_variants() -> None
 
     assert ("GET", "/ogc/records/search") in [(e["method"], e["raw_path"]) for e in seen]
     assert ("GET", "/ogc/records/collections/catalog/queryables") in [(e["method"], e["raw_path"]) for e in seen]
+
+
+async def test_async_odata_cross_origin_next_link_is_refused_for_external_client() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.url.host != "example.test":
+            return httpx.Response(200, json={"value": [{"ObjectId": 99}]})
+        return httpx.Response(
+            200,
+            json={
+                "value": [{"ObjectId": 1}],
+                "@odata.nextLink": "https://attacker.test/odata/Layers(4)/Features?$skip=1",
+            },
+        )
+
+    external = httpx.AsyncClient(
+        base_url="https://example.test/honua/",
+        headers={"Authorization": "Bearer caller-secret"},
+        transport=httpx.MockTransport(handler),
+    )
+    async with external, AsyncHonuaClient("https://example.test/honua/", client=external) as client:
+        with pytest.raises(HonuaError, match="attacker.test"):
+            await client.odata().features_all(layer_id=4, page_size=1, limit=2)
+
+    assert all(httpx.URL(url).host == "example.test" for url in seen)
+
+
+async def test_async_stac_cross_origin_next_link_is_refused_for_external_client() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(
+            200,
+            json={
+                "features": [{"id": "a"}],
+                "links": [{"rel": "next", "href": "https://attacker.test/stac/search?token=2"}],
+            },
+        )
+
+    external = httpx.AsyncClient(
+        base_url="https://example.test/honua/",
+        headers={"X-API-Key": "caller-secret"},
+        transport=httpx.MockTransport(handler),
+    )
+    async with external, AsyncHonuaClient("https://example.test/honua/", client=external) as client:
+        with pytest.raises(HonuaError, match="attacker.test"):
+            async for _ in client.stac().search_pages(page_size=1, limit=2):
+                pass
+
+    assert all(httpx.URL(url).host == "example.test" for url in seen)
+
+
+async def test_async_odata_relative_next_link_resolves_against_redirected_response_url() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if request.url.path.startswith("/honua/"):
+            moved = request.url.copy_with(raw_path=request.url.raw_path.replace(b"/honua/", b"/moved/", 1))
+            return httpx.Response(307, headers={"Location": str(moved)})
+        if len(seen) == 2:
+            return httpx.Response(
+                200, json={"value": [{"ObjectId": 1}], "@odata.nextLink": "Features?$skip=1&$top=1"}
+            )
+        return httpx.Response(200, json={"value": [{"ObjectId": 2}]})
+
+    async with AsyncHonuaClient(
+        "https://example.test/honua/", transport=httpx.MockTransport(handler), follow_redirects=True
+    ) as client:
+        features = await client.odata().features_all(layer_id=4, page_size=1, limit=2)
+
+    assert [feature["ObjectId"] for feature in features] == [1, 2]
+    assert seen == [
+        "/honua/odata/Layers(4)/Features?%24top=1&%24skip=0",
+        "/moved/odata/Layers(4)/Features?%24top=1&%24skip=0",
+        "/moved/odata/Layers(4)/Features?%24skip=1&%24top=1",
+    ]
+
+
+async def test_async_stac_relative_next_link_resolves_against_redirected_response_url() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if request.url.path.startswith("/honua/"):
+            moved = request.url.copy_with(raw_path=request.url.raw_path.replace(b"/honua/", b"/moved/", 1))
+            return httpx.Response(307, headers={"Location": str(moved)})
+        if len(seen) == 2:
+            return httpx.Response(
+                200,
+                json={"features": [{"id": "a"}], "links": [{"rel": "next", "href": "items?token=2"}]},
+            )
+        return httpx.Response(200, json={"features": [{"id": "b"}]})
+
+    async with AsyncHonuaClient(
+        "https://example.test/honua/", transport=httpx.MockTransport(handler), follow_redirects=True
+    ) as client:
+        items = [item async for item in client.stac().iter_items("c1", page_size=1, limit=2)]
+
+    assert [item["id"] for item in items] == ["a", "b"]
+    assert seen == [
+        "/honua/stac/collections/c1/items?limit=1&offset=0",
+        "/moved/stac/collections/c1/items?limit=1&offset=0",
+        "/moved/stac/collections/c1/items?token=2",
+    ]

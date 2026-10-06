@@ -9,10 +9,13 @@ import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias
-from urllib.parse import parse_qsl, urljoin, urlsplit
+from urllib.parse import parse_qsl, urljoin, urlsplit, urlunsplit
 
 import httpx
 
+# ``_endpoints`` imports this module while loading, so bind the module (not
+# its attributes) here and resolve ``parse_json_response_body`` at call time.
+from honua_sdk import _endpoints
 from honua_sdk._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from honua_sdk._http import _encode_path_segment
 
@@ -316,6 +319,18 @@ def _per_call_kwargs(
     return kwargs
 
 
+def _resolve_continuation_href(href: str, response_url: str) -> tuple[str, dict[str, str]]:
+    """Resolve a pagination ``href`` against the URL of the page that held it.
+
+    Returns the absolute request URL (without query/fragment) and the query
+    parameters, so the client can re-encode them consistently.
+    """
+    resolved_href = urljoin(response_url, href)
+    _, params = _path_and_params_from_href(resolved_href)
+    url = urlunsplit(urlsplit(resolved_href)._replace(query="", fragment=""))
+    return url, params
+
+
 class _SyncProtocol:
     client: SupportsSyncRequest
 
@@ -351,6 +366,48 @@ class _SyncProtocol:
             ),
         )
 
+    def _json_page(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Params = None,
+        json_body: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[JsonObject, str]:
+        """Fetch a JSON page and return it with the final response URL.
+
+        The URL is the one the server actually answered from (after any
+        followed redirects), which is the base a relative continuation link
+        in the page must resolve against.
+        """
+        response = self.client._request(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        )
+        return _endpoints.parse_json_response_body(response), str(response.url)
+
+    def _json_href_page(
+        self,
+        href: str,
+        *,
+        response_url: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[JsonObject, str]:
+        url, params = _resolve_continuation_href(href, response_url or str(self.client._base_url))
+        return self._json_page(
+            "GET",
+            url,
+            params=params,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+
     def _json_href(
         self,
         href: str,
@@ -359,16 +416,10 @@ class _SyncProtocol:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        resolved_href = urljoin(response_url or str(self.client._base_url), href)
-        _, params = _path_and_params_from_href(resolved_href)
-        parsed_href = urlsplit(resolved_href)
-        return self._json(
-            "GET",
-            resolved_href.removesuffix(f"?{parsed_href.query}") if parsed_href.query else resolved_href,
-            params=params,
-            timeout=timeout,
-            extra_headers=extra_headers,
+        page, _ = self._json_href_page(
+            href, response_url=response_url, timeout=timeout, extra_headers=extra_headers
         )
+        return page
 
     def _bytes(
         self,
@@ -463,6 +514,48 @@ class _AsyncProtocol:
             ),
         )
 
+    async def _json_page(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Params = None,
+        json_body: Mapping[str, Any] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[JsonObject, str]:
+        """Fetch a JSON page and return it with the final response URL.
+
+        The URL is the one the server actually answered from (after any
+        followed redirects), which is the base a relative continuation link
+        in the page must resolve against.
+        """
+        response = await self.client._request(
+            method,
+            path,
+            params=params,
+            json_body=json_body,
+            **_per_call_kwargs(timeout=timeout, extra_headers=extra_headers),
+        )
+        return _endpoints.parse_json_response_body(response), str(response.url)
+
+    async def _json_href_page(
+        self,
+        href: str,
+        *,
+        response_url: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[JsonObject, str]:
+        url, params = _resolve_continuation_href(href, response_url or str(self.client._base_url))
+        return await self._json_page(
+            "GET",
+            url,
+            params=params,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+
     async def _json_href(
         self,
         href: str,
@@ -471,16 +564,10 @@ class _AsyncProtocol:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        resolved_href = urljoin(response_url or str(self.client._base_url), href)
-        _, params = _path_and_params_from_href(resolved_href)
-        parsed_href = urlsplit(resolved_href)
-        return await self._json(
-            "GET",
-            resolved_href.removesuffix(f"?{parsed_href.query}") if parsed_href.query else resolved_href,
-            params=params,
-            timeout=timeout,
-            extra_headers=extra_headers,
+        page, _ = await self._json_href_page(
+            href, response_url=response_url, timeout=timeout, extra_headers=extra_headers
         )
+        return page
 
     async def _bytes(
         self,

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping
-from urllib.parse import urljoin
 
 import httpx
 
@@ -375,7 +374,9 @@ class ODataClient(_SyncProtocol):
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
-        response_url = urljoin(str(self.client._base_url), path.lstrip("/"))
+        # URL the current page was actually served from (post-redirect); a
+        # relative ``@odata.nextLink`` resolves against it.
+        response_url: str | None = None
         skip = int((extra_params or {}).get("$skip", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -383,9 +384,11 @@ class ODataClient(_SyncProtocol):
                 break
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                response_url = urljoin(response_url, next_href)
-                page = self._json_href(
-                    response_url, timeout=timeout, extra_headers=extra_headers
+                page, response_url = self._json_href_page(
+                    next_href,
+                    response_url=response_url,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
             else:
                 page_params = _odata_params(
@@ -397,7 +400,7 @@ class ODataClient(_SyncProtocol):
                 )
                 page_params["$top"] = page_limit
                 page_params["$skip"] = skip
-                page = self._json(
+                page, response_url = self._json_page(
                     "GET",
                     path,
                     params=page_params,
@@ -767,7 +770,9 @@ class AsyncODataClient(_AsyncProtocol):
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
-        response_url = urljoin(str(self.client._base_url), path.lstrip("/"))
+        # URL the current page was actually served from (post-redirect); a
+        # relative ``@odata.nextLink`` resolves against it.
+        response_url: str | None = None
         skip = int((extra_params or {}).get("$skip", 0))
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
@@ -775,9 +780,11 @@ class AsyncODataClient(_AsyncProtocol):
                 break
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
-                response_url = urljoin(response_url, next_href)
-                page = await self._json_href(
-                    response_url, timeout=timeout, extra_headers=extra_headers
+                page, response_url = await self._json_href_page(
+                    next_href,
+                    response_url=response_url,
+                    timeout=timeout,
+                    extra_headers=extra_headers,
                 )
             else:
                 page_params = _odata_params(
@@ -789,7 +796,7 @@ class AsyncODataClient(_AsyncProtocol):
                 )
                 page_params["$top"] = page_limit
                 page_params["$skip"] = skip
-                page = await self._json(
+                page, response_url = await self._json_page(
                     "GET",
                     path,
                     params=page_params,

@@ -186,6 +186,10 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+`asyncio.run(main())` is for scripts. Jupyter and IPython already run an event
+loop, where `asyncio.run` raises `RuntimeError`; call `await main()` in a
+notebook cell instead.
+
 ### Admin client
 
 Admin needs a server of your own: the public demo returns `401` for

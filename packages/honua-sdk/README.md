@@ -105,8 +105,10 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Works with FastAPI, asyncio pipelines, Jupyter async, and any other async
-framework. Sync and async clients share identical method names, retry, and
+Works with FastAPI, asyncio pipelines, Jupyter, and any other async
+framework. `asyncio.run(main())` is for scripts; Jupyter and IPython already run
+an event loop, where `asyncio.run` raises `RuntimeError`, so call
+`await main()` in a notebook cell instead. Sync and async clients share identical method names, retry, and
 error-handling behavior.
 
 Protocol IDs follow the canonical cross-SDK names

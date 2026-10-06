@@ -407,6 +407,7 @@ class ODataClient(_SyncProtocol):
                     timeout=timeout,
                     extra_headers=extra_headers,
                 )
+            followed_continuation = next_href is not None
             yield page
             page_values = _values_from_page(page)
             fetched += len(page_values)
@@ -419,6 +420,8 @@ class ODataClient(_SyncProtocol):
                 return
             previous_next_href = next_href
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_values) < page_limit:
                     break
                 skip += len(page_values)
@@ -803,6 +806,7 @@ class AsyncODataClient(_AsyncProtocol):
                     timeout=timeout,
                     extra_headers=extra_headers,
                 )
+            followed_continuation = next_href is not None
             yield page
             page_values = _values_from_page(page)
             fetched += len(page_values)
@@ -815,6 +819,8 @@ class AsyncODataClient(_AsyncProtocol):
                 return
             previous_next_href = next_href
             if next_href is None:
+                if followed_continuation:
+                    break
                 if len(page_values) < page_limit:
                     break
                 skip += len(page_values)

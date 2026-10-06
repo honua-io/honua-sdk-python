@@ -89,6 +89,27 @@ async def test_async_update_cursor_iterate_and_write_back() -> None:
     assert {u["attributes"]["name"] for u in edits[0]["updates"]} == {"a", "b"}
 
 
+async def test_async_update_cursor_fetches_rows_lazily_per_batch() -> None:
+    requests: list[tuple[str | None, str | None]] = []
+    rows_by_id = {oid: {"attributes": {"objectid": oid}, "geometry": {"x": oid, "y": oid}} for oid in (1, 2, 3)}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = request.url.params
+        requests.append((params.get("returnGeometry"), params.get("objectIds")))
+        ids = [int(oid) for oid in params["objectIds"].split(",")] if params.get("objectIds") else list(rows_by_id)
+        return httpx.Response(200, json={"features": [rows_by_id[oid] for oid in ids], "exceededTransferLimit": False})
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        cursor = client.source(_descriptor()).update_cursor(batch_size=2)
+        rows = cursor.__aiter__()
+        first = await rows.__anext__()
+        assert first.object_id == 1
+        assert first.feature.geometry is not None
+        assert requests == [("false", None), ("true", "1,2")]
+        assert [row.object_id async for row in rows] == [2, 3]
+    assert requests[-1] == ("true", "3")
+
+
 async def test_async_to_geodataframe() -> None:
     gpd = pytest.importorskip("geopandas")
     pytest.importorskip("shapely")

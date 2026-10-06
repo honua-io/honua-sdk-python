@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Audit platform-20261006: issue 281 receipts"
+description: "Per-finding outcomes and proving tests for the cursor and pagination correctness fixes (SDKPY-001, -002, -004, -005, -006)."
+tags: [audit, cursors, pagination]
+---
 # Issue 281 — cursor and pagination correctness
 
 | Finding id | Outcome | Evidence |

@@ -115,7 +115,12 @@ print(len(map_png), len(styled_png))                # bytes
 
 ## OGC API Tiles
 
-Tileset discovery returns JSON. Tile requests return bytes.
+Tileset discovery returns JSON. Tile requests return bytes. By default, the
+server chooses the tile encoding (typically Mapbox vector tiles). Pass
+`response_format="png"` to request a rendered raster tile through the OGC
+`f=png` query parameter. Deployment-specific selectors can be supplied with
+`extra_params`; if it includes `f`, that value takes precedence over
+`response_format`.
 
 ```python
 from honua_sdk import HonuaClient
@@ -132,6 +137,8 @@ with HonuaClient(SERVER) as client:
         0,
         0,
         collection_id=COLLECTION_ID,
+        response_format="png",
+        extra_params={"style": "default"},
     )
 
 print(len(tile_png))                                # bytes

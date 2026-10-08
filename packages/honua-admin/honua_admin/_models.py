@@ -130,6 +130,58 @@ ServiceSummary = AdminServiceSummary
 
 
 @dataclass(frozen=True, slots=True)
+class ImportResult:
+    """Completed file import, including logical and physical table identities.
+
+    A successful HTTP response may still have ``success=False`` when dataset
+    validation fails. Inspect ``error_code`` and ``validation_errors`` then.
+    ``format`` retains the server's file-format value; ``duration`` is a
+    serialized .NET TimeSpan.
+    """
+
+    success: bool
+    table_name: str
+    format: str | int
+    feature_count: int = 0
+    physical_table_name: str | None = None
+    schema: str | None = None
+    source_kind: str = "file"
+    source_url: str | None = None
+    upload_id: str | None = None
+    cloud_file_id: str | None = None
+    detected_srid: int | None = None
+    error_message: str | None = None
+    error_code: str | None = None
+    validation_errors: list[dict[str, Any]] = field(default_factory=list)
+    repaired_geometry_count: int = 0
+    duration: str | None = None
+    warnings: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ImportResult:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundImportResponse:
+    """Accepted import job. Status and cancel URLs are returned by the server."""
+
+    job_id: str
+    message: str
+    status_url: str
+    cancel_url: str
+    upload_id: str | None = None
+    operation_instance_id: str | None = None
+    correlation_id: str | None = None
+    audit_id: str | None = None
+    proposal_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> BackgroundImportResponse:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+
+@dataclass(frozen=True, slots=True)
 class AccessPolicyResponse:
     allow_anonymous: bool
     allow_anonymous_write: bool

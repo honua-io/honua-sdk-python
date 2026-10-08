@@ -392,6 +392,68 @@ def test_release_validator_rejects_mismatched_governed_context(
         validate_release_certification_fragment(fragment)
 
 
+@pytest.mark.parametrize("field", ["maturity", "required_tier"])
+def test_release_validator_rejects_context_less_receipt_and_row(monkeypatch, field: str) -> None:
+    """A receipt and row that both omit governed context must not match as None == None."""
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    row = fragment["observations"][0]
+    del row[field]
+    del row["evidence_receipt"]["identity"][field]
+    with pytest.raises(AssertionError, match="not bound to governed certification context"):
+        validate_release_certification_fragment(fragment)
+
+
+def test_release_validator_rejects_non_object_receipt(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment["observations"][0]["evidence_receipt"] = "receipt"
+    with pytest.raises(AssertionError, match="not bound to governed certification context"):
+        validate_release_certification_fragment(fragment)
+
+
+def test_certification_rejects_cell_absent_from_governed_requirements(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """No inference: a case whose exact governed cell is absent fails closed."""
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    document = {
+        "schema": "honua.protocol-certification-requirements/v1",
+        "revision": "requirements-independent-9",
+        "requirements": [],
+    }
+    path = tmp_path / "empty-requirements.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z", certification_requirements_path=str(path),
+    )
+    case = _case("replica_sync_surface")
+    with pytest.raises(RuntimeError, match="missing exact cell"):
+        build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"), target, [(case, _result(case.name, "passed"))]
+        )
+
+
 def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> None:
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
@@ -478,7 +540,7 @@ def test_sdkpy_007_sync_metadata_probe_is_not_edit_certification() -> None:
     """SDKPY-007: metadata-only evidence must not claim an apply-edits capability."""
     capability, surface, operation, facets = CASE_CERTIFICATION["replica_sync_surface"]
 
-    assert capability == "editing.featureserver-edits"
+    assert capability == "sync.featureserver-replicas"
     assert (surface, operation, facets) == (
         "geoservices-featureserver",
         "sync-capability",
@@ -555,7 +617,7 @@ def test_apply_edits_stays_required_when_grpc_cases_join_the_harness(monkeypatch
     assert ("geoservices-featureserver", "apply-edits") not in observed
     assert observed == required - {("geoservices-featureserver", "apply-edits")}
     assert fragment["operation_scope"]["complete"] is False
-    sync = next(row for row in fragment["observations"] if row["capability_key"] == "editing.featureserver-edits")
+    sync = next(row for row in fragment["observations"] if row["capability_key"] == "sync.featureserver-replicas")
     assert sync["operation"] == "sync-capability"
     with pytest.raises(AssertionError, match="operation scope is incomplete"):
         conformance.validate_release_certification_fragment(fragment)

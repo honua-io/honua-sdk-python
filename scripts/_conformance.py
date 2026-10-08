@@ -1283,7 +1283,7 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
         "serve.geoservices-featureserver", "geoservices-featureserver", "temporal-query", ["positive", "boundary"]
     ),
     "replica_sync_surface": (
-        "editing.featureserver-edits", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
+        "sync.featureserver-replicas", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
     ),
     "analysis_process_list": (
         "process.ogc-api-processes", "ogc-api-processes", "list-processes", ["positive", "metadata"]
@@ -1440,8 +1440,10 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
         isinstance(requirements_revision, str) and bool(requirements_revision),
         "release SDK certification is missing requirements_revision",
     )
-    observations_value = fragment.get("observations")
-    _require(isinstance(observations_value, list), "release SDK certification is missing observations")
+    observations_value = _as_list(
+        fragment.get("observations"),
+        "release SDK certification is missing observations",
+    )
     for row in observations_value:
         _require(isinstance(row, Mapping), "release observations are malformed")
         if row.get("result") == "skip":
@@ -1449,9 +1451,11 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
         receipt = row.get("evidence_receipt")
         identity = receipt.get("identity") if isinstance(receipt, Mapping) else None
         _require(
-            receipt is not None
+            isinstance(receipt, Mapping)
             and receipt.get("schema") == "honua.certification-evidence-receipt/v2"
             and isinstance(identity, Mapping)
+            and row.get("maturity") in _CERTIFICATION_MATURITIES
+            and row.get("required_tier") in _CERTIFICATION_TIERS
             and identity.get("maturity") == row.get("maturity")
             and identity.get("required_tier") == row.get("required_tier")
             and identity.get("requirements_revision") == requirements_revision,

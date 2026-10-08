@@ -7,7 +7,7 @@ from __future__ import annotations
 import copy
 import warnings
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, BinaryIO
 
 import httpx
 from honua_sdk.http import (
@@ -41,9 +41,11 @@ from ._models import (
     AdminCompatibilityCheckResult,
     AdminCompatibilityFeatureFlags,
     AdminVersionResponse,
+    BackgroundImportResponse,
     ConnectionTestResult,
     CreateSecureConnectionRequest,
     EncryptionValidationResult,
+    ImportResult,
     KeyRotationResult,
     LayerStyleResponse,
     LayerStyleUpdateRequest,
@@ -406,6 +408,8 @@ class HonuaAdminClient:
         *,
         params: Mapping[str, Any] | None = None,
         json_body: Any | None = None,
+        files: Mapping[str, tuple[str, bytes, str]] | None = None,
+        data: Mapping[str, str] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -433,6 +437,15 @@ class HonuaAdminClient:
             "json": json_body,
             "headers": merged_headers,
         }
+        if files is not None:
+            # httpx must generate the multipart Content-Type and its boundary.
+            # A JSON default on an external client would otherwise mask it.
+            if "Content-Type" in self._client.headers or any(
+                key.lower() == "content-type" for key in merged_headers or {}
+            ):
+                raise ValueError("Do not set Content-Type for multipart uploads; httpx generates the boundary.")
+            request_kwargs["files"] = files
+            request_kwargs["data"] = data
         if timeout is not None:
             request_kwargs["timeout"] = (
                 timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)
@@ -484,6 +497,62 @@ class HonuaAdminClient:
             idempotency_key=idempotency_key,
         )
         return _endpoints.unwrap_envelope(response)
+
+    # ======================================================================
+    # File imports
+    # ======================================================================
+
+    def upload_file(
+        self,
+        file: bytes | BinaryIO,
+        *,
+        filename: str,
+        table_name: str,
+        content_type: str = "application/octet-stream",
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> ImportResult | BackgroundImportResponse:
+        """Upload a geospatial file using multipart ``file`` and ``TableName``.
+
+        ``file`` is bytes or a caller-owned binary stream. Streams are read
+        from their current position to EOF once, without seeking or closing;
+        the remaining content is buffered in memory before sending. Empty or
+        exhausted input raises ``ValueError`` before any HTTP request.
+
+        POST is not retried by default. If the caller opts POST into a retry
+        transport, the buffered bytes are replayable on every attempt. Supply
+        ``idempotency_key`` when using an external client with POST retries.
+        Do not supply a multipart Content-Type header: httpx generates it,
+        including the boundary. ``content_type`` applies to the file part.
+
+        Returns a completed :class:`ImportResult` for HTTP 200, or a
+        :class:`BackgroundImportResponse` for HTTP 202 when the server queues
+        a large file. A completed result can have ``success=False``; inspect
+        its error and validation fields. HTTP/transport errors follow the
+        same ``HonuaHttpError`` / ``HonuaTransportError`` policy as other calls.
+        """
+        if not filename.strip():
+            raise ValueError("filename must not be empty.")
+        if not table_name.strip():
+            raise ValueError("table_name must not be empty.")
+        content = file if isinstance(file, bytes) else file.read()
+        if not isinstance(content, bytes):
+            raise TypeError("file must contain binary bytes.")
+        if not content:
+            raise ValueError("file is empty or the stream is exhausted.")
+        response = self._request(
+            "POST",
+            _endpoints.IMPORT_UPLOAD_PATH,
+            files={"file": (filename, content, content_type)},
+            data={"TableName": table_name},
+            headers=self._idempotency_headers(idempotency_key, extra=extra_headers),
+            timeout=timeout,
+        )
+        payload = _endpoints.unwrap_envelope(response)
+        if response.status_code == 202:
+            return BackgroundImportResponse.from_dict(payload)
+        return ImportResult.from_dict(payload)
 
     # ======================================================================
     # Services
@@ -582,6 +651,49 @@ class HonuaAdminClient:
             "PUT",
             f"/api/v1/admin/services/{service_name}/protocols",
             json_body=protocols,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            idempotency_key=idempotency_key,
+        )
+        return ServiceSettingsResponse.from_dict(data)
+
+    def update_access_policy(
+        self,
+        name: str,
+        *,
+        allow_anonymous: bool | None = None,
+        allow_anonymous_write: bool | None = None,
+        allowed_roles: list[str] | None = None,
+        allowed_write_roles: list[str] | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> ServiceSettingsResponse:
+        """PUT service access policy and return refreshed service settings.
+
+        ``name`` is encoded as one URL path segment. Omitted/``None`` fields
+        preserve their server values; ``False`` disables anonymous access and
+        an empty role list clears that restriction. For example,
+        ``update_access_policy("default", allow_anonymous=True)`` sends
+        exactly ``{"allowAnonymous": true}``.
+
+        Per-request timeout, header and idempotency overrides use the same
+        conventions and HTTP/transport error types as other admin methods.
+        """
+        body = {
+            key: value
+            for key, value in {
+                "allowAnonymous": allow_anonymous,
+                "allowAnonymousWrite": allow_anonymous_write,
+                "allowedRoles": allowed_roles,
+                "allowedWriteRoles": allowed_write_roles,
+            }.items()
+            if value is not None
+        }
+        data = self._request_json(
+            "PUT",
+            _endpoints.SERVICE_ACCESS_POLICY_PATH.format(name=encode_path_segment(name)),
+            json_body=body,
             timeout=timeout,
             extra_headers=extra_headers,
             idempotency_key=idempotency_key,

@@ -16,6 +16,9 @@ from typing import Any
 import httpx
 from honua_sdk.http import build_idempotency_headers
 
+IMPORT_UPLOAD_PATH = "/api/v1/admin/import/upload"
+SERVICE_ACCESS_POLICY_PATH = "/api/v1/admin/services/{name}/access-policy"
+
 
 def unwrap_envelope(response: httpx.Response) -> Any:
     """Strip the ``{"success": true, "data": ...}`` envelope, if present.

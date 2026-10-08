@@ -23,11 +23,13 @@
         "ArcPyScriptSource",
         "ArcPyToolCall",
         "AsyncHonuaAdminClient",
+        "BackgroundImportResponse",
         "ColumnInfo",
         "ConnectionTestResult",
         "CreateSecureConnectionRequest",
         "EncryptionValidationResult",
         "HonuaAdminClient",
+        "ImportResult",
         "KeyRotationResult",
         "LayerStyleResponse",
         "LayerStyleUpdateRequest",
@@ -958,6 +960,11 @@
               "kind": "method",
               "signature": "(self, request: 'CreateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ConnectionTestResult'"
             },
+            "update_access_policy": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, name: 'str', *, allow_anonymous: 'bool | None' = None, allow_anonymous_write: 'bool | None' = None, allowed_roles: 'list[str] | None' = None, allowed_write_roles: 'list[str] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
+            },
             "update_connection": {
               "async": true,
               "kind": "method",
@@ -988,6 +995,11 @@
               "kind": "method",
               "signature": "(self, style_id: 'str', style: 'Mapping[str, Any]', *, strict: 'bool' = False, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
+            "upload_file": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, file: 'bytes | BinaryIO', *, filename: 'str', table_name: 'str', content_type: 'str' = 'application/octet-stream', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ImportResult | BackgroundImportResponse'"
+            },
             "validate_encryption": {
               "async": true,
               "kind": "method",
@@ -1006,6 +1018,61 @@
           "module": "honua_admin._async_client",
           "qualname": "AsyncHonuaAdminClient",
           "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+        },
+        "BackgroundImportResponse": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "job_id"
+            },
+            {
+              "annotation": "str",
+              "name": "message"
+            },
+            {
+              "annotation": "str",
+              "name": "status_url"
+            },
+            {
+              "annotation": "str",
+              "name": "cancel_url"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "upload_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "operation_instance_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "correlation_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "audit_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "proposal_id"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'BackgroundImportResponse'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "BackgroundImportResponse",
+          "signature": "(job_id: 'str', message: 'str', status_url: 'str', cancel_url: 'str', upload_id: 'str | None' = None, operation_instance_id: 'str | None' = None, correlation_id: 'str | None' = None, audit_id: 'str | None' = None, proposal_id: 'str | None' = None) -> None"
         },
         "ColumnInfo": {
           "fields": [
@@ -1320,6 +1387,10 @@
               "kind": "method",
               "signature": "(self, request: 'CreateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ConnectionTestResult'"
             },
+            "update_access_policy": {
+              "kind": "method",
+              "signature": "(self, name: 'str', *, allow_anonymous: 'bool | None' = None, allow_anonymous_write: 'bool | None' = None, allowed_roles: 'list[str] | None' = None, allowed_write_roles: 'list[str] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ServiceSettingsResponse'"
+            },
             "update_connection": {
               "kind": "method",
               "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'SecureConnectionSummary'"
@@ -1344,6 +1415,10 @@
               "kind": "method",
               "signature": "(self, style_id: 'str', style: 'Mapping[str, Any]', *, strict: 'bool' = False, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
             },
+            "upload_file": {
+              "kind": "method",
+              "signature": "(self, file: 'bytes | BinaryIO', *, filename: 'str', table_name: 'str', content_type: 'str' = 'application/octet-stream', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'ImportResult | BackgroundImportResponse'"
+            },
             "validate_encryption": {
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'EncryptionValidationResult'"
@@ -1360,6 +1435,102 @@
           "module": "honua_admin._client",
           "qualname": "HonuaAdminClient",
           "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+        },
+        "ImportResult": {
+          "fields": [
+            {
+              "annotation": "bool",
+              "name": "success"
+            },
+            {
+              "annotation": "str",
+              "name": "table_name"
+            },
+            {
+              "annotation": "str | int",
+              "name": "format"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "feature_count"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "physical_table_name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "schema"
+            },
+            {
+              "annotation": "str",
+              "default": "'file'",
+              "name": "source_kind"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "source_url"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "upload_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "cloud_file_id"
+            },
+            {
+              "annotation": "int | None",
+              "default": "None",
+              "name": "detected_srid"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "error_message"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "error_code"
+            },
+            {
+              "annotation": "list[dict[str, Any]]",
+              "defaultFactory": "list",
+              "name": "validation_errors"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "repaired_geometry_count"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "duration"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "warnings"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'ImportResult'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "ImportResult",
+          "signature": "(success: 'bool', table_name: 'str', format: 'str | int', feature_count: 'int' = 0, physical_table_name: 'str | None' = None, schema: 'str | None' = None, source_kind: 'str' = 'file', source_url: 'str | None' = None, upload_id: 'str | None' = None, cloud_file_id: 'str | None' = None, detected_srid: 'int | None' = None, error_message: 'str | None' = None, error_code: 'str | None' = None, validation_errors: 'list[dict[str, Any]]' = <factory>, repaired_geometry_count: 'int' = 0, duration: 'str | None' = None, warnings: 'list[str]' = <factory>) -> None"
         },
         "KeyRotationResult": {
           "fields": [

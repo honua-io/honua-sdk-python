@@ -24,6 +24,20 @@ endpoints.
 ::: honua_admin.AdminCapabilitiesResponse
 ::: honua_admin.AdminVersionResponse
 ::: honua_admin.AdminCompatibilityFeatureFlags
+::: honua_admin.ServiceSettingsResponse
+::: honua_admin.AccessPolicyResponse
+
+## File imports
+
+`upload_file` returns `ImportResult` for a completed import (HTTP 200), or
+`BackgroundImportResponse` for a queued import job (HTTP 202). Inspect
+`ImportResult.success`: dataset validation can fail within a successful HTTP
+response. For discovery and publishing, use `schema` and
+`physical_table_name`, which can differ from the requested logical
+`table_name`. Queued jobs include the server's status and cancellation URLs.
+
+::: honua_admin.ImportResult
+::: honua_admin.BackgroundImportResponse
 
 ## Metadata manifests
 

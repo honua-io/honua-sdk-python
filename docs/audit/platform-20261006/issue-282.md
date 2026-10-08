@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Audit platform-20261006: issue 282 receipts"
+description: "Per-finding outcomes and proving tests for the release-certification coverage fixes (SDKPY-003, SDKPY-007, and the generate_proto.sh gRPC service-name rewrite)."
+tags: [audit, certification, grpc]
+---
 # Issue 282 release-certification audit record
 
 | Finding id | Outcome | Evidence |

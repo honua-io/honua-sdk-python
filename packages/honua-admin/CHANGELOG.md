@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.11...python-admin-v0.1.12) (2026-10-08)
+
+
+### Features
+
+* **admin:** add multipart uploads and service access policy ([#285](https://github.com/honua-io/honua-sdk-python/issues/285)) ([5f42d16](https://github.com/honua-io/honua-sdk-python/commit/5f42d16e8e8ee4493d1ab0fc15aac1c6fdc6f619))
+
 ## [0.1.11](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.10...python-admin-v0.1.11) (2026-10-06)
 
 

@@ -1322,6 +1322,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.upload_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        upload_file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.list_services" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1348,6 +1359,17 @@
     <span class="md-ellipsis">
       
         update_protocols
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.update_access_policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_access_policy
       
     </span>
   </a>
@@ -1845,6 +1867,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.upload_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        upload_file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.AsyncHonuaAdminClient.list_services" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1871,6 +1904,17 @@
     <span class="md-ellipsis">
       
         update_protocols
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.update_access_policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_access_policy
       
     </span>
   </a>
@@ -2561,6 +2605,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.upload_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        upload_file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.list_services" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2587,6 +2642,17 @@
     <span class="md-ellipsis">
       
         update_protocols
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.update_access_policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_access_policy
       
     </span>
   </a>
@@ -3084,6 +3150,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.upload_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        upload_file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.AsyncHonuaAdminClient.list_services" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3110,6 +3187,17 @@
     <span class="md-ellipsis">
       
         update_protocols
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.update_access_policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_access_policy
       
     </span>
   </a>
@@ -3584,6 +3672,38 @@ overview that applies to both packages.</p>
 <span class="k">with</span> <span class="n">HonuaAdminClient</span><span class="p">(</span><span class="s2">"https://admin.your-honua-server.com"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">)</span> <span class="k">as</span> <span class="n">admin</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">admin</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
+<p>Upload a file and update a service's access policy through either client:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_admin</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackgroundImportResponse</span><span class="p">,</span> <span class="n">HonuaAdminClient</span>
+
+<span class="k">with</span> <span class="n">HonuaAdminClient</span><span class="p">(</span><span class="s2">"https://admin.your-honua-server.com"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">)</span> <span class="k">as</span> <span class="n">admin</span><span class="p">:</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"points.geojson"</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">source</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">admin</span><span class="o">.</span><span class="n">upload_file</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s2">"points.geojson"</span><span class="p">,</span> <span class="n">table_name</span><span class="o">=</span><span class="s2">"points"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">BackgroundImportResponse</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">job_id</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">status_url</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">physical_table_name</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">feature_count</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">error_message</span><span class="p">)</span>
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">admin</span><span class="o">.</span><span class="n">update_access_policy</span><span class="p">(</span><span class="s2">"default"</span><span class="p">,</span> <span class="n">allow_anonymous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>For <code>AsyncHonuaAdminClient</code>, await both calls. <code>upload_file</code> sends multipart
+<code>file</code> and <code>TableName</code>; it accepts bytes or an open binary stream. It buffers
+all remaining bytes in memory from the stream's current position, leaves the
+stream open at EOF, and rejects empty/exhausted input. For a second call,
+rewind the stream explicitly or pass bytes. Use files that fit in available
+memory. Let httpx generate the multipart Content-Type and boundary; do not
+set Content-Type in request headers or an external client's default headers.
+<code>content_type</code> sets only the file part's media type.</p>
+<p>Uploads use the existing POST retry policy: one attempt by default, with
+replayable buffered content if a caller explicitly enables POST retries on
+a supplied transport or external httpx client. Supply an <code>idempotency_key</code>
+when opting into POST retries. Both operations accept <code>timeout</code>,
+<code>extra_headers</code>, and <code>idempotency_key</code> per call and preserve configured base
+paths and authentication.</p>
+<p><code>update_access_policy</code> sends only supplied fields. <code>None</code> preserves the
+server value; <code>False</code> disables the corresponding anonymous permission, and
+<code>[]</code> clears a role restriction. The response contains refreshed service
+settings, including the resolved access policy.</p>
 <p><strong>See also</strong>: <a href="../../honua-sdk/clients/">honua-sdk Clients</a> for the data-plane
 counterpart that shares the same configuration model, and
 <a href="../../../core-client/">Core client model</a> for cross-package <code>with_options(...)</code>
@@ -4096,6 +4216,38 @@ for the full contract.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="honua_admin.HonuaAdminClient.upload_file" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">upload_file</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="s1">'application/octet-stream'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.HonuaAdminClient.upload_file" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Upload a geospatial file using multipart <code>file</code> and <code>TableName</code>.</p>
+<p><code>file</code> is bytes or a caller-owned binary stream. Streams are read
+from their current position to EOF once, without seeking or closing;
+the remaining content is buffered in memory before sending. Empty or
+exhausted input raises <code>ValueError</code> before any HTTP request.</p>
+<p>POST is not retried by default. If the caller opts POST into a retry
+transport, the buffered bytes are replayable on every attempt. Supply
+<code>idempotency_key</code> when using an external client with POST retries.
+Do not supply a multipart Content-Type header: httpx generates it,
+including the boundary. <code>content_type</code> applies to the file part.</p>
+<p>Returns a completed :class:<code>ImportResult</code> for HTTP 200, or a
+:class:<code>BackgroundImportResponse</code> for HTTP 202 when the server queues
+a large file. A completed result can have <code>success=False</code>; inspect
+its error and validation fields. HTTP/transport errors follow the
+same <code>HonuaHttpError</code> / <code>HonuaTransportError</code> policy as other calls.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="honua_admin.HonuaAdminClient.list_services" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
@@ -4246,7 +4398,12 @@ response was received.</p>
       <tbody>
           <tr class="doc-section-item">
 <td><code>A</code></td>            <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4256,7 +4413,12 @@ response was received.</p>
           </tr>
           <tr class="doc-section-item">
 <td></td>            <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4379,7 +4541,12 @@ to :meth:<code>_request</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4424,6 +4591,31 @@ to :meth:<code>_request</code>.</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="honua_admin.HonuaAdminClient.update_access_policy" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">update_access_policy</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_anonymous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_anonymous_write</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_write_roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.HonuaAdminClient.update_access_policy" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>PUT service access policy and return refreshed service settings.</p>
+<p><code>name</code> is encoded as one URL path segment. Omitted/<code>None</code> fields
+preserve their server values; <code>False</code> disables anonymous access and
+an empty role list clears that restriction. For example,
+<code>update_access_policy("default", allow_anonymous=True)</code> sends
+exactly <code>{"allowAnonymous": true}</code>.</p>
+<p>Per-request timeout, header and idempotency overrides use the same
+conventions and HTTP/transport error types as other admin methods.</p>
 
 
     </div>
@@ -4633,7 +4825,12 @@ values are forwarded.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -9651,6 +9848,42 @@ for the full contract.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="honua_admin.AsyncHonuaAdminClient.upload_file" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">upload_file</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">content_type</span><span class="o">=</span><span class="s1">'application/octet-stream'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#honua_admin.AsyncHonuaAdminClient.upload_file" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Upload a geospatial file using multipart <code>file</code> and <code>TableName</code>.</p>
+<p><code>file</code> is bytes or a caller-owned binary stream. Streams are read
+from their current position to EOF once, without seeking or closing;
+the remaining content is buffered in memory before sending. Empty or
+exhausted input raises <code>ValueError</code> before any HTTP request.</p>
+<p>POST is not retried by default. If the caller opts POST into a retry
+transport, the buffered bytes are replayable on every attempt. Supply
+<code>idempotency_key</code> when using an external client with POST retries.
+Do not supply a multipart Content-Type header: httpx generates it,
+including the boundary. <code>content_type</code> applies to the file part.</p>
+<p>Returns a completed :class:<code>ImportResult</code> for HTTP 200, or a
+:class:<code>BackgroundImportResponse</code> for HTTP 202 when the server queues
+a large file. A completed result can have <code>success=False</code>; inspect
+its error and validation fields. HTTP/transport errors follow the
+same <code>HonuaHttpError</code> / <code>HonuaTransportError</code> policy as other calls.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="honua_admin.AsyncHonuaAdminClient.list_services" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
@@ -9809,7 +10042,12 @@ response was received.</p>
       <tbody>
           <tr class="doc-section-item">
 <td><code>A</code></td>            <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -9819,7 +10057,12 @@ response was received.</p>
           </tr>
           <tr class="doc-section-item">
 <td></td>            <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -9946,7 +10189,12 @@ to :meth:<code>_request</code>.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -9991,6 +10239,35 @@ to :meth:<code>_request</code>.</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="honua_admin.AsyncHonuaAdminClient.update_access_policy" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">update_access_policy</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_anonymous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_anonymous_write</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_write_roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">idempotency_key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#honua_admin.AsyncHonuaAdminClient.update_access_policy" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>PUT service access policy and return refreshed service settings.</p>
+<p><code>name</code> is encoded as one URL path segment. Omitted/<code>None</code> fields
+preserve their server values; <code>False</code> disables anonymous access and
+an empty role list clears that restriction. For example,
+<code>update_access_policy("default", allow_anonymous=True)</code> sends
+exactly <code>{"allowAnonymous": true}</code>.</p>
+<p>Per-request timeout, header and idempotency overrides use the same
+conventions and HTTP/transport error types as other admin methods.</p>
 
 
     </div>
@@ -10204,7 +10481,12 @@ values are forwarded.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="honua_admin._models.ServiceSettingsResponse">ServiceSettingsResponse</span></code>
+                  <code><a class="autorefs autorefs-internal" title="honua_admin.ServiceSettingsResponse
+
+
+  
+      dataclass
+   (honua_admin._models.ServiceSettingsResponse)" href="../models/#honua_admin.ServiceSettingsResponse">ServiceSettingsResponse</a></code>
             </td>
             <td>
               <div class="doc-md-description">

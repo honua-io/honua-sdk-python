@@ -1349,6 +1349,61 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#honua_admin.ServiceSettingsResponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ServiceSettingsResponse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_admin.AccessPolicyResponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AccessPolicyResponse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File imports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_admin.ImportResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ImportResult
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_admin.BackgroundImportResponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackgroundImportResponse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#metadata-manifests" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1773,6 +1828,61 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#honua_admin.ServiceSettingsResponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ServiceSettingsResponse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_admin.AccessPolicyResponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AccessPolicyResponse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File imports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_admin.ImportResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ImportResult
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_admin.BackgroundImportResponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BackgroundImportResponse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#metadata-manifests" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2177,6 +2287,213 @@ name is kept as a module-level alias below for back-compat.</p>
     <div class="doc doc-contents first">
 
 
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="honua_admin.ServiceSettingsResponse" class="doc doc-heading">
+            <code>honua_admin.ServiceSettingsResponse</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#honua_admin.ServiceSettingsResponse" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="honua_admin.AccessPolicyResponse" class="doc doc-heading">
+            <code>honua_admin.AccessPolicyResponse</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#honua_admin.AccessPolicyResponse" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="file-imports">File imports<a class="headerlink" href="#file-imports" title="Permanent link">&para;</a></h2>
+<p><code>upload_file</code> returns <code>ImportResult</code> for a completed import (HTTP 200), or
+<code>BackgroundImportResponse</code> for a queued import job (HTTP 202). Inspect
+<code>ImportResult.success</code>: dataset validation can fail within a successful HTTP
+response. For discovery and publishing, use <code>schema</code> and
+<code>physical_table_name</code>, which can differ from the requested logical
+<code>table_name</code>. Queued jobs include the server's status and cancellation URLs.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="honua_admin.ImportResult" class="doc doc-heading">
+            <code>honua_admin.ImportResult</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#honua_admin.ImportResult" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Completed file import, including logical and physical table identities.</p>
+<p>A successful HTTP response may still have <code>success=False</code> when dataset
+validation fails. Inspect <code>error_code</code> and <code>validation_errors</code> then.
+<code>format</code> retains the server's file-format value; <code>duration</code> is a
+serialized .NET TimeSpan.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="honua_admin.BackgroundImportResponse" class="doc doc-heading">
+            <code>honua_admin.BackgroundImportResponse</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#honua_admin.BackgroundImportResponse" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Accepted import job. Status and cancel URLs are returned by the server.</p>
 
 
 

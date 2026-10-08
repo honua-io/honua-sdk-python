@@ -45,3 +45,11 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     assert "HONUA_SDK_WHEEL_SOURCE=pypi" in workflow
     assert "HONUA_SDK_SOURCE_SHA=${HONUA_SDK_PUBLIC_SOURCE_SHA}" in workflow
     assert '"${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance' in workflow
+
+
+def test_certification_receipts_use_repository_governed_requirements() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "repository: honua-io/honua-release" in workflow
+    assert "sparse-checkout: certification/protocol-certification-requirements.v1.json" in workflow
+    assert "HONUA_CERTIFICATION_REQUIREMENTS_PATH:" in workflow

@@ -209,6 +209,7 @@ class ConformanceTarget:
     evidence_uri: str | None = None
     candidate_cut_at: str | None = None
     certification_tier: str = "nightly"
+    certification_requirements_path: str | None = None
 
 
 def load_target_from_env() -> ConformanceTarget:
@@ -237,6 +238,9 @@ def load_target_from_env() -> ConformanceTarget:
         evidence_uri=os.environ.get("HONUA_EVIDENCE_URI"),
         candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
         certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
+        certification_requirements_path=os.environ.get(
+            "HONUA_CERTIFICATION_REQUIREMENTS_PATH"
+        ),
     )
 
 
@@ -1279,7 +1283,7 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
         "serve.geoservices-featureserver", "geoservices-featureserver", "temporal-query", ["positive", "boundary"]
     ),
     "replica_sync_surface": (
-        "sync.featureserver-replicas", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
+        "editing.featureserver-edits", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
     ),
     "analysis_process_list": (
         "process.ogc-api-processes", "ogc-api-processes", "list-processes", ["positive", "metadata"]
@@ -1311,6 +1315,72 @@ CERTIFICATION_PROTOCOL_CONTEXT: dict[str, tuple[str, str]] = {
     "ogc-api-processes": ("1.0", "core"),
 }
 _CANDIDATE_CUT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+_CERTIFICATION_REQUIREMENTS_SCHEMA = "honua.protocol-certification-requirements/v1"
+_CERTIFICATION_MATURITIES = {
+    "supported", "preview", "experimental", "roadmap", "deprecated", "internal"
+}
+_CERTIFICATION_TIERS = {"pr", "nightly", "release"}
+
+
+def _load_certification_context(
+    path_value: str | None,
+) -> tuple[str, dict[tuple[str, str, str, str], tuple[str, str]]]:
+    """Load producer-owned context from the repository-governed requirements input."""
+    if not isinstance(path_value, str) or not path_value:
+        raise ConformanceFixturesError(
+            "certification_requirements_path is required to emit certification receipts"
+        )
+    path = Path(path_value)
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ConformanceFixturesError(
+            f"certification requirements are unavailable or invalid JSON: {path}"
+        ) from exc
+    if not isinstance(document, dict) or document.get("schema") != _CERTIFICATION_REQUIREMENTS_SCHEMA:
+        raise ConformanceFixturesError(
+            f"certification requirements must use {_CERTIFICATION_REQUIREMENTS_SCHEMA}"
+        )
+    revision = document.get("revision")
+    if not isinstance(revision, str) or not revision.strip():
+        raise ConformanceFixturesError("certification requirements revision must be non-empty")
+    requirements = document.get("requirements")
+    if not isinstance(requirements, list):
+        raise ConformanceFixturesError("certification requirements must contain a requirements array")
+
+    contexts: dict[tuple[str, str, str, str], tuple[str, str]] = {}
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            raise ConformanceFixturesError("certification requirement entries must be objects")
+        if (
+            requirement.get("canonical_client") != CERTIFICATION_CLIENT_ID
+            or requirement.get("client_lane") != CERTIFICATION_RUNNER_LANE
+        ):
+            continue
+        capability_key = requirement.get("capability_key")
+        surface = requirement.get("surface")
+        operation = requirement.get("operation")
+        canonical_client = requirement.get("canonical_client")
+        if not all(
+            isinstance(value, str) and value
+            for value in (capability_key, surface, operation, canonical_client)
+        ):
+            raise ConformanceFixturesError("certification requirement identity fields must be non-empty strings")
+        assert isinstance(capability_key, str)
+        assert isinstance(surface, str)
+        assert isinstance(operation, str)
+        assert isinstance(canonical_client, str)
+        key = (capability_key, surface, operation, canonical_client)
+        maturity = requirement.get("maturity")
+        required_tier = requirement.get("required_tier")
+        if maturity not in _CERTIFICATION_MATURITIES:
+            raise ConformanceFixturesError(f"invalid governed maturity for {key}: {maturity!r}")
+        if required_tier not in _CERTIFICATION_TIERS:
+            raise ConformanceFixturesError(f"invalid governed required_tier for {key}: {required_tier!r}")
+        if key in contexts:
+            raise ConformanceFixturesError(f"ambiguous governed certification context for {key}")
+        contexts[key] = (maturity, required_tier)
+    return revision, contexts
 
 
 def _certification_request_url(
@@ -1364,6 +1434,30 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
         candidate_cut_at = validate_candidate_cut_at(candidate.get("cut_at"))
     except ConformanceFixturesError as exc:
         raise AssertionError(str(exc)) from exc
+
+    requirements_revision = fragment.get("requirements_revision")
+    _require(
+        isinstance(requirements_revision, str) and bool(requirements_revision),
+        "release SDK certification is missing requirements_revision",
+    )
+    observations_value = fragment.get("observations")
+    _require(isinstance(observations_value, list), "release SDK certification is missing observations")
+    for row in observations_value:
+        _require(isinstance(row, Mapping), "release observations are malformed")
+        if row.get("result") == "skip":
+            continue
+        receipt = row.get("evidence_receipt")
+        identity = receipt.get("identity") if isinstance(receipt, Mapping) else None
+        _require(
+            receipt is not None
+            and receipt.get("schema") == "honua.certification-evidence-receipt/v2"
+            and isinstance(identity, Mapping)
+            and identity.get("maturity") == row.get("maturity")
+            and identity.get("required_tier") == row.get("required_tier")
+            and identity.get("requirements_revision") == requirements_revision,
+            f"release SDK certification receipt for {row.get('surface')}/{row.get('operation')} "
+            "is not bound to governed certification context",
+        )
 
     scope = fragment.get("operation_scope")
     _require(isinstance(scope, Mapping), "release SDK certification is missing operation_scope")
@@ -1453,6 +1547,11 @@ def build_certification_fragment(
     if target.sdk_wheel_source != "pypi":
         raise ConformanceFixturesError("sdk_wheel_source must be pypi")
 
+    requirements_revision, governed_context = _load_certification_context(
+        target.certification_requirements_path
+        or os.environ.get("HONUA_CERTIFICATION_REQUIREMENTS_PATH")
+    )
+
     client_version = importlib.metadata.version("honua-sdk")
     payload_base64 = base64.b64encode(json.dumps(
         [
@@ -1466,6 +1565,13 @@ def build_certification_fragment(
     observations: list[dict[str, Any]] = []
     for case, result in case_results:
         capability_key, surface, operation, scenario_facets = CASE_CERTIFICATION[case.name]
+        context_key = (capability_key, surface, operation, CERTIFICATION_CLIENT_ID)
+        try:
+            maturity, required_tier = governed_context[context_key]
+        except KeyError as exc:
+            raise ConformanceFixturesError(
+                f"governed certification context is missing exact cell {context_key}"
+            ) from exc
         protocol_version, protocol_profile = CERTIFICATION_PROTOCOL_CONTEXT[surface]
         known_gap = case.known_gap_issue if result.status != "passed" else None
         normalized_result = (
@@ -1477,14 +1583,17 @@ def build_certification_fragment(
         receipt_facets = {facet: normalized_result for facet in scenario_facets}
         exercised_capabilities = scenario_facets if normalized_result == "pass" else []
         evidence_receipt = None if normalized_result == "skip" else {
-            "schema": "honua.certification-evidence-receipt/v1",
+            "schema": "honua.certification-evidence-receipt/v2",
             "identity": {
                 "capability_key": capability_key,
                 "surface": surface,
                 "operation": operation,
+                "maturity": maturity,
                 "canonical_client": CERTIFICATION_CLIENT_ID,
                 "client_version": client_version,
                 "deployment_target": "local-docker",
+                "required_tier": required_tier,
+                "requirements_revision": requirements_revision,
                 "source_sha": target.server_commit,
                 "producer_source_sha": target.sdk_source_sha,
                 "client_package": {
@@ -1514,6 +1623,7 @@ def build_certification_fragment(
                 "capability_key": capability_key,
                 "surface": surface,
                 "operation": operation,
+                "maturity": maturity,
                 "scenario_facets": scenario_facets,
                 "canonical_client": CERTIFICATION_CLIENT_ID,
                 "client_id": CERTIFICATION_CLIENT_ID,
@@ -1525,6 +1635,7 @@ def build_certification_fragment(
                 "exercised_capabilities": exercised_capabilities,
                 "client_version": client_version,
                 "deployment_target": "local-docker",
+                "required_tier": required_tier,
                 "result": normalized_result,
                 "skip_reason": known_gap,
                 "source_sha": target.server_commit,
@@ -1557,6 +1668,7 @@ def build_certification_fragment(
         "schema": "honua.protocol-certification-fragment/v1",
         "producer": "honua-sdk-python",
         "generated_at": _utc_now(),
+        "requirements_revision": requirements_revision,
         "candidate": {
             "source_sha": target.server_commit,
             "image_digest": target.server_image_digest,

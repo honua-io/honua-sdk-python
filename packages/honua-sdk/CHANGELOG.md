@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.14...python-sdk-v0.1.15) (2026-10-11)
+
+
+### Documentation
+
+* **sdk-python:** document the honua-server capability baseline in the package README ([#291](https://github.com/honua-io/honua-sdk-python/issues/291)) ([91a92d2](https://github.com/honua-io/honua-sdk-python/commit/91a92d25c3dabbea62e54fd4ae6ef6042e79fe22))
+
 ## [0.1.14](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.13...python-sdk-v0.1.14) (2026-10-06)
 
 

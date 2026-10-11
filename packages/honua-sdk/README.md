@@ -116,6 +116,22 @@ Protocol IDs follow the canonical cross-SDK names
 aliases (`feature-server`, `featureserver`, `ogc-api-features`, ...) are
 accepted and normalized through `honua_sdk.normalize_protocol(...)`.
 
+## Server capability baseline
+
+This SDK requires a Honua Server that advertises these capabilities in its
+capability manifest:
+
+- `discovery.capability-manifest`
+- `serve.geoservices-featureserver`
+- `serve.ogc-api-features`
+
+All three ship in Honua Server's first published release, so that release is
+the minimum supported server (`minimumServerVersion: first-release`). The
+machine-readable declaration is
+[`release/sdk-capability-baseline.json`](https://github.com/honua-io/honua-sdk-python/blob/trunk/release/sdk-capability-baseline.json);
+the Honua platform release reads it at the source revision this package was
+built from to decide which server versions this SDK is certified against.
+
 ## Documentation
 
 Rendered docs site:

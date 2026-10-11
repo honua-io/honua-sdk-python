@@ -252,3 +252,7 @@ This machine runs many agents concurrently (**Codex + Claude**, often via agentf
 at the published source commit. Update this declaration in the same PR as any
 contract or schema version bump. The next release-please publication carries
 changes to the declaration into the published source used by the resolver.
+
+## SDK capability baseline
+
+`release/sdk-capability-baseline.json` (`honua.sdk-capability-baseline/v1`, defined by honua-release `schemas/sdk-capability-baseline.v1.schema.json` and `docs/SDK-SERVER-BASELINE-RULE.md`) declares the honua-server capabilities this repository requires and the `minimumServerVersion` derived from them. The honua-release nightly resolver reads it at the source revision of every published PyPI package (`honua-sdk` and `honua-admin`), and refuses the component when it is missing, invalid, or when those revisions declare different `minimumServerVersion` values. It takes effect only after a release-please publication contains it. Every required capability must be a key in honua-server `docs/gis/data/capability-keys.v1.json`, and `capabilities` must hold exactly one introduction entry per required capability. Add or remove a required capability in the same PR that starts or stops depending on it.

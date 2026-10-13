@@ -67,12 +67,16 @@ pip install "./packages/honua-sdk[grpc,geopandas,raster]"
 pip install ./packages/honua-sdk ./packages/honua-admin
 ```
 
-Or straight from GitHub without cloning, pinned to a release tag
-(`python-sdk-v0.1.14` is the current published `honua-sdk` release):
+For the published SDK with GeoPandas support, use the PyPI extra:
 
 ```bash
-pip install "honua-sdk[geopandas] @ git+https://github.com/honua-io/honua-sdk-python.git@python-sdk-v0.1.14#subdirectory=packages/honua-sdk"
+pip install "honua-sdk[geopandas]"
 ```
+
+This uses the configured package index and version constraints, just like the
+core install above. For a reproducible release, pin the same SDK version for
+both the core package and its extras; installing an older Git tag would replace
+the installed SDK with that older version.
 
 The repo-root `pyproject.toml` is intentionally **not** installable (it holds
 shared tool config only) — install the per-package directories, not `.`.

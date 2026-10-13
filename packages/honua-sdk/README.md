@@ -46,6 +46,10 @@ pip install "honua-sdk[grpc,geopandas,raster]"  # everything
 
 Requires Python 3.11+.
 
+Install extras from the same package index and with the same version constraints
+as the core SDK. For a reproducible release, pin the same SDK version in each
+command; an older Git tag would replace the installed package with that version.
+
 ## Minimal Example
 
 The examples read the public, anonymous demo server at `https://demo.honua.io`

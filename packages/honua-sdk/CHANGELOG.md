@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.15...python-sdk-v0.1.16) (2026-10-13)
+
+
+### Bug Fixes
+
+* **python-sdk:** keep published extras installs on the selected release ([#295](https://github.com/honua-io/honua-sdk-python/issues/295)) ([25ee47c](https://github.com/honua-io/honua-sdk-python/commit/25ee47cf9b8899e007208ec44927f8888549135f))
+
 ## [0.1.15](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.14...python-sdk-v0.1.15) (2026-10-11)
 
 

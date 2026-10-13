@@ -831,3 +831,40 @@ async def test_async_results_rejects_missing_durable_identity() -> None:
     async with AsyncHonuaClient("http://example.test") as client:
         with pytest.raises(ValueError, match="durable job id"):
             await client.geoprocessing().results("")
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("method", ["submit_inputs", "submit_raw"])
+def test_synchronous_execution_accepts_unqualified_geojson(wrapped: bool, method: str) -> None:
+    collection: dict[str, Any] = {"type": "FeatureCollection", "features": []}
+    outputs = {"outputFeatureLayer": collection} if wrapped else collection
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(200, json=outputs)
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        job = getattr(gp, method)("geometry.buffer", {}, respond_async=False)
+        assert job.succeeded
+        assert gp.wait(job, timeout=0) is job
+        assert gp.results(job) == outputs
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("method", ["submit_inputs", "submit_raw"])
+async def test_async_synchronous_execution_accepts_unqualified_geojson(wrapped: bool, method: str) -> None:
+    collection: dict[str, Any] = {"type": "FeatureCollection", "features": []}
+    outputs = {"outputFeatureLayer": collection} if wrapped else collection
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(200, json=outputs)
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        job = await getattr(gp, method)("geometry.buffer", {}, respond_async=False)
+        assert job.succeeded
+        assert await gp.wait(job, timeout=0) is job
+        assert await gp.results(job) == outputs

@@ -636,11 +636,13 @@ def _job_from_response(response: Any) -> GeoprocessingJob:
     # A StatusInfo status is a string; never mistake an HTTP error document for
     # completed outputs or synthesize a durable id for synchronous execution.
     if response.status_code == HTTPStatus.OK and not isinstance(body.get("status"), str):
-        if not body or not all(
-            isinstance(member, Mapping) and ("value" in member or "href" in member)
+        has_outputs = bool(body) and all(
+            _is_feature_collection(member)
+            or (isinstance(member, Mapping) and ("value" in member or "href" in member))
             for member in body.values()
-        ):
-            raise HonuaError("Synchronous execution response must contain qualified outputs.")
+        )
+        if not (_is_feature_collection(body) or has_outputs):
+            raise HonuaError("Synchronous execution response must contain outputs or a FeatureCollection.")
         return GeoprocessingJob(
             job_id=location_id or "", status="successful", raw=dict(body), inline_results=dict(body)
         )

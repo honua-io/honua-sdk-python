@@ -48,6 +48,7 @@ import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
 from urllib.parse import parse_qsl, unquote, urlsplit
 
@@ -283,7 +284,12 @@ class RasterReference:
 
 @dataclass(frozen=True)
 class GeoprocessingJob:
-    """A typed view over an OGC API Processes ``StatusInfo`` document."""
+    """An execution status, including inline outputs for synchronous execution.
+
+    ``inline_results`` is populated when execution completes in the submission
+    response. Such a response may have no durable ``job_id``; pass this object
+    to ``results()`` to retrieve its outputs without polling a nonexistent job.
+    """
 
     job_id: str
     status: str
@@ -294,6 +300,7 @@ class GeoprocessingJob:
     updated: str | None = None
     links: tuple[Mapping[str, Any], ...] = ()
     raw: Mapping[str, Any] = field(default_factory=dict)
+    inline_results: Mapping[str, Any] | None = None
 
     @classmethod
     def from_status_info(cls, payload: Mapping[str, Any]) -> "GeoprocessingJob":
@@ -620,21 +627,30 @@ def _job_id_from_location(location: str | None) -> str | None:
 
 
 def _job_from_response(response: Any) -> GeoprocessingJob:
-    """Build a :class:`GeoprocessingJob` from an execution HTTP response.
-
-    The OGC ``StatusInfo`` body is the primary source for the job id, but a
-    ``201 Created`` with an empty body (or a synchronous execution that returns
-    no ``jobID``) still identifies the job via the ``Location`` header. Fall
-    back to parsing that header so the job stays pollable/dismissable.
-    """
+    """Parse either asynchronous StatusInfo or synchronous document outputs."""
     body = response.json() if response.content else {}
     if not isinstance(body, Mapping):
-        body = {}
+        raise HonuaError("Execution response must be a JSON object.")
+    location_id = _job_id_from_location(response.headers.get("Location"))
+    # Qualified output members are objects, including an output named `status`.
+    # A StatusInfo status is a string; never mistake an HTTP error document for
+    # completed outputs or synthesize a durable id for synchronous execution.
+    if response.status_code == HTTPStatus.OK and not isinstance(body.get("status"), str):
+        has_outputs = bool(body) and all(
+            _is_feature_collection(member)
+            or (isinstance(member, Mapping) and ("value" in member or "href" in member))
+            for member in body.values()
+        )
+        if not (_is_feature_collection(body) or has_outputs):
+            raise HonuaError("Synchronous execution response must contain outputs or a FeatureCollection.")
+        return GeoprocessingJob(
+            job_id=location_id or "", status="successful", raw=dict(body), inline_results=dict(body)
+        )
     job = GeoprocessingJob.from_status_info(body)
+    if not job.job_id and location_id:
+        job = replace(job, job_id=location_id)
     if not job.job_id:
-        location_id = _job_id_from_location(response.headers.get("Location"))
-        if location_id:
-            job = replace(job, job_id=location_id)
+        raise HonuaError("Asynchronous execution response contains no job id or Location.")
     return job
 
 
@@ -776,7 +792,7 @@ class HonuaGeoprocessing:
         terminal = self.wait(job, poll_interval=poll_interval, timeout=timeout)
         if raise_on_failure and not terminal.succeeded:
             raise GeoprocessingJobError(terminal)
-        return self.results(terminal.job_id)
+        return self.results(terminal)
 
     # -- layer-ref-in -> layer-out ----------------------------------------
 
@@ -818,7 +834,7 @@ class HonuaGeoprocessing:
         terminal = self.wait(job, poll_interval=poll_interval, timeout=timeout)
         if raise_on_failure and not terminal.succeeded:
             raise GeoprocessingJobError(terminal)
-        return self.results(terminal.job_id)
+        return self.results(terminal)
 
     def execute_dataframe(
         self,
@@ -1095,7 +1111,7 @@ class HonuaGeoprocessing:
         terminal = self.wait(job, poll_interval=poll_interval, timeout=timeout)
         if raise_on_failure and not terminal.succeeded:
             raise GeoprocessingJobError(terminal)
-        return self.results(terminal.job_id)
+        return self.results(terminal)
 
     # -- job lifecycle -----------------------------------------------------
 
@@ -1104,8 +1120,14 @@ class HonuaGeoprocessing:
         payload = self.client._request_json("GET", _job_path(self.root, job_id))
         return GeoprocessingJob.from_status_info(payload)
 
-    def results(self, job_id: str) -> JsonObject:
-        """Fetch the results document for a (successful) job."""
+    def results(self, job_id: str | GeoprocessingJob) -> JsonObject:
+        """Fetch durable outputs or return a synchronous execution's inline outputs."""
+        if isinstance(job_id, GeoprocessingJob):
+            if job_id.inline_results is not None:
+                return dict(job_id.inline_results)
+            job_id = job_id.job_id
+        if not job_id:
+            raise ValueError("A durable job id or a GeoprocessingJob with inline results is required.")
         return self.client._request_json("GET", _job_results_path(self.root, job_id))
 
     def jobs(self) -> JsonObject:
@@ -1242,7 +1264,7 @@ class AsyncHonuaGeoprocessing:
         terminal = await self.wait(job, poll_interval=poll_interval, timeout=timeout)
         if raise_on_failure and not terminal.succeeded:
             raise GeoprocessingJobError(terminal)
-        return await self.results(terminal.job_id)
+        return await self.results(terminal)
 
     # -- layer-ref-in -> layer-out ----------------------------------------
 
@@ -1273,7 +1295,7 @@ class AsyncHonuaGeoprocessing:
         terminal = await self.wait(job, poll_interval=poll_interval, timeout=timeout)
         if raise_on_failure and not terminal.succeeded:
             raise GeoprocessingJobError(terminal)
-        return await self.results(terminal.job_id)
+        return await self.results(terminal)
 
     async def execute_dataframe(
         self,
@@ -1516,7 +1538,7 @@ class AsyncHonuaGeoprocessing:
         terminal = await self.wait(job, poll_interval=poll_interval, timeout=timeout)
         if raise_on_failure and not terminal.succeeded:
             raise GeoprocessingJobError(terminal)
-        return await self.results(terminal.job_id)
+        return await self.results(terminal)
 
     # -- job lifecycle -----------------------------------------------------
 
@@ -1525,8 +1547,14 @@ class AsyncHonuaGeoprocessing:
         payload = await self.client._request_json("GET", _job_path(self.root, job_id))
         return GeoprocessingJob.from_status_info(payload)
 
-    async def results(self, job_id: str) -> JsonObject:
-        """Fetch the results document for a (successful) job."""
+    async def results(self, job_id: str | GeoprocessingJob) -> JsonObject:
+        """Fetch durable outputs or return a synchronous execution's inline outputs."""
+        if isinstance(job_id, GeoprocessingJob):
+            if job_id.inline_results is not None:
+                return dict(job_id.inline_results)
+            job_id = job_id.job_id
+        if not job_id:
+            raise ValueError("A durable job id or a GeoprocessingJob with inline results is required.")
         return await self.client._request_json("GET", _job_results_path(self.root, job_id))
 
     async def jobs(self) -> JsonObject:

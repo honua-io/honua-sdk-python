@@ -47,6 +47,22 @@ Use `dismiss(job_id)` only from an explicit operator cancellation action.
 The shared, server-first JS/Python/.NET task contract, expected status sequence,
 and semantic assertion live in `honua-samples/jobs/geoprocessing-job-lifecycle.json`.
 
+## Synchronous execution
+
+`respond_async=False` lets the server return document outputs in the submission
+response. The SDK marks that execution successful and stores its qualified
+outputs in `job.inline_results`. Pass the job object to `results()` so the same
+code also works when the server chooses asynchronous execution:
+
+```python
+job = gp.submit_inputs("geometry.area", inputs, respond_async=False)
+terminal = gp.wait(job, timeout=120)
+outputs = gp.results(terminal)
+```
+
+The async client uses the same contract with `await`. A synchronous response may
+have no durable job ID; retain the job object to retrieve its inline results.
+
 ## Custom Python batch jobs
 
 Custom-code authoring is a separate production project. The current server

@@ -759,3 +759,112 @@ async def test_async_wait_dismisses_on_cancellation() -> None:
             await task
 
     assert deleted == ["/ogc/processes/jobs/ajob-c"]
+
+
+@pytest.mark.parametrize("method", ["submit_inputs", "submit_raw"])
+@pytest.mark.parametrize("location", [None, "http://example.test/ogc/processes/jobs/sync-job"])
+def test_synchronous_execution_retains_outputs_without_polling(method: str, location: str | None) -> None:
+    outputs = {"status": {"value": "done"}, "outputScalar": {"value": 1.0, "mediaType": "application/json"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert "respond-async" not in request.headers.get("Prefer", "")
+        return httpx.Response(200, json=outputs, headers={"Location": location} if location else {})
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        job = getattr(gp, method)("geometry.area", {}, respond_async=False)
+        assert job.succeeded
+        assert job.job_id == ("sync-job" if location else "")
+        assert gp.wait(job, timeout=0) is job
+        assert gp.results(job) == outputs
+        assert job.inline_results == outputs
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["submit_inputs", "submit_raw"])
+async def test_async_client_synchronous_execution_retains_outputs(method: str) -> None:
+    outputs = {"outputScalar": {"value": 1.0, "mediaType": "application/json"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(200, json=outputs)
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        job = await getattr(gp, method)("geometry.area", {}, respond_async=False)
+        assert job.succeeded
+        assert await gp.wait(job, timeout=0) is job
+        assert await gp.results(job) == outputs
+
+
+@pytest.mark.parametrize("body", [{"title": "broken"}, {}, [], {"status": "successful"}])
+def test_execution_rejects_unusable_response(body: Any) -> None:
+    from honua_sdk.errors import HonuaError
+
+    with HonuaClient(
+        "http://example.test", transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))
+    ) as client:
+        with pytest.raises(HonuaError):
+            client.geoprocessing().submit_inputs("geometry.area", {}, respond_async=False)
+
+
+def test_synchronous_preference_can_fall_back_to_a_pollable_job() -> None:
+    with HonuaClient(
+        "http://example.test",
+        transport=httpx.MockTransport(lambda _: httpx.Response(201, json=_status("queued", "accepted"))),
+    ) as client:
+        job = client.geoprocessing().submit_inputs("geometry.area", {}, respond_async=False)
+    assert job.job_id == "queued"
+    assert not job.is_terminal
+    assert job.inline_results is None
+
+
+def test_results_rejects_missing_durable_identity() -> None:
+    with HonuaClient("http://example.test") as client:
+        with pytest.raises(ValueError, match="durable job id"):
+            client.geoprocessing().results(GeoprocessingJob(job_id="", status="successful"))
+
+
+@pytest.mark.anyio
+async def test_async_results_rejects_missing_durable_identity() -> None:
+    async with AsyncHonuaClient("http://example.test") as client:
+        with pytest.raises(ValueError, match="durable job id"):
+            await client.geoprocessing().results("")
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("method", ["submit_inputs", "submit_raw"])
+def test_synchronous_execution_accepts_unqualified_geojson(wrapped: bool, method: str) -> None:
+    collection: dict[str, Any] = {"type": "FeatureCollection", "features": []}
+    outputs = {"outputFeatureLayer": collection} if wrapped else collection
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(200, json=outputs)
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        job = getattr(gp, method)("geometry.buffer", {}, respond_async=False)
+        assert job.succeeded
+        assert gp.wait(job, timeout=0) is job
+        assert gp.results(job) == outputs
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("method", ["submit_inputs", "submit_raw"])
+async def test_async_synchronous_execution_accepts_unqualified_geojson(wrapped: bool, method: str) -> None:
+    collection: dict[str, Any] = {"type": "FeatureCollection", "features": []}
+    outputs = {"outputFeatureLayer": collection} if wrapped else collection
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(200, json=outputs)
+
+    async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        gp = client.geoprocessing()
+        job = await getattr(gp, method)("geometry.buffer", {}, respond_async=False)
+        assert job.succeeded
+        assert await gp.wait(job, timeout=0) is job
+        assert await gp.results(job) == outputs

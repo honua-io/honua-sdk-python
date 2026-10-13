@@ -702,6 +702,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#synchronous-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synchronous execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#custom-python-batch-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1482,6 +1493,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#synchronous-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synchronous execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#custom-python-batch-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1576,6 +1598,17 @@ methods. The wait has a deadline and performs a best-effort dismiss on timeout.
 Use <code>dismiss(job_id)</code> only from an explicit operator cancellation action.</p>
 <p>The shared, server-first JS/Python/.NET task contract, expected status sequence,
 and semantic assertion live in <code>honua-samples/jobs/geoprocessing-job-lifecycle.json</code>.</p>
+<h2 id="synchronous-execution">Synchronous execution<a class="headerlink" href="#synchronous-execution" title="Permanent link">&para;</a></h2>
+<p><code>respond_async=False</code> lets the server return document outputs in the submission
+response. The SDK marks that execution successful and stores its qualified
+outputs in <code>job.inline_results</code>. Pass the job object to <code>results()</code> so the same
+code also works when the server chooses asynchronous execution:</p>
+<div class="highlight"><pre><span></span><code><span class="n">job</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">submit_inputs</span><span class="p">(</span><span class="s2">"geometry.area"</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">respond_async</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">terminal</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="n">outputs</span> <span class="o">=</span> <span class="n">gp</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">terminal</span><span class="p">)</span>
+</code></pre></div>
+<p>The async client uses the same contract with <code>await</code>. A synchronous response may
+have no durable job ID; retain the job object to retrieve its inline results.</p>
 <h2 id="custom-python-batch-jobs">Custom Python batch jobs<a class="headerlink" href="#custom-python-batch-jobs" title="Permanent link">&para;</a></h2>
 <p>Custom-code authoring is a separate production project. The current server
 contract is AWS-Batch-only and pins runtime, allowlisted repository, full commit

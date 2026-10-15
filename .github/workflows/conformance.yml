@@ -70,6 +70,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Checkout governed certification requirements
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: honua-io/honua-release
+          path: honua-release-governance
+          sparse-checkout: certification/protocol-certification-requirements.v1.json
+          sparse-checkout-cone-mode: false
+
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -317,6 +325,7 @@ jobs:
         env:
           HONUA_CONFORMANCE_SUMMARY_PATH: conformance-summary.md
           HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request' && 'protocol-certification-fragment.json' || '' }}
+          HONUA_CERTIFICATION_REQUIREMENTS_PATH: ${{ github.workspace }}/honua-release-governance/certification/protocol-certification-requirements.v1.json
         run: |
           "${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance \
             -q \

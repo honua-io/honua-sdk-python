@@ -1402,6 +1402,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#local-gp-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local GP development
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#connection-options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1488,8 +1499,9 @@
 
 
 <h1 id="command-reference">Command reference<a class="headerlink" href="#command-reference" title="Permanent link">&para;</a></h1>
-<p>Each command makes one typed SDK call. The CLI sends no HTTP requests of its
-own. <code>honua-admin &lt;group&gt; ...</code> and <code>honua &lt;group&gt; ...</code> are the same for the
+<p>Server commands use typed SDK calls. The CLI sends no HTTP requests of its
+own. The explicit <code>gp</code> command invokes a separate local developer tool.
+<code>honua-admin &lt;group&gt; ...</code> and <code>honua &lt;group&gt; ...</code> are the same for the
 <code>datasource</code>, <code>layer</code> and <code>proposal</code> groups.</p>
 <h2 id="exit-codes-and-output">Exit codes and output<a class="headerlink" href="#exit-codes-and-output" title="Permanent link">&para;</a></h2>
 <table>
@@ -1517,6 +1529,23 @@ own. <code>honua-admin &lt;group&gt; ...</code> and <code>honua &lt;group&gt; ..
 <p>With <code>--json</code>, a command prints the server-shaped result (camelCase keys) on
 stdout: an object for a single record, or an array for a listing. Without
 <code>--json</code> it prints a table or <code>key: value</code> lines. Errors go to stderr only.</p>
+<h2 id="local-gp-development">Local GP development<a class="headerlink" href="#local-gp-development" title="Permanent link">&para;</a></h2>
+<p>Install the <code>Honua.Geoprocessing.Cli</code> devkit separately using the
+<a href="https://docs.honua.io/guides/query-analyze/gp-devkit-authoring">server authoring guide</a>.
+Put its <code>honua-gp-devkit</code> executable on PATH, or set <code>HONUA_GP_CLI</code> to its full
+executable path. The SDK does not download or install this engine automatically.</p>
+<div class="highlight"><pre><span></span><code>honua<span class="w"> </span>gp<span class="w"> </span>doctor<span class="w"> </span>--managed-only<span class="w"> </span>--json
+honua<span class="w"> </span>gp<span class="w"> </span>list<span class="w"> </span>--json
+honua<span class="w"> </span>gp<span class="w"> </span>describe<span class="w"> </span>geometry.buffer<span class="w"> </span>--json
+</code></pre></div>
+<p>Arguments and output pass through to the engine, including repeated <code>--param</code>
+values. The engine owns its exit codes; failure to launch it returns <code>127</code>.
+No server URL is needed for these local commands. <code>honua doctor</code> remains the
+separate support-bundle command.</p>
+<p>This developer tool does not add a local backend selector to SDK server
+submissions. Server-side untrusted custom code retains its AWS Batch isolation
+policy. The existing proprietary <code>honua-gp</code> ArcPy compatibility executable is
+a different tool; it is not used as the devkit engine.</p>
 <h2 id="connection-options">Connection options<a class="headerlink" href="#connection-options" title="Permanent link">&para;</a></h2>
 <p>Every control-plane command accepts:</p>
 <table>

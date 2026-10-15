@@ -220,8 +220,8 @@ pyproject.toml                   # shared tool config ONLY (not installable)
   and `ogc_features_items_jsonb_projection`, so a future regression there is
   attributable without re-gating the core contract behind an xfail. New/untracked
   drift in a required case still fails the lane — never blanket `continue-on-error`.
-- **No custom-code / local-execution surface (custom GP tools are AWS-Batch-only
-  server-side).** The SDK intentionally exposes **no** way to submit "custom code"
+- **No custom-code submission or server execution-backend selector (custom GP
+  tools are AWS-Batch-only server-side).** The SDK intentionally exposes **no** way to submit "custom code"
   (operator-authored geoprocessing tools) and **no** way to select an execution
   backend — backend selection is entirely server configuration. Per honua-server
   **ADR-0063**, untrusted custom GP code runs only in an isolated cloud-managed AWS
@@ -229,8 +229,11 @@ pyproject.toml                   # shared tool config ONLY (not installable)
   (`honua_sdk.migration`) only ever translates recognized tools to **built-in
   server processes** (`EXECUTABLE_PROCESS_IDS`); anything unrecognized is emitted as
   `manual-review`, never an auto-submitted custom-code job. Do not add a
-  local/subprocess execution path or a `customcode`/backend-selection submission
-  helper here — `tests/test_custom_code_batch_only_policy.py` is a tripwire that
+  local server-job execution path or a `customcode`/backend-selection submission
+  helper here. The explicit `honua gp` developer CLI delegates to a separately
+  installed trusted local devkit, per ADR-0063's local-authoring clarification;
+  it never changes SDK server submission or workload routing.
+  `tests/test_custom_code_batch_only_policy.py` is a tripwire that
   fails if such a surface is introduced.
 - CI runs on the `trunk` branch (lint, typecheck, test matrix, compatibility,
   security-audit, package smoke-install of built wheels, and the live-server

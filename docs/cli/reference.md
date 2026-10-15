@@ -7,8 +7,9 @@ tags: [cli, reference]
 ---
 # Command reference
 
-Each command makes one typed SDK call. The CLI sends no HTTP requests of its
-own. `honua-admin <group> ...` and `honua <group> ...` are the same for the
+Server commands use typed SDK calls. The CLI sends no HTTP requests of its
+own. The explicit `gp` command invokes a separate local developer tool.
+`honua-admin <group> ...` and `honua <group> ...` are the same for the
 `datasource`, `layer` and `proposal` groups.
 
 ## Exit codes and output
@@ -22,6 +23,29 @@ own. `honua-admin <group> ...` and `honua <group> ...` are the same for the
 With `--json`, a command prints the server-shaped result (camelCase keys) on
 stdout: an object for a single record, or an array for a listing. Without
 `--json` it prints a table or `key: value` lines. Errors go to stderr only.
+
+## Local GP development
+
+Install the `Honua.Geoprocessing.Cli` devkit separately using the
+[server authoring guide](https://docs.honua.io/guides/query-analyze/gp-devkit-authoring).
+Put its `honua-gp-devkit` executable on PATH, or set `HONUA_GP_CLI` to its full
+executable path. The SDK does not download or install this engine automatically.
+
+```bash
+honua gp doctor --managed-only --json
+honua gp list --json
+honua gp describe geometry.buffer --json
+```
+
+Arguments and output pass through to the engine, including repeated `--param`
+values. The engine owns its exit codes; failure to launch it returns `127`.
+No server URL is needed for these local commands. `honua doctor` remains the
+separate support-bundle command.
+
+This developer tool does not add a local backend selector to SDK server
+submissions. Server-side untrusted custom code retains its AWS Batch isolation
+policy. The existing proprietary `honua-gp` ArcPy compatibility executable is
+a different tool; it is not used as the devkit engine.
 
 ## Connection options
 

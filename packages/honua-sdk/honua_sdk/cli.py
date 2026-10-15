@@ -33,6 +33,10 @@ Commands
     Emit or read-only replay a canonical, sanitized diagnostic bundle for local
     support review. It never uploads or persists raw HTTP traffic.
 
+``honua gp``
+    Invoke the separately installed ``honua-gp-devkit`` developer tool. This
+    explicit local CLI path does not change server SDK submission or routing.
+
 ``honua datasource | layer | proposal``
     The operator workflow from ``honua-admin`` (``pip install honua-admin``):
     create and test datasources, publish and unpublish layers, and read,
@@ -400,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"honua {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
+    subparsers.add_parser("gp", help="Run the separately installed local GP devkit.")
 
     # honua services
     services = subparsers.add_parser(
@@ -609,6 +614,28 @@ def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
     return 127  # pragma: no cover — execv does not return
 
 
+def _delegate_gp(argv: Sequence[str], runner: Any = None) -> int:
+    """Launch the explicit developer tool without a shell or server fallback."""
+    executable = os.environ.get("HONUA_GP_CLI", "").strip() or "honua-gp-devkit"
+    binary = shutil.which(executable)
+    if binary is None:
+        sys.stderr.write(
+            "error: honua gp requires the separately installed Honua.Geoprocessing.Cli devkit. "
+            "Put honua-gp-devkit on PATH or set HONUA_GP_CLI to its executable path. "
+            "See https://docs.honua.io/guides/query-analyze/gp-devkit-authoring\n"
+        )
+        return 127
+    command = [binary, *argv]
+    if runner is not None:
+        return int(runner(command))
+    try:
+        os.execv(binary, command)  # noqa: S606 — explicit trusted developer CLI, no shell
+    except OSError as exc:
+        sys.stderr.write(f"error: could not launch the GP devkit: {exc.strerror}\n")
+        return 127
+    return 127  # pragma: no cover — execv does not return
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for the ``honua`` console script.
 
@@ -619,6 +646,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     Set ``HONUA_PYTHON_CLI=1`` to keep the console script here.
     """
     forwarded = list(sys.argv[1:] if argv is None else argv)
+    if forwarded[:1] == ["gp"]:
+        return _delegate_gp(forwarded[1:])
     use_control_plane = forwarded[:1] == ["admin"] or (
         argv is None and os.environ.get("HONUA_PYTHON_CLI") != "1" and _control_plane_cli() is not None
     )

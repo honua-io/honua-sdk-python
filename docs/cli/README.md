@@ -10,7 +10,7 @@ The PyPI packages install two console scripts:
 
 | Script | Installed by | Commands |
 |--------|--------------|----------|
-| `honua` | `honua-sdk` | `services`, `layers`, `query`, `style apply`, `doctor`. When `honua-admin` is installed it also has `datasource`, `layer` and `proposal`. |
+| `honua` | `honua-sdk` | `services`, `layers`, `query`, `style apply`, `doctor`, `gp` (separate devkit required). When `honua-admin` is installed it also has `datasource`, `layer` and `proposal`. |
 | `honua-admin` | `honua-admin` | `datasource`, `layer`, `proposal` |
 
 `honua datasource ...` and `honua-admin datasource ...` run the same code, and
@@ -27,3 +27,4 @@ pip install honua-sdk honua-admin
 - [Command reference](reference.md): every command, its options, its JSON
   output and its exit codes.
 - [Collect a support bundle](../diagnostic-bundles.md): `honua doctor`.
+- [Local GP development](reference.md#local-gp-development): `honua gp` delegates to the separately installed devkit.

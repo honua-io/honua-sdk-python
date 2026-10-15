@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.17](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.16...python-sdk-v0.1.17) (2026-10-15)
+
+
+### Features
+
+* **cli:** delegate GP commands to the local devkit ([#300](https://github.com/honua-io/honua-sdk-python/issues/300)) ([e1f3cd7](https://github.com/honua-io/honua-sdk-python/commit/e1f3cd7163392bbb5abf7d1a21123e953a4e7c53))
+
+
+### Bug Fixes
+
+* **gp:** preserve synchronous execution results ([#297](https://github.com/honua-io/honua-sdk-python/issues/297)) ([5af013f](https://github.com/honua-io/honua-sdk-python/commit/5af013f2020528360d2cd9c4ba242db968191078))
+
 ## [0.1.16](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.15...python-sdk-v0.1.16) (2026-10-13)
 
 

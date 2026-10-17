@@ -34,8 +34,8 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     assert "pip install --upgrade" not in workflow
 
     assert "if: ${{ github.event_name != 'pull_request' }}" in workflow
-    assert 'HONUA_SDK_PUBLIC_VERSION: "0.1.11"' in workflow
-    assert 'HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.11-py3-none-any.whl"' in workflow
+    assert 'HONUA_SDK_PUBLIC_VERSION: "0.1.16"' in workflow
+    assert 'HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.16-py3-none-any.whl"' in workflow
     assert "python -m pip download" in workflow
     assert '"honua-sdk==${HONUA_SDK_PUBLIC_VERSION}"' in workflow
     assert "--only-binary=:all:" in workflow
@@ -45,3 +45,42 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     assert "HONUA_SDK_WHEEL_SOURCE=pypi" in workflow
     assert "HONUA_SDK_SOURCE_SHA=${HONUA_SDK_PUBLIC_SOURCE_SHA}" in workflow
     assert '"${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance' in workflow
+
+
+def test_grpc_listener_is_published_from_the_same_candidate_container():
+    workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/conformance.yml").read_text()
+    assert '"127.0.0.1::5001"' in workflow
+    assert 'port honua 5001' in workflow
+    assert 'HONUA_GRPC_TARGET=localhost:${grpc_port##*:}' in workflow
+    assert 'image_revision}" != "${seed_revision}' in workflow
+    assert 'HONUA_SDK_PUBLIC_SOURCE_SHA: "5a79352066b8aa23f1bae45b5c38e6d83efd003f"' in workflow
+    assert 'b0520257e5cd3d323ece4cca183971a4480214406582b9b3aad1a713557aa5fc' in workflow
+
+
+def test_explicitly_requested_certification_does_not_skip_missing_prerequisites():
+    conftest = (Path(__file__).resolve().parents[1] / "tests/conformance/conftest.py").read_text()
+    assert "pytest.skip" not in conftest
+    assert "pytest.fail(str(exc), pytrace=False)" in conftest
+
+
+def test_seed_execution_covers_legacy_and_migration_owned_candidate_sources():
+    import json
+    import re
+    import subprocess
+    import sys
+
+    workflow = WORKFLOW.read_text()
+    parser = re.search(r"seed_dependency=.*\| python -c '([^']+)'", workflow).group(1)
+    for dependencies, expected in (({"seed": {"condition": "service_completed_successfully"}}, "true"),
+                                   ({"postgres": {"condition": "service_healthy"}}, "false")):
+        result = subprocess.run(  # noqa: S603 -- executes the maintained workflow parser, not external input
+            [sys.executable, "-c", parser], input=json.dumps({"services": {"honua": {"depends_on": dependencies}}}),
+                                text=True, capture_output=True, check=True)
+        assert result.stdout.strip() == expected
+    malformed = subprocess.run(  # noqa: S603 -- executes the maintained workflow parser with a malformed fixture
+        [sys.executable, "-c", parser], input='{"services":{"honua":{"depends_on":null}}}',
+                               text=True, capture_output=True, check=False)
+    assert malformed.returncode != 0
+    assert 'if [[ "${seed_dependency}" == "false" ]]' in workflow
+    assert 'run --rm --no-deps seed' in workflow
+    assert workflow.index('up -d --no-build honua') < workflow.index('run --rm --no-deps seed')

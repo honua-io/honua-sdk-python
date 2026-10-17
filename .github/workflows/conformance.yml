@@ -48,15 +48,13 @@ env:
   PYTHON_VERSION: "3.11"
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
-  CONFORMANCE_FIXTURES_VERSION: "1.0.0"
-  # Exact public wheel currently published on PyPI. This intentionally differs
-  # from honua-release's stale 0.1.10 client-artifact pin; the lane qualifies
-  # the bytes users can actually install while lock convergence remains owned
-  # by the release worklist.
-  HONUA_SDK_PUBLIC_VERSION: "0.1.11"
-  HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.11-py3-none-any.whl"
-  HONUA_SDK_PUBLIC_WHEEL_SHA256: "80ac6a25fa5fed0ee7d8dca4ca94d14c098d9f72a149c9e271b1a1d04b78c3e9"
-  HONUA_SDK_PUBLIC_SOURCE_SHA: "f7930b6e9c3ce47ade148bba3d4510eeffd2ccc4"
+  CONFORMANCE_FIXTURES_VERSION: "1.0.3"
+  # Exact published wheel selected by the platform manifest. Keep version,
+  # filename, registry digest and published tag source together as one identity.
+  HONUA_SDK_PUBLIC_VERSION: "0.1.16"
+  HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.16-py3-none-any.whl"
+  HONUA_SDK_PUBLIC_WHEEL_SHA256: "b0520257e5cd3d323ece4cca183971a4480214406582b9b3aad1a713557aa5fc"
+  HONUA_SDK_PUBLIC_SOURCE_SHA: "5a79352066b8aa23f1bae45b5c38e6d83efd003f"
   # Current nightly image and its exact embedded source revision. Update these as
   # one identity so scheduled evidence never joins a candidate to unrelated seed
   # fixtures. Release dispatches continue to override both explicitly.
@@ -189,6 +187,10 @@ jobs:
           HONUA_CERTIFICATION_TIER: ${{ github.event.inputs.certification_tier || (github.event_name == 'pull_request' && 'pr') || 'nightly' }}
           SERVER_SEED_REF_INPUT: ${{ github.event.inputs.server_seed_ref }}
           CANDIDATE_CUT_AT_INPUT: ${{ github.event.inputs.candidate_cut_at }}
+          CERTIFICATION_EVENT: ${{ github.event_name }}
+          # Unconfigured until an operator provisions the governed signed license.
+          # Rehearsal events never receive this release-only value.
+          HONUA_CERTIFICATION_LICENSE_CONTENT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.certification_tier == 'release' && secrets.HONUA_CERTIFICATION_LICENSE_CONTENT || '' }}
         run: |
           set -euo pipefail
 
@@ -213,6 +215,18 @@ jobs:
           validate_candidate_cut_at(sys.argv[1])
           PY
           fi
+
+          entitlement_profile="$("${HONUA_SDK_CERT_PYTHON}" - <<'PY'
+          import json
+          import os
+          from scripts._conformance_entitlement import profile
+          print(json.dumps(profile(os.environ["HONUA_CERTIFICATION_TIER"], os.environ["CERTIFICATION_EVENT"],
+                                   "Development", os.environ.get("HONUA_CERTIFICATION_LICENSE_CONTENT", ""))))
+          PY
+          )"
+          dev_grant="$(jq -er '.devGrantEdition | strings' <<< "${entitlement_profile}")"
+          entitlement_mode="$(jq -er '.mode' <<< "${entitlement_profile}")"
+          echo "HONUA_ENTITLEMENT_MODE=${entitlement_mode}" >> "${GITHUB_ENV}"
 
           # Override the one-shot seed to apply the canonical client-compat seed
           # (schema + test_service / layer 0 with JSONB feature attributes — the
@@ -245,8 +259,15 @@ jobs:
               image: ${HONUA_SERVER_IMAGE}
               ports:
                 - "5000:5000"
+                - "127.0.0.1::5001"
               environment:
                 ASPNETCORE_ENVIRONMENT: Development
+                # Explicit test fixture only. The release profile always clears it.
+                Licensing__DevGrantEdition: "${dev_grant}"
+                Licensing__Mode: Enabled
+                # Preserve the Compose reference: never write signed license bytes
+                # into the generated override or retained artifacts.
+                Licensing__LicenseContent: "\${HONUA_CERTIFICATION_LICENSE_CONTENT:-}"
                 PUBLIC_BASE_URL: http://localhost:5000
           YAML
 
@@ -256,7 +277,14 @@ jobs:
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \
             "${server_root}"
 
+          seed_dependency="$(docker compose -f "${compose_file}" -f "${override_file}" config --format json | python -c 'import json,sys; deps=json.load(sys.stdin)["services"]["honua"]["depends_on"]; assert isinstance(deps,(dict,list)); print("true" if "seed" in deps else "false")')"
           docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua
+          # Legacy pinned sources seed before startup through honua's dependency.
+          # Current sources let Honua own migrations first, then seed depends on Honua.
+          # Starting honua alone does not start that dependent one-shot service.
+          if [[ "${seed_dependency}" == "false" ]]; then
+            docker compose -f "${compose_file}" -f "${override_file}" run --rm --no-deps seed
+          fi
 
           for _ in $(seq 1 60); do
             if curl -fsS http://localhost:5000/healthz/ready >/dev/null; then
@@ -287,6 +315,9 @@ jobs:
 
           {
             echo "HONUA_BASE_URL=http://localhost:5000"
+            grpc_port="$(docker compose -f "${compose_file}" -f "${override_file}" port honua 5001)"
+            [[ "${grpc_port}" =~ ^127\.0\.0\.1:[0-9]+$ ]]
+            echo "HONUA_GRPC_TARGET=localhost:${grpc_port##*:}"
             echo "HONUA_SERVICE_ID=test_service"
             echo "HONUA_LAYER_ID=0"
             echo "HONUA_API_KEY=ClientCompatAdmin123!"

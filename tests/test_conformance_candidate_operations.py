@@ -27,6 +27,7 @@ def bundle(tmp_path: Path) -> FixtureBundle:
          "geometry": {"point": {"x": -122.486, "y": 37.769}}},
     ]
     payloads = {
+        "feature_query_request": {"serviceId": "sf-parks", "layerId": 0, "returnGeometry": True},
         "feature_apply_edits_missing_target_verify_response": {"features": baseline},
         "feature_apply_edits_missing_target_request": {
             "updates": [{"id": "42", "attributes": {"AREA": {"doubleValue": 1.0}}}],
@@ -40,9 +41,7 @@ def bundle(tmp_path: Path) -> FixtureBundle:
         },
         "feature_apply_edits_missing_target_status": {"name": "NOT_FOUND", "code": 5},
     }
-    for name in ("feature_query", "feature_query_stream"):
-        payloads[f"{name}_invalid_request"] = {"serviceId": "no-such-service"}
-        payloads[f"{name}_invalid_status"] = {"name": "NOT_FOUND", "code": 5}
+    (directory / "manifest.txt").write_text("feature_query_request.json geospatial.v1.QueryFeaturesRequest\n")
     for name, payload in payloads.items():
         (directory / f"{name}.json").write_text(json.dumps(payload))
     return FixtureBundle(tmp_path, "1.0.3")
@@ -195,3 +194,20 @@ def test_new_operations_are_required_live_cases_without_known_gap_exemptions():
     for name in ("grpc_query_features", "grpc_query_features_stream", "feature_apply_edits_roundtrip"):
         assert cases[name].known_gap_issue is None
         assert cases[name].runner.__module__ == operations.__name__
+
+
+def test_stream_receipt_names_actual_response_type_with_published_shared_request(bundle):
+    case = next(case for case in build_cases() if case.name == "grpc_query_features_stream")
+    assert case.fixture == "feature_query"
+    client = SimpleNamespace(grpc=lambda **_: GrpcConnection())
+    result = case.run(client, ConformanceTarget("http://localhost:5000", grpc_target="localhost:5001"), bundle)
+    assert result.status == "passed"
+    assert result.message_type == "geospatial.v1.FeaturePage"
+
+
+def test_stream_does_not_bypass_missing_published_request_binding(bundle):
+    (bundle.fixtures_dir / "manifest.txt").write_text("")
+    case = next(case for case in build_cases() if case.name == "grpc_query_features_stream")
+    with pytest.raises(ConformanceFixturesError, match="request binding"):
+        case.run(SimpleNamespace(grpc=lambda **_: GrpcConnection()),
+                 ConformanceTarget("http://localhost:5000", grpc_target="localhost:5001"), bundle)

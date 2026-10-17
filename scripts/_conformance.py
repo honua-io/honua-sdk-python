@@ -326,6 +326,8 @@ class ConformanceCase:
     #: When set, this case exercises a tracked-but-unshipped server behavior.
     #: The pytest layer turns it into an xfail referencing this issue.
     known_gap_issue: str | None = None
+    #: Streaming uses the shared QueryFeaturesRequest fixture but returns FeaturePage.
+    response_message_type: str | None = None
 
     def run(
         self,
@@ -333,8 +335,11 @@ class ConformanceCase:
         target: ConformanceTarget,
         bundle: FixtureBundle,
     ) -> CaseResult:
-        message_type = bundle.manifest_types().get(f"{self.fixture}_response.json") or (
-            bundle.manifest_types().get(f"{self.fixture}_request.json")
+        manifest_types = bundle.manifest_types()
+        if self.response_message_type and f"{self.fixture}_request.json" not in manifest_types:
+            raise ConformanceFixturesError("stream fixture is missing its published request binding")
+        message_type = self.response_message_type or manifest_types.get(f"{self.fixture}_response.json") or (
+            manifest_types.get(f"{self.fixture}_request.json")
         )
         started_at = _utc_now()
         try:
@@ -1242,9 +1247,10 @@ def build_cases() -> list[ConformanceCase]:
             request_path="/geospatial.v1.FeatureService/QueryFeatures", runner=operations.grpc_query,
         ),
         ConformanceCase(
-            name="grpc_query_features_stream", fixture="feature_query_stream",
+            name="grpc_query_features_stream", fixture="feature_query",
             sdk_method="HonuaClient.grpc(...).query_features_stream",
             request_path="/geospatial.v1.FeatureService/QueryFeaturesStream", runner=operations.grpc_stream,
+            response_message_type="geospatial.v1.FeaturePage",
         ),
         ConformanceCase(
             name="feature_apply_edits_roundtrip", fixture="feature_apply_edits",

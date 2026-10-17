@@ -35,12 +35,11 @@ def _grpc_query(client: HonuaClient, target: ConformanceTarget, bundle: FixtureB
 
     _require(target.grpc_target, "HONUA_GRPC_TARGET must identify the pinned candidate's gRPC listener")
     target.grpc_base_url()
-    fixture = "feature_query_stream" if stream else "feature_query"
-    invalid = bundle.request(f"{fixture}_invalid")
-    invalid_status = bundle._load(bundle.fixtures_dir / f"{fixture}_invalid_status.json")
-    _require(invalid_status.get("name") == "NOT_FOUND" and invalid_status.get("code") == 5,
-             "shared negative query fixture must require NOT_FOUND")
-    _require(invalid.get("serviceId") == "no-such-service", "unexpected shared missing-service fixture")
+    # Both RPCs consume QueryFeaturesRequest. The published fixture bundle contains
+    # this shared request; stream-specific fixture files are not published yet.
+    fixture = bundle.request("feature_query")
+    _require(fixture.get("returnGeometry") is True and fixture.get("layerId") == 0,
+             "shared query fixture no longer describes the mapped geometry query")
     # The client-compat seed is selected from the same full source SHA as the running image.
     # These are authored fixture values, independent of a second protocol agreeing with gRPC.
     expected = {"alpha": (1, -122.49, 37.71), "beta": (2, -122.475, 37.72)}
@@ -83,7 +82,8 @@ def _grpc_query(client: HonuaClient, target: ConformanceTarget, bundle: FixtureB
         _require(len({feature.id for feature in features}) == 2, "gRPC returned duplicate feature ids")
         _require(names == ["alpha", "beta"], "gRPC order, uniqueness or fixture coverage differs")
 
-        missing = QueryFeaturesRequest(service_id=invalid["serviceId"], layer_id=target.layer_id)
+        # SDK-owned negative probe, in addition to the published positive query fixture.
+        missing = QueryFeaturesRequest(service_id="no-such-service", layer_id=target.layer_id)
         try:
             if stream:
                 for _ in connection.query_features_stream(missing):

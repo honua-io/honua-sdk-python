@@ -279,6 +279,14 @@ jobs:
 
           seed_dependency="$(docker compose -f "${compose_file}" -f "${override_file}" config --format json | python -c 'import json,sys; deps=json.load(sys.stdin)["services"]["honua"]["depends_on"]; assert isinstance(deps,(dict,list)); print("true" if "seed" in deps else "false")')"
           docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:5000/healthz/ready >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost:5000/healthz/ready >/dev/null
+
           # Legacy pinned sources seed before startup through honua's dependency.
           # Current sources let Honua own migrations first, then seed depends on Honua.
           # Starting honua alone does not start that dependent one-shot service.
@@ -286,12 +294,7 @@ jobs:
             docker compose -f "${compose_file}" -f "${override_file}" run --rm --no-deps seed
           fi
 
-          for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:5000/healthz/ready >/dev/null; then
-              break
-            fi
-            sleep 2
-          done
+          # The post-migration seed must also leave the target ready for clients.
           curl -fsS http://localhost:5000/healthz/ready >/dev/null
 
           resolved_image="$(docker image inspect "${HONUA_SERVER_IMAGE}" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)"

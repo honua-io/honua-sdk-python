@@ -84,3 +84,46 @@ def test_seed_execution_covers_legacy_and_migration_owned_candidate_sources():
     assert 'if [[ "${seed_dependency}" == "false" ]]' in workflow
     assert 'run --rm --no-deps seed' in workflow
     assert workflow.index('up -d --no-build honua') < workflow.index('run --rm --no-deps seed')
+
+
+def test_migration_owned_seed_waits_for_readiness_and_never_runs_after_timeout(tmp_path):
+    import os
+    import subprocess
+    import textwrap
+
+    workflow = WORKFLOW.read_text()
+    start = workflow.index('          docker compose -f "${compose_file}" -f "${override_file}" up -d --no-build honua')
+    end = workflow.index('          resolved_image=', start)
+    script = "set -eu\n" + textwrap.dedent(workflow[start:end])
+    events = tmp_path / "events"
+    count = tmp_path / "count"
+    for name, body in {
+        "docker": 'echo "docker $*" >> "$EVENTS"\n',
+        "sleep": "exit 0\n",
+        "curl": ('echo curl >> "$EVENTS"\n'
+                 'count=0; [ ! -f "$COUNT" ] || count=$(cat "$COUNT")\n'
+                 'count=$((count + 1)); echo "$count" > "$COUNT"\n'
+                 '[ "$NEVER_READY" = false ] && [ "$count" -ge 2 ]\n'),
+    }.items():
+        tool = tmp_path / name
+        tool.write_text("#!/bin/sh\n" + body)
+        tool.chmod(0o755)
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+           "EVENTS": str(events), "COUNT": str(count), "seed_dependency": "false",
+           "compose_file": "compose.yml", "override_file": "override.yml"}
+    for never_ready in ("false", "true"):
+        events.unlink(missing_ok=True)
+        count.unlink(missing_ok=True)
+        result = subprocess.run(  # noqa: S603 -- maintained workflow with local command stubs; no services started
+            ["bash", "-c", script], env={**env, "NEVER_READY": never_ready}, capture_output=True, text=True,
+            check=False)
+        lines = events.read_text().splitlines()
+        seeds = [index for index, line in enumerate(lines) if "run --rm --no-deps seed" in line]
+        if never_ready == "true":
+            assert result.returncode != 0
+            assert not seeds
+        else:
+            assert result.returncode == 0, result.stderr
+            assert len(seeds) == 1
+            assert lines[seeds[0] - 3:seeds[0]] == ["curl", "curl", "curl"]
+            assert lines[seeds[0] + 1:] == ["curl"]

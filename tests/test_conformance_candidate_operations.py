@@ -45,7 +45,7 @@ def bundle(tmp_path: Path) -> FixtureBundle:
         payloads[f"{name}_invalid_status"] = {"name": "NOT_FOUND", "code": 5}
     for name, payload in payloads.items():
         (directory / f"{name}.json").write_text(json.dumps(payload))
-    return FixtureBundle(tmp_path, "1.0.5")
+    return FixtureBundle(tmp_path, "1.0.3")
 
 
 class EditServer:

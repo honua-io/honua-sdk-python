@@ -48,7 +48,7 @@ env:
   PYTHON_VERSION: "3.11"
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
-  CONFORMANCE_FIXTURES_VERSION: "1.0.5"
+  CONFORMANCE_FIXTURES_VERSION: "1.0.3"
   # Exact published wheel selected by the platform manifest. Keep version,
   # filename, registry digest and published tag source together as one identity.
   HONUA_SDK_PUBLIC_VERSION: "0.1.16"

@@ -52,6 +52,7 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     image_digest = "sha256:" + "b" * 64
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
         grpc_target="localhost:5001",
         server_commit=source_sha,
         server_image_digest=image_digest,
@@ -130,6 +131,7 @@ def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch)
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="https://candidate.test/root/",
+        entitlement_mode="signed",
         grpc_target="candidate.test:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
@@ -173,6 +175,7 @@ def test_certification_rejects_malformed_wheel_digest(monkeypatch) -> None:
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
         grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
@@ -217,7 +220,8 @@ def test_candidate_cut_changes_the_content_addressed_receipt(monkeypatch) -> Non
     def build(cut_at: str) -> dict:
         target = ConformanceTarget(
             base_url="http://localhost:5000",
-        grpc_target="localhost:5001",
+            entitlement_mode="signed",
+            grpc_target="localhost:5001",
             server_commit="a" * 40,
             server_image_digest="sha256:" + "b" * 64,
             sdk_source_sha="c" * 40,
@@ -244,6 +248,7 @@ def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> 
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
         grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
@@ -301,6 +306,7 @@ def test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope(mo
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
         grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
@@ -353,6 +359,7 @@ def test_apply_edits_stays_required_when_grpc_cases_join_the_harness(monkeypatch
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
         grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,

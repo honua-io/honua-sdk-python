@@ -45,6 +45,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin, urlsplit
@@ -210,6 +211,7 @@ class ConformanceTarget:
     candidate_cut_at: str | None = None
     certification_tier: str = "nightly"
     grpc_target: str | None = None
+    entitlement_mode: str = "unspecified"
 
     def grpc_base_url(self) -> str:
         """Require an explicit same-host candidate listener, with no credentials or URL suffix."""
@@ -253,7 +255,10 @@ def load_target_from_env() -> ConformanceTarget:
         candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
         certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
         grpc_target=os.environ.get("HONUA_GRPC_TARGET"),
+        entitlement_mode=os.environ.get("HONUA_ENTITLEMENT_MODE", "unspecified"),
     )
+    if target.certification_tier == "release" and target.entitlement_mode != "signed":
+        raise ConformanceFixturesError("release certification requires signed entitlement provenance; rehearsal grants are forbidden")
     if target.grpc_target:
         target.grpc_base_url()
     return target
@@ -1466,6 +1471,22 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
             f"release SDK certification receipt for {row['surface']}/{row['operation']} "
             "is not bound to candidate.cut_at",
         )
+        try:
+            records = json.loads(base64.b64decode(receipt["payload_base64"], validate=True))
+            assert isinstance(records, list) and records
+            assert all(record["entitlement_mode"] == "signed" for record in records)
+            edits = [record["receipt"] for record in records if record["case"] == "feature_apply_edits_roundtrip"]
+            assert len(edits) == 1 and edits[0]["status"] == "passed"
+            proof = edits[0]["details"]["entitlement"]
+            assert proof["verification"] == "candidate-license-status-v1" and proof["mode"] == "signed"
+            assert proof["status"] == "active" and proof["entitlement"] == "editing.featureserver-edits"
+            assert re.fullmatch(r"sha256:[0-9a-f]{64}", proof["license_fingerprint"])
+            checked = datetime.fromisoformat(proof["checked_at"].replace("Z", "+00:00"))
+            started = datetime.fromisoformat(edits[0]["started_at"].replace("Z", "+00:00"))
+            completed = datetime.fromisoformat(edits[0]["completed_at"].replace("Z", "+00:00"))
+            assert checked.tzinfo is not None and started <= checked <= completed
+        except (KeyError, TypeError, ValueError, AssertionError) as exc:
+            raise AssertionError("release receipt lacks fresh candidate-validated signed edit entitlement; rehearsal evidence is forbidden") from exc
 
 
 def build_certification_fragment(
@@ -1505,10 +1526,14 @@ def build_certification_fragment(
     if target.sdk_wheel_source != "pypi":
         raise ConformanceFixturesError("sdk_wheel_source must be pypi")
 
+    if target.entitlement_mode not in {"signed", "development-grant"}:
+        raise ConformanceFixturesError("normalized certification needs explicit signed or development-grant entitlement provenance")
+    auth_policy_revision = ("development-grant-rehearsal-v1" if target.entitlement_mode == "development-grant"
+                            else CERTIFICATION_AUTH_POLICY_REVISION)
     client_version = importlib.metadata.version("honua-sdk")
     payload_base64 = base64.b64encode(json.dumps(
         [
-            {"case": case.name, "receipt": asdict(result)}
+            {"case": case.name, "entitlement_mode": target.entitlement_mode, "receipt": asdict(result)}
             for case, result in case_results
         ],
         sort_keys=True,
@@ -1547,7 +1572,7 @@ def build_certification_fragment(
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,
-                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "auth_policy_revision": auth_policy_revision,
                 "candidate_cut_at": target.candidate_cut_at,
                 "started_at": result.started_at,
                 "completed_at": result.completed_at,
@@ -1589,7 +1614,7 @@ def build_certification_fragment(
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,
-                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "auth_policy_revision": auth_policy_revision,
                 "evidence_uri": (
                     None if normalized_result == "skip"
                     else f"https://evidence.honua.io/data/sha256/{evidence_digest[7:]}"

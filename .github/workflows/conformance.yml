@@ -187,6 +187,10 @@ jobs:
           HONUA_CERTIFICATION_TIER: ${{ github.event.inputs.certification_tier || (github.event_name == 'pull_request' && 'pr') || 'nightly' }}
           SERVER_SEED_REF_INPUT: ${{ github.event.inputs.server_seed_ref }}
           CANDIDATE_CUT_AT_INPUT: ${{ github.event.inputs.candidate_cut_at }}
+          CERTIFICATION_EVENT: ${{ github.event_name }}
+          # Unconfigured until an operator provisions the governed signed license.
+          # Rehearsal events never receive this release-only value.
+          HONUA_CERTIFICATION_LICENSE_CONTENT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.certification_tier == 'release' && secrets.HONUA_CERTIFICATION_LICENSE_CONTENT || '' }}
         run: |
           set -euo pipefail
 
@@ -211,6 +215,18 @@ jobs:
           validate_candidate_cut_at(sys.argv[1])
           PY
           fi
+
+          entitlement_profile="$("${HONUA_SDK_CERT_PYTHON}" - <<'PY'
+          import json
+          import os
+          from scripts._conformance_entitlement import profile
+          print(json.dumps(profile(os.environ["HONUA_CERTIFICATION_TIER"], os.environ["CERTIFICATION_EVENT"],
+                                   "Development", os.environ.get("HONUA_CERTIFICATION_LICENSE_CONTENT", ""))))
+          PY
+          )"
+          dev_grant="$(jq -er '.devGrantEdition | strings' <<< "${entitlement_profile}")"
+          entitlement_mode="$(jq -er '.mode' <<< "${entitlement_profile}")"
+          echo "HONUA_ENTITLEMENT_MODE=${entitlement_mode}" >> "${GITHUB_ENV}"
 
           # Override the one-shot seed to apply the canonical client-compat seed
           # (schema + test_service / layer 0 with JSONB feature attributes — the
@@ -246,6 +262,12 @@ jobs:
                 - "127.0.0.1::5001"
               environment:
                 ASPNETCORE_ENVIRONMENT: Development
+                # Explicit test fixture only. The release profile always clears it.
+                Licensing__DevGrantEdition: "${dev_grant}"
+                Licensing__Mode: Enabled
+                # Preserve the Compose reference: never write signed license bytes
+                # into the generated override or retained artifacts.
+                Licensing__LicenseContent: "\${HONUA_CERTIFICATION_LICENSE_CONTENT:-}"
                 PUBLIC_BASE_URL: http://localhost:5000
           YAML
 

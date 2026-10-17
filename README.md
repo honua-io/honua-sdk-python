@@ -332,3 +332,16 @@ Do not open public issues for security reports.
 `honua-sdk` and `honua-admin` are licensed under
 [Apache-2.0](LICENSE). `packages/honua-gp` is proprietary (see its `LICENSE`)
 and is not published.
+
+
+The conformance workflow uses an explicit Enterprise Development grant only for
+PR/nightly rehearsal fixtures. These receipts carry
+`development-grant-rehearsal-v1`, which does not match the governed release auth
+policy and cannot qualify release cells. Release dispatches clear the grant and
+require the operator-provisioned `HONUA_CERTIFICATION_LICENSE_CONTENT` secret;
+that input is currently an external wiring prerequisite under #282 and
+honua-io/honua-release#652. No license contents are included in generated Compose
+overrides or artifacts. Before actual SDK edit/rollback/readback, release runs
+require the candidate to validate a signed, active, non-development editing
+entitlement. The receipt retains a safe fingerprint and fresh observation;
+missing, invalid, expired, disabled, rehearsal, or stale proof fails closed.

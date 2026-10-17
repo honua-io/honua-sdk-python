@@ -128,6 +128,9 @@ def _fixture_attributes(feature: Mapping[str, Any]) -> dict[str, Any]:
 
 def apply_edits(client: HonuaClient, target: ConformanceTarget, bundle: FixtureBundle) -> dict[str, Any]:
     """Shared all-or-nothing missing-target case, then the real add/update/delete batch and readback."""
+    from scripts._conformance_entitlement import observe
+
+    entitlement = observe(target)
     baseline = bundle.response("feature_apply_edits_missing_target_verify")["features"]
     negative = bundle.request("feature_apply_edits_missing_target")
     positive = bundle.request("feature_apply_edits")
@@ -239,4 +242,4 @@ def apply_edits(client: HonuaClient, target: ConformanceTarget, bundle: FixtureB
             cleaned = client.apply_edits_result(target.service_id, target.layer_id, deletes=list(remaining), rollback_on_failure=True)
             checked(cleaned, (0, 0, len(remaining)))
             _require(not ours(), "SDK scratch cleanup left features behind")
-    return {**details, "cleanup_readback": True}
+    return {**details, "cleanup_readback": True, "entitlement": entitlement}

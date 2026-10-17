@@ -61,3 +61,26 @@ def test_explicitly_requested_certification_does_not_skip_missing_prerequisites(
     conftest = (Path(__file__).resolve().parents[1] / "tests/conformance/conftest.py").read_text()
     assert "pytest.skip" not in conftest
     assert "pytest.fail(str(exc), pytrace=False)" in conftest
+
+
+def test_seed_execution_covers_legacy_and_migration_owned_candidate_sources():
+    import json
+    import re
+    import subprocess
+    import sys
+
+    workflow = WORKFLOW.read_text()
+    parser = re.search(r"seed_dependency=.*\| python -c '([^']+)'", workflow).group(1)
+    for dependencies, expected in (({"seed": {"condition": "service_completed_successfully"}}, "true"),
+                                   ({"postgres": {"condition": "service_healthy"}}, "false")):
+        result = subprocess.run(  # noqa: S603 -- executes the maintained workflow parser, not external input
+            [sys.executable, "-c", parser], input=json.dumps({"services": {"honua": {"depends_on": dependencies}}}),
+                                text=True, capture_output=True, check=True)
+        assert result.stdout.strip() == expected
+    malformed = subprocess.run(  # noqa: S603 -- executes the maintained workflow parser with a malformed fixture
+        [sys.executable, "-c", parser], input='{"services":{"honua":{"depends_on":null}}}',
+                               text=True, capture_output=True, check=False)
+    assert malformed.returncode != 0
+    assert 'if [[ "${seed_dependency}" == "false" ]]' in workflow
+    assert 'run --rm --no-deps seed' in workflow
+    assert workflow.index('up -d --no-build honua') < workflow.index('run --rm --no-deps seed')

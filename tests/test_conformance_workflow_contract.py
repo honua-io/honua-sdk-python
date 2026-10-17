@@ -88,6 +88,7 @@ def test_seed_execution_covers_legacy_and_migration_owned_candidate_sources():
 
 def test_migration_owned_seed_waits_for_readiness_and_never_runs_after_timeout(tmp_path):
     import os
+    import shutil
     import subprocess
     import textwrap
 
@@ -111,11 +112,13 @@ def test_migration_owned_seed_waits_for_readiness_and_never_runs_after_timeout(t
     env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
            "EVENTS": str(events), "COUNT": str(count), "seed_dependency": "false",
            "compose_file": "compose.yml", "override_file": "override.yml"}
+    bash = shutil.which("bash")
+    assert bash is not None
     for never_ready in ("false", "true"):
         events.unlink(missing_ok=True)
         count.unlink(missing_ok=True)
         result = subprocess.run(  # noqa: S603 -- maintained workflow with local command stubs; no services started
-            ["bash", "-c", script], env={**env, "NEVER_READY": never_ready}, capture_output=True, text=True,
+            [bash, "-c", script], env={**env, "NEVER_READY": never_ready}, capture_output=True, text=True,
             check=False)
         lines = events.read_text().splitlines()
         seeds = [index for index, line in enumerate(lines) if "run --rm --no-deps seed" in line]

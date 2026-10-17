@@ -19,20 +19,20 @@ def fixture_bundle():
     try:
         return locate_fixture_bundle()
     except ConformanceFixturesError as exc:
-        pytest.skip(str(exc))
+        pytest.fail(str(exc), pytrace=False)
 
 
 @pytest.fixture(scope="session")
 def conformance_target():
     if not os.environ.get("HONUA_BASE_URL"):
-        pytest.skip(
+        pytest.fail(
             "HONUA_BASE_URL is not set; live conformance requires a pinned "
             "honua-server target (set by the conformance CI lane)."
         )
     try:
         return load_target_from_env()
     except ConformanceFixturesError as exc:  # pragma: no cover - guarded above
-        pytest.skip(str(exc))
+        pytest.fail(str(exc), pytrace=False)
 
 
 @pytest.fixture(scope="session")

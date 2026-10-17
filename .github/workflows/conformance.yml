@@ -48,15 +48,13 @@ env:
   PYTHON_VERSION: "3.11"
   # Shared geospatial-grpc fixture pin (must equal conformance/FIXTURES_VERSION).
   # The fetch helper verifies the bundle's embedded VERSION equals this value.
-  CONFORMANCE_FIXTURES_VERSION: "1.0.0"
-  # Exact public wheel currently published on PyPI. This intentionally differs
-  # from honua-release's stale 0.1.10 client-artifact pin; the lane qualifies
-  # the bytes users can actually install while lock convergence remains owned
-  # by the release worklist.
-  HONUA_SDK_PUBLIC_VERSION: "0.1.11"
-  HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.11-py3-none-any.whl"
-  HONUA_SDK_PUBLIC_WHEEL_SHA256: "80ac6a25fa5fed0ee7d8dca4ca94d14c098d9f72a149c9e271b1a1d04b78c3e9"
-  HONUA_SDK_PUBLIC_SOURCE_SHA: "f7930b6e9c3ce47ade148bba3d4510eeffd2ccc4"
+  CONFORMANCE_FIXTURES_VERSION: "1.0.5"
+  # Exact published wheel selected by the platform manifest. Keep version,
+  # filename, registry digest and published tag source together as one identity.
+  HONUA_SDK_PUBLIC_VERSION: "0.1.16"
+  HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.16-py3-none-any.whl"
+  HONUA_SDK_PUBLIC_WHEEL_SHA256: "b0520257e5cd3d323ece4cca183971a4480214406582b9b3aad1a713557aa5fc"
+  HONUA_SDK_PUBLIC_SOURCE_SHA: "5a79352066b8aa23f1bae45b5c38e6d83efd003f"
   # Current nightly image and its exact embedded source revision. Update these as
   # one identity so scheduled evidence never joins a candidate to unrelated seed
   # fixtures. Release dispatches continue to override both explicitly.
@@ -245,6 +243,7 @@ jobs:
               image: ${HONUA_SERVER_IMAGE}
               ports:
                 - "5000:5000"
+                - "127.0.0.1::5001"
               environment:
                 ASPNETCORE_ENVIRONMENT: Development
                 PUBLIC_BASE_URL: http://localhost:5000
@@ -287,6 +286,9 @@ jobs:
 
           {
             echo "HONUA_BASE_URL=http://localhost:5000"
+            grpc_port="$(docker compose -f "${compose_file}" -f "${override_file}" port honua 5001)"
+            [[ "${grpc_port}" =~ ^127\.0\.0\.1:[0-9]+$ ]]
+            echo "HONUA_GRPC_TARGET=localhost:${grpc_port##*:}"
             echo "HONUA_SERVICE_ID=test_service"
             echo "HONUA_LAYER_ID=0"
             echo "HONUA_API_KEY=ClientCompatAdmin123!"

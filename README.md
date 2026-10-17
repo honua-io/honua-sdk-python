@@ -307,6 +307,16 @@ smoke) need `HONUA_BASE_URL` and the `--run-integration` flag; see
 [docs/compatibility.md](docs/compatibility.md) for env vars, markers, and
 result artifacts.
 
+The conformance lane also requires `HONUA_GRPC_TARGET=host:port` for the same
+candidate host as `HONUA_BASE_URL`. CI maps the gRPC listener from the same
+image/source-verified container. It runs public unary and streaming queries,
+typed missing-service refusals, and a real add/update/delete batch with atomic
+missing-target refusal and independent readback. Editing uses newly allocated,
+marker-bound scratch rows and verifies their cleanup. Run this lane only against
+an isolated certification fixture, with the pinned shared fixtures and installed
+SDK wheel; missing prerequisites fail the explicitly requested lane. The full
+release fragment still requires every independent operation cell to pass.
+
 Bugs and feature requests: [GitHub issues](https://github.com/honua-io/honua-sdk-python/issues).
 Pull requests are welcome — CI enforces lint, strict typing, the coverage
 gate, and the compatibility snapshot.

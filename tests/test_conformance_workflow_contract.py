@@ -139,3 +139,13 @@ def test_certification_receipts_use_repository_governed_requirements() -> None:
     assert "Checkout governed certification requirements" not in workflow
     assert "--destination" in workflow
     assert "HONUA_CERTIFICATION_REQUIREMENTS_PATH:" in workflow
+
+
+def test_governed_nightly_inputs_are_data_and_never_interpolated_into_shell_source():
+    workflow = WORKFLOW.read_text()
+    assert "nightly_dispatch_id:" in workflow
+    assert "requirements_ref:" in workflow and "requirements_revision:" in workflow
+    assert "HONUA_NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}" in workflow
+    assert "REQUIREMENTS_SOURCE_SHA: ${{ github.event.inputs.requirements_ref || '' }}" in workflow
+    assert 'args+=(--source-sha "${REQUIREMENTS_SOURCE_SHA}" --requirements-revision "${REQUIREMENTS_REVISION}")' in workflow
+    assert 'python3 scripts/fetch_certification_requirements.py "${args[@]}"' in workflow

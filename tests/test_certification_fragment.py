@@ -670,6 +670,12 @@ def test_actual_producer_reproduces_shared_consumer_receipt_bytes(tmp_path, monk
     actual = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, [(case, result)])
     assert actual["observations"] == bundle["fragment"]["observations"]
     assert actual["operation_scope"]["complete"] is False
+    _nightly_actions_context(monkeypatch)
+    bound = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, [(case, result)])
+    identity = bound["observations"][0]["evidence_receipt"]["identity"]
+    assert identity["producer_run"]["run_id"] == 456
+    assert identity["producer_run"]["dispatch_id"] == "nightly-certification-123-1"
+    assert bound["observations"][0]["evidence_digest"] != actual["observations"][0]["evidence_digest"]
     declaration = json.loads((Path(__file__).parents[1] / "release/component-versions.json").read_text())
     assert declaration["schemaVersions"]["certification-evidence-receipt"] == "2.0"
 
@@ -683,3 +689,35 @@ def test_governed_source_must_be_exact_even_when_document_agrees(monkeypatch, so
     path.write_text(json.dumps(document))
     with pytest.raises(RuntimeError, match="exact Python producer source SHA"):
         _load_certification_context(str(path), source)
+
+
+def _nightly_actions_context(monkeypatch):
+    values = {"HONUA_NIGHTLY_DISPATCH_ID": "nightly-certification-123-1", "GITHUB_ACTIONS": "true",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REPOSITORY": "honua-io/honua-sdk-python",
+        "GITHUB_WORKFLOW_REF": "honua-io/honua-sdk-python/.github/workflows/conformance.yml@refs/heads/trunk",
+        "GITHUB_RUN_ID": "456", "GITHUB_RUN_ATTEMPT": "2"}
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+
+
+def test_producer_run_records_only_explicit_actions_dispatch_context(monkeypatch):
+    from scripts._conformance import _certification_producer_run
+    monkeypatch.delenv("HONUA_NIGHTLY_DISPATCH_ID", raising=False)
+    assert _certification_producer_run() is None
+    _nightly_actions_context(monkeypatch)
+    assert _certification_producer_run() == {"repository": "honua-io/honua-sdk-python",
+        "workflow": "conformance.yml", "run_id": 456, "run_attempt": 2, "dispatch_id": "nightly-certification-123-1"}
+
+
+@pytest.mark.parametrize("field,value", [("HONUA_NIGHTLY_DISPATCH_ID", "manual"),
+    ("GITHUB_ACTIONS", "false"), ("GITHUB_EVENT_NAME", "pull_request"),
+    ("GITHUB_REPOSITORY", "attacker/sdk"), ("GITHUB_RUN_ID", "0"), ("GITHUB_RUN_ID", "0456"),
+    ("GITHUB_RUN_ATTEMPT", "0"), ("GITHUB_RUN_ATTEMPT", "not-an-attempt"),
+    ("GITHUB_WORKFLOW_REF", "honua-io/honua-sdk-python/.github/workflows/other.yml@refs/heads/trunk"),
+    ("GITHUB_WORKFLOW_REF", "honua-io/honua-sdk-python/.github/workflows/conformance.yml@")])
+def test_producer_run_refuses_malformed_or_noncanonical_context(monkeypatch, field, value):
+    from scripts._conformance import _certification_producer_run
+    _nightly_actions_context(monkeypatch)
+    monkeypatch.setenv(field, value)
+    with pytest.raises(RuntimeError, match="nightly identity"):
+        _certification_producer_run()

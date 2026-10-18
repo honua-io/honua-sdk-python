@@ -1448,6 +1448,26 @@ def _load_certification_context(
     return revision, contexts
 
 
+def _certification_producer_run() -> dict[str, Any] | None:
+    """Record Actions-owned run context only when this nightly dispatched the run."""
+    dispatch = os.environ.get("HONUA_NIGHTLY_DISPATCH_ID", "")
+    if not dispatch:
+        return None
+    workflow = "honua-io/honua-sdk-python/.github/workflows/conformance.yml@"
+    if (not re.fullmatch(r"nightly-certification-[1-9][0-9]*-[1-9][0-9]*", dispatch)
+            or os.environ.get("GITHUB_ACTIONS") != "true"
+            or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+            or os.environ.get("GITHUB_REPOSITORY") != "honua-io/honua-sdk-python"
+            or not re.fullmatch(re.escape(workflow) + r"refs/(?:heads|tags)/[A-Za-z0-9._/-]+",
+                                os.environ.get("GITHUB_WORKFLOW_REF", ""))):
+        raise ConformanceFixturesError("nightly identity requires the canonical Actions conformance dispatch")
+    run_id, attempt = os.environ.get("GITHUB_RUN_ID", ""), os.environ.get("GITHUB_RUN_ATTEMPT", "")
+    if not re.fullmatch(r"[1-9][0-9]*", run_id) or not re.fullmatch(r"[1-9][0-9]*", attempt):
+        raise ConformanceFixturesError("nightly identity requires positive canonical Actions run and attempt")
+    return {"repository": "honua-io/honua-sdk-python", "workflow": "conformance.yml",
+            "run_id": int(run_id), "run_attempt": int(attempt), "dispatch_id": dispatch}
+
+
 def _certification_request_url(
     case: ConformanceCase,
     result: CaseResult,
@@ -1643,6 +1663,7 @@ def build_certification_fragment(
         target.sdk_source_sha,
     )
 
+    producer_run = _certification_producer_run()
     client_version = importlib.metadata.version("honua-sdk")
     payload_base64 = base64.b64encode(json.dumps(
         [
@@ -1692,6 +1713,7 @@ def build_certification_fragment(
                 "deployment_target": "local-docker",
                 "required_tier": required_tier,
                 "requirements_revision": requirements_revision,
+                **({"producer_run": producer_run} if producer_run is not None else {}),
                 "source_sha": target.server_commit,
                 "producer_source_sha": target.sdk_source_sha,
                 "client_package": {

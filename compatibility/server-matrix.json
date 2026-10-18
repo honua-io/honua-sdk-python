@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "baseline": {
-    "minimumServerVersion": "1.0.0",
+    "minimumServerVersion": "2026.1.0-0",
     "controlPlaneApiMajor": 1,
     "basePath": "/api/v1/admin",
     "minimumReleaseChannel": "preview"
@@ -9,7 +9,7 @@
   "cases": [
     {
       "name": "issue-219-exact-trunk-server",
-      "description": "Issue #219's stable trunk identity must pass the GA baseline despite its full build SHA.",
+      "description": "Issue #219's trunk build predates honua-server's version identity (#4693) and reports the assembly default 1.0.0; it is not a release identity and falls below the first-release floor (honua-release#233).",
       "compatibility": {
         "serverVersion": "1.0.0+32809f114c36c951b00beb5fe07a3c7082867909",
         "releaseChannel": "stable",
@@ -22,12 +22,15 @@
         "features": {}
       },
       "expected": {
-        "supported": true
+        "supported": false,
+        "reasonsContain": [
+          "below required"
+        ]
       }
     },
     {
       "name": "release-2026-1-server",
-      "description": "The 2026.1 release identity exactly as nightly-aot-3c52a4b reports it from /api/v1/admin/capabilities: the year-led major is a SemVer triple above the 1.0.0 floor.",
+      "description": "The 2026.1 release identity exactly as nightly-aot-3c52a4b reports it from /api/v1/admin/capabilities: the year-led major is a SemVer triple above the 2026.1.0-0 first-release floor.",
       "compatibility": {
         "serverVersion": "2026.1.1",
         "releaseChannel": "stable",
@@ -99,9 +102,9 @@
     },
     {
       "name": "ga-semver-server",
-      "description": "The GA server identity uses SemVer 1.x with optional build metadata.",
+      "description": "A first-release-line server identity with build metadata, as the nightly candidates report it.",
       "compatibility": {
-        "serverVersion": "1.0.0+ac30266f",
+        "serverVersion": "2026.1.1+c19f29d1",
         "releaseChannel": "stable",
         "controlPlaneApi": {
           "major": 1,

@@ -18,13 +18,18 @@ The Python SDK compatibility gate protects two contracts:
 
 Release builds support Honua Server versions that meet all of these conditions:
 
-- `serverVersion` parses to at least `1.0.0`. Honua Server versions are
-  `<year>.<release>.<patch>` SemVer triples (the 2026.1 release reports
-  `2026.1.1`), may carry a prerelease suffix (`-rc.1`, `-nightly.N`) or build
-  metadata (`+<sha>`), and older builds reported `1.0.0+<sha>`. The major tracks
-  the year rather than compatibility, so there is one floor for every release
-  line, the same `1.0.0` the JS SDK uses; the control-plane API major below is
-  the breaking-change signal.
+- `serverVersion` parses to at least `2026.1.0-0`. The floor is derived, not
+  chosen: `release/sdk-capability-baseline.json` declares
+  `minimumServerVersion: first-release`, and the honua-release
+  [baseline rule](https://github.com/honua-io/honua-release/blob/trunk/docs/SDK-SERVER-BASELINE-RULE.md)
+  maps that to `2026.1.0-0`, the least SemVer identity of the first honua-server
+  release line, the same value the JS and .NET SDKs use. Honua Server versions
+  are `<year>.<release>.<patch>` SemVer triples (the 2026.1 release reports
+  `2026.1.1`) and may carry a prerelease suffix (`-rc.1`, `-nightly.N`) or build
+  metadata (`+<sha>`). Builds from before the server had a version identity
+  reported `1.0.0+<sha>`; they are not release identities and are refused. The
+  major tracks the year rather than compatibility; the control-plane API major
+  below is the breaking-change signal.
 - `releaseChannel` is `preview` or a later channel (`beta`, `rc`, `stable`, or
   `lts`).
 - `controlPlaneApi.major` is `1`.

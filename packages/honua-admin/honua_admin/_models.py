@@ -7,11 +7,17 @@ import re
 from dataclasses import dataclass, field, fields
 from typing import Any, Literal, TypeAlias
 
-# Honua Server versions are ``<year>.<release>.<patch>`` SemVer triples (2026.1.1);
-# the major tracks the year, not compatibility, so one floor covers every release
-# line and the control-plane API major carries the breaking-change signal. This
-# matches the JS SDK's HONUA_MINIMUM_SUPPORTED_SERVER_VERSION.
-MINIMUM_SUPPORTED_SERVER_VERSION = "1.0.0"
+# Derived, not chosen: release/sdk-capability-baseline.json declares
+# ``minimumServerVersion: first-release`` (every required capability ships in the first
+# honua-server release), and honua-release docs/SDK-SERVER-BASELINE-RULE.md maps a
+# first-release baseline to ``2026.1.0-0``, the least SemVer identity of the first
+# release line. Honua Server versions are ``<year>.<release>.<patch>`` SemVer triples
+# (2026.1.1); the major tracks the year, not compatibility, so the control-plane API
+# major carries the breaking-change signal. Builds that predate the server's version
+# identity (honua-server#4693) report ``1.0.0+<sha>`` and fall below the floor.
+# tests/admin/test_server_floor_baseline.py fails when this and the baseline disagree;
+# the JS and .NET SDKs carry the same value.
+MINIMUM_SUPPORTED_SERVER_VERSION = "2026.1.0-0"
 MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR = 1
 MINIMUM_SUPPORTED_CONTROL_PLANE_BASE_PATH = "/api/v1/admin"
 MINIMUM_SUPPORTED_SERVER_RELEASE_CHANNEL = "preview"

@@ -17,6 +17,18 @@ on:
     branches: [trunk]
   workflow_dispatch:
     inputs:
+      nightly_dispatch_id:
+        description: "Correlation assigned by the governed nightly dispatcher; blank for ad-hoc diagnostics."
+        required: false
+        default: ""
+      requirements_ref:
+        description: "Optional exact protected-trunk honua-release source SHA; supply with requirements_revision."
+        required: false
+        default: ""
+      requirements_revision:
+        description: "Expected catalog revision at requirements_ref; both inputs must be supplied together."
+        required: false
+        default: ""
       server_image:
         description: "honua-server image to certify against (repo:tag or repo@sha256:digest). Blank = pinned nightly. Used by the release-bundle train to certify the RC image."
         required: false
@@ -67,6 +79,18 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Retain immutable protected-trunk certification requirements
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUIREMENTS_SOURCE_SHA: ${{ github.event.inputs.requirements_ref || '' }}
+          REQUIREMENTS_REVISION: ${{ github.event.inputs.requirements_revision || '' }}
+        run: |
+          args=(--destination "${GITHUB_WORKSPACE}/honua-release-governance")
+          if [[ -n "${REQUIREMENTS_SOURCE_SHA}" || -n "${REQUIREMENTS_REVISION}" ]]; then
+            args+=(--source-sha "${REQUIREMENTS_SOURCE_SHA}" --requirements-revision "${REQUIREMENTS_REVISION}")
+          fi
+          python3 scripts/fetch_certification_requirements.py "${args[@]}"
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -349,8 +373,10 @@ jobs:
 
       - name: Run shared-fixture conformance suite
         env:
+          HONUA_NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}
           HONUA_CONFORMANCE_SUMMARY_PATH: conformance-summary.md
           HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request' && 'protocol-certification-fragment.json' || '' }}
+          HONUA_CERTIFICATION_REQUIREMENTS_PATH: ${{ github.workspace }}/honua-release-governance/protocol-certification-requirements.v1.json
         run: |
           "${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance \
             -q \

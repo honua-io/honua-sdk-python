@@ -175,8 +175,9 @@ class HonuaGrpcClient:
     def query_features_stream(
         self, request: models.QueryFeaturesRequest
     ) -> Iterator[models.FeaturePage]:
-        """Execute a streaming feature query, yielding one page at a time."""
+        """Yield pages and release the RPC when the iterator finishes or is closed."""
         proto_request = adapter.to_proto_request(request)
+        stream = None
         try:
             stream = self._stub.QueryFeaturesStream(
                 proto_request,
@@ -194,6 +195,9 @@ class HonuaGrpcClient:
                 initial_metadata=_rpc_metadata(e, "initial_metadata"),
                 trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
             ) from e
+        finally:
+            if stream is not None:
+                stream.cancel()
 
 
 class HonuaGrpcAsyncClient:
@@ -278,9 +282,10 @@ class HonuaGrpcAsyncClient:
     async def query_features_stream(  # type: ignore[no-untyped-def]
         self, request: models.QueryFeaturesRequest
     ):  # -> AsyncIterator[models.FeaturePage]
-        """Execute a streaming feature query, yielding one page at a time."""
+        """Yield pages and release the RPC when the iterator finishes or is closed."""
         proto_request = adapter.to_proto_request(request)
         metadata = await self._request_metadata()
+        stream = None
         try:
             stream = self._stub.QueryFeaturesStream(
                 proto_request,
@@ -298,3 +303,6 @@ class HonuaGrpcAsyncClient:
                 initial_metadata=_rpc_metadata(e, "initial_metadata"),
                 trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
             ) from e
+        finally:
+            if stream is not None:
+                stream.cancel()

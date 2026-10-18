@@ -1697,10 +1697,10 @@ def build_certification_fragment(
             "auth_policy_revision": auth_policy_revision,
             "deployment_target": "local-docker",
         }
-        for field, observed in observed_context.items():
-            if owned_cell.get(field) != observed:
+        for context_field, observed in observed_context.items():
+            if owned_cell.get(context_field) != observed:
                 raise ConformanceFixturesError(
-                    f"observed {field} differs from exact governed certification cell"
+                    f"observed {context_field} differs from exact governed certification cell"
                 )
         protocol_version, protocol_profile = CERTIFICATION_PROTOCOL_CONTEXT[surface]
         known_gap = case.known_gap_issue if result.status != "passed" else None

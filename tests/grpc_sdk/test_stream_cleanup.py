@@ -84,8 +84,8 @@ def test_every_iterator_exit_releases_rpc_without_closing_shared_channel(asynchr
         with pytest.raises(HonuaGrpcError) as caught:
             consume()
         assert caught.value.code == grpc.StatusCode.INTERNAL
-        assert caught.value.protocol_metadata.initial['initial-control'] == ['one']
-        assert caught.value.protocol_metadata.trailing['trailing-control'] == ['two']
+        assert caught.value.protocol_metadata.initial['initial-control'] == ('one',)
+        assert caught.value.protocol_metadata.trailing['trailing-control'] == ('two',)
     elif path == 'decode-error':
         with patch('honua_sdk.grpc._client.adapter.from_proto_page', side_effect=ValueError('malformed geometry')):
             with pytest.raises(ValueError, match='malformed geometry'):

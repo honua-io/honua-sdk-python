@@ -1420,7 +1420,7 @@
 <tr>
 <td>SDKPY-002</td>
 <td>fixed</td>
-<td><code>test_sdkpy_002_items_pages_preserves_reverse_proxy_base_path</code> covers a relative continuation from a reverse-proxy sub-path. OGC Features continuation hrefs are now resolved against the current page URL and passed as absolute same-origin request URLs.</td>
+<td><code>test_sdkpy_002_items_pages_preserves_reverse_proxy_base_path</code> covers a relative continuation from a reverse-proxy sub-path. OGC Features continuation hrefs are resolved against the final response URL (<code>test_sdkpy_002_items_pages_resolves_relative_next_against_redirect</code>) and passed as absolute same-origin request URLs. OGC Records <code>record_pages</code> does the same (<code>test_sdkpy_002_records_relative_next_keeps_collection_path</code>), so a relative <code>rel=next</code> keeps the collection path.</td>
 </tr>
 <tr>
 <td>SDKPY-004</td>

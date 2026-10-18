@@ -4,18 +4,18 @@ This module powers the blocking ``conformance`` CI lane (issue #81, epic
 ``geospatial-grpc#18`` — the cross-repo Compatibility Train). It consumes the
 *shared* conformance fixtures published by ``geospatial-grpc`` (issue #19,
 fetched with ``conformance/fetch-fixtures.sh``) and exercises them against a
-**pinned live ``honua-server:nightly``** through the ``httpx`` clients
-(:class:`~honua_sdk.HonuaClient` / :class:`~honua_sdk.AsyncHonuaClient`),
-failing on any contract drift.
+**pinned live candidate** through the public REST and gRPC clients,
+failing on any contract drift. PRs use a built wheel; release certification
+uses the exact public wheel and records its registry digest and source.
 
 Why a mapping layer
 -------------------
 The shared fixtures are canonical ``geospatial.v1`` *gRPC* request/response
-payloads (protobuf-JSON). The Python SDK's data plane talks to the server's
-**REST** surfaces (GeoServices FeatureServer, OGC API Features). Each fixture
+payloads (protobuf-JSON). The Python SDK exposes gRPC reads and **REST**
+surfaces (GeoServices FeatureServer, OGC API Features). Each mapped fixture
 therefore encodes a *contract requirement* — a workflow, its request shape, and
 the response envelope/field-typing/error semantics — that we re-express as a
-concrete REST call and assert against the live server. A fixture maps 1:1 to a
+concrete public SDK call and assert against the live server. A fixture maps 1:1 to a
 ``geospatial.v1`` schema release (``conformance/FIXTURES_VERSION``), so when the
 pinned nightly drifts from that contract, the lane goes red.
 
@@ -45,6 +45,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin, urlsplit
@@ -209,6 +210,22 @@ class ConformanceTarget:
     evidence_uri: str | None = None
     candidate_cut_at: str | None = None
     certification_tier: str = "nightly"
+    grpc_target: str | None = None
+    entitlement_mode: str = "unspecified"
+
+    def grpc_base_url(self) -> str:
+        """Require an explicit same-host candidate listener, with no credentials or URL suffix."""
+        rest = urlsplit(self.base_url)
+        rpc = urlsplit("//" + (self.grpc_target or ""))
+        try:
+            port = rpc.port
+        except ValueError as exc:
+            raise ConformanceFixturesError("HONUA_GRPC_TARGET needs a valid explicit port") from exc
+        if (rest.scheme not in {"http", "https"} or not rest.hostname or rpc.hostname != rest.hostname
+                or port is None or not 0 < port <= 65535 or rpc.username is not None or rpc.password is not None
+                or rpc.path or rpc.query or rpc.fragment):
+            raise ConformanceFixturesError("HONUA_GRPC_TARGET must be an explicit host:port on the pinned HTTP candidate host")
+        return f"{rest.scheme}://{rpc.netloc}"
 
 
 def load_target_from_env() -> ConformanceTarget:
@@ -222,7 +239,7 @@ def load_target_from_env() -> ConformanceTarget:
         layer_id = int(layer_text)
     except ValueError as exc:  # pragma: no cover - guarded by CI env
         raise ConformanceFixturesError("HONUA_LAYER_ID must be an integer.") from exc
-    return ConformanceTarget(
+    target = ConformanceTarget(
         base_url=base_url,
         service_id=os.environ.get("HONUA_SERVICE_ID", "test_service"),
         layer_id=layer_id,
@@ -237,7 +254,14 @@ def load_target_from_env() -> ConformanceTarget:
         evidence_uri=os.environ.get("HONUA_EVIDENCE_URI"),
         candidate_cut_at=os.environ.get("HONUA_CANDIDATE_CUT_AT"),
         certification_tier=os.environ.get("HONUA_CERTIFICATION_TIER", "nightly"),
+        grpc_target=os.environ.get("HONUA_GRPC_TARGET"),
+        entitlement_mode=os.environ.get("HONUA_ENTITLEMENT_MODE", "unspecified"),
     )
+    if target.certification_tier == "release" and target.entitlement_mode != "signed":
+        raise ConformanceFixturesError("release certification requires signed entitlement provenance; rehearsal grants are forbidden")
+    if target.grpc_target:
+        target.grpc_base_url()
+    return target
 
 
 # --------------------------------------------------------------------------- #
@@ -307,6 +331,8 @@ class ConformanceCase:
     #: When set, this case exercises a tracked-but-unshipped server behavior.
     #: The pytest layer turns it into an xfail referencing this issue.
     known_gap_issue: str | None = None
+    #: Streaming uses the shared QueryFeaturesRequest fixture but returns FeaturePage.
+    response_message_type: str | None = None
 
     def run(
         self,
@@ -314,8 +340,11 @@ class ConformanceCase:
         target: ConformanceTarget,
         bundle: FixtureBundle,
     ) -> CaseResult:
-        message_type = bundle.manifest_types().get(f"{self.fixture}_response.json") or (
-            bundle.manifest_types().get(f"{self.fixture}_request.json")
+        manifest_types = bundle.manifest_types()
+        if self.response_message_type and f"{self.fixture}_request.json" not in manifest_types:
+            raise ConformanceFixturesError("stream fixture is missing its published request binding")
+        message_type = self.response_message_type or manifest_types.get(f"{self.fixture}_response.json") or (
+            manifest_types.get(f"{self.fixture}_request.json")
         )
         started_at = _utc_now()
         try:
@@ -1143,6 +1172,8 @@ def build_cases() -> list[ConformanceCase]:
     JSONB-attribute-projection variants, so a regression in one is never
     silently absorbed by an xfail meant for the other.
     """
+    from scripts import _conformance_operations as operations
+
     fs_query_path = "/rest/services/{service}/FeatureServer/{layer}/query"
     fs_meta_path = "/rest/services/{service}/FeatureServer/{layer}"
     fs_service_path = "/rest/services/{service}/FeatureServer"
@@ -1216,6 +1247,22 @@ def build_cases() -> list[ConformanceCase]:
             known_gap_issue="honua-server#2645",
         ),
         ConformanceCase(
+            name="grpc_query_features", fixture="feature_query",
+            sdk_method="HonuaClient.grpc(...).query_features",
+            request_path="/geospatial.v1.FeatureService/QueryFeatures", runner=operations.grpc_query,
+        ),
+        ConformanceCase(
+            name="grpc_query_features_stream", fixture="feature_query",
+            sdk_method="HonuaClient.grpc(...).query_features_stream",
+            request_path="/geospatial.v1.FeatureService/QueryFeaturesStream", runner=operations.grpc_stream,
+            response_message_type="geospatial.v1.FeaturePage",
+        ),
+        ConformanceCase(
+            name="feature_apply_edits_roundtrip", fixture="feature_apply_edits",
+            sdk_method="HonuaClient.apply_edits_result",
+            request_path="/rest/services/{service}/FeatureServer/{layer}/applyEdits", runner=operations.apply_edits,
+        ),
+        ConformanceCase(
             name="analysis_process_list",
             fixture="process_execute_plan",
             sdk_method="HonuaClient.ogc_processes().processes",
@@ -1281,15 +1328,23 @@ CASE_CERTIFICATION: dict[str, tuple[str, str, str, list[str]]] = {
     "replica_sync_surface": (
         "sync.featureserver-replicas", "geoservices-featureserver", "sync-capability", ["positive", "metadata"]
     ),
+    "grpc_query_features": (
+        "grpc.featureservice", "grpc-feature-service", "query-features", ["positive", "negative", "media-schema"]
+    ),
+    "grpc_query_features_stream": (
+        "grpc.featureservice", "grpc-feature-service", "query-features-stream", ["positive", "negative", "media-schema"]
+    ),
+    "feature_apply_edits_roundtrip": (
+        "editing.featureserver-edits", "geoservices-featureserver", "apply-edits", ["positive", "negative", "media-schema"]
+    ),
     "analysis_process_list": (
         "process.ogc-api-processes", "ogc-api-processes", "list-processes", ["positive", "metadata"]
     ),
 }
 
 # This denominator is deliberately independent of the cases implemented by this
-# harness. Public gRPC reads and FeatureServer applyEdits stay required even
-# though the candidate lane does not exercise them yet, so release evidence
-# fails closed until a live case observes each cell. replica_sync_surface is a
+# harness. Public gRPC reads and FeatureServer applyEdits stay independently
+# required, so omitted or partial producer evidence still fails closed. replica_sync_surface is a
 # metadata probe (sync-capability) and must not satisfy apply-edits.
 REQUIRED_CERTIFICATION_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     {
@@ -1309,6 +1364,7 @@ CERTIFICATION_PROTOCOL_CONTEXT: dict[str, tuple[str, str]] = {
     "geoservices-featureserver": ("11.0", "GeoServices REST"),
     "ogc-api-features": ("1.0", "core"),
     "ogc-api-processes": ("1.0", "core"),
+    "grpc-feature-service": ("1.0", "geospatial.v1.FeatureService"),
 }
 _CANDIDATE_CUT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -1327,7 +1383,8 @@ def _certification_request_url(
         layer=target.layer_id,
         collection=quote(collection_id, safe=""),
     )
-    request_url = urljoin(target.base_url.rstrip("/") + "/", request_path.lstrip("/"))
+    request_base = target.grpc_base_url() if CASE_CERTIFICATION[case.name][1] == "grpc-feature-service" else target.base_url
+    request_url = urljoin(request_base.rstrip("/") + "/", request_path.lstrip("/"))
     parsed = urlsplit(request_url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ConformanceFixturesError(
@@ -1414,6 +1471,22 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
             f"release SDK certification receipt for {row['surface']}/{row['operation']} "
             "is not bound to candidate.cut_at",
         )
+        try:
+            records = json.loads(base64.b64decode(receipt["payload_base64"], validate=True))
+            assert isinstance(records, list) and records
+            assert all(record["entitlement_mode"] == "signed" for record in records)
+            edits = [record["receipt"] for record in records if record["case"] == "feature_apply_edits_roundtrip"]
+            assert len(edits) == 1 and edits[0]["status"] == "passed"
+            proof = edits[0]["details"]["entitlement"]
+            assert proof["verification"] == "candidate-license-status-v1" and proof["mode"] == "signed"
+            assert proof["status"] == "active" and proof["entitlement"] == "editing.featureserver-edits"
+            assert re.fullmatch(r"sha256:[0-9a-f]{64}", proof["license_fingerprint"])
+            checked = datetime.fromisoformat(proof["checked_at"].replace("Z", "+00:00"))
+            started = datetime.fromisoformat(edits[0]["started_at"].replace("Z", "+00:00"))
+            completed = datetime.fromisoformat(edits[0]["completed_at"].replace("Z", "+00:00"))
+            assert checked.tzinfo is not None and started <= checked <= completed
+        except (KeyError, TypeError, ValueError, AssertionError) as exc:
+            raise AssertionError("release receipt lacks fresh candidate-validated signed edit entitlement; rehearsal evidence is forbidden") from exc
 
 
 def build_certification_fragment(
@@ -1453,10 +1526,14 @@ def build_certification_fragment(
     if target.sdk_wheel_source != "pypi":
         raise ConformanceFixturesError("sdk_wheel_source must be pypi")
 
+    if target.entitlement_mode not in {"signed", "development-grant"}:
+        raise ConformanceFixturesError("normalized certification needs explicit signed or development-grant entitlement provenance")
+    auth_policy_revision = ("development-grant-rehearsal-v1" if target.entitlement_mode == "development-grant"
+                            else CERTIFICATION_AUTH_POLICY_REVISION)
     client_version = importlib.metadata.version("honua-sdk")
     payload_base64 = base64.b64encode(json.dumps(
         [
-            {"case": case.name, "receipt": asdict(result)}
+            {"case": case.name, "entitlement_mode": target.entitlement_mode, "receipt": asdict(result)}
             for case, result in case_results
         ],
         sort_keys=True,
@@ -1495,7 +1572,7 @@ def build_certification_fragment(
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,
-                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "auth_policy_revision": auth_policy_revision,
                 "candidate_cut_at": target.candidate_cut_at,
                 "started_at": result.started_at,
                 "completed_at": result.completed_at,
@@ -1537,7 +1614,7 @@ def build_certification_fragment(
                 "image_digest": target.server_image_digest,
                 "fixture_revision": f"geospatial-grpc@{bundle.version}",
                 "contract_revision": contract_revision,
-                "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION,
+                "auth_policy_revision": auth_policy_revision,
                 "evidence_uri": (
                     None if normalized_result == "skip"
                     else f"https://evidence.honua.io/data/sha256/{evidence_digest[7:]}"

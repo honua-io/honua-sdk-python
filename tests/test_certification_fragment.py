@@ -52,6 +52,8 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     image_digest = "sha256:" + "b" * 64
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
         server_commit=source_sha,
         server_image_digest=image_digest,
         sdk_source_sha=sdk_sha,
@@ -129,6 +131,8 @@ def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch)
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="https://candidate.test/root/",
+        entitlement_mode="signed",
+        grpc_target="candidate.test:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,
@@ -147,6 +151,7 @@ def test_every_observation_satisfies_truthful_identity_ingest_rules(monkeypatch)
         "geoservices-featureserver": ("11.0", "GeoServices REST"),
         "ogc-api-features": ("1.0", "core"),
         "ogc-api-processes": ("1.0", "core"),
+        "grpc-feature-service": ("1.0", "geospatial.v1.FeatureService"),
     }
 
     for observation in fragment["observations"]:
@@ -170,6 +175,8 @@ def test_certification_rejects_malformed_wheel_digest(monkeypatch) -> None:
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,
@@ -213,6 +220,8 @@ def test_candidate_cut_changes_the_content_addressed_receipt(monkeypatch) -> Non
     def build(cut_at: str) -> dict:
         target = ConformanceTarget(
             base_url="http://localhost:5000",
+            entitlement_mode="signed",
+            grpc_target="localhost:5001",
             server_commit="a" * 40,
             server_image_digest="sha256:" + "b" * 64,
             sdk_source_sha="c" * 40,
@@ -239,6 +248,8 @@ def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> 
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,
@@ -295,6 +306,8 @@ def test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope(mo
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,
@@ -305,7 +318,7 @@ def test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope(mo
         candidate_cut_at="2026-08-20T00:00:00Z",
         certification_tier="release",
     )
-    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION if CASE_CERTIFICATION[name][1] != "grpc-feature-service"]
 
     fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
 
@@ -339,28 +352,15 @@ def test_apply_edits_stays_required_when_grpc_cases_join_the_harness(monkeypatch
     """
     import scripts._conformance as conformance
 
-    extended = dict(conformance.CASE_CERTIFICATION)
-    extended["grpc_query_features"] = (
-        "grpc.feature-service",
-        "grpc-feature-service",
-        "query-features",
-        ["positive"],
-    )
-    extended["grpc_query_features_stream"] = (
-        "grpc.feature-service",
-        "grpc-feature-service",
-        "query-features-stream",
-        ["positive"],
-    )
-    monkeypatch.setattr(conformance, "CASE_CERTIFICATION", extended)
-    monkeypatch.setitem(
-        conformance.CERTIFICATION_PROTOCOL_CONTEXT,
-        "grpc-feature-service",
-        ("1.0", "grpc"),
-    )
+    extended = {
+        name: cell for name, cell in conformance.CASE_CERTIFICATION.items()
+        if cell[2] != "apply-edits"
+    }
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
     target = ConformanceTarget(
         base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
         server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64,
         sdk_source_sha="c" * 40,

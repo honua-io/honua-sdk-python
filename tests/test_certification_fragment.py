@@ -231,7 +231,7 @@ def test_certification_rejects_malformed_wheel_digest(monkeypatch) -> None:
 
 def test_certification_rejects_missing_governed_requirements(monkeypatch) -> None:
     monkeypatch.delenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH")
-    target = ConformanceTarget(entitlement_mode="signed", 
+    target = ConformanceTarget(entitlement_mode="signed",
         base_url="http://localhost:5000", server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
@@ -279,7 +279,7 @@ def test_certification_rejects_missing_or_invalid_governed_context(
     path.write_text(json.dumps(document), encoding="utf-8")
     monkeypatch.setenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH", str(path))
 
-    target = ConformanceTarget(entitlement_mode="signed", 
+    target = ConformanceTarget(entitlement_mode="signed",
         base_url="http://localhost:5000", server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
@@ -369,7 +369,7 @@ def test_governed_context_changes_the_content_addressed_receipt(
             requirement[field] = value
         path = tmp_path / f"{field}-{value}.json"
         path.write_text(json.dumps(document), encoding="utf-8")
-        target = ConformanceTarget(entitlement_mode="signed", 
+        target = ConformanceTarget(entitlement_mode="signed",
             base_url="http://localhost:5000", server_commit="a" * 40,
             server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
             sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
@@ -396,7 +396,7 @@ def test_release_validator_rejects_mismatched_governed_context(
     monkeypatch, field: str, value: str
 ) -> None:
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
-    target = ConformanceTarget(entitlement_mode="signed", 
+    target = ConformanceTarget(entitlement_mode="signed",
         base_url="http://localhost:5000", server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
@@ -414,7 +414,7 @@ def test_release_validator_rejects_mismatched_governed_context(
 def test_release_validator_rejects_context_less_receipt_and_row(monkeypatch, field: str) -> None:
     """A receipt and row that both omit governed context must not match as None == None."""
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
-    target = ConformanceTarget(entitlement_mode="signed", 
+    target = ConformanceTarget(entitlement_mode="signed",
         base_url="http://localhost:5000", server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
@@ -432,7 +432,7 @@ def test_release_validator_rejects_context_less_receipt_and_row(monkeypatch, fie
 
 def test_release_validator_rejects_non_object_receipt(monkeypatch) -> None:
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
-    target = ConformanceTarget(entitlement_mode="signed", 
+    target = ConformanceTarget(entitlement_mode="signed",
         base_url="http://localhost:5000", server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
@@ -459,7 +459,7 @@ def test_certification_rejects_cell_absent_from_governed_requirements(
     }
     path = tmp_path / "empty-requirements.json"
     path.write_text(json.dumps(document), encoding="utf-8")
-    target = ConformanceTarget(entitlement_mode="signed", 
+    target = ConformanceTarget(entitlement_mode="signed",
         base_url="http://localhost:5000", server_commit="a" * 40,
         server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
         sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,

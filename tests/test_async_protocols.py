@@ -518,6 +518,33 @@ async def test_async_stac_cross_origin_next_link_is_refused_for_external_client(
     assert all(httpx.URL(url).host == "example.test" for url in seen)
 
 
+async def test_sdkpy_002_async_records_relative_next_keeps_collection_path() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if len(seen) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "records": [{"id": "record-1"}],
+                    "links": [{"rel": "next", "href": "items?offset=1&limit=1"}],
+                },
+            )
+        return httpx.Response(200, json={"records": [{"id": "record-2"}], "links": []})
+
+    async with AsyncHonuaClient("https://example.test/honua/", transport=httpx.MockTransport(handler)) as client:
+        pages = [
+            page
+            async for page in client.ogc_records().collection("catalog").record_pages(page_size=1, max_pages=3)
+        ]
+
+    assert [page["records"][0]["id"] for page in pages] == ["record-1", "record-2"]
+    assert seen[0].startswith("/honua/ogc/records/collections/catalog/items")
+    assert seen[1].startswith("/honua/ogc/records/collections/catalog/items")
+    assert "offset=1" in seen[1]
+
+
 async def test_async_odata_relative_next_link_resolves_against_redirected_response_url() -> None:
     seen: list[str] = []
 

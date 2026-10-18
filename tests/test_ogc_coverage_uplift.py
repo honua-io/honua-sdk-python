@@ -218,6 +218,44 @@ def test_sdkpy_002_items_pages_preserves_reverse_proxy_base_path() -> None:
     ]
 
 
+def test_sdkpy_002_items_pages_resolves_relative_next_against_redirect() -> None:
+    """A relative rel=next follows the URL the server answered from."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        # A full final page with no rel=next falls back to offset paging.
+        # Keep the terminal page short so a wrong continuation cannot loop.
+        if len(seen) > 6:
+            return httpx.Response(200, json={"features": [], "links": []})
+        if request.url.path.startswith("/honua/"):
+            moved = request.url.copy_with(raw_path=request.url.raw_path.replace(b"/honua/", b"/moved/", 1))
+            return httpx.Response(307, headers={"Location": str(moved)})
+        if len(seen) == 2:
+            return httpx.Response(
+                200,
+                json={
+                    "features": [{"id": 1}],
+                    "links": [{"rel": "next", "href": "items?offset=1&limit=1"}],
+                },
+            )
+        return httpx.Response(200, json={"features": [{"id": 2}], "links": []})
+
+    with HonuaClient(
+        "https://example.test/honua/", transport=httpx.MockTransport(handler), follow_redirects=True
+    ) as client:
+        # page_size=2 makes the one-feature terminal page short, so the walk
+        # stops instead of issuing another offset request.
+        pages = list(client.ogc_features().collection("parcels").items_pages(page_size=2, max_pages=3))
+
+    assert [page["features"][0]["id"] for page in pages] == [1, 2]
+    assert len(seen) == 3
+    assert seen[0].startswith("/honua/ogc/features/collections/parcels/items")
+    assert seen[1].startswith("/moved/ogc/features/collections/parcels/items")
+    assert seen[2].startswith("/moved/ogc/features/collections/parcels/items")
+    assert "offset=1" in seen[2]
+
+
 def test_sync_items_pages_breaks_on_short_final_page_without_next_link() -> None:
     """When a page returns fewer features than requested and has no next
     link, iteration should stop without issuing further requests."""
@@ -449,6 +487,42 @@ async def test_async_landing_conformance_collections_get_collection_queryables()
         assert (await ogc.queryables("parcels"))["properties"] == {}
 
     assert seen == list(routes)
+
+
+async def test_sdkpy_002_async_items_pages_resolves_relative_next_against_redirect() -> None:
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if len(seen) > 6:
+            return httpx.Response(200, json={"features": [], "links": []})
+        if request.url.path.startswith("/honua/"):
+            moved = request.url.copy_with(raw_path=request.url.raw_path.replace(b"/honua/", b"/moved/", 1))
+            return httpx.Response(307, headers={"Location": str(moved)})
+        if len(seen) == 2:
+            return httpx.Response(
+                200,
+                json={
+                    "features": [{"id": 1}],
+                    "links": [{"rel": "next", "href": "items?offset=1&limit=1"}],
+                },
+            )
+        return httpx.Response(200, json={"features": [{"id": 2}], "links": []})
+
+    async with AsyncHonuaClient(
+        "https://example.test/honua/", transport=httpx.MockTransport(handler), follow_redirects=True
+    ) as client:
+        pages = [
+            page
+            async for page in client.ogc_features().collection("parcels").items_pages(page_size=2, max_pages=3)
+        ]
+
+    assert [page["features"][0]["id"] for page in pages] == [1, 2]
+    assert len(seen) == 3
+    assert seen[0].startswith("/honua/ogc/features/collections/parcels/items")
+    assert seen[1].startswith("/moved/ogc/features/collections/parcels/items")
+    assert seen[2].startswith("/moved/ogc/features/collections/parcels/items")
+    assert "offset=1" in seen[2]
 
 
 async def test_async_items_pages_follows_next_link() -> None:

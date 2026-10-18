@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl, urlsplit
 import httpx
 
 from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
+from ._endpoints import parse_json_response_body
 from ._http import _encode_path_segment
 from .protocols._base import _resolve_continuation_href
 
@@ -116,6 +117,16 @@ def _path_and_params_from_href(href: str) -> tuple[str, dict[str, str]]:
     parsed = urlsplit(href)
     path = parsed.path or href
     return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
+
+
+def _page_from_response(response: httpx.Response) -> tuple[JsonObject, str]:
+    """Return a JSON page and the URL the server actually answered from.
+
+    A relative ``rel=next`` must resolve against that URL, not the URL the
+    client asked for, so a redirect cannot send the next page back through
+    the pre-redirect path.
+    """
+    return parse_json_response_body(response), str(response.url)
 
 
 def _normalize_page_size(page_size: int | None, limit: int | None) -> int:
@@ -644,8 +655,7 @@ class HonuaOgcFeatureCollection:
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
                 path, params = _resolve_continuation_href(next_href, response_url)
-                response_url = path
-                response = self.client._request_json(
+                http_response = self.client._request(
                     "GET",
                     path,
                     params=params,
@@ -653,21 +663,26 @@ class HonuaOgcFeatureCollection:
                     extra_headers=extra_headers,
                 )
             else:
-                response = self.items(
-                    response_format=response_format,
-                    extra_params=extra_params,
-                    limit=page_limit,
-                    offset=start_offset + page * effective_page_size,
-                    bbox=bbox,
-                    datetime=datetime,
-                    filter=filter,
-                    ids=ids,
-                    properties=properties,
-                    sortby=sortby,
-                    crs=crs,
+                http_response = self.client._request(
+                    "GET",
+                    f"{_collection_path(self.collection_id)}/items",
+                    params=_items_params(
+                        response_format=response_format,
+                        extra_params=extra_params,
+                        limit=page_limit,
+                        offset=start_offset + page * effective_page_size,
+                        bbox=bbox,
+                        datetime=datetime,
+                        filter=filter,
+                        ids=ids,
+                        properties=properties,
+                        sortby=sortby,
+                        crs=crs,
+                    ),
                     timeout=timeout,
                     extra_headers=extra_headers,
                 )
+            response, response_url = _page_from_response(http_response)
             yield response
             page_features = _features_from_collection(response)
             fetched += len(page_features)
@@ -1313,8 +1328,7 @@ class AsyncHonuaOgcFeatureCollection:
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
                 path, params = _resolve_continuation_href(next_href, response_url)
-                response_url = path
-                response = await self.client._request_json(
+                http_response = await self.client._request(
                     "GET",
                     path,
                     params=params,
@@ -1322,21 +1336,26 @@ class AsyncHonuaOgcFeatureCollection:
                     extra_headers=extra_headers,
                 )
             else:
-                response = await self.items(
-                    response_format=response_format,
-                    extra_params=extra_params,
-                    limit=page_limit,
-                    offset=start_offset + page * effective_page_size,
-                    bbox=bbox,
-                    datetime=datetime,
-                    filter=filter,
-                    ids=ids,
-                    properties=properties,
-                    sortby=sortby,
-                    crs=crs,
+                http_response = await self.client._request(
+                    "GET",
+                    f"{_collection_path(self.collection_id)}/items",
+                    params=_items_params(
+                        response_format=response_format,
+                        extra_params=extra_params,
+                        limit=page_limit,
+                        offset=start_offset + page * effective_page_size,
+                        bbox=bbox,
+                        datetime=datetime,
+                        filter=filter,
+                        ids=ids,
+                        properties=properties,
+                        sortby=sortby,
+                        crs=crs,
+                    ),
                     timeout=timeout,
                     extra_headers=extra_headers,
                 )
+            response, response_url = _page_from_response(http_response)
             yield response
             page_features = _features_from_collection(response)
             fetched += len(page_features)

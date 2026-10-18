@@ -10,6 +10,31 @@ from honua_sdk.errors import HonuaError
 from honua_sdk.protocols import BinaryResponse, ODataQuery
 
 
+def test_sdkpy_002_records_relative_next_keeps_collection_path() -> None:
+    """A relative Records rel=next stays on the collection, not the base path."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.raw_path.decode())
+        if len(seen) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "records": [{"id": "record-1"}],
+                    "links": [{"rel": "next", "href": "items?offset=1&limit=1"}],
+                },
+            )
+        return httpx.Response(200, json={"records": [{"id": "record-2"}], "links": []})
+
+    with HonuaClient("https://example.test/honua/", transport=httpx.MockTransport(handler)) as client:
+        pages = list(client.ogc_records().collection("catalog").record_pages(page_size=1, max_pages=3))
+
+    assert [page["records"][0]["id"] for page in pages] == ["record-1", "record-2"]
+    assert seen[0].startswith("/honua/ogc/records/collections/catalog/items")
+    assert seen[1].startswith("/honua/ogc/records/collections/catalog/items")
+    assert "offset=1" in seen[1]
+
+
 def test_sdkpy_005_odata_stops_after_final_continuation_page() -> None:
     skips: list[str | None] = []
 

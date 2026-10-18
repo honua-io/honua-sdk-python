@@ -703,28 +703,37 @@ class OgcRecordsCollectionClient:
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        # Final URL of the page just read. A relative ``rel=next`` resolves
+        # against it, so a collection path (or a redirect) is not dropped.
+        response_url: str | None = None
         current_offset = 0 if offset is None else max(0, offset)
+        records = OgcRecordsClient(self.client)
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
             page_limit = min(effective_page_size, remaining)
+            page_params = _ogc_records_params(
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=page_limit,
+                offset=current_offset,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                q=q,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                type=type,
+            )
             if next_href is not None:
-                page = OgcRecordsClient(self.client)._json_href(next_href)
+                page, response_url = records._json_href_page(next_href, response_url=response_url)
             else:
-                page = self.records(
-                    response_format=response_format,
-                    extra_params=extra_params,
-                    limit=page_limit,
-                    offset=current_offset,
-                    bbox=bbox,
-                    datetime=datetime,
-                    filter=filter,
-                    q=q,
-                    ids=ids,
-                    properties=properties,
-                    sortby=sortby,
-                    type=type,
+                page, response_url = records._json_page(
+                    "GET",
+                    f"{_ogc_collection_path(records.root, self.collection_id)}/items",
+                    params=page_params,
                 )
 
             followed_continuation = next_href is not None
@@ -1031,28 +1040,37 @@ class AsyncOgcRecordsCollectionClient:
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        # Final URL of the page just read. A relative ``rel=next`` resolves
+        # against it, so a collection path (or a redirect) is not dropped.
+        response_url: str | None = None
         current_offset = 0 if offset is None else max(0, offset)
+        records = AsyncOgcRecordsClient(self.client)
         for _ in _iter_page_indices(max_pages):
             remaining = effective_page_size if total_limit is None else max(0, total_limit - fetched)
             if remaining < 1:
                 break
             page_limit = min(effective_page_size, remaining)
+            page_params = _ogc_records_params(
+                response_format=response_format,
+                extra_params=extra_params,
+                limit=page_limit,
+                offset=current_offset,
+                bbox=bbox,
+                datetime=datetime,
+                filter=filter,
+                q=q,
+                ids=ids,
+                properties=properties,
+                sortby=sortby,
+                type=type,
+            )
             if next_href is not None:
-                page = await AsyncOgcRecordsClient(self.client)._json_href(next_href)
+                page, response_url = await records._json_href_page(next_href, response_url=response_url)
             else:
-                page = await self.records(
-                    response_format=response_format,
-                    extra_params=extra_params,
-                    limit=page_limit,
-                    offset=current_offset,
-                    bbox=bbox,
-                    datetime=datetime,
-                    filter=filter,
-                    q=q,
-                    ids=ids,
-                    properties=properties,
-                    sortby=sortby,
-                    type=type,
+                page, response_url = await records._json_page(
+                    "GET",
+                    f"{_ogc_collection_path(records.root, self.collection_id)}/items",
+                    params=page_params,
                 )
 
             followed_continuation = next_href is not None

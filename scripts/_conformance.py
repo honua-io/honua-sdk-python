@@ -1380,7 +1380,7 @@ _CERTIFICATION_TIERS = {"pr", "nightly", "release"}
 
 def _load_certification_context(
     path_value: str | None,
-    producer_source_sha: str,
+    producer_source_sha: str | None,
 ) -> tuple[str, dict[tuple[str, str, str, str], tuple[str, str, dict[str, Any]]]]:
     """Load producer-owned context from the repository-governed requirements input."""
     if not isinstance(path_value, str) or not path_value:
@@ -1403,6 +1403,8 @@ def _load_certification_context(
     revision = document.get("revision")
     if not isinstance(revision, str) or not revision.strip():
         raise ConformanceFixturesError("certification requirements revision must be non-empty")
+    if not isinstance(producer_source_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", producer_source_sha):
+        raise ConformanceFixturesError("governed requirements need an exact Python producer source SHA")
     sources = document.get("source_revisions")
     source = sources.get("sdk-python") if isinstance(sources, dict) else None
     if not isinstance(source, dict) or source.get("commit") != producer_source_sha:

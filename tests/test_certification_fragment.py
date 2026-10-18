@@ -672,3 +672,14 @@ def test_actual_producer_reproduces_shared_consumer_receipt_bytes(tmp_path, monk
     assert actual["operation_scope"]["complete"] is False
     declaration = json.loads((Path(__file__).parents[1] / "release/component-versions.json").read_text())
     assert declaration["schemaVersions"]["certification-evidence-receipt"] == "2.0"
+
+
+@pytest.mark.parametrize("source", [None, "trunk", "a" * 39, "A" * 40])
+def test_governed_source_must_be_exact_even_when_document_agrees(monkeypatch, source):
+    from scripts._conformance import _load_certification_context
+    path = Path(os.environ["HONUA_CERTIFICATION_REQUIREMENTS_PATH"])
+    document = json.loads(path.read_text())
+    document["source_revisions"]["sdk-python"]["commit"] = source
+    path.write_text(json.dumps(document))
+    with pytest.raises(RuntimeError, match="exact Python producer source SHA"):
+        _load_certification_context(str(path), source)

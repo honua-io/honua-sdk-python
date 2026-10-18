@@ -104,16 +104,23 @@ def test_rehearsal_receipts_cannot_match_the_governed_release_auth_policy(monkey
         sdk_method=case.sdk_method, request_path=case.request_path, started_at="2026-10-17T00:00:00Z",
         completed_at="2026-10-17T00:00:01Z")
     from scripts._conformance import CASE_CERTIFICATION
-    cap, surface, operation, _ = CASE_CERTIFICATION[case.name]
+    cap, surface, operation, facets = CASE_CERTIFICATION[case.name]
     governance = tmp_path / "requirements.json"
     governance.write_text(json.dumps({"schema": "honua.protocol-certification-requirements/v1", "complete": True, "receipt_schema_min": "v2",
         "revision": "fixture-v2", "source_revisions": {"sdk-python": {"commit": "c" * 40}},
         "requirements": [{"capability_key": cap, "surface": surface, "operation": operation,
             "canonical_client": "Honua SDK Python", "client_lane": "sdk-python-certification",
             "maturity": "supported", "required_tier": "nightly", "client_version": "9.9.9",
+            "fixture_revision": "geospatial-grpc@1.0.3", "scenario_facets": facets,
+            "auth_policy_revision": CERTIFICATION_AUTH_POLICY_REVISION, "deployment_target": "local-docker",
             "contract_revision": "sdk-python-certification@" + "c" * 40,
             "client_package": {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"}}]}))
     monkeypatch.setenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH", str(governance))
+    with pytest.raises(ConformanceFixturesError, match="observed auth_policy_revision differs"):
+        build_certification_fragment(FixtureBundle(Path("."), "1.0.3"), target, [(case, result)])
+    rehearsal_governance = json.loads(governance.read_text())
+    rehearsal_governance["requirements"][0]["auth_policy_revision"] = "development-grant-rehearsal-v1"
+    governance.write_text(json.dumps(rehearsal_governance))
     fragment = build_certification_fragment(FixtureBundle(Path("."), "1.0.3"), target, [(case, result)])
     row = fragment["observations"][0]
     assert row["auth_policy_revision"] == "development-grant-rehearsal-v1"

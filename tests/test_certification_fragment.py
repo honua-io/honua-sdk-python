@@ -62,10 +62,14 @@ def _governed_requirements(tmp_path: Path, monkeypatch) -> None:
                 "maturity": "supported",
                 "required_tier": "nightly",
                 "client_version": "9.9.9",
+                "fixture_revision": "geospatial-grpc@fixture-v1",
+                "scenario_facets": facets,
+                "auth_policy_revision": "anonymous-public-v1",
+                "deployment_target": "local-docker",
                 "contract_revision": "sdk-python-certification@" + "c" * 40,
                 "client_package": {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"},
             }
-            for capability, surface, operation, _ in CASE_CERTIFICATION.values()
+            for capability, surface, operation, facets in CASE_CERTIFICATION.values()
         ],
     }
     path = tmp_path / "protocol-certification-requirements.v1.json"
@@ -355,6 +359,9 @@ def test_governed_context_changes_the_content_addressed_receipt(
             "canonical_client": "Honua SDK Python", "client_lane": "sdk-python-certification",
             "maturity": "supported", "required_tier": "nightly",
             "client_version": "9.9.9",
+            "fixture_revision": "geospatial-grpc@fixture-v1",
+            "scenario_facets": CASE_CERTIFICATION["feature_query_envelope"][3],
+            "auth_policy_revision": "anonymous-public-v1", "deployment_target": "local-docker",
                 "contract_revision": "sdk-python-certification@" + "c" * 40,
             "client_package": {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"},
         }
@@ -721,3 +728,28 @@ def test_producer_run_refuses_malformed_or_noncanonical_context(monkeypatch, fie
     monkeypatch.setenv(field, value)
     with pytest.raises(RuntimeError, match="nightly identity"):
         _certification_producer_run()
+
+
+@pytest.mark.parametrize("field,value", [
+    ("fixture_revision", "geospatial-grpc@other"),
+    ("scenario_facets", []),
+    ("scenario_facets", ["positive", "unexercised"]),
+    ("auth_policy_revision", "other-auth-v2"),
+    ("deployment_target", "aws-ecs"),
+])
+def test_actual_producer_refuses_governed_context_drift(monkeypatch, field, value):
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    path = Path(os.environ["HONUA_CERTIFICATION_REQUIREMENTS_PATH"])
+    document = json.loads(path.read_text())
+    for row in document["requirements"]:
+        row[field] = value
+    path.write_text(json.dumps(document))
+    target = ConformanceTarget(base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="https://example.test/run", entitlement_mode="signed",
+        candidate_cut_at="2026-08-20T09:00:00Z")
+    case = _case("feature_query_envelope")
+    with pytest.raises(RuntimeError, match=f"observed {field} differs"):
+        build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target,
+                                     [(case, _result(case.name, "passed"))])

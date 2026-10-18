@@ -1691,6 +1691,17 @@ def build_certification_fragment(
                 or owned_cell.get("contract_revision") != f"sdk-python-certification@{target.sdk_source_sha}"
                 or measured_wheel["filename"] != f"honua_sdk-{client_version}-py3-none-any.whl"):
             raise ConformanceFixturesError("installed Python wheel differs from governed published artifact")
+        observed_context = {
+            "fixture_revision": f"geospatial-grpc@{bundle.version}",
+            "scenario_facets": scenario_facets,
+            "auth_policy_revision": auth_policy_revision,
+            "deployment_target": "local-docker",
+        }
+        for field, observed in observed_context.items():
+            if owned_cell.get(field) != observed:
+                raise ConformanceFixturesError(
+                    f"observed {field} differs from exact governed certification cell"
+                )
         protocol_version, protocol_profile = CERTIFICATION_PROTOCOL_CONTEXT[surface]
         known_gap = case.known_gap_issue if result.status != "passed" else None
         normalized_result = (

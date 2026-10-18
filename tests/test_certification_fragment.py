@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import os
 import tomllib
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -43,6 +44,33 @@ def _result(name: str, status: str) -> CaseResult:
         started_at="2026-08-20T00:00:00Z",
         completed_at="2026-08-20T00:00:01Z",
     )
+
+
+@pytest.fixture(autouse=True)
+def _governed_requirements(tmp_path: Path, monkeypatch) -> None:
+    requirements = {
+        "schema": "honua.protocol-certification-requirements/v1",
+        "source_revisions": {"sdk-python": {"commit": "c" * 40}},
+        "revision": "requirements-test-17",
+        "requirements": [
+            {
+                "capability_key": capability,
+                "surface": surface,
+                "operation": operation,
+                "canonical_client": "Honua SDK Python",
+                "client_lane": "sdk-python-certification",
+                "maturity": "supported",
+                "required_tier": "nightly",
+                "client_version": "9.9.9",
+                "contract_revision": "sdk-python-certification@" + "c" * 40,
+                "client_package": {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"},
+            }
+            for capability, surface, operation, _ in CASE_CERTIFICATION.values()
+        ],
+    }
+    path = tmp_path / "protocol-certification-requirements.v1.json"
+    path.write_text(json.dumps(requirements), encoding="utf-8")
+    monkeypatch.setenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH", str(path))
 
 
 def test_build_certification_fragment_normalizes_identity_and_results(monkeypatch) -> None:
@@ -87,6 +115,8 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
         validate_release_certification_fragment(fragment)
     passed, failed = fragment["observations"]
     assert passed["operation"] == "query"
+    assert passed["maturity"] == "supported"
+    assert passed["required_tier"] == "nightly"
     assert passed["capability_key"] == "serve.geoservices-featureserver"
     assert passed["scenario_facets"] == ["positive", "pagination"]
     assert passed["canonical_client"] == "Honua SDK Python"
@@ -113,6 +143,10 @@ def test_build_certification_fragment_normalizes_identity_and_results(monkeypatc
     assert passed["contract_revision"] == f"sdk-python-certification@{sdk_sha}"
     assert passed["auth_policy_revision"] == "anonymous-public-v1"
     assert passed["evidence_receipt"]["identity"]["candidate_cut_at"] == target.candidate_cut_at
+    assert passed["evidence_receipt"]["schema"] == "honua.certification-evidence-receipt/v2"
+    assert passed["evidence_receipt"]["identity"]["maturity"] == "supported"
+    assert passed["evidence_receipt"]["identity"]["required_tier"] == "nightly"
+    assert passed["evidence_receipt"]["identity"]["requirements_revision"] == "requirements-test-17"
     assert passed["evidence_digest"].startswith("sha256:")
     assert set(passed["facet_results"]) == set(passed["scenario_facets"])
     assert all(
@@ -195,6 +229,70 @@ def test_certification_rejects_malformed_wheel_digest(monkeypatch) -> None:
         )
 
 
+def test_certification_rejects_missing_governed_requirements(monkeypatch) -> None:
+    monkeypatch.delenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    case = _case("feature_query_envelope")
+    with pytest.raises(RuntimeError, match="certification_requirements_path is required"):
+        build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"), target, [(case, _result(case.name, "passed"))]
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("revision", "", "revision must be non-empty"),
+        ("maturity", "", "invalid governed maturity"),
+        ("required_tier", "gold", "invalid governed required_tier"),
+    ],
+)
+def test_certification_rejects_missing_or_invalid_governed_context(
+    tmp_path: Path, monkeypatch, field: str, value: str, message: str
+) -> None:
+    capability, surface, operation, _ = CASE_CERTIFICATION["feature_query_envelope"]
+    document = {
+        "schema": "honua.protocol-certification-requirements/v1",
+        "source_revisions": {"sdk-python": {"commit": "c" * 40}},
+        "revision": "requirements-independent-4",
+        "requirements": [{
+            "capability_key": capability,
+            "surface": surface,
+            "operation": operation,
+            "canonical_client": "Honua SDK Python",
+            "client_lane": "sdk-python-certification",
+            "maturity": "preview",
+            "required_tier": "pr",
+        }],
+    }
+    if field == "revision":
+        document[field] = value
+    else:
+        document["requirements"][0][field] = value
+    path = tmp_path / "invalid-requirements.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    monkeypatch.setenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH", str(path))
+
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64, sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    case = _case("feature_query_envelope")
+    with pytest.raises(RuntimeError, match=message):
+        build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"), target, [(case, _result(case.name, "passed"))]
+        )
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -242,6 +340,137 @@ def test_candidate_cut_changes_the_content_addressed_receipt(monkeypatch) -> Non
     second = build("2026-08-20T00:00:01Z")
     assert first["evidence_digest"] != second["evidence_digest"]
     assert first["evidence_uri"] != second["evidence_uri"]
+
+
+@pytest.mark.parametrize("field", ["maturity", "required_tier", "revision"])
+def test_governed_context_changes_the_content_addressed_receipt(
+    tmp_path: Path, monkeypatch, field: str
+) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    capability, surface, operation, _ = CASE_CERTIFICATION["feature_query_envelope"]
+
+    def build(value: str) -> dict:
+        requirement = {
+            "capability_key": capability, "surface": surface, "operation": operation,
+            "canonical_client": "Honua SDK Python", "client_lane": "sdk-python-certification",
+            "maturity": "supported", "required_tier": "nightly",
+            "client_version": "9.9.9",
+                "contract_revision": "sdk-python-certification@" + "c" * 40,
+            "client_package": {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"},
+        }
+        document = {
+            "schema": "honua.protocol-certification-requirements/v1",
+        "source_revisions": {"sdk-python": {"commit": "c" * 40}},
+            "revision": "requirements-independent-8", "requirements": [requirement],
+        }
+        if field == "revision":
+            document[field] = value
+        else:
+            requirement[field] = value
+        path = tmp_path / f"{field}-{value}.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        target = ConformanceTarget(
+            base_url="http://localhost:5000", server_commit="a" * 40,
+            server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+            sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+            sdk_wheel_sha256="d" * 64, sdk_wheel_source="pypi", evidence_uri="local://test",
+            candidate_cut_at="2026-08-20T00:00:00Z", certification_requirements_path=str(path),
+        )
+        case = _case("feature_query_envelope")
+        return build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"), target, [(case, _result(case.name, "passed"))]
+        )["observations"][0]
+
+    values = ("supported", "preview") if field == "maturity" else (
+        ("nightly", "release") if field == "required_tier" else ("requirements-a", "requirements-b")
+    )
+    first, second = (build(value) for value in values)
+    assert first["evidence_digest"] != second["evidence_digest"]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("maturity", "preview"), ("required_tier", "release"), ("requirements_revision", "other-revision")],
+)
+def test_release_validator_rejects_mismatched_governed_context(
+    monkeypatch, field: str, value: str
+) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment["observations"][0]["evidence_receipt"]["identity"][field] = value
+    with pytest.raises(AssertionError, match="not bound to governed certification context"):
+        validate_release_certification_fragment(fragment)
+
+
+@pytest.mark.parametrize("field", ["maturity", "required_tier"])
+def test_release_validator_rejects_context_less_receipt_and_row(monkeypatch, field: str) -> None:
+    """A receipt and row that both omit governed context must not match as None == None."""
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    row = fragment["observations"][0]
+    del row[field]
+    del row["evidence_receipt"]["identity"][field]
+    with pytest.raises(AssertionError, match="not bound to governed certification context"):
+        validate_release_certification_fragment(fragment)
+
+
+def test_release_validator_rejects_non_object_receipt(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+    )
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment["observations"][0]["evidence_receipt"] = "receipt"
+    with pytest.raises(AssertionError, match="not bound to governed certification context"):
+        validate_release_certification_fragment(fragment)
+
+
+def test_certification_rejects_cell_absent_from_governed_requirements(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """No inference: a case whose exact governed cell is absent fails closed."""
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    document = {
+        "schema": "honua.protocol-certification-requirements/v1",
+        "source_revisions": {"sdk-python": {"commit": "c" * 40}},
+        "revision": "requirements-independent-9",
+        "requirements": [],
+    }
+    path = tmp_path / "empty-requirements.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="local://test",
+        candidate_cut_at="2026-08-20T00:00:00Z", certification_requirements_path=str(path),
+    )
+    case = _case("replica_sync_surface")
+    with pytest.raises(RuntimeError, match="missing exact cell"):
+        build_certification_fragment(
+            FixtureBundle(Path("."), "fixture-v1"), target, [(case, _result(case.name, "passed"))]
+        )
 
 
 def test_release_validator_rejects_receipt_bound_to_another_cut(monkeypatch) -> None:
@@ -389,3 +618,24 @@ def test_apply_edits_stays_required_when_grpc_cases_join_the_harness(monkeypatch
     assert sync["operation"] == "sync-capability"
     with pytest.raises(AssertionError, match="operation scope is incomplete"):
         conformance.validate_release_certification_fragment(fragment)
+
+
+@pytest.mark.parametrize("field,value", [("client_package", None),
+    ("client_package", {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "e" * 64, "source": "pypi"}),
+    ("client_package", {"filename": "honua_sdk-9.9.8-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"}),
+    ("client_package", {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "local"}),
+    ("client_version", "9.9.8")])
+def test_actual_producer_rejects_mismatched_governed_wheel(monkeypatch, field, value):
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    path = Path(os.environ["HONUA_CERTIFICATION_REQUIREMENTS_PATH"])
+    document = json.loads(path.read_text())
+    for row in document["requirements"]:
+        row[field] = value
+    path.write_text(json.dumps(document))
+    target = ConformanceTarget(base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", candidate_cut_at="2026-08-20T00:00:00Z", entitlement_mode="signed")
+    case = _case("feature_query_envelope")
+    with pytest.raises(RuntimeError, match="governed published artifact"):
+        build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, [(case, _result(case.name, "passed"))])

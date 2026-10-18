@@ -130,3 +130,12 @@ def test_migration_owned_seed_waits_for_readiness_and_never_runs_after_timeout(t
             assert len(seeds) == 1
             assert lines[seeds[0] - 3:seeds[0]] == ["curl", "curl", "curl"]
             assert lines[seeds[0] + 1:] == ["curl"]
+
+
+def test_certification_receipts_use_repository_governed_requirements() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "python3 scripts/fetch_certification_requirements.py" in workflow
+    assert "Checkout governed certification requirements" not in workflow
+    assert "--destination" in workflow
+    assert "HONUA_CERTIFICATION_REQUIREMENTS_PATH:" in workflow

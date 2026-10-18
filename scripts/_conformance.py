@@ -1398,6 +1398,8 @@ def _load_certification_context(
         raise ConformanceFixturesError(
             f"certification requirements must use {_CERTIFICATION_REQUIREMENTS_SCHEMA}"
         )
+    if document.get("complete") is not True or document.get("receipt_schema_min") != "v2":
+        raise ConformanceFixturesError("governed requirements must be complete and require receipt v2")
     revision = document.get("revision")
     if not isinstance(revision, str) or not revision.strip():
         raise ConformanceFixturesError("certification requirements revision must be non-empty")

@@ -64,7 +64,7 @@ def fetch(pins, destination, *, source_sha=None, revision=None, get=api):
         data = base64.b64decode("".join(blob.get("content", "").split()), validate=True)
         if not 0 < len(data) <= 32 * 1024 * 1024 or blob.get("size") != len(data):
             raise ValueError("governance source blob is missing or exceeds its bound")
-        actual_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+        actual_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data, usedforsecurity=False).hexdigest()
         if actual_blob != blob_sha:
             raise ValueError("governance source bytes differ from the immutable Git blob")
         digest = hashlib.sha256(data).hexdigest()

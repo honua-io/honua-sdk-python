@@ -18,20 +18,20 @@ def fixtures():
     data = [json.dumps({"schema": "honua.protocol-certification-requirements/v1", "revision": "fixture",
                         "complete": True, "receipt_schema_min": "v2", "requirements": []}).encode(),
             b"# fixture consumer bytes; not executed\n"]
-    blobs = [hashlib.sha1(b"blob " + str(len(value)).encode() + b"\0" + value).hexdigest() for value in data]
+    blobs = [hashlib.sha1(b"blob " + str(len(value)).encode() + b"\0" + value, usedforsecurity=False).hexdigest() for value in data]
     repo = "repos/" + MODULE.REPOSITORY
     responses = {
         repo: {"full_name": MODULE.REPOSITORY, "default_branch": "trunk"},
         repo + "/branches/trunk": {"name": "trunk", "protected": True, "commit": {"sha": head}},
         repo + f"/compare/{source}...{head}": {"status": "ahead", "base_commit": {"sha": source}, "merge_base_commit": {"sha": source}},
         repo + f"/git/trees/{source}?recursive=1": {"truncated": False, "tree": [
-            {"path": path, "type": "blob", "sha": blob} for path, blob in zip(MODULE.PATHS, blobs)]},
+            {"path": path, "type": "blob", "sha": blob} for path, blob in zip(MODULE.PATHS, blobs, strict=True)]},
     }
     responses.update({repo + f"/git/blobs/{blob}": {"sha": blob, "encoding": "base64", "size": len(value),
                                                   "content": base64.b64encode(value).decode()}
-                      for value, blob in zip(data, blobs)})
+                      for value, blob in zip(data, blobs, strict=True)})
     pins = {"repository": MODULE.REPOSITORY, "sourceSha": source, "requirementsRevision": "fixture",
-            "sha256": {path: hashlib.sha256(value).hexdigest() for path, value in zip(MODULE.PATHS, data)}}
+            "sha256": {path: hashlib.sha256(value).hexdigest() for path, value in zip(MODULE.PATHS, data, strict=True)}}
     return pins, responses
 
 

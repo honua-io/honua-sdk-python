@@ -74,9 +74,9 @@ def test_release_fragment_rejects_rehearsal_and_stale_entitlement_receipts():
         "status": "passed", "started_at": "2026-10-17T00:00:00Z", "completed_at": "2026-10-17T00:00:01Z",
         "details": {"entitlement": signed_status(STATUS, now=NOW)}}}
     def fragment(value):
-        return {"candidate": {"cut_at": "2026-10-17T00:00:00Z"}, "operation_scope": {"complete": True,
-            "required_operations": [{"surface": "s", "operation": "edit"}]}, "observations": [{"surface": "s", "operation": "edit", "result": "pass",
-            "evidence_receipt": {"identity": {"candidate_cut_at": "2026-10-17T00:00:00Z"}, "payload_base64": base64.b64encode(json.dumps([value]).encode()).decode()}}]}
+        return {"requirements_revision": "fixture-v2", "candidate": {"cut_at": "2026-10-17T00:00:00Z"}, "operation_scope": {"complete": True,
+            "required_operations": [{"surface": "s", "operation": "edit"}]}, "observations": [{"surface": "s", "operation": "edit", "result": "pass", "maturity": "supported", "required_tier": "release",
+            "evidence_receipt": {"schema": "honua.certification-evidence-receipt/v2", "identity": {"candidate_cut_at": "2026-10-17T00:00:00Z", "maturity": "supported", "required_tier": "release", "requirements_revision": "fixture-v2"}, "payload_base64": base64.b64encode(json.dumps([value]).encode()).decode()}}]}
     validate_release_certification_fragment(fragment(record))
     for mode in ("development-grant", "unspecified"):
         wrong = copy.deepcopy(record)
@@ -89,7 +89,7 @@ def test_release_fragment_rejects_rehearsal_and_stale_entitlement_receipts():
         validate_release_certification_fragment(fragment(wrong))
 
 
-def test_rehearsal_receipts_cannot_match_the_governed_release_auth_policy(monkeypatch):
+def test_rehearsal_receipts_cannot_match_the_governed_release_auth_policy(monkeypatch, tmp_path):
     import importlib.metadata
     from scripts._conformance import (CaseResult, ConformanceFixturesError, ConformanceTarget, FixtureBundle, build_cases,
                                       build_certification_fragment, CERTIFICATION_AUTH_POLICY_REVISION)
@@ -103,6 +103,17 @@ def test_rehearsal_receipts_cannot_match_the_governed_release_auth_policy(monkey
     result = CaseResult(name=case.name, status="passed", fixture=case.fixture, message_type="message",
         sdk_method=case.sdk_method, request_path=case.request_path, started_at="2026-10-17T00:00:00Z",
         completed_at="2026-10-17T00:00:01Z")
+    from scripts._conformance import CASE_CERTIFICATION
+    cap, surface, operation, _ = CASE_CERTIFICATION[case.name]
+    governance = tmp_path / "requirements.json"
+    governance.write_text(json.dumps({"schema": "honua.protocol-certification-requirements/v1", "complete": True, "receipt_schema_min": "v2",
+        "revision": "fixture-v2", "source_revisions": {"sdk-python": {"commit": "c" * 40}},
+        "requirements": [{"capability_key": cap, "surface": surface, "operation": operation,
+            "canonical_client": "Honua SDK Python", "client_lane": "sdk-python-certification",
+            "maturity": "supported", "required_tier": "nightly", "client_version": "9.9.9",
+            "contract_revision": "sdk-python-certification@" + "c" * 40,
+            "client_package": {"filename": "honua_sdk-9.9.9-py3-none-any.whl", "sha256": "d" * 64, "source": "pypi"}}]}))
+    monkeypatch.setenv("HONUA_CERTIFICATION_REQUIREMENTS_PATH", str(governance))
     fragment = build_certification_fragment(FixtureBundle(Path("."), "1.0.3"), target, [(case, result)])
     row = fragment["observations"][0]
     assert row["auth_policy_revision"] == "development-grant-rehearsal-v1"

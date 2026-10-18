@@ -266,7 +266,7 @@ class TestQueryFeaturesStream:
         f2.id = 2
         page2.is_last_page = True
 
-        mock_stub.QueryFeaturesStream.return_value = iter([page1, page2])
+        mock_stub.QueryFeaturesStream.return_value = _PageStream([page1, page2])
 
         request = QueryFeaturesRequest(service_id="svc", layer_id=0)
         pages = list(client.query_features_stream(request))
@@ -290,7 +290,7 @@ class TestQueryFeaturesStream:
         ef = extra_page.features.add()
         ef.id = 999
 
-        mock_stub.QueryFeaturesStream.return_value = iter([page, extra_page])
+        mock_stub.QueryFeaturesStream.return_value = _PageStream([page, extra_page])
 
         request = QueryFeaturesRequest(service_id="svc", layer_id=0)
         pages = list(client.query_features_stream(request))
@@ -317,7 +317,7 @@ class TestQueryFeaturesStream:
 
     def test_applies_timeout_deadline(self) -> None:
         client, mock_stub = self._make_client(timeout=12.0)
-        mock_stub.QueryFeaturesStream.return_value = iter([])
+        mock_stub.QueryFeaturesStream.return_value = _PageStream([])
 
         list(client.query_features_stream(QueryFeaturesRequest(service_id="svc", layer_id=0)))
 
@@ -344,9 +344,26 @@ class _FakeAioRpcError(Exception):
         return self._details
 
 
+class _PageStream:
+    def __init__(self, pages: list[pb2.FeaturePage]) -> None:
+        self._iter = iter(pages)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> pb2.FeaturePage:
+        return next(self._iter)
+
+    def cancel(self) -> bool:
+        return True
+
+
 class _AsyncPageStream:
     def __init__(self, pages: list[pb2.FeaturePage]) -> None:
         self._iter = iter(pages)
+
+    def cancel(self) -> bool:
+        return True
 
     def __aiter__(self) -> _AsyncPageStream:
         return self

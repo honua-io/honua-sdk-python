@@ -31,7 +31,10 @@ jobs:
       - name: Install candidate SDK and test dependencies
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
-          python -m pip install --no-deps --no-build-isolation ./packages/honua-sdk
+          # Build the candidate wheel from the hash-locked backend, then install
+          # that artifact; a bare source-path install is not pinned by hash.
+          python -m pip wheel --no-deps --no-build-isolation --wheel-dir build/candidate-wheel ./packages/honua-sdk
+          python -m pip install --no-deps build/candidate-wheel/*.whl
       - name: Verify gRPC against pinned nightly-ff5f567 server
         run: python -m pytest tests/grpc -q --run-integration --tb=short
 

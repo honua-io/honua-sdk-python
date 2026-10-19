@@ -29,6 +29,13 @@ pip install honua-admin
 
 For unreleased development work, install from a clone instead:
 
+This is an alternative to the PyPI path, not the next release-install step. The
+commands below install the checkout's version into the current environment and
+can replace published packages. An unqualified clone follows the current default
+branch, which may contain a newer version than the release you are verifying.
+Use the governed published package versions for release qualification; a
+successful source build does not establish that those package artifacts work.
+
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git
 cd honua-sdk-python

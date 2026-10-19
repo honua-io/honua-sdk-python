@@ -50,7 +50,15 @@ pip install "honua-sdk[grpc,geopandas,raster]"    # + optional extras
 pip install honua-admin                           # control-plane (admin) client
 ```
 
-From source (always works, and the path for development):
+For development, install from a source checkout instead:
+
+These commands install the checkout's version into the current Python environment
+and can replace packages installed from PyPI above. Choose this path for source
+development, rather than running it after the published install to verify a
+release. A clone without a revision follows the repository's current default
+branch; it does not select the source revision of this document or a released
+package. Source installation still requires compatible dependencies and build
+tooling.
 
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git

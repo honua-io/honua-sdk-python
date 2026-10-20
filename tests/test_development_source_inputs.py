@@ -122,7 +122,7 @@ class DevelopmentInputsTests(unittest.TestCase):
             "honua-sdk": {"metadata": {"version": "0.1.0", "dependencies": ["dep>=1"],
                         "optional-dependencies": {"grpc": ["dep>=1"], "geopandas": ["dep>=1"], "raster": ["dep>=1"]}}},
             "honua-admin": {"metadata": {"version": "0.1.0", "dependencies": ["honua-sdk>=0.1,<0.2"]}}}}
-        proposal = {"schema": inputs.SCHEMA, "sourceAdmitted": False, "candidateQualified": False,
+        proposal = {"schema": inputs.SCHEMA, "sourceAdmitted": False, "candidateQualified": False, "publishedWheelIdentity": False,
                     "source": selected, "runtime": {"synthetic": True}, "profiles": {}}
         artifact = self.wheel()
         backend = self.wheel("hatchling", "1.30.1")
@@ -170,7 +170,7 @@ class DevelopmentInputsTests(unittest.TestCase):
                 return inputs.verify_proposal(value, self.root, "a" * 40, self.root, {"pip": "26.2.1"})
         self.assertEqual(len(verify(original)["profiles"]), 5)
         for mutation in ["install-command", "build-command", "scratch", "source", "runtime", "profile", "origin", "digest",
-                         "report", "source-wheel", "backend-lock", "backend-inventory", "published-identity", "admission"]:
+                         "report", "source-wheel", "backend-lock", "backend-inventory", "published-identity", "top-level-published-identity", "admission"]:
             value = deepcopy(original)
             if mutation == "install-command":
                 value["sourceBuild"]["backendInstallCommand"].remove("--require-hashes")
@@ -198,6 +198,8 @@ class DevelopmentInputsTests(unittest.TestCase):
                 value["sourceBuild"]["installedBackend"]["hatchling"] = "9"
             elif mutation == "published-identity":
                 value["sourceBuild"]["wheels"][0]["publishedIdentity"] = True
+            elif mutation == "top-level-published-identity":
+                value["publishedWheelIdentity"] = True
             elif mutation == "admission":
                 value["sourceAdmitted"] = True
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):

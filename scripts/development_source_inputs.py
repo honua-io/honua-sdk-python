@@ -285,7 +285,7 @@ def build_source_wheels(inputs: dict, root: Path, destination: Path, build: dict
 
 
 def verify_proposal(proposal: dict, root: Path, revision: str, directory: Path, policy: dict) -> dict:
-    if proposal.get("schema") != SCHEMA or proposal.get("candidateQualified") is not False or proposal.get("sourceAdmitted") is not False:
+    if proposal.get("schema") != SCHEMA or proposal.get("candidateQualified") is not False or proposal.get("sourceAdmitted") is not False or proposal.get("publishedWheelIdentity") is not False:
         raise ValueError("proposal is not review-only")
     if proposal["source"] != source(root, revision) or proposal["runtime"] != runtime(policy):
         raise ValueError("source or runtime binding differs")

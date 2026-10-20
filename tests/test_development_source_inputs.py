@@ -244,6 +244,16 @@ class DevelopmentInputsTests(unittest.TestCase):
         self.assertNotIn("extra-index", observed)
 
 
+    def test_producer_workflow_requires_string_run_values_and_block_scalars(self):
+        path = Path(__file__).resolve().parents[1] / ".github/workflows/development-source-inputs.yml"
+        text = path.read_text()
+        values = [line.split("run:", 1)[1].strip() for line in text.splitlines() if line.strip().startswith("run:")]
+        self.assertEqual(values, ["|", "|", "|"])
+        self.assertIn("yaml.safe_load(path.read_text())", text)
+        self.assertIn("assert isinstance(step['run'], str)", text)
+        self.assertIn("--require-hashes --only-binary=:all:", text)
+
+
     def test_actual_clean_git_source_positive_and_dirty_wrong_source_negative(self):
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)  # noqa: S603, S607
         def git(*args):

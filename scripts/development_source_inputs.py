@@ -53,7 +53,8 @@ def runtime(policy: dict) -> dict:
                 "implementation": platform.python_implementation(), "system": platform.system(),
                 "machine": platform.machine(), "pip": importlib.metadata.version("pip"),
                 "packaging": importlib.metadata.version("packaging")}
-    if observed != policy:
+    binding = policy.get("executionBinding")
+    if observed != {key: value for key, value in policy.items() if key != "executionBinding"}:
         raise ValueError("runtime differs from reviewed exact policy")
     tool_bytes = {}
     for name in ("pip", "packaging"):
@@ -63,10 +64,44 @@ def runtime(policy: dict) -> dict:
         if not files:
             raise ValueError("runtime tool bytes are uninspectable")
         tool_bytes[name] = digest(json.dumps(files, sort_keys=True).encode())
-    return {**observed, "toolFilesSha256": tool_bytes, "executableSha256": digest(Path(sys.executable).resolve().read_bytes()),
-            "policySha256": digest(json.dumps(policy, sort_keys=True).encode()),
-            "executable": str(Path(sys.executable).resolve())}
-
+    executable = Path(sys.executable).resolve()
+    result = {**observed, "toolFilesSha256": tool_bytes, "executableSha256": digest(executable.read_bytes()),
+              "policySha256": digest(json.dumps(policy, sort_keys=True).encode()), "executable": str(executable)}
+    if binding is not None:
+        fields = {"containerImage", "pythonExecutableSha256", "pipToolFilesSha256", "pipEntrypointSha256",
+                  "implementationPackagingFilename", "implementationPackagingSha256"}
+        if not isinstance(binding, dict) or set(binding) != fields:
+            raise ValueError("governed runtime binding is incomplete")
+        if (binding["containerImage"] != "python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea"
+                or result["executableSha256"] != binding["pythonExecutableSha256"]
+                or tool_bytes["pip"] != binding["pipToolFilesSha256"]):
+            raise ValueError("original documentation interpreter or pip bytes differ")
+        pip_entrypoint = executable.parent / "pip"
+        if not pip_entrypoint.is_file() or digest(pip_entrypoint.read_bytes()) != binding["pipEntrypointSha256"]:
+            raise ValueError("original documentation pip entrypoint differs")
+        origin = Path(sys.modules["packaging"].__file__)
+        wheels = [path for path in origin.parents if path.name == binding["implementationPackagingFilename"]]
+        if (len(wheels) != 1 or wheels[0].is_symlink() or not wheels[0].is_file()
+                or digest(wheels[0].read_bytes()) != binding["implementationPackagingSha256"]):
+            raise ValueError("implementation packaging is not the reviewed standalone wheel")
+        # Recompute original child-runtime separation for generate AND pure
+        # verification. A claimed receipt or boolean is never the authority.
+        program = """import importlib.metadata,json,sys
+try:
+ importlib.metadata.distribution('packaging')
+ packaging_installed=True
+except importlib.metadata.PackageNotFoundError:
+ packaging_installed=False
+print(json.dumps({'packagingInstalled':packaging_installed,'pip':importlib.metadata.version('pip'),'sysPath':sys.path},sort_keys=True))"""
+        raw = run([str(executable), "-c", program])
+        child = json.loads(raw)
+        if (child.get("packagingInstalled") is not False or child.get("pip") != observed["pip"]
+                or any(str(wheels[0]) in path for path in child.get("sysPath", []))):
+            raise ValueError("implementation packaging leaked into the subject runtime")
+        result["executionBinding"] = {**binding, "implementationPackaging": {"filename": wheels[0].name,
+            "sha256": digest(wheels[0].read_bytes()), "role": "producer-only-readonly-import", "installed": False},
+            "originalChildObservation": child, "originalChildObservationSha256": digest(raw)}
+    return result
 
 def source(root: Path, revision: str) -> dict:
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
@@ -321,7 +356,9 @@ def implementation() -> dict:
     root = Path(__file__).resolve().parents[1]
     revision = run(["git", "rev-parse", "HEAD"], cwd=root).decode().strip()
     inspected = source(root, revision)
-    paths = ("scripts/development_source_inputs.py", "scripts/python_document_inputs.py")
+    paths = ("scripts/development_source_inputs.py", "scripts/python_document_inputs.py",
+             "scripts/governed_source_inputs_bootstrap.py", "scripts/run_governed_source_inputs.py",
+             "scripts/development-inputs/runtime.json", "scripts/development-inputs/governed-runtime.json")
     return {"repository": REPOSITORY, "sourceSha": revision,
             "files": {path: inspected["files"][path] for path in paths}}
 

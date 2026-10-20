@@ -5,6 +5,7 @@ import base64
 import configparser
 import csv
 import hashlib
+import importlib.metadata
 import importlib.util
 import io
 import json
@@ -203,6 +204,8 @@ def direct_matches(observed: dict, expected: dict) -> bool:
 
 
 def report_items(engine, raw: dict, source: dict, invocation: dict, checkout: Path, *, warehouse: Path | None = None) -> tuple[dict, list[dict]]:
+    if raw.get("pip_version") != importlib.metadata.version("pip") or raw.get("environment") != engine.default_environment():
+        raise ValueError("documentation report interpreter or pip identity differs")
     expected = expected_sources(source, invocation, checkout)
     local, remote = {}, []
     for item in raw["install"]:
@@ -231,14 +234,22 @@ def report_items(engine, raw: dict, source: dict, invocation: dict, checkout: Pa
     return local, remote
 
 
-SCRIPT_TEMPLATE = """# -*- coding: utf-8 -*-
+SCRIPT_TEMPLATES = {
+    "25.0.1": r"""# -*- coding: utf-8 -*-
 import re
 import sys
+from {module} import {import_name}
 if __name__ == '__main__':
-    from {module} import {import_name}
-    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
     sys.exit({function}())
-"""
+""",
+    "26.2.1": """import sys
+from {module} import {import_name}
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit({function}())
+""",
+}
 
 
 def installed_wheel_bytes(engine, observed: dict, archive_path: Path) -> None:
@@ -248,6 +259,9 @@ def installed_wheel_bytes(engine, observed: dict, archive_path: Path) -> None:
     site, python = Path(observed["sitePackages"]), Path(observed["python"])
     if not site.is_absolute() or not python.is_absolute() or python.parent.name != "bin":
         raise ValueError("installed paths are not bound to an owned interpreter")
+    version = importlib.metadata.version("pip")
+    if version not in SCRIPT_TEMPLATES:
+        raise ValueError("unreviewed pip installed-file transformation")
     expected = {}
     with zipfile.ZipFile(archive_path) as archive:
         metadata_dirs = {name.rsplit("/", 1)[0] for name in archive.namelist() if name.endswith(".dist-info/METADATA")}
@@ -282,7 +296,7 @@ def installed_wheel_bytes(engine, observed: dict, archive_path: Path) -> None:
                         raise ValueError("unmodeled installed entrypoint")
                     if len(str(python).encode()) + 3 > 127 or any(c.isspace() for c in str(python)):
                         raise ValueError("unmodeled installed script interpreter path")
-                    script = SCRIPT_TEMPLATE.format(module=match[1], import_name=match[2].split(".")[0], function=match[2])
+                    script = SCRIPT_TEMPLATES[version].format(module=match[1], import_name=match[2].split(".")[0], function=match[2])
                     expected["../../../bin/" + name] = ("#!" + str(python) + "\n" + script).encode()
         expected[metadata_dir + "/INSTALLER"] = b"pip\n"
         if metadata_dir + "/REQUESTED" in files:

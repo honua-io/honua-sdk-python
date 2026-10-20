@@ -34,6 +34,7 @@ jobs:
                           assert isinstance(step['run'], str), (str(path), step.get('name'), type(step['run']).__name__)
           PYTHON
           python -m unittest discover -s tests -p test_development_source_inputs.py -v
+          python -m unittest discover -s tests -p test_governed_source_inputs.py -v
       - name: Resolve all five profiles and original ordered source-install sequences
         run: |
           python scripts/development_source_inputs.py --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
@@ -51,3 +52,32 @@ jobs:
           name: development-synthetic-pip-control
           path: ${{ runner.temp }}/development-pip-control
           if-no-files-found: ignore
+  governed-document-runtime:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: producer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: producer
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Read-only original governed subject; no source or release adoption.
+          ref: 5a79352066b8aa23f1bae45b5c38e6d83efd003f
+          path: subject
+          persist-credentials: false
+      - name: Pull exact original documentation image
+        run: |
+          docker pull python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea
+      - name: Observe original runtime and produce all immutable input sequences
+        run: |
+          python3 scripts/run_governed_source_inputs.py --implementation "$GITHUB_WORKSPACE/producer" --source "$GITHUB_WORKSPACE/subject" --revision 5a79352066b8aa23f1bae45b5c38e6d83efd003f --destination "$RUNNER_TEMP/governed-development-inputs"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: governed-development-source-inputs
+          path: ${{ runner.temp }}/governed-development-inputs
+          if-no-files-found: warn

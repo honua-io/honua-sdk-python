@@ -387,6 +387,15 @@ class DevelopmentInputsTests(unittest.TestCase):
             with self.subTest(replacement=replacement), self.assertRaises(ValueError):
                 documentation.plan(inputs, self.root, source)
 
+    def test_unknown_pip_transform_refuses_before_wheel_loading(self):
+        observed = {"files": {"module.py": "0" * 64}, "sizes": {"module.py": 1}, "generated": {},
+                    "sitePackages": str(self.root / "site"), "python": str(self.root / "bin/python")}
+        with patch.object(documentation.importlib.metadata, "version", return_value="99.0"), \
+             patch.object(documentation.zipfile, "ZipFile") as archive:
+            with self.assertRaisesRegex(ValueError, "unreviewed pip installed-file"):
+                documentation.installed_wheel_bytes(inputs, observed, self.root / "unopened.whl")
+            archive.assert_not_called()
+
     def test_actual_default_pip_generated_file_positive_and_extra_cache_script_mutants(self):
         if os.name == "nt":
             # This production input policy is Linux-only; Windows must refuse it

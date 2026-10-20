@@ -41,6 +41,37 @@ not assert equivalence with a documentation container image. The later harness
 must bind the actual governed image and invoked interpreter; a runtime mismatch
 remains nonpassing until that exact input is produced and reviewed.
 
+For the original governed documentation subject, first make the exact
+`python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea`
+image available to Docker, then use the governed launcher:
+
+```bash
+python3 scripts/run_governed_source_inputs.py --implementation /absolute/clean/producer-checkout --source /absolute/clean/governed-subject --revision 5a79352066b8aa23f1bae45b5c38e6d83efd003f --destination /absolute/new/governed-inputs
+```
+
+This subject remains SDK 0.1.16 and Admin 0.1.12. The producer implementation
+has its own revision. The launcher uses the original image's Python 3.12.15
+and pip 25.0.1, with their exact reviewed executable and tool hashes. Packaging
+26.3 is a separately hash-verified, read-only implementation import; it is
+never installed into the image and is excluded from every subject pip/backend
+subprocess. Actual child observations and seven input-refusal controls check
+that separation. Original pip compilation remains enabled.
+
+The outer `execution.json` and original container observations bind the actual
+image digest, container image ID, immutable subject and implementation, command,
+read-only mounts, terminal state and cleanup. The inner `proposal/proposal.json`
+binds all artifact and ordered input captures. A consumer must rejudge both
+sets of original evidence; the policy's image string alone grants no identity
+or admission. Failed actions retain their original output and daemon state.
+A transport failure waits for live owned work to finish rather than cancelling
+it. Unresolved work remains explicitly pending.
+
+This captures inputs using declared fixed-interpreter commands, including
+separate offline installation of the verified artifacts. It does not report
+that the unchanged documentation commands, lint commands or full tests ran.
+Those original commands and their actual runtime replay remain required by
+honua-release issue 721.
+
 Each profile retains the actual resolver command, interpreter environment,
 original report and output, and anonymously downloaded wheels with canonical
 PyPI origins, metadata, exact versions and SHA256 hashes. An independent registry

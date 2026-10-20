@@ -154,7 +154,8 @@ class GovernedExecutionTests(unittest.TestCase):
         """Complete offline original-byte vector; never a candidate/runtime claim."""
         policy = json.loads((Path(runner.__file__).parent / 'development-inputs/governed-runtime.json').read_bytes())
         binding = policy['executionBinding']
-        image = {'id': self.image, 'repoDigests': ['python@'+runner.IMAGE.split('@')[1]], 'declaredImage': runner.IMAGE}
+        image = {'id': self.image, 'repoDigests': ['python@'+runner.IMAGE.split('@')[1]], 'declaredImage': runner.IMAGE,
+                 'os': 'linux', 'architecture': 'amd64'}
         context = {'mountSources': {'implementation': str(self.root/'implementation'), 'subject': str(self.root/'subject'),
                    'tool': str(self.root/binding['implementationPackagingFilename']), 'output': str(self.root/'output')},
                    'user': '1000:1000', 'tmpfs': self.tmpfs, 'image': image}
@@ -186,7 +187,8 @@ class GovernedExecutionTests(unittest.TestCase):
                 'source-after', 'installed-before', 'installed-after', 'derived-command', 'install-command', 'raw-report',
                 'backend-command', 'editable-identity', 'published', 'admitted', 'candidate'],
                 'sourceAdmitted': False, 'candidateQualified': False, 'publishedWheelIdentity': False}).encode()}
-        files = {}
+        files = {'execution-context.json': json.dumps(context).encode()}
+        receipt['executionContextSha256'] = hashlib.sha256(files['execution-context.json']).hexdigest()
         for number, action in enumerate(runner.ACTIONS, 1):
             arguments, mounts, user, tmpfs = runner.action_inputs(action, 'e'*40, context, policy)
             before = deepcopy(self.observed)
@@ -213,10 +215,21 @@ class GovernedExecutionTests(unittest.TestCase):
         result = runner.verify_execution_receipt(receipt, **arguments)
         self.assertTrue(result['innerArtifactVerificationRequired'])
         self.assertFalse(result['sourceAdmitted'])
+        # Actual Docker returns the same mount census in different array order
+        # on repeated inspect. Preserve raw originals and every row field.
+        reordered, reordered_inputs = deepcopy(receipt), deepcopy(arguments)
+        for item in reordered['containers']:
+            item['cleanup']['originalState'] = deepcopy(item['cleanup']['originalState'])
+            item['cleanup']['originalState']['mounts'].reverse()
+            self.assertNotEqual(item['after'], item['cleanup']['originalState'])
+            action = item['action']
+            reordered_inputs['original_files'][action+'.cleanup-observed.json'] = json.dumps(item['cleanup']['originalState']).encode()
+            reordered_inputs['original_files'][action+'.cleanup.json'] = json.dumps(item['cleanup']).encode()
+        runner.verify_execution_receipt(reordered, **reordered_inputs)
         cases = ('missing-file', 'extra-file', 'action-loss', 'action-order', 'foreign-subject', 'foreign-implementation',
                  'foreign-image', 'foreign-mount', 'command', 'owner', 'terminal', 'cleanup', 'stream', 'coherent-probe',
                  'coherent-refusals', 'coherent-mutants', 'coherent-proposal', 'coherent-step', 'published', 'attach',
-                 'unsafe-projection', 'typed-attach')
+                 'unsafe-projection', 'typed-attach', 'coherent-cleanup-mount', 'context-bytes', 'coherent-context', 'platform')
         for case in cases:
             value, inputs = deepcopy(receipt), deepcopy(arguments)
             if case == 'missing-file':
@@ -233,6 +246,8 @@ class GovernedExecutionTests(unittest.TestCase):
                 value['implementationSha'] = 'a'*40
             elif case == 'foreign-image':
                 value['image']['id'] = 'sha256:'+'a'*64
+            elif case == 'platform':
+                value['image']['architecture'] = 'arm64'
             elif case == 'foreign-mount':
                 value['containers'][0]['before']['mounts'][0]['Source'] += '-foreign'
             elif case == 'command':
@@ -245,7 +260,7 @@ class GovernedExecutionTests(unittest.TestCase):
                 value['containers'][0]['cleanup']['removed'] = False
             elif case == 'stream':
                 inputs['original_files']['probe.stderr'] = b'foreign-original'
-            elif case.startswith('coherent-') and case not in ('coherent-proposal', 'coherent-step'):
+            elif case.startswith('coherent-') and case not in ('coherent-proposal', 'coherent-step', 'coherent-cleanup-mount', 'coherent-context'):
                 action = {'coherent-probe': 'probe', 'coherent-refusals': 'probe-refusals', 'coherent-mutants': 'mutations'}[case]
                 inputs['original_files'][action+'.stdout'] = b'{}'
                 next(item for item in value['commands'] if item['action'] == action)['stdoutSha256'] = hashlib.sha256(b'{}').hexdigest()
@@ -263,11 +278,37 @@ class GovernedExecutionTests(unittest.TestCase):
                 value['containers'][0]['before']['environment'] = []
             elif case == 'typed-attach':
                 inputs['original_files']['probe.attach.json'] = b'{"returnCode":false,"sourceAdmitted":false}'
+            elif case == 'coherent-cleanup-mount':
+                cleanup = value['containers'][0]['cleanup']
+                cleanup['originalState'] = deepcopy(cleanup['originalState'])
+                cleanup['originalState']['mounts'][0]['Source'] += '-foreign'
+                inputs['original_files']['probe.cleanup-observed.json'] = json.dumps(cleanup['originalState']).encode()
+                inputs['original_files']['probe.cleanup.json'] = json.dumps(cleanup).encode()
+            elif case == 'context-bytes':
+                inputs['original_files']['execution-context.json'] += b'\n'
+            elif case == 'coherent-context':
+                foreign_context = deepcopy(inputs['execution_context'])
+                foreign_context['mountSources']['subject'] += '-foreign'
+                inputs['original_files']['execution-context.json'] = json.dumps(foreign_context).encode()
+                value['executionContextSha256'] = hashlib.sha256(inputs['original_files']['execution-context.json']).hexdigest()
             else:
                 inputs['original_files']['probe.attach.json'] = b'{"returnCode":1,"sourceAdmitted":false}'
             with self.subTest(case=case), self.assertRaises(ValueError):
                 runner.verify_execution_receipt(value, **inputs)
         runner.verify_execution_receipt(receipt, **arguments)
+
+    def test_retained_actual_docker_mount_order_census_and_changed_row_refusal(self):
+        vector = json.loads((Path(__file__).parent / 'fixtures/governed_mount_order.json').read_bytes())
+        after, cleanup = vector['after'], vector['cleanupObserved']
+        self.assertNotEqual(after, cleanup)
+        for observed in (after, cleanup):
+            runner.validate_container(observed, after['id'], **vector['expected'])
+        self.assertEqual(runner.canonical_container_state(after), runner.canonical_container_state(cleanup))
+        foreign = deepcopy(cleanup)
+        foreign['mounts'][0]['Source'] += '-foreign'
+        self.assertNotEqual(runner.canonical_container_state(after), runner.canonical_container_state(foreign))
+        with self.assertRaisesRegex(ValueError, 'readonly bind mount census'):
+            runner.validate_container(foreign, after['id'], **vector['expected'])
 
 
 if __name__ == "__main__":

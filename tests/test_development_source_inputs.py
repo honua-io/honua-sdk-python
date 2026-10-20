@@ -1,7 +1,10 @@
 """Synthetic tamper controls; actual PyPI/build positive is a separate workflow artifact."""
 from __future__ import annotations
 
+import base64
 from copy import deepcopy
+import csv
+import hashlib
 import io
 import json
 import os
@@ -13,13 +16,14 @@ from unittest.mock import patch
 import zipfile
 
 from scripts import development_source_inputs as inputs
+from scripts import python_document_inputs as documentation
 
 
 class DevelopmentInputsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
 
     def wheel(self, name="dep", version="1.0", requires=()):
         filename = f"{name}-{version}-py3-none-any.whl"
@@ -110,7 +114,8 @@ class DevelopmentInputsTests(unittest.TestCase):
     def test_changed_source_refuses_before_backend_install(self):
         with patch.object(inputs, "source", side_effect=[{"sourceSha": "a"}, {"sourceSha": "b"}]), \
              patch.object(inputs, "runtime", return_value={}), patch.object(inputs, "resolve", return_value={}), \
-             patch.object(inputs, "requirements", return_value=[]), patch.object(inputs, "build_source_wheels") as build:
+             patch.object(inputs, "requirements", return_value=[]), patch.object(inputs, "build_source_wheels") as build, \
+             patch.object(inputs, "implementation", return_value={}):
             with self.assertRaisesRegex(ValueError, "before backend"):
                 inputs.generate(self.root / "source", "a", self.root / "output", {})
             build.assert_not_called()
@@ -123,7 +128,7 @@ class DevelopmentInputsTests(unittest.TestCase):
                         "optional-dependencies": {"grpc": ["dep>=1"], "geopandas": ["dep>=1"], "raster": ["dep>=1"]}}},
             "honua-admin": {"metadata": {"version": "0.1.0", "dependencies": ["honua-sdk>=0.1,<0.2"]}}}}
         proposal = {"schema": inputs.SCHEMA, "sourceAdmitted": False, "candidateQualified": False, "publishedWheelIdentity": False,
-                    "source": selected, "runtime": {"synthetic": True}, "profiles": {}}
+                    "implementation": {"sourceSha": "b" * 40, "synthetic": True}, "source": selected, "runtime": {"synthetic": True}, "profiles": {}}
         artifact = self.wheel()
         backend = self.wheel("hatchling", "1.30.1")
         for name in ["build", *inputs.PROFILES]:
@@ -162,12 +167,13 @@ class DevelopmentInputsTests(unittest.TestCase):
                                    "stdoutSha256": inputs.digest(b"synthetic build output"), "wheels": wheels}
         return proposal
 
-    def test_complete_proposal_positive_and_every_original_binding_mutation(self):
+    def test_complete_artifact_stage_positive_and_every_original_binding_mutation(self):
         original = self.complete_proposal()
         def verify(value):
             with patch.object(inputs, "source", return_value=original["source"]), \
-                 patch.object(inputs, "runtime", return_value=original["runtime"]):
-                return inputs.verify_proposal(value, self.root, "a" * 40, self.root, {"pip": "26.2.1"})
+                 patch.object(inputs, "runtime", return_value=original["runtime"]), \
+                 patch.object(inputs, "implementation", return_value=original["implementation"]):
+                return inputs.verify_artifact_inputs(value, self.root, "a" * 40, self.root, {"pip": "26.2.1"})
         self.assertEqual(len(verify(original)["profiles"]), 5)
         for mutation in ["install-command", "build-command", "scratch", "source", "runtime", "profile", "origin", "digest",
                          "report", "source-wheel", "backend-lock", "backend-inventory", "published-identity", "top-level-published-identity", "admission"]:
@@ -215,8 +221,9 @@ class DevelopmentInputsTests(unittest.TestCase):
         proposal["profiles"]["core"]["reportSha256"] = inputs.digest(report.read_bytes())
         with patch.object(inputs, "source", return_value=proposal["source"]), \
              patch.object(inputs, "runtime", return_value=proposal["runtime"]), \
+             patch.object(inputs, "implementation", return_value=proposal["implementation"]), \
              self.assertRaisesRegex(ValueError, "artifact/output join"):
-            inputs.verify_proposal(proposal, self.root, "a" * 40, self.root, {"pip": "26.2.1"})
+            inputs.verify_artifact_inputs(proposal, self.root, "a" * 40, self.root, {"pip": "26.2.1"})
 
     def test_failed_private_origin_never_persists_raw_output(self):
         private_reports = []
@@ -258,6 +265,7 @@ class DevelopmentInputsTests(unittest.TestCase):
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)  # noqa: S603, S607
         def git(*args):
             return subprocess.check_output(["git", "-C", str(self.root), *args]).decode().strip()  # noqa: S603, S607
+        git("config", "core.autocrlf", "false")
         git("config", "user.name", "Fixture")
         git("config", "user.email", "fixture@example.invalid")
         git("remote", "add", "origin", inputs.REPOSITORY)
@@ -275,6 +283,159 @@ class DevelopmentInputsTests(unittest.TestCase):
         path.write_text(path.read_text() + "# changed input\n")
         with self.assertRaisesRegex(ValueError, "dirty"):
             inputs.source(self.root, revision)
+
+    def test_actual_reviewed_git_symlink_and_independent_refusals(self):
+        self.test_actual_clean_git_source_positive_and_dirty_wrong_source_negative()
+        def git(*args):
+            return subprocess.check_output(["git", "-C", str(self.root), *args]).decode().strip()  # noqa: S603, S607
+        git("restore", "packages/honua-admin/pyproject.toml")
+        (self.root / "AGENTS.md").write_text("Immutable source instructions\n")
+        alias = self.root / "CLAUDE.md"
+        if os.name == "nt":
+            # Windows checkouts without link privileges must refuse inspectability;
+            # the reviewed production runtime is Linux and runs the real link positive.
+            alias.write_text("AGENTS.md")
+            blob = git("hash-object", "-w", str(alias))
+            git("add", "AGENTS.md")
+            git("update-index", "--add", "--cacheinfo", "120000," + blob + ",CLAUDE.md")
+            git("commit", "-qm", "uninspectable link fixture")
+            with self.assertRaises(ValueError):
+                inputs.source(self.root, git("rev-parse", "HEAD"))
+            return
+        alias.symlink_to("AGENTS.md")
+        git("add", ".")
+        git("commit", "-qm", "reviewed alias fixture")
+        observed = inputs.source(self.root, git("rev-parse", "HEAD"))
+        self.assertEqual(observed["files"]["CLAUDE.md"]["linkTarget"], "AGENTS.md")
+        self.assertEqual(observed["files"]["CLAUDE.md"]["targetSha256"], observed["files"]["AGENTS.md"]["sha256"])
+        for case in ["changed", "foreign", "escaping", "package", "changed-target"]:
+            # Every negative starts from a separately revalidated clean positive.
+            inputs.source(self.root, git("rev-parse", "HEAD"))
+            extra = None
+            if case in ["changed", "escaping"]:
+                alias.unlink()
+                alias.symlink_to("./AGENTS.md" if case == "changed" else "../AGENTS.md")
+            elif case == "foreign":
+                extra = self.root / "foreign.md"
+                extra.symlink_to("AGENTS.md")
+            elif case == "package":
+                extra = self.root / "packages/honua-sdk/foreign.py"
+                extra.symlink_to("../../AGENTS.md")
+            else:
+                (self.root / "AGENTS.md").write_text("changed immutable target\n")
+            if case != "changed-target":
+                git("add", ".")
+                git("commit", "-qm", "negative link fixture")
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                inputs.source(self.root, git("rev-parse", "HEAD"))
+            if extra:
+                extra.unlink()
+            if alias.is_symlink():
+                alias.unlink()
+            alias.symlink_to("AGENTS.md")
+            (self.root / "AGENTS.md").write_text("Immutable source instructions\n")
+            git("add", ".")
+            if git("status", "--porcelain"):
+                git("commit", "-qm", "restored clean link fixture")
+
+
+    def test_finite_editable_source_census_refuses_extra_module_and_symlink(self):
+        checkout = self.root / "copy"
+        expected = {}
+        for name in ("honua-sdk", "honua-admin"):
+            target = checkout / "packages" / name / "module.py"
+            target.parent.mkdir(parents=True)
+            target.write_bytes(b"VALUE = 1\n")
+            expected[target.relative_to(checkout).as_posix()] = {"sha256": inputs.digest(target.read_bytes())}
+        source = {"files": expected}
+        self.assertEqual(documentation.source_hashes(inputs, source, checkout), {k: v["sha256"] for k, v in expected.items()})
+        extra = checkout / "packages/honua-sdk/extra.py"
+        extra.write_bytes(b"MUTATION = True\n")
+        with self.assertRaisesRegex(ValueError, "finite tracked"):
+            documentation.source_hashes(inputs, source, checkout)
+        extra.unlink()
+        extra.symlink_to("module.py")
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            documentation.source_hashes(inputs, source, checkout)
+        extra.unlink()
+        (extra.parent / "empty-extra").mkdir()
+        with self.assertRaisesRegex(ValueError, "finite tracked"):
+            documentation.source_hashes(inputs, source, checkout)
+
+    def test_original_document_plan_matches_independent_governed_block_inventory(self):
+        fixture = json.loads((Path(__file__).parent / "fixtures/python_source_install_blocks.json").read_text())
+        source = {"files": {name: {"gitBlob": item["gitBlob"]} for name, item in fixture["documents"].items()}}
+        for name, item in fixture["documents"].items():
+            (self.root / name).write_text(item["text"])
+        actual = documentation.plan(inputs, self.root, source)
+        self.assertEqual(len(actual), 3)
+        self.assertEqual(sum(len(item["invocations"]) for item in actual), 12)
+        for observed, expected in zip(actual, fixture["expectedBlocks"], strict=True):
+            self.assertEqual((observed["document"], observed["blockIndex"], observed["blockSha256"]),
+                             (expected["document"], expected["index"], expected["sha256"]))
+            self.assertEqual([item["command"] for item in observed["invocations"]], expected["commands"])
+            self.assertEqual([item["ordinal"] for item in observed["invocations"]], list(range(len(expected["commands"]))))
+        self.assertEqual(actual[1]["invocations"][0]["editable"], [True])
+        self.assertEqual(actual[1]["invocations"][2]["requested"], ["pytest", "pytest-cov", "ruff", "mypy"])
+        original = fixture["documents"]["README.md"]["text"]
+        for replacement in ("pip install --extra-index-url https://foreign.invalid packages/honua-sdk",
+                            "pip install -e /foreign/source", "pip install packages/honua-sdk --no-compile"):
+            (self.root / "README.md").write_text(original.replace("pip install ./packages/honua-sdk", replacement, 1))
+            with self.subTest(replacement=replacement), self.assertRaises(ValueError):
+                documentation.plan(inputs, self.root, source)
+
+    def test_actual_default_pip_generated_file_positive_and_extra_cache_script_mutants(self):
+        if os.name == "nt":
+            # This production input policy is Linux-only; Windows must refuse it
+            # before attempting the POSIX installed-file transformation model.
+            policy = json.loads((Path(inputs.__file__).parent / "development-inputs/runtime.json").read_text())
+            with self.assertRaisesRegex(ValueError, "runtime differs"):
+                inputs.runtime(policy)
+            return
+        directory = self.root / "wheelhouse"
+        directory.mkdir()
+        metadata_dir = "finite_probe-1.0.dist-info"
+        members = {"finite_probe.py": b"def main():\n    return 0\n",
+                   metadata_dir + "/METADATA": b"Metadata-Version: 2.3\nName: finite-probe\nVersion: 1.0\n",
+                   metadata_dir + "/WHEEL": b"Wheel-Version: 1.0\nGenerator: owned-control\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+                   metadata_dir + "/entry_points.txt": b"[console_scripts]\nfinite-probe = finite_probe:main\n"}
+        record = io.StringIO(newline="")
+        writer = csv.writer(record)
+        for name, content in members.items():
+            digest = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).rstrip(b"=").decode()
+            writer.writerow([name, "sha256=" + digest, len(content)])
+        writer.writerow([metadata_dir + "/RECORD", "", ""])
+        members[metadata_dir + "/RECORD"] = record.getvalue().encode()
+        archive = directory / "finite_probe-1.0-py3-none-any.whl"
+        with zipfile.ZipFile(archive, "w") as wheel:
+            for name, content in members.items():
+                wheel.writestr(name, content)
+        environment = self.root / "environment"
+        inputs.run([inputs.sys.executable, "-m", "venv", "--without-pip", str(environment)])
+        python = environment / "bin/python"
+        inputs.run([inputs.sys.executable, "-m", "pip", "--isolated", "--python", str(python), "install", "--no-index", "--no-deps", str(archive)])
+        observed = documentation.inventory(inputs, python)["finite-probe"]
+        documentation.installed_wheel_bytes(inputs, observed, archive)
+        for mutation in ("extra", "cache", "script", "record", "installer"):
+            value = deepcopy(observed)
+            if mutation == "extra":
+                value["files"]["unmodeled.py"] = inputs.digest(b"EXTRA=True\n")
+                value["sizes"]["unmodeled.py"] = 11
+            else:
+                key = next(k for k in value["generated"] if
+                           (k.endswith(".pyc") if mutation == "cache" else
+                            k.startswith("../") if mutation == "script" else
+                            k.endswith("/RECORD") if mutation == "record" else k.endswith("/INSTALLER")))
+                data = base64.b64decode(value["generated"][key]) + b"MUTATION"
+                value["generated"][key] = base64.b64encode(data).decode()
+                value["files"][key] = inputs.digest(data)
+                value["sizes"][key] = len(data)
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                documentation.installed_wheel_bytes(inputs, value, archive)
+        site = Path(observed["sitePackages"])
+        (site / "unrecorded_extra.py").write_bytes(b"EXTRA = True\n")
+        with self.assertRaises(subprocess.CalledProcessError):
+            documentation.inventory(inputs, python)
 
 
 if __name__ == "__main__":

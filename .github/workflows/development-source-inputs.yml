@@ -34,10 +34,11 @@ jobs:
                           assert isinstance(step['run'], str), (str(path), step.get('name'), type(step['run']).__name__)
           PYTHON
           python -m unittest discover -s tests -p test_development_source_inputs.py -v
-      - name: Resolve all five source profiles and build immutable source wheels
+      - name: Resolve all five profiles and original ordered source-install sequences
         run: |
           python scripts/development_source_inputs.py --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
           python scripts/development_source_inputs.py --verify --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
+          python scripts/check_development_input_mutations.py --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

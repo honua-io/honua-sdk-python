@@ -24,6 +24,11 @@ from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name, parse_wheel_filename
 
+if __package__:
+    from . import python_document_inputs as documentation
+else:
+    import python_document_inputs as documentation
+
 REPOSITORY = "https://github.com/honua-io/honua-sdk-python"
 PROFILES = {"core": (), "grpc": ("grpc",), "geopandas": ("geopandas",), "raster": ("raster",),
             "combined-sdk-admin": ("grpc", "geopandas", "raster")}
@@ -74,18 +79,36 @@ def source(root: Path, revision: str) -> dict:
     if origin.removesuffix(".git") not in (REPOSITORY, "git@github.com:honua-io/honua-sdk-python"):
         raise ValueError("source repository differs")
     files = {}
-    for entry in run(["git", "ls-tree", "-rz", "--full-tree", revision], cwd=root).split(b"\0"):
+    entries = run(["git", "ls-tree", "-rz", "--full-tree", revision], cwd=root).split(b"\0")
+    tracked = {entry.split(b"\t", 1)[1].decode(): entry.split(b"\t", 1)[0].decode().split() for entry in entries if entry}
+    for entry in entries:
         if not entry:
             continue
         meta, name = entry.split(b"\t", 1)
         mode, kind, blob = meta.decode().split()
         path = name.decode()
-        if kind != "blob" or mode not in ("100644", "100755"):
+        if kind != "blob" or mode not in ("100644", "100755", "120000"):
             raise ValueError("unsupported source entry")
-        data = (root / path).read_bytes()
+        link = None
+        if mode == "120000":
+            if (path != "CLAUDE.md" or not (root / path).is_symlink()
+                    or os.readlink(root / path) != "AGENTS.md"
+                    or tracked.get("AGENTS.md", [])[:2] != ["100644", "blob"]
+                    or (root / "AGENTS.md").is_symlink()):
+                raise ValueError("unreviewed or escaping source symlink")
+            data = os.fsencode(os.readlink(root / path))
+            target = (root / "AGENTS.md").read_bytes()
+            target_blob = hashlib.sha1(b"blob " + str(len(target)).encode() + b"\0" + target).hexdigest()  # noqa: S324
+            if target_blob != tracked["AGENTS.md"][2]:
+                raise ValueError("symlink immutable target differs")
+            link = {"linkTarget": "AGENTS.md", "targetGitBlob": target_blob, "targetSha256": digest(target)}
+        else:
+            if (root / path).is_symlink():
+                raise ValueError("regular source replaced with symlink")
+            data = (root / path).read_bytes()
         if hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest() != blob:  # noqa: S324
             raise ValueError("source input differs from immutable blob")
-        files[path] = {"gitBlob": blob, "sha256": digest(data), "mode": mode}
+        files[path] = {"gitBlob": blob, "sha256": digest(data), "mode": mode, **(link or {})}
     packages = {}
     for name in ("honua-sdk", "honua-admin"):
         path = f"packages/{name}/pyproject.toml"
@@ -188,11 +211,43 @@ def resolver_command(requested: list[str], scratch: Path) -> list[str]:
             "--report", str(scratch / "pip-report.json"), *requested]
 
 
+def download_artifacts(selections: list[dict], directory: Path) -> list[dict]:
+    artifacts = []
+    for selected in selections:
+        info = selected["download_info"]
+        url = info["url"]
+        filename = canonical_origin(url)
+        expected = info["archive_info"]["hashes"]["sha256"]
+        metadata = selected["metadata"]
+        registry_url = f'https://pypi.org/pypi/{canonicalize_name(metadata["name"])}/{metadata["version"]}/json'
+        with urlopen(registry_url, timeout=60) as response:  # noqa: S310
+            registry = json.load(response)
+        if not any(x["url"] == url and x["filename"] == filename and x["digests"]["sha256"] == expected
+                   for x in registry["urls"]):
+            raise ValueError("artifact is not in canonical registry response")
+        with urlopen(url, timeout=120) as response:  # noqa: S310
+            if response.url != url:
+                raise ValueError("artifact redirect refused")
+            data = response.read()
+        if digest(data) != expected:
+            raise ValueError("download differs from resolver digest")
+        name, version, dependencies = wheel_metadata(data, filename)
+        if name != canonicalize_name(metadata["name"]) or version != metadata["version"]:
+            raise ValueError("download metadata differs from original resolver")
+        target = directory / filename
+        if target.exists() and digest(target.read_bytes()) != expected:
+            raise ValueError("artifact filename collision")
+        target.write_bytes(data)
+        artifacts.append({"name": name, "version": version, "filename": filename, "origin": url,
+                          "sha256": expected, "requiresDist": dependencies})
+    return artifacts
+
+
 def resolve(requested: list[str], directory: Path) -> dict:
     directory.mkdir()
     # Raw output/report remain outside the public destination until every URL,
     # downloaded byte and dependency has been validated. Failed private data dies here.
-    with tempfile.TemporaryDirectory(prefix="honua-development-resolve-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="honua-development-resolve-", dir=str(Path(tempfile.gettempdir()).resolve())) as temporary:
         scratch = scratch_identity(temporary, "honua-development-resolve-")
         report = scratch / "pip-report.json"
         command = resolver_command(requested, scratch)
@@ -203,29 +258,7 @@ def resolve(requested: list[str], directory: Path) -> dict:
         # Validate ALL origins before retaining even one report or artifact.
         for selected in observed["install"]:
             canonical_origin(selected["download_info"]["url"])
-        artifacts = []
-        for selected in observed["install"]:
-            info = selected["download_info"]
-            url = info["url"]
-            filename = canonical_origin(url)
-            expected = info["archive_info"]["hashes"]["sha256"]
-            metadata = selected["metadata"]
-            registry_url = f'https://pypi.org/pypi/{canonicalize_name(metadata["name"])}/{metadata["version"]}/json'
-            with urlopen(registry_url, timeout=60) as response:  # noqa: S310
-                registry = json.load(response)
-            if not any(x["url"] == url and x["filename"] == filename and x["digests"]["sha256"] == expected
-                       for x in registry["urls"]):
-                raise ValueError("artifact is not in canonical registry response")
-            with urlopen(url, timeout=120) as response:  # noqa: S310
-                if response.url != url:
-                    raise ValueError("artifact redirect refused")
-                data = response.read()
-            if digest(data) != expected:
-                raise ValueError("download differs from resolver digest")
-            name, version, dependencies = wheel_metadata(data, filename)
-            (directory / filename).write_bytes(data)
-            artifacts.append({"name": name, "version": version, "filename": filename, "origin": url,
-                              "sha256": expected, "requiresDist": dependencies})
+        artifacts = download_artifacts(observed["install"], directory)
         validate_closure(artifacts, requested, directory)
         shutil.copyfile(report, directory / "pip-report.json")
         (directory / "resolver.stdout").write_bytes(stdout)
@@ -246,7 +279,7 @@ def build_commands(scratch: Path, destination: Path) -> tuple[list[str], list[st
 
 def build_source_wheels(inputs: dict, root: Path, destination: Path, build: dict) -> dict:
     """Build only immutable tracked bytes using the independently captured backend closure."""
-    with tempfile.TemporaryDirectory(prefix="honua-development-build-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="honua-development-build-", dir=str(Path(tempfile.gettempdir()).resolve())) as temporary:
         scratch = scratch_identity(temporary, "honua-development-build-")
         checkout = scratch / "source"
         for name in inputs["files"]:
@@ -284,9 +317,46 @@ def build_source_wheels(inputs: dict, root: Path, destination: Path, build: dict
                 "stdoutSha256": digest(installed + output), "installedBackend": inventory, "wheels": wheels}
 
 
-def verify_proposal(proposal: dict, root: Path, revision: str, directory: Path, policy: dict) -> dict:
+def implementation() -> dict:
+    root = Path(__file__).resolve().parents[1]
+    revision = run(["git", "rev-parse", "HEAD"], cwd=root).decode().strip()
+    inspected = source(root, revision)
+    paths = ("scripts/development_source_inputs.py", "scripts/python_document_inputs.py")
+    return {"repository": REPOSITORY, "sourceSha": revision,
+            "files": {path: inspected["files"][path] for path in paths}}
+
+
+def verify_resolution(value: dict, requested: list[str], directory: Path, policy: dict) -> None:
+    if value["requested"] != requested:
+        raise ValueError("profile requirements differ")
+    scratch = scratch_identity(value["scratchRoot"], "honua-development-resolve-")
+    expected_command = resolver_command(requested, scratch)
+    if value["command"] != expected_command or value["environment"] != default_environment():
+        raise ValueError("actual command or interpreter environment differs")
+    validate_closure(value["artifacts"], requested, directory)
+    if digest((directory / "pip-report.json").read_bytes()) != value["reportSha256"]:
+        raise ValueError("original resolver report differs")
+    raw = json.loads((directory / "pip-report.json").read_bytes())
+    if raw.get("pip_version") != policy["pip"] or raw.get("environment") != value["environment"]:
+        raise ValueError("original report runtime differs")
+    selected = {}
+    for item in raw["install"]:
+        info = item["download_info"]
+        filename = canonical_origin(info["url"])
+        key = canonicalize_name(item["metadata"]["name"])
+        if key in selected:
+            raise ValueError("duplicate report artifact")
+        selected[key] = (item["metadata"]["version"], filename, info["url"], info["archive_info"]["hashes"]["sha256"])
+    expected = {x["name"]: (x["version"], x["filename"], x["origin"], x["sha256"]) for x in value["artifacts"]}
+    if selected != expected or digest((directory / "resolver.stdout").read_bytes()) != value["stdoutSha256"]:
+        raise ValueError("original resolver artifact/output join differs")
+
+
+def verify_artifact_inputs(proposal: dict, root: Path, revision: str, directory: Path, policy: dict) -> dict:
     if proposal.get("schema") != SCHEMA or proposal.get("candidateQualified") is not False or proposal.get("sourceAdmitted") is not False or proposal.get("publishedWheelIdentity") is not False:
         raise ValueError("proposal is not review-only")
+    if proposal.get("implementation") != implementation():
+        raise ValueError("producer implementation binding differs")
     if proposal["source"] != source(root, revision) or proposal["runtime"] != runtime(policy):
         raise ValueError("source or runtime binding differs")
     if set(proposal["profiles"]) != set(PROFILES):
@@ -294,29 +364,7 @@ def verify_proposal(proposal: dict, root: Path, revision: str, directory: Path, 
     expected_build = ["hatchling==1.30.1"]
     for name, value in [("build", proposal["build"]), *proposal["profiles"].items()]:
         requested = expected_build if name == "build" else requirements(proposal["source"], name)
-        if value["requested"] != requested:
-            raise ValueError("profile requirements differ")
-        scratch = scratch_identity(value["scratchRoot"], "honua-development-resolve-")
-        expected_command = resolver_command(requested, scratch)
-        if value["command"] != expected_command or value["environment"] != default_environment():
-            raise ValueError("actual command or interpreter environment differs")
-        validate_closure(value["artifacts"], requested, directory / name)
-        if digest((directory / name / "pip-report.json").read_bytes()) != value["reportSha256"]:
-            raise ValueError("original resolver report differs")
-        raw = json.loads((directory / name / "pip-report.json").read_bytes())
-        if raw.get("pip_version") != policy["pip"] or raw.get("environment") != value["environment"]:
-            raise ValueError("original report runtime differs")
-        selected = {}
-        for item in raw["install"]:
-            info = item["download_info"]
-            filename = canonical_origin(info["url"])
-            key = canonicalize_name(item["metadata"]["name"])
-            if key in selected:
-                raise ValueError("duplicate report artifact")
-            selected[key] = (item["metadata"]["version"], filename, info["url"], info["archive_info"]["hashes"]["sha256"])
-        expected = {x["name"]: (x["version"], x["filename"], x["origin"], x["sha256"]) for x in value["artifacts"]}
-        if selected != expected or digest((directory / name / "resolver.stdout").read_bytes()) != value["stdoutSha256"]:
-            raise ValueError("original resolver artifact/output join differs")
+        verify_resolution(value, requested, directory / name, policy)
     built = proposal["sourceBuild"]
     scratch = scratch_identity(built["scratchRoot"], "honua-development-build-")
     expected_install, expected_build_command = build_commands(scratch, directory)
@@ -340,8 +388,14 @@ def verify_proposal(proposal: dict, root: Path, revision: str, directory: Path, 
             raise ValueError("source-built wheel binding differs")
     if digest((directory / "source-build.stdout").read_bytes()) != built["stdoutSha256"]:
         raise ValueError("original source build output differs")
-    return {"sourceSha": revision, "runtime": proposal["runtime"], "profiles": sorted(PROFILES),
+    return {"sourceSha": revision, "implementationSha": proposal["implementation"]["sourceSha"], "runtime": proposal["runtime"], "profiles": sorted(PROFILES),
             "proposalSha256": digest(json.dumps(proposal, sort_keys=True).encode()), "sourceAdmitted": False}
+
+
+def verify_proposal(proposal: dict, root: Path, revision: str, directory: Path, policy: dict) -> dict:
+    result = verify_artifact_inputs(proposal, root, revision, directory, policy)
+    documentation.verify(sys.modules[__name__], proposal, root, directory)
+    return {**result, "documentationContexts": len(proposal["documentationSequences"])}
 
 
 def generate(root: Path, revision: str, destination: Path, policy: dict) -> dict:
@@ -351,7 +405,7 @@ def generate(root: Path, revision: str, destination: Path, policy: dict) -> dict
         raise ValueError("proposal destination must stay outside immutable source")
     destination.mkdir(mode=0o700)
     try:
-        proposal = {"schema": SCHEMA, "source": initial, "runtime": actual_runtime,
+        proposal = {"schema": SCHEMA, "implementation": implementation(), "source": initial, "runtime": actual_runtime,
                     "sourceAdmitted": False, "candidateQualified": False, "publishedWheelIdentity": False,
                     "build": resolve(["hatchling==1.30.1"], destination / "build"), "profiles": {}}
         for name in PROFILES:
@@ -359,6 +413,7 @@ def generate(root: Path, revision: str, destination: Path, policy: dict) -> dict
         if initial != source(root, revision) or actual_runtime != runtime(policy):
             raise ValueError("source/runtime changed before backend installation")
         proposal["sourceBuild"] = build_source_wheels(initial, root, destination, proposal["build"])
+        proposal["documentationSequences"] = documentation.capture(sys.modules[__name__], proposal, root, destination)
         if initial != source(root, revision) or actual_runtime != runtime(policy):
             raise ValueError("source/runtime changed during generation")
         verify_proposal(proposal, root, revision, destination, policy)

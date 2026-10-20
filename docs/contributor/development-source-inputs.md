@@ -1,3 +1,10 @@
+---
+type: guide
+title: "Produce immutable development source inputs"
+description: "Capture review-only source, dependency and backend inputs without admitting or publishing packages."
+resource: "https://github.com/honua-io/honua-sdk-python/issues/311"
+tags: [python, development, release]
+---
 # Review-only development source inputs
 
 `python scripts/development_source_inputs.py --source /absolute/clean/checkout --revision FULL_40_CHARACTER_SHA --destination /absolute/new/proposal-directory`
@@ -8,6 +15,31 @@ checkout of this repository. Outputs stay outside the checkout. The producer
 captures every tracked source input and derives the core, grpc, geopandas,
 raster, and combined SDK-with-all-extras plus Admin profiles from the actual
 package metadata. All five profiles are mandatory.
+
+The producer implementation and subject checkout have separate immutable
+identities. A protected producer can inspect an older, still-governed clean
+subject using `--source` and `--revision`; this does not adopt newer package
+versions or turn source-built wheels into published artifacts.
+
+The proposal also captures each original README and INSTALL source-install
+block, including its exact document and fence bytes, ordered pip commands,
+requested extras and editable flags. Each block uses an isolated environment;
+each pip step records its actual resolver delta and installed closure before
+and after execution. The backend closure is installed with hash enforcement
+before source metadata or editable build hooks execute. Non-pip lint and test
+commands remain unchanged for the executable-docs replay and are not executed
+or counted as passed by this producer.
+
+Default pip compilation remains enabled. Verification checks a finite mapping
+from original wheel members to installed files, including pip metadata,
+entrypoint scripts and compiled bytecode, and rejects extra installed or
+editable-source files. Editable wheels and their exact copied source tree have
+separate provenance from regular source-built wheels.
+
+The default runtime policy describes the reviewed producer runtime. It does
+not assert equivalence with a documentation container image. The later harness
+must bind the actual governed image and invoked interpreter; a runtime mismatch
+remains nonpassing until that exact input is produced and reviewed.
 
 Each profile retains the actual resolver command, interpreter environment,
 original report and output, and anonymously downloaded wheels with canonical

@@ -18,6 +18,7 @@
 
 * [Authenticate a client](auth.md)
 * [Run the operator workflow from a terminal](cli/operator-workflow.md)
+* [Produce immutable development source inputs](contributor/development-source-inputs.md)
 * [Collect a support bundle](diagnostic-bundles.md)
 * [Hand an ArcPy inventory to the codemod](honua-gp/scanner-handoff.md)
 * [Import the geoprocessing package](migration/gp-import.md)

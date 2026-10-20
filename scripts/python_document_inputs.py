@@ -146,7 +146,7 @@ def inventory(engine, python: Path) -> dict:
 def source_hashes(engine, source: dict, checkout: Path) -> dict:
     expected = {path: item["sha256"] for path, item in source["files"].items()
                 if path.startswith(("packages/honua-sdk/", "packages/honua-admin/"))}
-    expected_directories = {str(parent) for path in expected for parent in Path(path).parents if str(parent) != "."}
+    expected_directories = {parent.as_posix() for path in expected for parent in Path(path).parents if parent.as_posix() != "."}
     if any(path.is_symlink() or not path.is_dir() for path in (checkout, checkout / "packages")):
         raise ValueError("copied immutable source ancestor is not a regular directory")
     actual = {}

@@ -5,6 +5,9 @@ import base64
 from copy import deepcopy
 import csv
 import hashlib
+import importlib.util
+import marshal
+import types
 import io
 import json
 import os
@@ -415,7 +418,47 @@ class DevelopmentInputsTests(unittest.TestCase):
         python = environment / "bin/python"
         inputs.run([inputs.sys.executable, "-m", "pip", "--isolated", "--python", str(python), "install", "--no-index", "--no-deps", str(archive)])
         observed = documentation.inventory(inputs, python)["finite-probe"]
-        documentation.installed_wheel_bytes(inputs, observed, archive)
+        try:
+            documentation.installed_wheel_bytes(inputs, observed, archive)
+        except ValueError:
+            # Retain only this authored synthetic wheel's original bytes on the
+            # hosted failure path. The real verifier refusal remains unchanged.
+            filename = str(Path(observed["sitePackages"]) / "finite_probe.py")
+            cache = str(Path(importlib.util.cache_from_source(filename)).relative_to(observed["sitePackages"]))
+            raw = base64.b64decode(observed["generated"][cache], validate=True)
+            actual = marshal.loads(raw[16:])  # noqa: S302 -- only the authored synthetic wheel compiled by owned pip
+            expected = compile(members["finite_probe.py"], filename, "exec", dont_inherit=True, optimize=0)
+            fields = ["co_argcount", "co_posonlyargcount", "co_kwonlyargcount", "co_nlocals", "co_stacksize", "co_flags",
+                      "co_code", "co_consts", "co_names", "co_varnames", "co_filename", "co_name", "co_qualname",
+                      "co_firstlineno", "co_linetable", "co_exceptiontable", "co_freevars", "co_cellvars"]
+            def differences(left, right, prefix=""):
+                result = []
+                for field in fields:
+                    first, second = getattr(left, field), getattr(right, field)
+                    if field == "co_consts":
+                        if len(first) != len(second):
+                            result.append(prefix + field + ".length")
+                        for ordinal, (a, b) in enumerate(zip(first, second, strict=False)):
+                            if isinstance(a, types.CodeType) and isinstance(b, types.CodeType):
+                                result.extend(differences(a, b, prefix + "constant" + str(ordinal) + "."))
+                            elif type(a) is not type(b) or a != b:
+                                result.append(prefix + field + "." + str(ordinal))
+                    elif type(first) is not type(second) or first != second:
+                        result.append(prefix + field)
+                return result
+            diagnostic = {"actualFilename": actual.co_filename, "expectedFilename": filename,
+                          "codeObjectEqual": actual == expected, "fieldDifferences": differences(actual, expected),
+                          "actualMarshalSha256": inputs.digest(raw[16:]), "expectedMarshalSha256": inputs.digest(marshal.dumps(expected)),
+                          "actualRemarshalEqual": marshal.dumps(actual) == marshal.dumps(expected), "header": raw[:16].hex()}
+            print("ORIGINAL_PIP_BYTECODE_DIAGNOSTIC " + json.dumps(diagnostic, sort_keys=True), flush=True)
+            if os.environ.get("RUNNER_TEMP"):
+                output = Path(os.environ["RUNNER_TEMP"]) / "development-pip-control"
+                output.mkdir(exist_ok=True)
+                (output / "original.pyc").write_bytes(raw)
+                (output / "expected.marshal").write_bytes(marshal.dumps(expected))
+                (output / "verified-source.py").write_bytes(members["finite_probe.py"])
+                (output / "diagnostic.json").write_text(json.dumps(diagnostic, indent=2) + "\n")
+            raise
         for mutation in ("extra", "cache", "script", "record", "installer"):
             value = deepcopy(observed)
             if mutation == "extra":

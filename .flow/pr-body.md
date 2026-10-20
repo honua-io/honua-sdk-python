@@ -19,7 +19,7 @@ None.
 - Checked against Scorecard's own rules (`checks/raw/shell_download_validate.go`): only `pip install` counts as a download, and a `--no-deps` install whose only argument is a `*.whl` path counts as pinned.
 - In a scratch venv on native Windows, with `hatchling==1.30.1` (the version `ci.lock` locks), both commands succeed and `honua_sdk` installs into site-packages.
 - actionlint 1.7.12 passes on all workflows.
-- honua-release `tools/check_action_pins.py` (trunk 9aa50db) passes on all workflows.
+- honua-release `tools/check_action_pins.py` (trunk 4642e4d, with the reusable-workflow reachability check enabled) passes on all workflows.
 - `git diff --check` passes.
 
-The open alert counts on trunk d97ab88 are 5 code-scanning (this PinnedDependenciesID plus the repo-policy checks BranchProtection, CodeReview, CII-Best-Practices and Fuzzing) and 0 Dependabot. Scorecard re-evaluates this alert on trunk after merge. No alert was dismissed.
+The open alert counts on trunk f36e702 (2026-10-20) are 5 code-scanning (this PinnedDependenciesID plus the repo-policy checks BranchProtection, CodeReview, CII-Best-Practices and Fuzzing) and 0 Dependabot. Scorecard re-evaluates this alert on trunk after merge. No alert was dismissed.

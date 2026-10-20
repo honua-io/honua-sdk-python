@@ -1,0 +1,188 @@
+{
+  "meaning": "Retained actual Docker repeated-inspect mount-order regression only; no candidate or changed-source proof",
+  "sourceHead": "9ada61bf981b949ddcef5e5b47e9ac98d78bf2a6",
+  "runId": 39391902735,
+  "jobId": 118525181411,
+  "originalExecutionSha256": "51cab1dbb5f7c327c321617649a7a2d92398ce2672c626060f3d927506d9e8f8",
+  "originalAfterSha256": "360458d0c70783a5b46a30c5295f96aa1a3ef77cc8f446c6c38673570b6f1111",
+  "originalCleanupObservedSha256": "f23a0085b3288c7e347dad9442566a579897a22936bac655bb260179c6066f18",
+  "after": {
+    "id": "2ce5c6d82dbda78c4c672486f599d583851c8c6f6af886cb1f095de3e8c07aa4",
+    "imageId": "sha256:4e32743734599c5dbfcd60a97e60804ccbb674e967ea418509f9eeedc038d8bb",
+    "declaredImage": "python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea",
+    "path": "/usr/local/bin/python3.12",
+    "args": [
+      "-I",
+      "/implementation/scripts/governed_source_inputs_bootstrap.py",
+      "--implementation-packaging-wheel",
+      "/implementation-tools/packaging-26.3-py3-none-any.whl",
+      "--action",
+      "probe",
+      "--source",
+      "/subject",
+      "--revision",
+      "5a79352066b8aa23f1bae45b5c38e6d83efd003f",
+      "--destination",
+      "/output/proposal",
+      "--runtime-policy",
+      "/implementation/scripts/development-inputs/governed-runtime.json"
+    ],
+    "user": "1001:1001",
+    "readonlyRootfs": true,
+    "mounts": [
+      {
+        "Destination": "/implementation-tools/packaging-26.3-py3-none-any.whl",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": false,
+        "Source": "/tmp/honua-implementation-tool-wjfe_wn7/packaging-26.3-py3-none-any.whl",
+        "Type": "bind"
+      },
+      {
+        "Destination": "/output",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": true,
+        "Source": "/home/runner/work/_temp/governed-development-inputs",
+        "Type": "bind"
+      },
+      {
+        "Destination": "/implementation",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": false,
+        "Source": "/tmp/honua-governed-inputs-qalyf0gw/implementation",
+        "Type": "bind"
+      },
+      {
+        "Destination": "/subject",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": false,
+        "Source": "/tmp/honua-governed-inputs-qalyf0gw/subject",
+        "Type": "bind"
+      }
+    ],
+    "tmpfs": {
+      "/tmp": "rw,exec,mode=0700,uid=1001,gid=1001"
+    },
+    "exitCode": 0,
+    "status": "exited",
+    "running": false,
+    "startedAt": "2026-10-20T08:14:23.026378911Z",
+    "finishedAt": "2026-10-20T08:14:24.135930887Z",
+    "ownerNonce": "a376fe877dded63a9e8f2353459c457e"
+  },
+  "cleanupObserved": {
+    "id": "2ce5c6d82dbda78c4c672486f599d583851c8c6f6af886cb1f095de3e8c07aa4",
+    "imageId": "sha256:4e32743734599c5dbfcd60a97e60804ccbb674e967ea418509f9eeedc038d8bb",
+    "declaredImage": "python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea",
+    "path": "/usr/local/bin/python3.12",
+    "args": [
+      "-I",
+      "/implementation/scripts/governed_source_inputs_bootstrap.py",
+      "--implementation-packaging-wheel",
+      "/implementation-tools/packaging-26.3-py3-none-any.whl",
+      "--action",
+      "probe",
+      "--source",
+      "/subject",
+      "--revision",
+      "5a79352066b8aa23f1bae45b5c38e6d83efd003f",
+      "--destination",
+      "/output/proposal",
+      "--runtime-policy",
+      "/implementation/scripts/development-inputs/governed-runtime.json"
+    ],
+    "user": "1001:1001",
+    "readonlyRootfs": true,
+    "mounts": [
+      {
+        "Destination": "/implementation",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": false,
+        "Source": "/tmp/honua-governed-inputs-qalyf0gw/implementation",
+        "Type": "bind"
+      },
+      {
+        "Destination": "/subject",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": false,
+        "Source": "/tmp/honua-governed-inputs-qalyf0gw/subject",
+        "Type": "bind"
+      },
+      {
+        "Destination": "/implementation-tools/packaging-26.3-py3-none-any.whl",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": false,
+        "Source": "/tmp/honua-implementation-tool-wjfe_wn7/packaging-26.3-py3-none-any.whl",
+        "Type": "bind"
+      },
+      {
+        "Destination": "/output",
+        "Mode": "",
+        "Propagation": "rprivate",
+        "RW": true,
+        "Source": "/home/runner/work/_temp/governed-development-inputs",
+        "Type": "bind"
+      }
+    ],
+    "tmpfs": {
+      "/tmp": "rw,exec,mode=0700,uid=1001,gid=1001"
+    },
+    "exitCode": 0,
+    "status": "exited",
+    "running": false,
+    "startedAt": "2026-10-20T08:14:23.026378911Z",
+    "finishedAt": "2026-10-20T08:14:24.135930887Z",
+    "ownerNonce": "a376fe877dded63a9e8f2353459c457e"
+  },
+  "expected": {
+    "owner": "a376fe877dded63a9e8f2353459c457e",
+    "image_id": "sha256:4e32743734599c5dbfcd60a97e60804ccbb674e967ea418509f9eeedc038d8bb",
+    "arguments": [
+      "/usr/local/bin/python3.12",
+      "-I",
+      "/implementation/scripts/governed_source_inputs_bootstrap.py",
+      "--implementation-packaging-wheel",
+      "/implementation-tools/packaging-26.3-py3-none-any.whl",
+      "--action",
+      "probe",
+      "--source",
+      "/subject",
+      "--revision",
+      "5a79352066b8aa23f1bae45b5c38e6d83efd003f",
+      "--destination",
+      "/output/proposal",
+      "--runtime-policy",
+      "/implementation/scripts/development-inputs/governed-runtime.json"
+    ],
+    "mounts": [
+      [
+        "/tmp/honua-governed-inputs-qalyf0gw/implementation",
+        "/implementation",
+        true
+      ],
+      [
+        "/tmp/honua-governed-inputs-qalyf0gw/subject",
+        "/subject",
+        true
+      ],
+      [
+        "/tmp/honua-implementation-tool-wjfe_wn7/packaging-26.3-py3-none-any.whl",
+        "/implementation-tools/packaging-26.3-py3-none-any.whl",
+        true
+      ],
+      [
+        "/home/runner/work/_temp/governed-development-inputs",
+        "/output",
+        false
+      ]
+    ],
+    "user": "1001:1001",
+    "tmpfs": "/tmp:rw,exec,mode=0700,uid=1001,gid=1001"
+  }
+}

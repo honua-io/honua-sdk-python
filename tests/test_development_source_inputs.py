@@ -257,8 +257,11 @@ class DevelopmentInputsTests(unittest.TestCase):
     def test_producer_workflow_requires_string_run_values_and_block_scalars(self):
         path = Path(__file__).resolve().parents[1] / ".github/workflows/development-source-inputs.yml"
         text = path.read_text()
-        values = [line.split("run:", 1)[1].strip() for line in text.splitlines() if line.strip().startswith("run:")]
-        self.assertEqual(values, ["|", "|", "|"])
+        # Step run values use eight spaces; defaults.run is a mapping and
+        # must not be counted as an executable step or a fixed three-step tree.
+        values = [line.split("run:", 1)[1].strip() for line in text.splitlines() if line.startswith("        run:")]
+        self.assertTrue(values)
+        self.assertTrue(all(value == "|" for value in values), values)
         self.assertIn("yaml.safe_load(path.read_text())", text)
         self.assertIn("assert isinstance(step['run'], str)", text)
         self.assertIn("--require-hashes --only-binary=:all:", text)

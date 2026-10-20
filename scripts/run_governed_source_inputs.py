@@ -17,6 +17,152 @@ from urllib.request import urlopen
 
 IMAGE = 'python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea'
 REPOSITORY = 'https://github.com/honua-io/honua-sdk-python'
+ACTIONS = ('probe', 'probe-refusals', 'generate', 'verify', 'mutations')
+
+
+def action_inputs(action: str, revision: str, context: dict, policy: dict) -> tuple:
+    """Derive the fixed invocation from separately trusted execution context."""
+    if action not in ACTIONS or set(context) != {'mountSources', 'user', 'tmpfs', 'image'}:
+        raise ValueError('incomplete governed execution context')
+    binding = policy['executionBinding']
+    sources = context['mountSources']
+    if set(sources) != {'implementation', 'subject', 'tool', 'output'}:
+        raise ValueError('incomplete governed mount context')
+    if any(not isinstance(value, str) or not Path(value).is_absolute() or str(Path(value)) != value
+           for value in sources.values()) or len(set(sources.values())) != 4:
+        raise ValueError('governed mount context is not finite and absolute')
+    user = context['user']
+    parts = user.split(':') if isinstance(user, str) else []
+    if len(parts) != 2 or any(not item.isdecimal() for item in parts):
+        raise ValueError('governed execution user differs')
+    tmpfs = f'/tmp:rw,exec,mode=0700,uid={parts[0]},gid={parts[1]}'  # noqa: S108 -- fixed private container tmpfs
+    if context['tmpfs'] != tmpfs or binding['containerImage'] != IMAGE:
+        raise ValueError('governed private runtime context differs')
+    arguments = ['/usr/local/bin/python3.12', '-I', '/implementation/scripts/governed_source_inputs_bootstrap.py',
+        '--implementation-packaging-wheel', '/implementation-tools/'+binding['implementationPackagingFilename'],
+        '--action', action, '--source', '/subject', '--revision', revision, '--destination', '/output/proposal',
+        '--runtime-policy', '/implementation/scripts/development-inputs/governed-runtime.json']
+    mounts = [(sources['implementation'], '/implementation', True), (sources['subject'], '/subject', True),
+              (sources['tool'], '/implementation-tools/'+binding['implementationPackagingFilename'], True),
+              (sources['output'], '/output', False)]
+    return arguments, mounts, user, tmpfs
+
+
+def create_command(owner: str, arguments: list, mounts: list, user: str, tmpfs: str) -> list:
+    command = ['docker', 'create', '--label', 'io.honua.development-input-owner='+owner, '--read-only', '--user', user,
+               '--workdir', '/implementation', '--env', 'HOME=/tmp', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--tmpfs', tmpfs]
+    for source_path, target, readonly in mounts:
+        command.extend(['--mount', 'type=bind,src='+str(source_path)+',dst='+target+(',readonly' if readonly else '')])
+    return [*command, IMAGE, *arguments]
+
+
+def verify_execution_receipt(receipt: dict, *, implementation_sha: str, subject_sha: str, policy: dict,
+                             proposal_bytes: bytes, expected_documentation: list, execution_context: dict,
+                             original_files: dict[str, bytes]) -> dict:
+    """Rejudge public original bytes only; never run commands or grant admission.
+
+    The caller authenticates implementation, subject, expected documentation and
+    execution_context independently. None is inferred from this receipt.
+    Inner artifact verification remains mandatory in the actual original runtime.
+    """
+    binding = policy['executionBinding']
+    expected_fields = {'schema', 'implementationSha', 'subjectSourceSha', 'image', 'implementationPackaging',
+                       'commands', 'containers', 'innerProposalSha256', 'sourceAdmitted', 'candidateQualified', 'publishedWheelIdentity'}
+    if (set(receipt) != expected_fields or receipt['schema'] != 'honua.python-governed-input-execution/v1'
+            or receipt['implementationSha'] != implementation_sha or receipt['subjectSourceSha'] != subject_sha
+            or any(receipt[key] is not False for key in ('sourceAdmitted', 'candidateQualified', 'publishedWheelIdentity'))):
+        raise ValueError('governed receipt source or review-only identity differs')
+    image = execution_context['image']
+    if (set(image) != {'id', 'repoDigests', 'declaredImage'} or image['declaredImage'] != IMAGE
+            or not isinstance(image['id'], str) or len(image['id']) != 71 or not image['id'].startswith('sha256:')
+            or any(c not in '0123456789abcdef' for c in image['id'][7:])
+            or not any(item in {'python@'+IMAGE.split('@')[1], 'docker.io/library/python@'+IMAGE.split('@')[1]}
+                       for item in image['repoDigests']) or receipt['image'] != image):
+        raise ValueError('governed original image identity differs')
+    expected_tool = {'filename': binding['implementationPackagingFilename'],
+                     'sha256': binding['implementationPackagingSha256'], 'installed': False}
+    if receipt['implementationPackaging'] != expected_tool or receipt['implementationPackaging']['installed'] is not False:
+        raise ValueError('governed implementation tool identity differs')
+    if receipt['innerProposalSha256'] != hashlib.sha256(proposal_bytes).hexdigest():
+        raise ValueError('governed original inner proposal bytes differ')
+    proposal = json.loads(proposal_bytes)
+    runtime = proposal['runtime']
+    if (proposal['source']['sourceSha'] != subject_sha or proposal['implementation']['sourceSha'] != implementation_sha
+            or any(proposal[key] is not False for key in ('sourceAdmitted', 'candidateQualified', 'publishedWheelIdentity'))
+            or runtime['policySha256'] != hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()
+            or runtime['executableSha256'] != binding['pythonExecutableSha256']
+            or runtime['toolFilesSha256']['pip'] != binding['pipToolFilesSha256']
+            or any(runtime.get(key) != value for key, value in policy.items() if key != 'executionBinding')
+            or any(runtime['executionBinding'].get(key) != value for key, value in binding.items())):
+        raise ValueError('governed inner source or original runtime differs')
+    sequences = proposal['documentationSequences']
+    if (len(sequences) != len(expected_documentation) or len(expected_documentation) != 3
+            or sum(len(item['invocations']) for item in expected_documentation) != 12):
+        raise ValueError('governed documentation context census differs')
+    for sequence, expected in zip(sequences, expected_documentation, strict=True):
+        if any(sequence.get(key) != value for key, value in expected.items()) or len(sequence['steps']) != len(expected['invocations']):
+            raise ValueError('governed original documentation declarations differ')
+        for step, invocation in zip(sequence['steps'], expected['invocations'], strict=True):
+            if any(step.get(key) != value for key, value in invocation.items()):
+                raise ValueError('governed original ordered invocation differs')
+    suffixes = ('stdout', 'stderr', 'attach.json', 'container-before.json', 'container-after.json', 'cleanup-observed.json', 'cleanup.json')
+    if set(original_files) != {action+'.'+suffix for action in ACTIONS for suffix in suffixes} or any(type(value) is not bytes for value in original_files.values()):
+        raise ValueError('governed original public file census differs')
+    if (len(receipt['commands']) != len(ACTIONS) or len(receipt['containers']) != len(ACTIONS)
+            or [item.get('action') for item in receipt['commands']] != list(ACTIONS)
+            or [item.get('action') for item in receipt['containers']] != list(ACTIONS)):
+        raise ValueError('governed original action order differs')
+    ids, owners = set(), set()
+    for action, command, states in zip(ACTIONS, receipt['commands'], receipt['containers'], strict=True):
+        if set(command) != {'action', 'command', 'stdoutSha256', 'stderrSha256'} or set(states) != {'action', 'before', 'after', 'cleanup'}:
+            raise ValueError('governed action field census differs')
+        before, after, cleanup = states['before'], states['after'], states['cleanup']
+        owner, container = before['ownerNonce'], before['id']
+        if (not isinstance(owner, str) or len(owner) != 32 or any(c not in '0123456789abcdef' for c in owner)
+                or not isinstance(container, str) or len(container) != 64 or any(c not in '0123456789abcdef' for c in container)
+                or owner in owners or container in ids):
+            raise ValueError('governed original action ownership differs')
+        ids.add(container); owners.add(owner)
+        arguments, mounts, user, tmpfs = action_inputs(action, subject_sha, execution_context, policy)
+        validate = partial(validate_container, owner=owner, image_id=image['id'], arguments=arguments, mounts=mounts, user=user, tmpfs=tmpfs)
+        for observed in (before, after, cleanup['originalState']):
+            if set(observed) != {'id', 'imageId', 'declaredImage', 'path', 'args', 'user', 'readonlyRootfs', 'mounts',
+                                 'tmpfs', 'exitCode', 'status', 'running', 'startedAt', 'finishedAt', 'ownerNonce'}:
+                raise ValueError('governed safe daemon projection census differs')
+            validate(observed, container)
+        if (before['status'] != 'created' or before['running'] is not False or not before['startedAt'].startswith('0001-')
+                or not before['finishedAt'].startswith('0001-') or not exited(after) or after['exitCode'] != 0
+                or cleanup != {'ownedContainerId': container, 'ownerNonce': owner, 'originalState': after, 'removed': True, 'sourceAdmitted': False}
+                or cleanup['removed'] is not True or cleanup['sourceAdmitted'] is not False
+                or command['command'] != create_command(owner, arguments, mounts, user, tmpfs)):
+            raise ValueError('governed action terminal state or normal owned cleanup differs')
+        originals = {suffix: original_files[action+'.'+suffix] for suffix in suffixes}
+        if (json.loads(originals['container-before.json']) != before or json.loads(originals['container-after.json']) != after
+                or json.loads(originals['cleanup-observed.json']) != after or json.loads(originals['cleanup.json']) != cleanup
+                or json.loads(originals['attach.json']) != {'returnCode': 0, 'sourceAdmitted': False}
+                or type(json.loads(originals['attach.json'])['returnCode']) is not int
+                or json.loads(originals['attach.json'])['sourceAdmitted'] is not False
+                or any(command[label+'Sha256'] != hashlib.sha256(originals[label]).hexdigest() for label in ('stdout', 'stderr'))):
+            raise ValueError('governed original action streams or state bytes differ')
+        if action == 'probe' and json.loads(originals['stdout']) != runtime:
+            raise ValueError('governed original probe runtime differs')
+        if action in ('generate', 'verify') and originals['stdout'] != b'':
+            raise ValueError('governed original producer output differs')
+        if action == 'probe-refusals' and json.loads(originals['stdout']) != {
+                'actualRefusals': ['wheel-bytes', 'wheel-name', 'image', 'interpreter', 'pip', 'pip-entrypoint', 'wheel-policy'],
+                'sourceAdmitted': False, 'candidateQualified': False}:
+            raise ValueError('governed original runtime refusals differ')
+        if action == 'mutations' and json.loads(originals['stdout']) != {
+                'completeOriginalPositive': 'PASS', 'mutationsRejected': ['context-loss', 'step-loss', 'step-reorder',
+                    'ordinal', 'command', 'block', 'extras-superset', 'editable', 'source-before', 'source-resolved',
+                    'source-after', 'installed-before', 'installed-after', 'derived-command', 'install-command',
+                    'raw-report', 'backend-command', 'editable-identity', 'published', 'admitted', 'candidate'],
+                'sourceAdmitted': False, 'candidateQualified': False, 'publishedWheelIdentity': False}:
+            raise ValueError('governed original complete-proposal controls differ')
+    return {'implementationSha': implementation_sha, 'subjectSourceSha': subject_sha,
+            'innerProposalSha256': receipt['innerProposalSha256'], 'actions': list(ACTIONS),
+            'innerArtifactVerificationRequired': True,
+            'sourceAdmitted': False, 'candidateQualified': False, 'publishedWheelIdentity': False}
 
 
 def run(command: list[str]) -> bytes:
@@ -145,20 +291,13 @@ def execute(implementation: Path, subject: Path, revision: str, destination: Pat
         producer_copy,subject_copy = scratch/'implementation',scratch/'subject'
         clone(implementation,producer_copy,implementation_sha)
         clone(subject,subject_copy,revision)
-        for action in ('probe','probe-refusals','generate','verify','mutations'):
-            arguments = ['/usr/local/bin/python3.12','-I','/implementation/scripts/governed_source_inputs_bootstrap.py',
-                '--implementation-packaging-wheel','/implementation-tools/'+wheel.name,'--action',action,
-                '--source','/subject','--revision',revision,'--destination','/output/proposal',
-                '--runtime-policy','/implementation/scripts/development-inputs/governed-runtime.json']
-            mounts = [(producer_copy,'/implementation',True),(subject_copy,'/subject',True),(wheel,'/implementation-tools/'+wheel.name,True),(destination,'/output',False)]
+        context = {'mountSources': {'implementation': str(producer_copy), 'subject': str(subject_copy),
+                   'tool': str(wheel), 'output': str(destination)}, 'user': str(os.getuid())+':'+str(os.getgid()),
+                   'tmpfs': f'/tmp:rw,exec,mode=0700,uid={os.getuid()},gid={os.getgid()}', 'image': image_receipt}  # noqa: S108 -- private tmpfs
+        for action in ACTIONS:
+            arguments, mounts, user, tmpfs = action_inputs(action, revision, context, policy)
             owner = secrets.token_hex(16)
-            user = str(os.getuid())+':'+str(os.getgid())
-            tmpfs = f'/tmp:rw,exec,mode=0700,uid={os.getuid()},gid={os.getgid()}'  # noqa: S108 -- owned private container tmpfs
-            command = ['docker','create','--label','io.honua.development-input-owner='+owner,'--read-only','--user',user,
-                       '--workdir','/implementation','--env','HOME=/tmp','--env','PYTHONDONTWRITEBYTECODE=1','--tmpfs',tmpfs]
-            for source_path,target,readonly in mounts:
-                command.extend(['--mount','type=bind,src='+str(source_path)+',dst='+target+(',readonly' if readonly else '')])
-            command.extend([IMAGE,*arguments])
+            command = create_command(owner, arguments, mounts, user, tmpfs)
             validate = partial(validate_container,owner=owner,image_id=image['Id'],arguments=arguments,mounts=mounts,user=user,tmpfs=tmpfs)
             try:
                 container = run(command).decode().strip()
@@ -185,7 +324,9 @@ def execute(implementation: Path, subject: Path, revision: str, destination: Pat
             shutil.rmtree(scratch)
     receipt = {'schema':'honua.python-governed-input-execution/v1','implementationSha':implementation_sha,
         'subjectSourceSha':revision,'image':image_receipt,'implementationPackaging':{'filename':wheel.name,'sha256':hashlib.sha256(wheel.read_bytes()).hexdigest(),'installed':False},
-        'commands':commands,'containers':containers,'sourceAdmitted':False,'candidateQualified':False,'publishedWheelIdentity':False}
+        'commands':commands,'containers':containers,
+        'innerProposalSha256':hashlib.sha256((destination/'proposal/proposal.json').read_bytes()).hexdigest(),
+        'sourceAdmitted':False,'candidateQualified':False,'publishedWheelIdentity':False}
     (destination/'execution.json').write_text(json.dumps(receipt,indent=2)+'\n')
     return receipt
 

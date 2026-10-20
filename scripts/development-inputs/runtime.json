@@ -1,0 +1,9 @@
+{
+  "schema": "honua.python-development-runtime/v1",
+  "python": "3.12.3",
+  "implementation": "CPython",
+  "system": "Linux",
+  "machine": "x86_64",
+  "pip": "26.2.1",
+  "packaging": "26.3"
+}

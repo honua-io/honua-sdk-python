@@ -459,17 +459,24 @@ class DevelopmentInputsTests(unittest.TestCase):
                 (output / "verified-source.py").write_bytes(members["finite_probe.py"])
                 (output / "diagnostic.json").write_text(json.dumps(diagnostic, indent=2) + "\n")
             raise
-        for mutation in ("extra", "cache", "script", "record", "installer"):
+        for mutation in ("extra", "cache", "cache-code", "cache-filename", "script", "record", "installer"):
             value = deepcopy(observed)
             if mutation == "extra":
                 value["files"]["unmodeled.py"] = inputs.digest(b"EXTRA=True\n")
                 value["sizes"]["unmodeled.py"] = 11
             else:
                 key = next(k for k in value["generated"] if
-                           (k.endswith(".pyc") if mutation == "cache" else
+                           (k.endswith(".pyc") if mutation.startswith("cache") else
                             k.startswith("../") if mutation == "script" else
                             k.endswith("/RECORD") if mutation == "record" else k.endswith("/INSTALLER")))
-                data = base64.b64decode(value["generated"][key]) + b"MUTATION"
+                data = base64.b64decode(value["generated"][key])
+                if mutation in ("cache-code", "cache-filename"):
+                    filename = str(Path(observed["sitePackages"]) / "finite_probe.py")
+                    content = members["finite_probe.py"].replace(b"return 0", b"return 1") if mutation == "cache-code" else members["finite_probe.py"]
+                    code = compile(content, filename + (".foreign" if mutation == "cache-filename" else ""), "exec", dont_inherit=True, optimize=0)
+                    data = data[:16] + marshal.dumps(code)
+                else:
+                    data += b"MUTATION"
                 value["generated"][key] = base64.b64encode(data).decode()
                 value["files"][key] = inputs.digest(data)
                 value["sizes"][key] = len(data)

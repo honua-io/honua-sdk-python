@@ -50,16 +50,19 @@ pip install "honua-sdk[grpc,geopandas,raster]"    # + optional extras
 pip install honua-admin                           # control-plane (admin) client
 ```
 
-For development, install from a source checkout instead:
+The commands above are the release install. They use the configured package
+index and version constraints and leave the admitted published package in place.
 
-These commands install the checkout's version into the current Python environment
-and can replace packages installed from PyPI above. Choose this path for source
-development, rather than running it after the published install to verify a
-release. A clone without a revision follows the repository's current default
-branch; it does not select the source revision of this document or a released
-package. Source installation still requires compatible dependencies and build
-tooling.
+A source checkout is a separate development environment, not the next step
+after that install. The commands below install the checkout's version into the
+current environment and replace the published package. An unqualified clone
+follows the default branch, not this document's revision and not the published
+artifact. Release qualification refuses every direct-origin install, including
+one whose version string matches the admitted package. A successful source
+build does not establish published wheel identity. Use a separate environment
+for that work; the contributor setup is also in [AGENTS.md](AGENTS.md).
 
+<!-- doc-run: skip reason="Development source install replaces the admitted published package. Release qualification refuses direct-origin installs even when the version matches." -->
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git
 cd honua-sdk-python
@@ -283,11 +286,14 @@ at [honua.io](https://honua.io) and
 
 ## Development
 
-Run these from a clone of this repository (see [Install](#install)). Besides
-Python 3.11+, the test suite needs Node.js with `node` on `PATH`: the `honua`
-CLI forwards `honua admin ...` to the JavaScript CLI, and `tests/test_cli.py`
-checks that forwarding.
+Lint, type-check, and tests run from a clone. Besides Python 3.11+, the test
+suite needs Node.js with `node` on `PATH`: the `honua` CLI forwards
+`honua admin ...` to the JavaScript CLI, and `tests/test_cli.py` checks that
+forwarding. The editable installs below replace the published package, so they
+belong in a development environment, not in the environment used to verify a
+release. The same contributor setup is in [AGENTS.md](AGENTS.md).
 
+<!-- doc-run: skip reason="Editable source install replaces the admitted published package. Release qualification refuses direct-origin installs even when the version matches." -->
 ```bash
 # Editable install of both packages with extras
 pip install -e "packages/honua-sdk[grpc,geopandas]"

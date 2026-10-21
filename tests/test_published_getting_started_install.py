@@ -55,14 +55,15 @@ def test_release_install_fences_use_the_published_package() -> None:
 
 def test_source_checkout_fences_stay_captured_and_are_not_release_steps() -> None:
     source = {"files": {name: {"gitBlob": "0" * 40} for name in DOCUMENTS}}
+    # plan() reads with the platform default encoding. Match that text so a
+    # Windows decode of the em dash does not look like a different fence.
+    texts = {name: (ROOT / name).read_text() for name in DOCUMENTS}
     planned = documentation.plan(inputs, ROOT, source)
     by_document: dict[str, int] = {}
     for item in planned:
         by_document[item["document"]] = by_document.get(item["document"], 0) + 1
-        text = (ROOT / item["document"]).read_text(encoding="utf-8")
-        fences = [code for info, _preceding, code in _release_fences(text) if code == item["blockBytes"]]
-        assert fences, item["document"]
-        preceding = next(preceding for _info, preceding, code in _release_fences(text) if code == item["blockBytes"])
-        assert SKIP.search(preceding), item["document"]
+        matched = [row for row in _release_fences(texts[item["document"]]) if row[2] == item["blockBytes"]]
+        assert matched, item["document"]
+        assert SKIP.search(matched[0][1]), item["document"]
     assert by_document["INSTALL.md"] >= 1
     assert by_document["README.md"] >= 2

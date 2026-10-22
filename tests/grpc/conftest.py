@@ -12,8 +12,8 @@ from urllib.request import urlopen
 
 import pytest
 
-SERVER_REVISION = "ff5f5671903e96e13cffac7b73546c3ed0f853c5"
-SERVER_IMAGE = "ghcr.io/honua-io/honua-server:nightly-ff5f567@sha256:3ef3bd41a2f84d1f3a6194c11db496f741cc4d869b54bf57e9d7067dd9cf3d39"
+SERVER_REVISION = "0e03bdd06b3ca3fb1b82388110bb5dfa19b9f8fa"
+SERVER_IMAGE = "ghcr.io/honua-io/honua-server:nightly-0e03bdd@sha256:dcf3296f17a456a876c23133fae50b5b32628d4ec710e8bdab58f57d2394d750"
 
 
 def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool:

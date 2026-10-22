@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
           python -m pip install --no-deps --no-build-isolation ./packages/honua-sdk
-      - name: Verify gRPC against pinned nightly-ff5f567 server
+      - name: Verify gRPC against the manifest candidate server (0e03bdd)
         run: python -m pytest tests/grpc -q --run-integration --tb=short
 
   lint:

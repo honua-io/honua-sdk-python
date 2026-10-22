@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.17...python-sdk-v0.1.18) (2026-10-22)
+
+
+### Bug Fixes
+
+* **ogc:** resolve pagination next links against the final response URL ([#304](https://github.com/honua-io/honua-sdk-python/issues/304)) ([05bbf00](https://github.com/honua-io/honua-sdk-python/commit/05bbf004700d4097c2331f1414b5a47ed3611d5c))
+
 ## [0.1.17](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.16...python-sdk-v0.1.17) (2026-10-18)
 
 

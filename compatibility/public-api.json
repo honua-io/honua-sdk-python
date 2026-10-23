@@ -1094,6 +1094,7 @@
             },
             {
               "annotation": "int | None",
+              "default": "None",
               "name": "max_length"
             }
           ],
@@ -1106,7 +1107,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "ColumnInfo",
-          "signature": "(name: 'str', data_type: 'str', is_nullable: 'bool', is_primary_key: 'bool', max_length: 'int | None') -> None"
+          "signature": "(name: 'str', data_type: 'str', is_nullable: 'bool', is_primary_key: 'bool', max_length: 'int | None' = None) -> None"
         },
         "ConnectionTestResult": {
           "fields": [
@@ -3951,22 +3952,27 @@
             },
             {
               "annotation": "str | None",
+              "default": "None",
               "name": "geometry_column"
             },
             {
               "annotation": "str | None",
+              "default": "None",
               "name": "geometry_type"
             },
             {
               "annotation": "int | None",
+              "default": "None",
               "name": "srid"
             },
             {
               "annotation": "int | None",
+              "default": "None",
               "name": "estimated_rows"
             },
             {
               "annotation": "list[ColumnInfo]",
+              "defaultFactory": "list",
               "name": "columns"
             }
           ],
@@ -3979,7 +3985,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "TableInfo",
-          "signature": "(schema: 'str', table: 'str', geometry_column: 'str | None', geometry_type: 'str | None', srid: 'int | None', estimated_rows: 'int | None', columns: 'list[ColumnInfo]') -> None"
+          "signature": "(schema: 'str', table: 'str', geometry_column: 'str | None' = None, geometry_type: 'str | None' = None, srid: 'int | None' = None, estimated_rows: 'int | None' = None, columns: 'list[ColumnInfo]' = <factory>) -> None"
         },
         "TimeInfoResponse": {
           "fields": [

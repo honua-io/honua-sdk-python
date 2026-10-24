@@ -4560,6 +4560,9 @@
               "kind": "method",
               "signature": "(self) -> \"'AsyncHonuaGeoprocessing'\""
             },
+            "gp": {
+              "kind": "property"
+            },
             "grpc": {
               "kind": "method",
               "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcAsyncClient'\""
@@ -5454,6 +5457,9 @@
             "geoprocessing": {
               "kind": "method",
               "signature": "(self) -> \"'HonuaGeoprocessing'\""
+            },
+            "gp": {
+              "kind": "property"
             },
             "grpc": {
               "kind": "method",

@@ -33,9 +33,15 @@ Commands
     Emit or read-only replay a canonical, sanitized diagnostic bundle for local
     support review. It never uploads or persists raw HTTP traffic.
 
+``honua gp inspect|logs``
+    Read one ``honua.job-diagnostics/v1`` projection. A local receipt directory
+    is formatted offline. A remote job id uses the configured endpoint and
+    current credentials. These commands do not require the devkit.
+
 ``honua gp``
-    Invoke the separately installed ``honua-gp-devkit`` developer tool. This
-    explicit local CLI path does not change server SDK submission or routing.
+    Invoke the separately installed ``honua-gp-devkit`` developer tool for
+    every other GP command. This explicit local CLI path does not change
+    server SDK submission or routing.
 
 ``honua datasource | layer | proposal``
     The operator workflow from ``honua-admin`` (``pip install honua-admin``):
@@ -81,6 +87,7 @@ from .diagnostics import (
     replay_diagnostic_bundle,
 )
 from .errors import HonuaError
+from .gp_diagnostics import run_gp_diagnostics_command
 
 if TYPE_CHECKING:
     from .models import ServiceSummary
@@ -404,7 +411,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"honua {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
-    subparsers.add_parser("gp", help="Run the separately installed local GP devkit.")
+    subparsers.add_parser(
+        "gp",
+        help="Inspect a job projection, or run the separately installed local GP devkit.",
+    )
 
     # honua services
     services = subparsers.add_parser(
@@ -636,6 +646,13 @@ def _delegate_gp(argv: Sequence[str], runner: Any = None) -> int:
     return 127  # pragma: no cover — execv does not return
 
 
+def _dispatch_gp(argv: Sequence[str]) -> int:
+    """Read job diagnostics here; forward every other ``honua gp`` command."""
+    if list(argv[:1]) in (["inspect"], ["logs"]):
+        return run_gp_diagnostics_command(argv, client_factory=_make_client)
+    return _delegate_gp(argv)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for the ``honua`` console script.
 
@@ -647,7 +664,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     forwarded = list(sys.argv[1:] if argv is None else argv)
     if forwarded[:1] == ["gp"]:
-        return _delegate_gp(forwarded[1:])
+        return _dispatch_gp(forwarded[1:])
     use_control_plane = forwarded[:1] == ["admin"] or (
         argv is None and os.environ.get("HONUA_PYTHON_CLI") != "1" and _control_plane_cli() is not None
     )

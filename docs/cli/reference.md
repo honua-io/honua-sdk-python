@@ -19,6 +19,10 @@ own. The explicit `gp` command invokes a separate local developer tool.
 | `0` | Success. |
 | `1` | The server or transport refused the call. stderr carries `error: HTTP <status>: <message>`, for example `HTTP 403` for a self-approval or `HTTP 404` for a disabled layer. Also returned when `datasource test` reports an unhealthy connection, or when `proposal read --wait` times out. |
 | `2` | Usage error: a missing argument, a bad `--body` file, or a group given without a subcommand. |
+| `3` | `gp inspect` / `gp logs` only: unauthorized (HTTP 401 or 403). This is not a missing job and not missing evidence. |
+| `4` | `gp inspect` / `gp logs` only: the job was not found (HTTP 404). |
+| `5` | `gp inspect` / `gp logs` only: retained evidence expired (HTTP 410, or the server said it expired). |
+| `6` | `gp inspect` / `gp logs` only: a log stream started and was interrupted before a truthful end. |
 
 With `--json`, a command prints the server-shaped result (camelCase keys) on
 stdout: an object for a single record, or an array for a listing. Without
@@ -41,6 +45,37 @@ Arguments and output pass through to the engine, including repeated `--param`
 values. The engine owns its exit codes; failure to launch it returns `127`.
 No server URL is needed for these local commands. `honua doctor` remains the
 separate support-bundle command.
+
+## Diagnose a GP job
+
+`honua gp inspect` and `honua gp logs` are handled by this SDK before that
+devkit fallback. They read the canonical `honua.job-diagnostics/v1` projection
+(`GET /api/v1/admin/jobs/{jobId}/diagnostics`). They do not require
+`HONUA_GP_CLI` or a server source checkout.
+
+```bash
+honua gp inspect JOB_ID --base-url https://example.test
+honua gp inspect JOB_ID --json
+honua gp logs JOB_ID --events 100
+honua gp inspect .honua/runs/RUN_ID
+```
+
+Pass a local receipt directory (the folder that contains `receipt.json` and
+`events.jsonl`) to format it with the same code and make no network or
+credential read. A remote job id uses `--base-url` / `HONUA_BASE_URL` and
+`--api-key` / `HONUA_API_KEY`.
+
+Human inspect output leads with the failing phase, the attempt, and a next
+action that follows `failure.recovery` or the recorded retry disposition.
+`--json` prints that projection only, with no progress prose on stdout. Logs
+print bounded event pages (`--events`, default 50, maximum 500) and disclose
+truncation. `events.firstCursor`, `events.nextCursor`, `events.truncated`, and
+`evidence.missing` / `evidence.truncated` are kept. An owner view stays an
+owner view; a 403 is unauthorized, not missing evidence. Secrets are redacted
+from command output and are not written to logs.
+
+An installed published CLI inspecting a live successful and intentionally
+failed candidate job is not claimed here. That journey remains outstanding.
 
 This developer tool does not add a local backend selector to SDK server
 submissions. Server-side untrusted custom code retains its AWS Batch isolation

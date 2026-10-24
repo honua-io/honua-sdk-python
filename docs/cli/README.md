@@ -27,4 +27,5 @@ pip install honua-sdk honua-admin
 - [Command reference](reference.md): every command, its options, its JSON
   output and its exit codes.
 - [Collect a support bundle](../diagnostic-bundles.md): `honua doctor`.
-- [Local GP development](reference.md#local-gp-development): `honua gp` delegates to the separately installed devkit.
+- [Local GP development](reference.md#local-gp-development): other `honua gp` commands delegate to the separately installed devkit.
+- [Diagnose a GP job](reference.md#diagnose-a-gp-job): `honua gp inspect` and `honua gp logs` read `honua.job-diagnostics/v1`.

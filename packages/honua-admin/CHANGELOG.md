@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.13](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.12...python-admin-v0.1.13) (2026-10-24)
+
+
+### Bug Fixes
+
+* **admin:** decode table discovery when maxLength is omitted ([#317](https://github.com/honua-io/honua-sdk-python/issues/317)) ([32684c6](https://github.com/honua-io/honua-sdk-python/commit/32684c6976f53a08d4f6566f2ae8726de1040362))
+* **admin:** derive the runtime server floor from the capability baseline ([#321](https://github.com/honua-io/honua-sdk-python/issues/321)) ([b795f53](https://github.com/honua-io/honua-sdk-python/commit/b795f5304f796967241164756264c2e39fe5c66a))
+
 ## [0.1.12](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.11...python-admin-v0.1.12) (2026-10-11)
 
 

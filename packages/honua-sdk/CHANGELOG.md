@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.19](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.18...python-sdk-v0.1.19) (2026-10-24)
+
+
+### Features
+
+* **cli:** read GP job diagnostics for inspect and logs ([#319](https://github.com/honua-io/honua-sdk-python/issues/319)) ([ea4f9b2](https://github.com/honua-io/honua-sdk-python/commit/ea4f9b2ce045a564af1a2c753b20d000dece00da)), closes [#301](https://github.com/honua-io/honua-sdk-python/issues/301)
+
 ## [0.1.18](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.17...python-sdk-v0.1.18) (2026-10-22)
 
 

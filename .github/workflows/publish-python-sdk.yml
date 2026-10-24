@@ -402,7 +402,7 @@ jobs:
           persist-credentials: false
 
       - name: Download verified SDK artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-sdk-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -437,7 +437,7 @@ jobs:
       id-token: write
     steps:
       - name: Download verified SDK artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-sdk-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -477,7 +477,7 @@ jobs:
 
       - name: Download verified SDK artifact
         if: needs.resolve-publish-targets.outputs.publish == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-sdk-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -504,7 +504,7 @@ jobs:
       contents: write
     steps:
       - name: Download verified SDK artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-sdk-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -748,7 +748,7 @@ jobs:
           persist-credentials: false
 
       - name: Download verified admin artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-admin-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -785,7 +785,7 @@ jobs:
       id-token: write
     steps:
       - name: Download verified admin artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-admin-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -830,7 +830,7 @@ jobs:
 
       - name: Download verified admin artifact
         if: needs.resolve-publish-targets.outputs.publish == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-admin-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact
@@ -857,7 +857,7 @@ jobs:
       contents: write
     steps:
       - name: Download verified admin artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-admin-dist-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifact

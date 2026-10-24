@@ -1413,6 +1413,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnose-a-gp-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnose a GP job
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#connection-options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1524,6 +1535,22 @@ own. The explicit <code>gp</code> command invokes a separate local developer too
 <td><code>2</code></td>
 <td>Usage error: a missing argument, a bad <code>--body</code> file, or a group given without a subcommand.</td>
 </tr>
+<tr>
+<td><code>3</code></td>
+<td><code>gp inspect</code> / <code>gp logs</code> only: unauthorized (HTTP 401 or 403). This is not a missing job and not missing evidence.</td>
+</tr>
+<tr>
+<td><code>4</code></td>
+<td><code>gp inspect</code> / <code>gp logs</code> only: the job was not found (HTTP 404).</td>
+</tr>
+<tr>
+<td><code>5</code></td>
+<td><code>gp inspect</code> / <code>gp logs</code> only: retained evidence expired (HTTP 410, or the server said it expired).</td>
+</tr>
+<tr>
+<td><code>6</code></td>
+<td><code>gp inspect</code> / <code>gp logs</code> only: a log stream started and was interrupted before a truthful end.</td>
+</tr>
 </tbody>
 </table>
 <p>With <code>--json</code>, a command prints the server-shaped result (camelCase keys) on
@@ -1542,6 +1569,30 @@ honua<span class="w"> </span>gp<span class="w"> </span>describe<span class="w"> 
 values. The engine owns its exit codes; failure to launch it returns <code>127</code>.
 No server URL is needed for these local commands. <code>honua doctor</code> remains the
 separate support-bundle command.</p>
+<h2 id="diagnose-a-gp-job">Diagnose a GP job<a class="headerlink" href="#diagnose-a-gp-job" title="Permanent link">&para;</a></h2>
+<p><code>honua gp inspect</code> and <code>honua gp logs</code> are handled by this SDK before that
+devkit fallback. They read the canonical <code>honua.job-diagnostics/v1</code> projection
+(<code>GET /api/v1/admin/jobs/{jobId}/diagnostics</code>). They do not require
+<code>HONUA_GP_CLI</code> or a server source checkout.</p>
+<div class="highlight"><pre><span></span><code>honua<span class="w"> </span>gp<span class="w"> </span>inspect<span class="w"> </span>JOB_ID<span class="w"> </span>--base-url<span class="w"> </span>https://example.test
+honua<span class="w"> </span>gp<span class="w"> </span>inspect<span class="w"> </span>JOB_ID<span class="w"> </span>--json
+honua<span class="w"> </span>gp<span class="w"> </span>logs<span class="w"> </span>JOB_ID<span class="w"> </span>--events<span class="w"> </span><span class="m">100</span>
+honua<span class="w"> </span>gp<span class="w"> </span>inspect<span class="w"> </span>.honua/runs/RUN_ID
+</code></pre></div>
+<p>Pass a local receipt directory (the folder that contains <code>receipt.json</code> and
+<code>events.jsonl</code>) to format it with the same code and make no network or
+credential read. A remote job id uses <code>--base-url</code> / <code>HONUA_BASE_URL</code> and
+<code>--api-key</code> / <code>HONUA_API_KEY</code>.</p>
+<p>Human inspect output leads with the failing phase, the attempt, and a next
+action that follows <code>failure.recovery</code> or the recorded retry disposition.
+<code>--json</code> prints that projection only, with no progress prose on stdout. Logs
+print bounded event pages (<code>--events</code>, default 50, maximum 500) and disclose
+truncation. <code>events.firstCursor</code>, <code>events.nextCursor</code>, <code>events.truncated</code>, and
+<code>evidence.missing</code> / <code>evidence.truncated</code> are kept. An owner view stays an
+owner view; a 403 is unauthorized, not missing evidence. Secrets are redacted
+from command output and are not written to logs.</p>
+<p>An installed published CLI inspecting a live successful and intentionally
+failed candidate job is not claimed here. That journey remains outstanding.</p>
 <p>This developer tool does not add a local backend selector to SDK server
 submissions. Server-side untrusted custom code retains its AWS Batch isolation
 policy. The existing proprietary <code>honua-gp</code> ArcPy compatibility executable is

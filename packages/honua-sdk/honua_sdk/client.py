@@ -66,6 +66,7 @@ if TYPE_CHECKING:
     from .auth import AuthProvider
     from .geocoding import HonuaGeocodingClient
     from .geoprocessing import HonuaGeoprocessing
+    from .gp_diagnostics import GpDiagnostics
     from .grpc import HonuaGrpcClient
     from .models import SourceDescriptor
     from .ogc import HonuaOgcFeatures
@@ -693,6 +694,17 @@ class HonuaClient:
         from .protocols import OgcRecordsClient
 
         return OgcRecordsClient(self)
+
+    @property
+    def gp(self) -> "GpDiagnostics":
+        """Return the job diagnostics client for ``honua.job-diagnostics/v1``.
+
+        ``diagnostics`` reads ``GET /api/v1/admin/jobs/{jobId}/diagnostics``.
+        Each page keeps cursors, truncation, and missing-evidence markers.
+        """
+        from .gp_diagnostics import GpDiagnostics
+
+        return GpDiagnostics(self)
 
     def geoprocessing(self) -> "HonuaGeoprocessing":
         """Return a geoprocessing (OGC API Processes) client.

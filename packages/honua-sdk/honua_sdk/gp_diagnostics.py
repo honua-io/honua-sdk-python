@@ -146,9 +146,12 @@ def format_event_line(entry: LogEntryView) -> str:
 
 
 def log_disclosure_lines(pages: Sequence[JobDiagnostics]) -> tuple[str, ...]:
-    """Disclosure lines for truncation and the cursors that keep paging honest."""
+    """Disclosure lines for truncation, missing evidence, and paging cursors."""
     lines: list[str] = []
+    missing: list[str] = []
     for page in pages:
+        for item in page.evidence.missing:
+            _append_unique(missing, item)
         for item in page.evidence.truncated:
             _append_unique(lines, f"truncated: {item}")
         bits: list[str] = []
@@ -158,6 +161,7 @@ def log_disclosure_lines(pages: Sequence[JobDiagnostics]) -> tuple[str, ...]:
             bits.append(f"nextCursor={page.events.next_cursor}")
         if page.events.truncated and bits:
             _append_unique(lines, "truncated: " + ", ".join(bits))
+    lines.extend(_marker_block("missing evidence", missing))
     return tuple(lines)
 
 
@@ -666,14 +670,14 @@ def _stream_logs(
                 _write_log_page(page, secrets, stdout)
             else:
                 for entry in page.events.items:
-                    stdout.write(format_event_line(entry) + "\n")
+                    stdout.write(redact_secrets(format_event_line(entry), secrets) + "\n")
     except Exception as exc:
         code, line = diagnostics_failure(exc, stream_started=bool(pages), secrets=secrets)
         stderr.write(line)
         return code
     if not args.json:
         for line in log_disclosure_lines(pages):
-            stdout.write(line + "\n")
+            stdout.write(redact_secrets(line, secrets) + "\n")
     return EXIT_OK
 
 

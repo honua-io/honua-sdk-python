@@ -602,6 +602,75 @@ def test_logs_json_keeps_page_cursors_without_prose(
     assert decoded[1]["evidence"]["truncated"][0].startswith("events:")
 
 
+def test_human_logs_redact_remote_event_and_disclosure_text(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    secret = "leaked-secret"
+    api_key = "caller-api-key-9f3c"
+    document = _projection(
+        events={
+            "state": "available",
+            "items": [_event(f"token={secret} {api_key}")],
+            "totalCount": 1,
+            "limit": 1,
+            "firstCursor": "start",
+            "mode": "page",
+            "truncated": False,
+        },
+        evidence={
+            "missing": [f"journal retained token={secret}"],
+            "truncated": [f"note {api_key}"],
+            "notes": [],
+        },
+    )
+    document["events"].pop("nextCursor", None)
+
+    monkeypatch.setattr(
+        cli,
+        "_make_client",
+        lambda _args: _client(lambda _request: httpx.Response(200, json=document), api_key=api_key),
+    )
+    code = cli.main(["gp", "logs", "job-1", "--base-url", "http://example.test", "--api-key", api_key])
+    output = capsys.readouterr().out
+    assert code == 0
+    assert secret not in output
+    assert api_key not in output
+    assert "[REDACTED]" in output
+    assert "token=[REDACTED]" in output
+
+
+def test_human_logs_disclose_missing_evidence_when_no_events_remain(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    explanation = "journal: events.jsonl is missing; no retained events were available"
+    document = _projection(
+        events={
+            "state": "unavailable",
+            "items": [],
+            "totalCount": 0,
+            "limit": 1,
+            "mode": "page",
+            "truncated": False,
+        },
+        evidence={
+            "missing": [explanation],
+            "truncated": [],
+            "notes": [],
+        },
+    )
+    document["events"].pop("nextCursor", None)
+    document["events"].pop("firstCursor", None)
+
+    monkeypatch.setattr(cli, "_make_client", lambda _args: _client(lambda _request: httpx.Response(200, json=document)))
+    code = cli.main(["gp", "logs", "job-1", "--base-url", "http://example.test"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert captured.out.strip()
+    assert explanation in captured.out
+    assert "missing evidence" in captured.out
+    assert captured.err == ""
+
+
 def test_403_is_unauthorized_not_missing_evidence(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
 ) -> None:

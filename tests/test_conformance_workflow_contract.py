@@ -34,8 +34,8 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     assert "pip install --upgrade" not in workflow
 
     assert "if: ${{ github.event_name != 'pull_request' }}" in workflow
-    assert 'HONUA_SDK_PUBLIC_VERSION: "0.1.16"' in workflow
-    assert 'HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.16-py3-none-any.whl"' in workflow
+    assert 'HONUA_SDK_PUBLIC_VERSION: "0.1.18"' in workflow
+    assert 'HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.18-py3-none-any.whl"' in workflow
     assert "python -m pip download" in workflow
     assert '"honua-sdk==${HONUA_SDK_PUBLIC_VERSION}"' in workflow
     assert "--only-binary=:all:" in workflow
@@ -53,8 +53,8 @@ def test_grpc_listener_is_published_from_the_same_candidate_container():
     assert 'port honua 5001' in workflow
     assert 'HONUA_GRPC_TARGET=localhost:${grpc_port##*:}' in workflow
     assert 'image_revision}" != "${seed_revision}' in workflow
-    assert 'HONUA_SDK_PUBLIC_SOURCE_SHA: "5a79352066b8aa23f1bae45b5c38e6d83efd003f"' in workflow
-    assert 'b0520257e5cd3d323ece4cca183971a4480214406582b9b3aad1a713557aa5fc' in workflow
+    assert 'HONUA_SDK_PUBLIC_SOURCE_SHA: "361978e86e816a35d93ee527b029a0c8f6e97efa"' in workflow
+    assert '11d5c0074a8c3065b2ca2777a33efab6672dd1f03e0d664abc5f9f964727b033' in workflow
 
 
 def test_explicitly_requested_certification_does_not_skip_missing_prerequisites():

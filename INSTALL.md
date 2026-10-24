@@ -27,8 +27,19 @@ pip install "honua-sdk[grpc,geopandas,raster]"
 pip install honua-admin
 ```
 
-For unreleased development work, install from a clone instead:
+The commands above are the release install. They use the configured package
+index and version constraints and leave the admitted published package in place.
 
+For unreleased development work, install from a clone in a separate
+environment instead. This is not the next release-install step. The commands
+below install the checkout's version into the current environment and replace
+published packages. An unqualified clone follows the current default branch,
+which may contain a newer version than the release you are verifying. Release
+qualification refuses every direct-origin install, including one whose version
+string matches the admitted package. A successful source build does not
+establish that those package artifacts work.
+
+<!-- doc-run: skip reason="Development source install replaces the admitted published package. Release qualification refuses direct-origin installs even when the version matches." -->
 ```bash
 git clone https://github.com/honua-io/honua-sdk-python.git
 cd honua-sdk-python

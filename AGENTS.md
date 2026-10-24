@@ -230,9 +230,11 @@ pyproject.toml                   # shared tool config ONLY (not installable)
   server processes** (`EXECUTABLE_PROCESS_IDS`); anything unrecognized is emitted as
   `manual-review`, never an auto-submitted custom-code job. Do not add a
   local server-job execution path or a `customcode`/backend-selection submission
-  helper here. The explicit `honua gp` developer CLI delegates to a separately
-  installed trusted local devkit, per ADR-0063's local-authoring clarification;
-  it never changes SDK server submission or workload routing.
+  helper here. `honua gp inspect` and `honua gp logs` read the canonical
+  job diagnostics projection in this SDK. Every other `honua gp` command
+  delegates to a separately installed trusted local devkit, per ADR-0063's
+  local-authoring clarification; it never changes SDK server submission or
+  workload routing.
   `tests/test_custom_code_batch_only_policy.py` is a tripwire that
   fails if such a surface is introduced.
 - CI runs on the `trunk` branch (lint, typecheck, test matrix, compatibility,

@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from .async_geocoding import AsyncHonuaGeocodingClient
     from .auth import AuthProvider
     from .geoprocessing import AsyncHonuaGeoprocessing
+    from .gp_diagnostics import AsyncGpDiagnostics
     from .grpc import HonuaGrpcAsyncClient
     from .models import SourceDescriptor
     from .ogc import AsyncHonuaOgcFeatures
@@ -692,6 +693,17 @@ class AsyncHonuaClient:
         from .protocols import AsyncOgcRecordsClient
 
         return AsyncOgcRecordsClient(self)
+
+    @property
+    def gp(self) -> "AsyncGpDiagnostics":
+        """Return the job diagnostics client for ``honua.job-diagnostics/v1``.
+
+        ``diagnostics`` reads ``GET /api/v1/admin/jobs/{jobId}/diagnostics``.
+        Each page keeps cursors, truncation, and missing-evidence markers.
+        """
+        from .gp_diagnostics import AsyncGpDiagnostics
+
+        return AsyncGpDiagnostics(self)
 
     def geoprocessing(self) -> "AsyncHonuaGeoprocessing":
         """Return an async geoprocessing (OGC API Processes) client.

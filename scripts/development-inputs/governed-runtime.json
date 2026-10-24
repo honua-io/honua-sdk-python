@@ -1,0 +1,17 @@
+{
+  "schema": "honua.python-development-runtime/v1",
+  "python": "3.12.15",
+  "implementation": "CPython",
+  "system": "Linux",
+  "machine": "x86_64",
+  "pip": "25.0.1",
+  "packaging": "26.3",
+  "executionBinding": {
+    "containerImage": "python:3.12-bookworm@sha256:e91fec3d1ac69f04e4eddcd29c327e630ce34658cf31075bfa7e8b0e052bafea",
+    "pythonExecutableSha256": "837a48d7afd08447fb43e28b282026fadb59368620072e57e01f66d12977e5ce",
+    "pipToolFilesSha256": "cf2bdb80674d9cb5e1323a099793f5fd8352665871c2168c20fcd9176ccd608f",
+    "pipEntrypointSha256": "6d2cd44b1e30b4969035606e18bcbc4304d45aca49c693b8f2ae2fbca4fa5d87",
+    "implementationPackagingFilename": "packaging-26.3-py3-none-any.whl",
+    "implementationPackagingSha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+  }
+}

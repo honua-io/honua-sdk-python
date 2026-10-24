@@ -775,7 +775,8 @@ class ColumnInfo:
     data_type: str
     is_nullable: bool
     is_primary_key: bool
-    max_length: int | None
+    # The admin tables endpoint omits maxLength when the column has none.
+    max_length: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ColumnInfo:
@@ -787,11 +788,11 @@ class ColumnInfo:
 class TableInfo:
     schema: str
     table: str
-    geometry_column: str | None
-    geometry_type: str | None
-    srid: int | None
-    estimated_rows: int | None
-    columns: list[ColumnInfo]
+    geometry_column: str | None = None
+    geometry_type: str | None = None
+    srid: int | None = None
+    estimated_rows: int | None = None
+    columns: list[ColumnInfo] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TableInfo:

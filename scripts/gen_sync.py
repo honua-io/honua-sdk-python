@@ -341,6 +341,7 @@ TWIN_TARGETS: tuple[Twin, ...] = (
     ),
     Twin(_SDK_ROOT / "workflow.py", (("AsyncHonuaWorkflow", "HonuaWorkflow"),)),
     Twin(_SDK_ROOT / "geoprocessing.py", (("AsyncHonuaGeoprocessing", "HonuaGeoprocessing"),)),
+    Twin(_SDK_ROOT / "gp_diagnostics.py", (("AsyncGpDiagnostics", "GpDiagnostics"),)),
     Twin(_SDK_ROOT / "protocols/_base.py", (("_AsyncProtocol", "_SyncProtocol"),)),
     Twin(
         _SDK_ROOT / "protocols/geoservices.py",

@@ -1,5 +1,9 @@
-Run the Docker interoperability regression against the independently built
-`ghcr.io/honua-io/honua-server:nightly-ff5f567` (pinned by digest in `conftest.py`):
+Run the Docker interoperability regression against the 2026.1 candidate that
+honua-release `platform-manifest.yaml` selects: honua-server
+`0e03bdd06b3ca3fb1b82388110bb5dfa19b9f8fa`, image index
+`sha256:dcf3296f17a456a876c23133fae50b5b32628d4ec710e8bdab58f57d2394d750`
+(pinned by digest in `conftest.py`). Move `SERVER_REVISION` and `SERVER_IMAGE`
+together whenever the manifest re-pins the server:
 
 ```sh
 python3 -m pytest tests/grpc -q --run-integration
@@ -20,7 +24,7 @@ all four fail with `UNIMPLEMENTED: Service is unimplemented.` The normal local
 suite excludes this opt-in live-server module; explicitly requested interop
 runs fail on infrastructure errors rather than skipping cases.
 
-Local verification for #259:
+Local verification for #259 (historical, against `nightly-ff5f567`):
 
 - Before regeneration: **4 failed**, all with gRPC `UNIMPLEMENTED`.
 - After regeneration, same Docker cases/image/seed: **4 passed**.
@@ -33,3 +37,9 @@ Local verification for #259:
   the same pinned Docker target.
 - Remote pinned generation, invoked outside the SDK checkout, reproduces the
   committed bindings without a diff.
+
+Local verification for #282, candidate `0e03bdd` (linux/amd64 child
+`sha256:8a211f46bbc92fe6907b72fb8bcdc36a808924f3ca001a090591c0752360d2bd` of
+the pinned index): **4 passed**. That is lane evidence for this repository's
+gRPC client against the candidate image. It is not a release certification
+receipt.

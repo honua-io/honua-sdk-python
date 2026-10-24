@@ -1589,13 +1589,18 @@
 <h2 id="server-compatibility-baseline">Server Compatibility Baseline<a class="headerlink" href="#server-compatibility-baseline" title="Permanent link">&para;</a></h2>
 <p>Release builds support Honua Server versions that meet all of these conditions:</p>
 <ul>
-<li><code>serverVersion</code> parses to at least <code>1.0.0</code>. Honua Server versions are
-  <code>&lt;year&gt;.&lt;release&gt;.&lt;patch&gt;</code> SemVer triples (the 2026.1 release reports
-  <code>2026.1.1</code>), may carry a prerelease suffix (<code>-rc.1</code>, <code>-nightly.N</code>) or build
-  metadata (<code>+&lt;sha&gt;</code>), and older builds reported <code>1.0.0+&lt;sha&gt;</code>. The major tracks
-  the year rather than compatibility, so there is one floor for every release
-  line, the same <code>1.0.0</code> the JS SDK uses; the control-plane API major below is
-  the breaking-change signal.</li>
+<li><code>serverVersion</code> parses to at least <code>2026.1.0-0</code>. The floor is derived, not
+  chosen: <code>release/sdk-capability-baseline.json</code> declares
+  <code>minimumServerVersion: first-release</code>, and the honua-release
+  <a href="https://github.com/honua-io/honua-release/blob/trunk/docs/SDK-SERVER-BASELINE-RULE.md">baseline rule</a>
+  maps that to <code>2026.1.0-0</code>, the least SemVer identity of the first honua-server
+  release line, the same value the JS and .NET SDKs use. Honua Server versions
+  are <code>&lt;year&gt;.&lt;release&gt;.&lt;patch&gt;</code> SemVer triples (the 2026.1 release reports
+  <code>2026.1.1</code>) and may carry a prerelease suffix (<code>-rc.1</code>, <code>-nightly.N</code>) or build
+  metadata (<code>+&lt;sha&gt;</code>). Builds from before the server had a version identity
+  reported <code>1.0.0+&lt;sha&gt;</code>; they are not release identities and are refused. The
+  major tracks the year rather than compatibility; the control-plane API major
+  below is the breaking-change signal.</li>
 <li><code>releaseChannel</code> is <code>preview</code> or a later channel (<code>beta</code>, <code>rc</code>, <code>stable</code>, or
   <code>lts</code>).</li>
 <li><code>controlPlaneApi.major</code> is <code>1</code>.</li>

@@ -40,13 +40,13 @@ jobs:
           python scripts/development_source_inputs.py --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
           python scripts/development_source_inputs.py --verify --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
           python scripts/check_development_input_mutations.py --source "$GITHUB_WORKSPACE" --revision "$(git rev-parse HEAD)" --destination "$RUNNER_TEMP/development-inputs"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: development-source-input-proposal
           path: ${{ runner.temp }}/development-inputs
           if-no-files-found: warn
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: development-synthetic-pip-control
@@ -75,7 +75,7 @@ jobs:
       - name: Observe original runtime and produce all immutable input sequences
         run: |
           python3 scripts/run_governed_source_inputs.py --implementation "$GITHUB_WORKSPACE/producer" --source "$GITHUB_WORKSPACE/subject" --revision 5a79352066b8aa23f1bae45b5c38e6d83efd003f --destination "$RUNNER_TEMP/governed-development-inputs"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: governed-development-source-inputs

@@ -10,6 +10,13 @@ from typing import Any
 import httpx
 
 
+# Events that publish a governed certification fragment without a signed license.
+# Their public cells are governed as ``anonymous-public-v1``, so the target runs
+# with licensing disabled instead of a development grant (whose receipts carry
+# the non-governed ``development-grant-rehearsal-v1`` policy).
+FRAGMENT_REHEARSAL_EVENTS = frozenset({"push", "schedule", "workflow_dispatch"})
+
+
 def profile(tier: str, event: str, environment: str, license_content: str) -> dict[str, str]:
     if tier == "release":
         if event != "workflow_dispatch":
@@ -22,12 +29,15 @@ def profile(tier: str, event: str, environment: str, license_content: str) -> di
             raise ValueError("signed release license envelope is absent")
         # Parsing is only input validation. The actual candidate must validate its
         # signature and expose the active non-dev entitlement before real edits.
-        return {"mode": "signed", "devGrantEdition": ""}
+        return {"mode": "signed", "devGrantEdition": "", "licensingMode": "Enabled"}
     if tier not in {"pr", "nightly"} or event not in {"pull_request", "push", "schedule", "workflow_dispatch", "local"}:
         raise ValueError("unknown certification rehearsal profile")
     if environment != "Development":
         raise ValueError("rehearsal entitlement grants require Development")
-    return {"mode": "development-grant", "devGrantEdition": "Enterprise"}
+    if event in FRAGMENT_REHEARSAL_EVENTS:
+        # Not release-eligible: observe() and the release validators only accept "signed".
+        return {"mode": "licensing-disabled", "devGrantEdition": "", "licensingMode": "Disabled"}
+    return {"mode": "development-grant", "devGrantEdition": "Enterprise", "licensingMode": "Enabled"}
 
 
 def signed_status(value: object, *, now: datetime | None = None) -> dict[str, Any]:

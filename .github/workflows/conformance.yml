@@ -250,6 +250,7 @@ jobs:
           )"
           dev_grant="$(jq -er '.devGrantEdition | strings' <<< "${entitlement_profile}")"
           entitlement_mode="$(jq -er '.mode' <<< "${entitlement_profile}")"
+          licensing_mode="$(jq -er '.licensingMode' <<< "${entitlement_profile}")"
           echo "HONUA_ENTITLEMENT_MODE=${entitlement_mode}" >> "${GITHUB_ENV}"
 
           # Override the one-shot seed to apply the canonical client-compat seed
@@ -288,7 +289,7 @@ jobs:
                 ASPNETCORE_ENVIRONMENT: Development
                 # Explicit test fixture only. The release profile always clears it.
                 Licensing__DevGrantEdition: "${dev_grant}"
-                Licensing__Mode: Enabled
+                Licensing__Mode: "${licensing_mode}"
                 # Preserve the Compose reference: never write signed license bytes
                 # into the generated override or retained artifacts.
                 Licensing__LicenseContent: "\${HONUA_CERTIFICATION_LICENSE_CONTENT:-}"

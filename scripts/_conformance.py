@@ -1653,8 +1653,8 @@ def build_certification_fragment(
     if target.sdk_wheel_source != "pypi":
         raise ConformanceFixturesError("sdk_wheel_source must be pypi")
 
-    if target.entitlement_mode not in {"signed", "development-grant"}:
-        raise ConformanceFixturesError("normalized certification needs explicit signed or development-grant entitlement provenance")
+    if target.entitlement_mode not in {"signed", "licensing-disabled", "development-grant"}:
+        raise ConformanceFixturesError("normalized certification needs explicit signed, licensing-disabled or development-grant entitlement provenance")
     auth_policy_revision = ("development-grant-rehearsal-v1" if target.entitlement_mode == "development-grant"
                             else CERTIFICATION_AUTH_POLICY_REVISION)
     requirements_revision, governed_context = _load_certification_context(

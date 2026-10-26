@@ -4661,6 +4661,10 @@ prefer <code>auth_provider=StaticAuthProvider({"Authorization": f"Bearer
 {token}"})</code>. When <code>client</code> is supplied as a pre-built
 :class:<code>httpx.Client</code>, no auth kwargs may be passed — configure
 them on the client instead.</p>
+<p>Credentials are refused over a plain <code>http://</code> base URL unless the host
+is <code>localhost</code> or a loopback address (127.0.0.0/8, <code>::1</code>); pass
+<code>allow_insecure_http=True</code> or set <code>HONUA_ALLOW_INSECURE_HTTP=1</code> to
+opt in. Anonymous clients are not affected.</p>
 <p>Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
 transient statuses (429/502/503/504) are retried by default. Opt
 POST in by configuring <code>retry_methods</code> on the underlying retry
@@ -8971,6 +8975,10 @@ prefer <code>auth_provider=StaticAuthProvider({"Authorization": f"Bearer
 {token}"})</code>. When <code>client</code> is supplied as a pre-built
 :class:<code>httpx.AsyncClient</code>, no auth kwargs may be passed — configure
 them on the client instead.</p>
+<p>Credentials are refused over a plain <code>http://</code> base URL unless the host
+is <code>localhost</code> or a loopback address (127.0.0.0/8, <code>::1</code>); pass
+<code>allow_insecure_http=True</code> or set <code>HONUA_ALLOW_INSECURE_HTTP=1</code> to
+opt in. Anonymous clients are not affected.</p>
 <p>Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
 transient statuses (429/502/503/504) are retried by default. Opt
 POST in by configuring <code>retry_methods</code> on the underlying retry

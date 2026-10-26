@@ -663,6 +663,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#plain-http" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plain HTTP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#rotation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1493,6 +1504,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#plain-http" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plain HTTP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#rotation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1602,6 +1624,20 @@ window.</p>
 combination so the source of the <code>Authorization</code> header stays unambiguous. A
 static <code>api_key</code> can be combined with a bearer-token provider only when the
 server expects both headers.</p>
+<h2 id="plain-http">Plain HTTP<a class="headerlink" href="#plain-http" title="Permanent link">&para;</a></h2>
+<p>Credentials are sent only over <code>https://</code>, or over <code>http://</code> to <code>localhost</code> or
+a loopback address (<code>127.0.0.0/8</code>, <code>::1</code>). Constructing a client with an
+<code>api_key</code>, <code>bearer_token</code> or <code>auth_provider</code> for any other <code>http://</code> base URL
+raises <code>ValueError</code>, so a key is never sent in clear text by accident. This
+matches the .NET SDK.</p>
+<p>To send credentials over plain HTTP anyway, for example inside a private
+network, opt in explicitly:</p>
+<div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"http://honua.internal:8080"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">allow_insecure_http</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>or set <code>HONUA_ALLOW_INSECURE_HTTP=1</code> in the environment. Both are accepted by
+the clients listed above and by <code>honua_gp.configure(...)</code>, which applies the
+same rule to <code>HONUA_BASE_URL</code> / <code>HONUA_API_KEY</code> / <code>HONUA_BEARER_TOKEN</code> and
+raises <code>HonuaGpConfigurationError</code>. Anonymous clients are not affected.</p>
 <h2 id="rotation">Rotation<a class="headerlink" href="#rotation" title="Permanent link">&para;</a></h2>
 <p><code>auth_provider</code> is resolved per request. This lets applications rotate API keys
 or bearer tokens without reconstructing the SDK client:</p>

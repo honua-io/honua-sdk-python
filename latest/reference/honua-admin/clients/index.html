@@ -3783,7 +3783,7 @@ status-specific subclasses such as :class:<code>HonuaAuthError</code> /
 
 
 <h3 id="honua_admin.HonuaAdminClient.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">follow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">follow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">allow_insecure_http</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#honua_admin.HonuaAdminClient.__init__" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -3967,6 +3967,25 @@ default.</p>
                   <code>3</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>allow_insecure_http</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Allow credentials over a plain <code>http://</code>
+base URL whose host is not <code>localhost</code> or a loopback
+address. Off by default; <code>HONUA_ALLOW_INSECURE_HTTP=1</code>
+opts in from the environment.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -3987,7 +4006,9 @@ default.</p>
             <td>
               <div class="doc-md-description">
                 <p><code>client</code> and <code>transport</code> are both supplied,
-or auth kwargs are supplied alongside a pre-built <code>client</code>.</p>
+auth kwargs are supplied alongside a pre-built <code>client</code>,
+or credentials are configured for a non-loopback
+<code>http://</code> base URL without opting in.</p>
               </div>
             </td>
           </tr>
@@ -9410,7 +9431,7 @@ status-specific subclasses such as :class:<code>HonuaAuthError</code> /
 
 
 <h3 id="honua_admin.AsyncHonuaAdminClient.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">follow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auth_provider</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">follow_redirects</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">allow_insecure_http</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#honua_admin.AsyncHonuaAdminClient.__init__" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -9594,6 +9615,25 @@ default.</p>
                   <code>3</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>allow_insecure_http</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Allow credentials over a plain <code>http://</code>
+base URL whose host is not <code>localhost</code> or a loopback
+address. Off by default; <code>HONUA_ALLOW_INSECURE_HTTP=1</code>
+opts in from the environment.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -9614,7 +9654,9 @@ default.</p>
             <td>
               <div class="doc-md-description">
                 <p><code>client</code> and <code>transport</code> are both supplied,
-or auth kwargs are supplied alongside a pre-built <code>client</code>.</p>
+auth kwargs are supplied alongside a pre-built <code>client</code>,
+or credentials are configured for a non-loopback
+<code>http://</code> base URL without opting in.</p>
               </div>
             </td>
           </tr>

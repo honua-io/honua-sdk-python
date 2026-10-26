@@ -1479,10 +1479,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#honua-admin" class="md-nav__link">
+  <a href="#honua-admin-and-other-javascript-cli-commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        honua admin
+        honua admin and other JavaScript CLI commands
       
     </span>
   </a>
@@ -1764,10 +1764,27 @@ with <code>404</code>, and a proposal that cannot be applied in its state with <
 Proposals come from the agent surface (the MCP <code>honua_publish_service</code> tool
 for a governed principal). The server has no REST call for submitting one, so
 the CLI has no submit command.</p>
-<h2 id="honua-admin"><code>honua admin</code><a class="headerlink" href="#honua-admin" title="Permanent link">&para;</a></h2>
-<p><code>honua admin ...</code> forwards to the <code>@honua/sdk-js</code> command line when that
-binary is on <code>PATH</code> or named by <code>HONUA_JS_CLI</code>. When neither is found, the
-command exits <code>127</code> and names the Python operator commands above.</p>
+<h2 id="honua-admin-and-other-javascript-cli-commands"><code>honua admin</code> and other JavaScript CLI commands<a class="headerlink" href="#honua-admin-and-other-javascript-cli-commands" title="Permanent link">&para;</a></h2>
+<p>These commands are implemented only by the <code>@honua/sdk-js</code> command line, and
+<code>honua</code> forwards them to it with the same arguments and environment:</p>
+<p><code>admin</code>, <code>connection</code>, <code>explain</code>, <code>geocode</code>, <code>import</code>, <code>login</code>, <code>logout</code>,
+<code>map</code>, <code>stac</code>, <code>studio</code>, <code>tiles</code>, <code>whoami</code>.</p>
+<p><code>honua</code> looks for that CLI in two places:</p>
+<ol>
+<li><code>HONUA_JS_CLI</code>, when set, names the program to run (for example the
+   <code>dist/src/cli/bin.js</code> of a local <code>honua-sdk-js</code> checkout). It is used as
+   given, so set it only to a program you trust.</li>
+<li>Otherwise each <code>honua</code> launcher on <code>PATH</code> (<code>honua</code>, <code>honua.cmd</code>,
+   <code>honua.ps1</code>) is checked. A launcher is used only when it resolves to
+   <code>dist/src/cli/bin.js</code> inside an installed package whose <code>package.json</code> is
+   named <code>@honua/sdk-js</code> and declares that file as its <code>honua</code> bin. The npm
+   symlink and the npm Windows shims both qualify. Any other program named
+   <code>honua</code> is ignored. The verified <code>bin.js</code> is run with <code>node</code>.</li>
+</ol>
+<p>When neither is found, the command exits <code>127</code> and names the Python operator
+commands above.</p>
+<p>Every other command runs in this Python CLI. An unknown command exits <code>2</code>,
+lists the available commands, and does not start another program.</p>
 
 
 

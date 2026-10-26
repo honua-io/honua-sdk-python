@@ -160,7 +160,8 @@ def test_unknown_command_is_a_usage_error_and_never_execs(
     monkeypatch.setattr(cli.sys, "argv", ["honua", *argv])
     assert cli.main() == 2
     err = capsys.readouterr().err
-    assert f"unknown command {argv[0]!r}" in err
+    assert "unknown command" in err
+    assert argv[0] not in err  # the unrecognised token is never echoed
     assert "services" in err
     assert "admin" in err
 

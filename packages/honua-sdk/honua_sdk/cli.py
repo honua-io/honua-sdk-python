@@ -657,9 +657,12 @@ def _control_plane_cli() -> Path | None:
         found = shutil.which("honua", path=directory)
         if found is not None:
             launchers.append(Path(found))
-        launchers.extend(
-            Path(directory) / name for name in _JS_LAUNCHER_NAMES[1:] if (Path(directory) / name).is_file()
-        )
+        # Check every npm launcher name directly as well: on Windows
+        # shutil.which ignores the extensionless ``honua`` (sh shim or symlink).
+        for name in _JS_LAUNCHER_NAMES:
+            launcher = Path(directory) / name
+            if launcher.is_file() and launcher not in launchers:
+                launchers.append(launcher)
         for launcher in launchers:
             binary = _js_bin_from_launcher(launcher)
             if binary is not None:
@@ -671,7 +674,8 @@ def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
     """Forward a :data:`JS_CLI_COMMANDS` command to the JavaScript CLI."""
     binary = _control_plane_cli()
     if binary is None:
-        command_name = argv[0] if argv else "admin"
+        # Name the command from the constant set, never echo raw argv.
+        command_name = next((name for name in sorted(JS_CLI_COMMANDS) if argv and name == argv[0]), "admin")
         sys.stderr.write(
             f"error: `honua {command_name}` is provided by the @honua/sdk-js CLI, which was not found. "
             "Install it with `npm install -g @honua/sdk-js`, or set HONUA_JS_CLI to its bin.js. "
@@ -703,11 +707,12 @@ def _parser_commands(parser: argparse.ArgumentParser) -> frozenset[str]:
     return frozenset()  # pragma: no cover — build_parser always adds subcommands
 
 
-def _unknown_command(name: str, parser: argparse.ArgumentParser) -> int:
+def _unknown_command(parser: argparse.ArgumentParser) -> int:
+    # The unrecognised token is not echoed: a misplaced argument can be a secret.
     known = ", ".join(sorted(_parser_commands(parser)))
     forwarded = ", ".join(sorted(JS_CLI_COMMANDS))
     sys.stderr.write(
-        f"error: unknown command {name!r}.\n"
+        "error: unknown command.\n"
         f"Commands: {known}.\n"
         f"Forwarded to the @honua/sdk-js CLI: {forwarded}.\n"
         "Run `honua --help` for usage.\n"
@@ -752,7 +757,7 @@ def _route_outside_parser(forwarded: Sequence[str], parser: argparse.ArgumentPar
     if head in JS_CLI_COMMANDS:
         return _delegate_control_plane(forwarded)
     if head and not head.startswith("-") and head not in _parser_commands(parser):
-        return _unknown_command(head, parser)
+        return _unknown_command(parser)
     return None
 
 

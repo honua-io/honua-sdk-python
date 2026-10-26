@@ -164,7 +164,7 @@ def test_geocoder_factory_reuses_client_auth_and_locator() -> None:
         return httpx.Response(200, json={"suggestions": []})
 
     transport = httpx.MockTransport(handler)
-    with HonuaClient("http://example.test", transport=transport, api_key="test-key") as client:
+    with HonuaClient("https://example.test", transport=transport, api_key="test-key") as client:
         geocoder = client.geocoder(locator="Address Locator")
         assert geocoder.suggest("Main") == []
 
@@ -677,7 +677,7 @@ def test_auth_headers_are_attached() -> None:
 
     transport = httpx.MockTransport(handler)
     with HonuaClient(
-        "http://example.test",
+        "https://example.test",
         transport=transport,
         api_key="test-key",
         bearer_token="test-token",
@@ -702,7 +702,7 @@ def test_auth_provider_headers_are_resolved_per_request() -> None:
     transport = httpx.MockTransport(handler)
     auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
 
-    with HonuaClient("http://example.test", transport=transport, auth_provider=auth_provider) as client:
+    with HonuaClient("https://example.test", transport=transport, auth_provider=auth_provider) as client:
         client.readiness()
         client.list_services()
 
@@ -772,13 +772,13 @@ def test_does_not_follow_redirects_by_default_and_raises() -> None:
         raise AssertionError("Redirect target should not be requested by default")
 
     transport = httpx.MockTransport(handler)
-    with HonuaClient("http://example.test", transport=transport, api_key="test-key") as client:
+    with HonuaClient("https://example.test", transport=transport, api_key="test-key") as client:
         with pytest.raises(HonuaHttpError) as exc_info:
             client.readiness()
 
     assert exc_info.value.status_code == 302
     assert len(seen) == 1
-    assert seen[0][0] == "http://example.test/healthz/ready"
+    assert seen[0][0] == "https://example.test/healthz/ready"
     assert seen[0][1] == "test-key"
 
 
@@ -802,7 +802,7 @@ def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host()
 
     transport = httpx.MockTransport(handler)
     with HonuaClient(
-        "http://example.test",
+        "https://example.test",
         transport=transport,
         api_key="test-key",
         bearer_token="test-token",
@@ -842,7 +842,7 @@ def test_follow_redirects_does_not_forward_auth_provider_headers_to_different_ho
         }
     )
     with HonuaClient(
-        "http://example.test",
+        "https://example.test",
         transport=transport,
         auth_provider=auth_provider,
         follow_redirects=True,

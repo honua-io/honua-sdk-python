@@ -1017,7 +1017,7 @@
           },
           "module": "honua_admin._async_client",
           "qualname": "AsyncHonuaAdminClient",
-          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3, allow_insecure_http: 'bool' = False) -> 'None'"
         },
         "BackgroundImportResponse": {
           "fields": [
@@ -1435,7 +1435,7 @@
           },
           "module": "honua_admin._client",
           "qualname": "HonuaAdminClient",
-          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3, allow_insecure_http: 'bool' = False) -> 'None'"
         },
         "ImportResult": {
           "fields": [
@@ -4682,7 +4682,7 @@
           },
           "module": "honua_sdk.async_client",
           "qualname": "AsyncHonuaClient",
-          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3, allow_insecure_http: 'bool' = False) -> 'None'"
         },
         "AsyncHonuaGeocodingClient": {
           "kind": "class",
@@ -4710,7 +4710,7 @@
           },
           "module": "honua_sdk.async_geocoding",
           "qualname": "AsyncHonuaGeocodingClient",
-          "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+          "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.AsyncClient | None' = None, transport: 'httpx.AsyncBaseTransport | None' = None, max_retries: 'int' = 3, allow_insecure_http: 'bool' = False) -> 'None'"
         },
         "AsyncRefreshableBearerTokenProvider": {
           "kind": "class",
@@ -5572,7 +5572,7 @@
           },
           "module": "honua_sdk.client",
           "qualname": "HonuaClient",
-          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+          "signature": "(base_url: 'str', *, timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, follow_redirects: 'bool' = False, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3, allow_insecure_http: 'bool' = False) -> 'None'"
         },
         "HonuaError": {
           "kind": "class",
@@ -5601,7 +5601,7 @@
           },
           "module": "honua_sdk.geocoding",
           "qualname": "HonuaGeocodingClient",
-          "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3) -> 'None'"
+          "signature": "(base_url: 'str', *, locator_name: 'str' = 'World', timeout: 'float' = 30.0, api_key: 'str | None' = None, bearer_token: 'str | None' = None, auth_provider: 'AuthProvider | None' = None, client: 'httpx.Client | None' = None, transport: 'httpx.BaseTransport | None' = None, max_retries: 'int' = 3, allow_insecure_http: 'bool' = False) -> 'None'"
         },
         "HonuaGrpcError": {
           "kind": "class",

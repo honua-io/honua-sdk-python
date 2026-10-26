@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import math
+import os
 import uuid
 import warnings
 from collections.abc import Mapping
@@ -144,6 +146,60 @@ def _validate_auth_configuration(
 ) -> None:
     if bearer_token is not None and auth_provider is not None:
         raise ValueError("Provide either `bearer_token` or `auth_provider`, not both.")
+
+
+INSECURE_HTTP_OPT_IN_ENV = "HONUA_ALLOW_INSECURE_HTTP"
+"""Environment variable that opts in to sending credentials over plain HTTP."""
+
+_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return whether *host* is ``localhost`` or a loopback IP (127.0.0.0/8, ``::1``)."""
+    candidate = host.strip().strip("[]").rstrip(".").lower()
+    if candidate == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(candidate).is_loopback
+    except ValueError:
+        return False
+
+
+def _insecure_http_opted_in_by_env() -> bool:
+    return os.environ.get(INSECURE_HTTP_OPT_IN_ENV, "").strip().lower() in _TRUTHY_ENV_VALUES
+
+
+def _ensure_secure_credential_transport(
+    base_url: str | httpx.URL,
+    *,
+    has_credentials: bool,
+    allow_insecure_http: bool = False,
+) -> None:
+    """Refuse to send credentials over plain HTTP to a non-loopback host.
+
+    Mirrors the .NET SDK: an ``http://`` base URL is accepted with an API key,
+    bearer token or auth provider only when the host is ``localhost`` or a
+    loopback address (127.0.0.0/8, ``::1``). Any other host requires
+    ``allow_insecure_http=True`` or ``HONUA_ALLOW_INSECURE_HTTP=1``. Anonymous
+    clients and ``https://`` base URLs are never affected.
+
+    Raises:
+        ValueError: credentials are configured for a non-loopback ``http://``
+            base URL and the caller has not opted in.
+    """
+    if not has_credentials or allow_insecure_http:
+        return
+    url = base_url if isinstance(base_url, httpx.URL) else httpx.URL(base_url)
+    if url.scheme != "http" or _is_loopback_host(url.host):
+        return
+    if _insecure_http_opted_in_by_env():
+        return
+    raise ValueError(
+        f"Refusing to send credentials over plain HTTP to {url.host!r}. "
+        "Use an https:// base URL, or opt in explicitly with "
+        f"`allow_insecure_http=True` or {INSECURE_HTTP_OPT_IN_ENV}=1. "
+        "Plain HTTP is allowed without opting in only for localhost and loopback addresses."
+    )
 
 
 def _warn_deprecated_bearer_token(

@@ -19,6 +19,7 @@ from ._http import (
     _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
     _encode_path_segment,
+    _ensure_secure_credential_transport,
     _extract_trusted_authority,
     _normalize_base_url,
     _to_http_error,
@@ -46,6 +47,7 @@ class AsyncHonuaGeocodingClient:
         client: httpx.AsyncClient | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         max_retries: int = 3,
+        allow_insecure_http: bool = False,
     ) -> None:
         if client is not None and transport is not None:
             raise ValueError("Provide either `client` or `transport`, not both.")
@@ -55,6 +57,11 @@ class AsyncHonuaGeocodingClient:
             api_key=api_key,
             bearer_token=bearer_token,
             auth_provider=auth_provider,
+        )
+        _ensure_secure_credential_transport(
+            base_url,
+            has_credentials=bool(api_key) or bool(bearer_token) or auth_provider is not None,
+            allow_insecure_http=allow_insecure_http,
         )
 
         self._locator_name = locator_name

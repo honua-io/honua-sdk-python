@@ -346,7 +346,7 @@ def test_cli_pyt_with_server_emits_a_server_attested_report(tmp_path: Path, monk
             "--output",
             str(out),
             "--server",
-            "http://honua.test",
+            "https://honua.test",
             "--api-key",
             "admin-secret",
             "--attestation",
@@ -356,17 +356,17 @@ def test_cli_pyt_with_server_emits_a_server_attested_report(tmp_path: Path, monk
 
     assert rc == 0
     assert paths == ["/api/v1/admin/import/toolbox/translation/validate"]
-    assert seen["base_url"] == "http://honua.test"
+    assert seen["base_url"] == "https://honua.test"
     assert seen["api_key"] == "admin-secret"
 
     attestation = json.loads(out.read_text())["attestation"]
     assert attestation["verdictSource"] == "server-attested"
     assert attestation["attested"] is True
-    assert attestation["server"] == "http://honua.test"
+    assert attestation["server"] == "https://honua.test"
     assert attestation["fallbackReason"] is None
     # The standalone attestation artifact matches the embedded one.
     assert json.loads(attested_out.read_text()) == attestation
-    assert "server-attested by http://honua.test" in capsys.readouterr().err
+    assert "server-attested by https://honua.test" in capsys.readouterr().err
 
 
 def test_cli_api_key_falls_back_to_the_environment(tmp_path: Path, monkeypatch) -> None:

@@ -47,7 +47,7 @@ def _handler(seen: list[httpx.Request]) -> Any:
 
 def test_sync_proposal_calls() -> None:
     seen: list[httpx.Request] = []
-    with HonuaAdminClient("http://test.honua.io", api_key="approver", transport=httpx.MockTransport(_handler(seen))) as c:
+    with HonuaAdminClient("https://test.honua.io", api_key="approver", transport=httpx.MockTransport(_handler(seen))) as c:
         rows = c.list_proposals(status="AwaitingApproval", kind="AdminConfigChange", requested_by="proposer")
         detail = c.get_proposal("prop/1")
         approved = c.approve_proposal("prop/1")
@@ -77,7 +77,7 @@ def test_sync_list_without_filters_sends_no_params() -> None:
 
 def test_sync_self_approval_raises_403() -> None:
     seen: list[httpx.Request] = []
-    with HonuaAdminClient("http://test.honua.io", api_key="proposer", transport=httpx.MockTransport(_handler(seen))) as c:
+    with HonuaAdminClient("https://test.honua.io", api_key="proposer", transport=httpx.MockTransport(_handler(seen))) as c:
         with pytest.raises(HonuaHttpError) as excinfo:
             c.approve_proposal("prop/1")
     assert excinfo.value.status_code == 403
@@ -87,7 +87,7 @@ def test_sync_self_approval_raises_403() -> None:
 async def test_async_proposal_calls() -> None:
     seen: list[httpx.Request] = []
     async with AsyncHonuaAdminClient(
-        "http://test.honua.io", api_key="approver", transport=httpx.MockTransport(_handler(seen))
+        "https://test.honua.io", api_key="approver", transport=httpx.MockTransport(_handler(seen))
     ) as c:
         rows = await c.list_proposals(status="AwaitingApproval")
         detail = await c.get_proposal("prop/1")

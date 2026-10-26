@@ -132,7 +132,7 @@ async def test_geocoder_factory_reuses_client_auth_and_locator() -> None:
         return httpx.Response(200, json={"suggestions": []})
 
     transport = httpx.MockTransport(handler)
-    async with AsyncHonuaClient("http://example.test", transport=transport, api_key="test-key") as client:
+    async with AsyncHonuaClient("https://example.test", transport=transport, api_key="test-key") as client:
         geocoder = client.geocoder(locator="Address Locator")
         assert await geocoder.suggest("Main") == []
 
@@ -469,7 +469,7 @@ async def test_auth_headers_are_attached() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaClient(
-        "http://example.test",
+        "https://example.test",
         transport=transport,
         api_key="test-key",
         bearer_token="test-token",
@@ -494,7 +494,7 @@ async def test_auth_provider_headers_are_resolved_per_request() -> None:
     transport = httpx.MockTransport(handler)
     auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
 
-    async with AsyncHonuaClient("http://example.test", transport=transport, auth_provider=auth_provider) as client:
+    async with AsyncHonuaClient("https://example.test", transport=transport, auth_provider=auth_provider) as client:
         await client.readiness()
         await client.list_services()
 

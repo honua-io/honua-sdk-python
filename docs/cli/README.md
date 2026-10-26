@@ -10,7 +10,7 @@ The PyPI packages install two console scripts:
 
 | Script | Installed by | Commands |
 |--------|--------------|----------|
-| `honua` | `honua-sdk` | `services`, `layers`, `query`, `style apply`, `doctor`, `gp` (separate devkit required). When `honua-admin` is installed it also has `datasource`, `layer` and `proposal`. |
+| `honua` | `honua-sdk` | `services`, `layers`, `query`, `style apply`, `doctor`, `gp` (separate devkit required). When `honua-admin` is installed it also has `datasource`, `layer` and `proposal`. `admin`, `map` and the other [JavaScript CLI commands](reference.md#honua-admin-and-other-javascript-cli-commands) forward to an installed `@honua/sdk-js`. |
 | `honua-admin` | `honua-admin` | `datasource`, `layer`, `proposal` |
 
 `honua datasource ...` and `honua-admin datasource ...` run the same code, and

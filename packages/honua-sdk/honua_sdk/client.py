@@ -17,6 +17,7 @@ from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
     _ensure_same_origin_continuation,
+    _ensure_secure_credential_transport,
     _extract_trusted_authority,
     _normalize_base_url,
     _to_http_error,
@@ -125,6 +126,11 @@ class HonuaClient:
     :class:`httpx.Client`, no auth kwargs may be passed — configure
     them on the client instead.
 
+    Credentials are refused over a plain ``http://`` base URL unless the host
+    is ``localhost`` or a loopback address (127.0.0.0/8, ``::1``); pass
+    ``allow_insecure_http=True`` or set ``HONUA_ALLOW_INSECURE_HTTP=1`` to
+    opt in. Anonymous clients are not affected.
+
     Retries: only idempotent methods (GET/HEAD/PUT/DELETE/OPTIONS) on
     transient statuses (429/502/503/504) are retried by default. Opt
     POST in by configuring ``retry_methods`` on the underlying retry
@@ -158,6 +164,7 @@ class HonuaClient:
         client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
         max_retries: int = 3,
+        allow_insecure_http: bool = False,
     ) -> None:
         if client is not None and transport is not None:
             raise ValueError("Provide either `client` or `transport`, not both.")
@@ -168,6 +175,11 @@ class HonuaClient:
             api_key=api_key,
             bearer_token=bearer_token,
             auth_provider=auth_provider,
+        )
+        _ensure_secure_credential_transport(
+            base_url,
+            has_credentials=bool(api_key) or bool(bearer_token) or auth_provider is not None,
+            allow_insecure_http=allow_insecure_http,
         )
 
         # Stash constructor inputs so ``with_options`` can build an
@@ -180,6 +192,7 @@ class HonuaClient:
         self._init_follow_redirects = follow_redirects
         self._init_transport = transport
         self._init_max_retries = max_retries
+        self._init_allow_insecure_http = allow_insecure_http
 
         self._owns_client = client is None
         # Per-request overrides set by ``with_options``; ``None`` means the
@@ -341,6 +354,7 @@ class HonuaClient:
                     follow_redirects=self._init_follow_redirects,
                     transport=clone_transport,
                     max_retries=self._init_max_retries,
+                    allow_insecure_http=self._init_allow_insecure_http,
                 )
             clone._options_timeout = (
                 timeout if timeout is not None else self._options_timeout

@@ -446,7 +446,7 @@ def test_with_options_reuses_auth_provider_instance() -> None:
     provider = StaticAuthProvider(headers={"Authorization": "Bearer static"})
     transport = httpx.MockTransport(lambda _r: httpx.Response(200, json={}))
     original = HonuaClient(
-        "http://example.test",
+        "https://example.test",
         transport=transport,
         auth_provider=provider,
         max_retries=0,

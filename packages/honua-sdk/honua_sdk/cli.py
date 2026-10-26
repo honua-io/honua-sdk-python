@@ -49,9 +49,11 @@ Commands
     approve or reject operation proposals. The same commands ship as the
     ``honua-admin`` console script; see :mod:`honua_admin.cli`.
 
-``honua admin``
-    Forwards to the ``@honua/sdk-js`` CLI when that binary is on ``PATH`` or
-    named by ``HONUA_JS_CLI``.
+``honua admin | map | login | ...``
+    Commands only the ``@honua/sdk-js`` CLI implements (``JS_CLI_COMMANDS``)
+    forward to that CLI when an installed ``@honua/sdk-js`` package's ``honua``
+    launcher is on ``PATH``, or when ``HONUA_JS_CLI`` names its ``bin.js``.
+    Any other unknown command exits ``2`` without running another program.
 
 A server or transport refusal exits ``1`` with ``error: HTTP <status>: ...``
 on stderr; a usage error exits ``2``.
@@ -68,6 +70,7 @@ import importlib
 import json
 import os
 import platform
+import re
 import shutil
 import sys
 import tempfile
@@ -115,7 +118,11 @@ def _resolve_api_key(args: argparse.Namespace) -> str | None:
 
 
 def _make_client(args: argparse.Namespace) -> HonuaClient:
-    return HonuaClient(_resolve_base_url(args), api_key=_resolve_api_key(args))
+    try:
+        return HonuaClient(_resolve_base_url(args), api_key=_resolve_api_key(args))
+    except ValueError as exc:
+        # Configuration refusals (e.g. credentials over non-loopback http://).
+        raise SystemExit(f"error: {exc}") from exc
 
 
 def _emit_json(payload: Any, out: Any) -> None:
@@ -547,62 +554,131 @@ def _dispatch_style(args: argparse.Namespace, out: Any) -> int:
     return 2
 
 
-def _sibling_js_cli(origin: Path | None = None) -> Path | None:
-    """Find ``bin.js`` when this package sits next to an ``honua-sdk-js`` checkout.
+# Commands implemented only by the ``@honua/sdk-js`` CLI (its ``COMMANDS``
+# table in ``src/cli/main.ts``, minus the commands this parser implements).
+# Only these are forwarded; every other unrecognised command is a usage error.
+JS_CLI_COMMANDS: frozenset[str] = frozenset(
+    {
+        "admin",
+        "connection",
+        "explain",
+        "geocode",
+        "import",
+        "login",
+        "logout",
+        "map",
+        "stac",
+        "studio",
+        "tiles",
+        "whoami",
+    }
+)
 
-    Layout: ``<root>/honua-sdk-python/packages/honua-sdk/honua_sdk/cli.py`` and
-    ``<root>/honua-sdk-js/dist/src/cli/bin.js``. Installed wheels do not match
-    this shape, so the lookup returns nothing.
-    """
-    here = (origin or Path(__file__)).resolve()
-    minimum_checkout_depth = 5
-    if len(here.parents) < minimum_checkout_depth:
+_ENV_JS_CLI = "HONUA_JS_CLI"
+_JS_PACKAGE_NAME = "@honua/sdk-js"
+_JS_BIN_DEPTH = 3  # <package>/dist/src/cli/bin.js
+_JS_LAUNCHER_NAMES = ("honua", "honua.cmd", "honua.ps1")
+_JS_LAUNCHER_MAX_BYTES = 8192
+# npm/cmd-shim launchers name the package entry point relative to their own
+# directory: ``"%dp0%\node_modules\@honua\sdk-js\dist\src\cli\bin.js"``
+# (.cmd) or ``"$basedir/node_modules/@honua/sdk-js/dist/src/cli/bin.js"``
+# (.ps1 / sh).
+_JS_LAUNCHER_TARGET = re.compile(r"(?:%~?dp0%?|\$basedir)[\\/]+([^\"'\s%$]+?[\\/]bin\.js)")
+
+
+def _declared_honua_bin(package_root: Path) -> Path | None:
+    """Return the ``honua`` bin declared by an ``@honua/sdk-js`` ``package.json``, if any."""
+    try:
+        manifest = json.loads((package_root / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return None
-    candidate = here.parents[4] / "honua-sdk-js" / "dist" / "src" / "cli" / "bin.js"
-    return candidate if candidate.is_file() else None
+    if not isinstance(manifest, dict) or manifest.get("name") != _JS_PACKAGE_NAME:
+        return None
+    bins = manifest.get("bin")
+    declared = bins.get("honua") if isinstance(bins, dict) else None
+    return package_root / declared if isinstance(declared, str) else None
+
+
+def _is_honua_js_bin(path: Path) -> bool:
+    """Return whether *path* is the ``honua`` entry point of an ``@honua/sdk-js`` install.
+
+    The positive identity check: the file is ``dist/src/cli/bin.js`` inside a
+    package whose ``package.json`` is named ``@honua/sdk-js`` and declares this
+    file as its ``honua`` bin. Any other file is not forwarded to.
+    """
+    try:
+        resolved = path.resolve(strict=True)
+        if resolved.name != "bin.js" or not resolved.is_file() or len(resolved.parents) <= _JS_BIN_DEPTH:
+            return False
+        declared = _declared_honua_bin(resolved.parents[_JS_BIN_DEPTH])
+        return declared is not None and declared.resolve(strict=True) == resolved
+    except (OSError, RuntimeError):
+        return False
+
+
+def _js_bin_from_launcher(launcher: Path) -> Path | None:
+    """Return the verified ``@honua/sdk-js`` ``bin.js`` behind a ``honua`` launcher on ``PATH``.
+
+    Handles the npm layouts: a symlink to ``bin.js`` (POSIX global and local
+    installs) and the ``honua`` / ``honua.cmd`` / ``honua.ps1`` text shims
+    that npm writes on Windows. Returns ``None`` for anything else, including
+    this Python console script.
+    """
+    if _is_honua_js_bin(launcher):
+        return launcher.resolve()
+    try:
+        with launcher.open("rb") as handle:
+            head = handle.read(_JS_LAUNCHER_MAX_BYTES).decode("utf-8", errors="ignore")
+    except OSError:
+        return None
+    for match in _JS_LAUNCHER_TARGET.finditer(head):
+        candidate = launcher.parent / match.group(1).replace("\\", "/")
+        if _is_honua_js_bin(candidate):
+            return candidate.resolve()
+    return None
 
 
 def _control_plane_cli() -> Path | None:
-    """Locate the ``@honua/sdk-js`` binary that owns ``honua admin``.
+    """Locate the ``@honua/sdk-js`` CLI that owns :data:`JS_CLI_COMMANDS`.
 
-    ``HONUA_JS_CLI`` wins. Otherwise the first ``honua`` on ``PATH`` that is
-    not this Python console script is used. A script that imports
-    ``honua_sdk`` is the data-plane shim and is skipped so forwarding cannot
-    recurse into itself. A sibling ``honua-sdk-js`` checkout is the last resort.
+    ``HONUA_JS_CLI`` is an explicit override and is used as given (for example
+    a ``bin.js`` in a local ``honua-sdk-js`` checkout). Otherwise each ``honua``
+    launcher on ``PATH`` is checked, and only one that resolves to the
+    ``bin.js`` of an installed ``@honua/sdk-js`` package is used.
     """
-    override = os.environ.get("HONUA_JS_CLI", "").strip()
+    override = os.environ.get(_ENV_JS_CLI, "").strip()
     if override:
         candidate = Path(override)
         return candidate if candidate.is_file() else None
-    own = Path(sys.argv[0]).resolve() if sys.argv and sys.argv[0] else None
     for directory in os.environ.get("PATH", "").split(os.pathsep):
         if not directory:
             continue
-        for name in ("honua", "honua.exe", "honua.cmd", "honua.ps1"):
-            candidate = Path(directory) / name
-            if not candidate.is_file():
-                continue
-            if candidate.suffix.lower() not in {".cmd", ".bat", ".exe", ".js"} and not os.access(candidate, os.X_OK):
-                continue
-            try:
-                if own is not None and candidate.resolve() == own:
-                    continue
-                head = candidate.read_text(encoding="utf-8", errors="ignore")[:400]
-            except OSError:
-                continue
-            if "honua_sdk" in head:
-                continue
-            return candidate
-    return _sibling_js_cli()
+        launchers: list[Path] = []
+        found = shutil.which("honua", path=directory)
+        if found is not None:
+            launchers.append(Path(found))
+        # Check every npm launcher name directly as well: on Windows
+        # shutil.which ignores the extensionless ``honua`` (sh shim or symlink).
+        for name in _JS_LAUNCHER_NAMES:
+            launcher = Path(directory) / name
+            if launcher.is_file() and launcher not in launchers:
+                launchers.append(launcher)
+        for launcher in launchers:
+            binary = _js_bin_from_launcher(launcher)
+            if binary is not None:
+                return binary
+    return None
 
 
 def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
-    """Forward ``honua admin ...`` to the JavaScript control-plane CLI."""
+    """Forward a :data:`JS_CLI_COMMANDS` command to the JavaScript CLI."""
     binary = _control_plane_cli()
     if binary is None:
+        # Name the command from the constant set, never echo raw argv.
+        command_name = next((name for name in sorted(JS_CLI_COMMANDS) if argv and name == argv[0]), "admin")
         sys.stderr.write(
-            "error: `honua admin` is the @honua/sdk-js control-plane CLI. "
-            "Put the JavaScript `honua` on PATH, or set HONUA_JS_CLI to its bin.js. "
+            f"error: `honua {command_name}` is provided by the @honua/sdk-js CLI, which was not found. "
+            "Install it with `npm install -g @honua/sdk-js`, or set HONUA_JS_CLI to its bin.js. "
             "The Python operator commands are `honua datasource|layer|proposal` "
             "(or the `honua-admin` script from honua-admin).\n"
         )
@@ -622,6 +698,26 @@ def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
         sys.stderr.write(f"error: could not launch the JavaScript honua CLI: {exc.strerror}\n")
         return 127
     return 127  # pragma: no cover — execv does not return
+
+
+def _parser_commands(parser: argparse.ArgumentParser) -> frozenset[str]:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return frozenset(action.choices)
+    return frozenset()  # pragma: no cover — build_parser always adds subcommands
+
+
+def _unknown_command(parser: argparse.ArgumentParser) -> int:
+    # The unrecognised token is not echoed: a misplaced argument can be a secret.
+    known = ", ".join(sorted(_parser_commands(parser)))
+    forwarded = ", ".join(sorted(JS_CLI_COMMANDS))
+    sys.stderr.write(
+        "error: unknown command.\n"
+        f"Commands: {known}.\n"
+        f"Forwarded to the @honua/sdk-js CLI: {forwarded}.\n"
+        "Run `honua --help` for usage.\n"
+    )
+    return 2
 
 
 def _delegate_gp(argv: Sequence[str], runner: Any = None) -> int:
@@ -653,25 +749,33 @@ def _dispatch_gp(argv: Sequence[str]) -> int:
     return _delegate_gp(argv)
 
 
+def _route_outside_parser(forwarded: Sequence[str], parser: argparse.ArgumentParser) -> int | None:
+    """Handle ``gp``, JavaScript CLI commands and unknown commands; ``None`` means parse here."""
+    head = forwarded[0] if forwarded else ""
+    if head == "gp":
+        return _dispatch_gp(forwarded[1:])
+    if head in JS_CLI_COMMANDS:
+        return _delegate_control_plane(forwarded)
+    if head and not head.startswith("-") and head not in _parser_commands(parser):
+        return _unknown_command(parser)
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for the ``honua`` console script.
 
-    A real console invocation forwards to the ``@honua/sdk-js`` CLI when that
-    binary can be found, so ``honua map`` and ``honua admin`` are the same
-    program the 2026.1 skills describe. Calls that pass ``argv`` explicitly
-    stay in this data-plane parser unless the first token is ``admin``.
-    Set ``HONUA_PYTHON_CLI=1`` to keep the console script here.
+    Commands only the ``@honua/sdk-js`` CLI implements (:data:`JS_CLI_COMMANDS`,
+    such as ``honua admin`` and ``honua map``) are forwarded to that program
+    when it is installed or named by ``HONUA_JS_CLI``. Every other command is
+    handled by this data-plane parser; an unknown command is a usage error and
+    is never forwarded.
     """
     forwarded = list(sys.argv[1:] if argv is None else argv)
-    if forwarded[:1] == ["gp"]:
-        return _dispatch_gp(forwarded[1:])
-    use_control_plane = forwarded[:1] == ["admin"] or (
-        argv is None and os.environ.get("HONUA_PYTHON_CLI") != "1" and _control_plane_cli() is not None
-    )
-    if use_control_plane:
-        return _delegate_control_plane(forwarded)
     parser = build_parser()
-    args = parser.parse_args(argv)
+    routed = _route_outside_parser(forwarded, parser)
+    if routed is not None:
+        return routed
+    args = parser.parse_args(forwarded)
     func = getattr(args, "func", None)
     if func is None:
         parser.print_help()

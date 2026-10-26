@@ -236,7 +236,7 @@ def _pages() -> dict[str | None, dict[str, Any]]:
 
 def _client(handler: Any, *, api_key: str = "test-key") -> HonuaClient:
     return HonuaClient(
-        "http://example.test",
+        "https://example.test",
         api_key=api_key,
         transport=httpx.MockTransport(handler),
         max_retries=0,
@@ -766,7 +766,7 @@ async def test_async_client_pages_the_same_projection() -> None:
         return httpx.Response(200, json=pages[request.url.params.get("eventCursor")])
 
     async with AsyncHonuaClient(
-        "http://example.test",
+        "https://example.test",
         api_key="test-key",
         transport=httpx.MockTransport(handler),
         max_retries=0,

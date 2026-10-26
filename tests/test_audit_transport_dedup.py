@@ -153,7 +153,7 @@ async def test_async_refreshable_bearer_token_provider_is_awaited() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaClient(
-        "http://example.test", transport=transport, auth_provider=provider
+        "https://example.test", transport=transport, auth_provider=provider
     ) as client:
         await client.list_services()
 
@@ -179,7 +179,7 @@ async def test_async_client_offloads_sync_auth_provider_off_the_loop() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaClient(
-        "http://example.test", transport=transport, auth_provider=_RecordingProvider()
+        "https://example.test", transport=transport, auth_provider=_RecordingProvider()
     ) as client:
         await client.list_services()
 
@@ -248,12 +248,12 @@ async def test_async_auth_headers_stripped_on_redirect_to_other_host() -> None:
     # Build a client bound to one authority, then fire a request at a different
     # host through the same event hook to exercise the strip branch.
     async with AsyncHonuaClient(
-        "http://example.test", transport=transport, auth_provider=provider
+        "https://example.test", transport=transport, auth_provider=provider
     ) as client:
         await client._request("GET", "/rest/services")
         # Re-target the underlying client at a foreign host: the trusted-origin
         # gate must drop the provider-supplied Authorization header.
-        other = httpx.Request("GET", "http://evil.test/rest/services")
+        other = httpx.Request("GET", "https://evil.test/rest/services")
         await client._client.send(other)
     assert seen[0] == "Bearer const-token"
     assert seen[1] == ""  # stripped on the foreign authority
@@ -274,7 +274,7 @@ async def test_async_static_auth_provider_still_attaches_headers() -> None:
     transport = httpx.MockTransport(handler)
     provider = StaticAuthProvider({"X-API-Key": "k"})
     async with AsyncHonuaClient(
-        "http://example.test", transport=transport, auth_provider=provider
+        "https://example.test", transport=transport, auth_provider=provider
     ) as client:
         await client.list_services()
     assert seen == ["k"]

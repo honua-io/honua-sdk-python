@@ -20,6 +20,7 @@ from honua_sdk.http import (
     build_sensitive_auth_headers,
     encode_path_segment,
     encode_request_path,
+    ensure_secure_credential_transport,
     extract_trusted_authority,
     join_base_path,
     merge_request_headers,
@@ -132,6 +133,7 @@ class HonuaAdminClient:
         client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
         max_retries: int = 3,
+        allow_insecure_http: bool = False,
     ) -> None:
         """Construct an admin client bound to a single Honua deployment.
 
@@ -164,10 +166,16 @@ class HonuaAdminClient:
                 Only safe methods (GET/HEAD/PUT/DELETE/OPTIONS) and
                 transient statuses (429/502/503/504) are retried by
                 default.
+            allow_insecure_http: Allow credentials over a plain ``http://``
+                base URL whose host is not ``localhost`` or a loopback
+                address. Off by default; ``HONUA_ALLOW_INSECURE_HTTP=1``
+                opts in from the environment.
 
         Raises:
             ValueError: ``client`` and ``transport`` are both supplied,
-                or auth kwargs are supplied alongside a pre-built ``client``.
+                auth kwargs are supplied alongside a pre-built ``client``,
+                or credentials are configured for a non-loopback
+                ``http://`` base URL without opting in.
         """
         if client is not None and transport is not None:
             raise ValueError("Provide either `client` or `transport`, not both.")
@@ -178,6 +186,11 @@ class HonuaAdminClient:
             api_key=api_key,
             bearer_token=bearer_token,
             auth_provider=auth_provider,
+        )
+        ensure_secure_credential_transport(
+            base_url,
+            has_credentials=bool(api_key) or bool(bearer_token) or auth_provider is not None,
+            allow_insecure_http=allow_insecure_http,
         )
 
         # Stash constructor inputs so ``with_options`` can build an
@@ -190,6 +203,7 @@ class HonuaAdminClient:
         self._init_follow_redirects = follow_redirects
         self._init_transport = transport
         self._init_max_retries = max_retries
+        self._init_allow_insecure_http = allow_insecure_http
 
         self._owns_client = client is None
         # Per-request overrides set by ``with_options``; ``None`` means the
@@ -348,6 +362,7 @@ class HonuaAdminClient:
                     follow_redirects=self._init_follow_redirects,
                     transport=clone_transport,
                     max_retries=self._init_max_retries,
+                    allow_insecure_http=self._init_allow_insecure_http,
                 )
             clone._options_timeout = (
                 timeout if timeout is not None else self._options_timeout

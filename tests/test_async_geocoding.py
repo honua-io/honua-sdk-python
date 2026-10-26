@@ -253,7 +253,7 @@ async def test_init_with_api_key_sets_x_api_key_header() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaGeocodingClient(
-        "http://example.test",
+        "https://example.test",
         api_key="async-key",
         transport=transport,
     ) as client:
@@ -273,7 +273,7 @@ async def test_init_with_bearer_token_sets_authorization_header() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaGeocodingClient(
-        "http://example.test",
+        "https://example.test",
         bearer_token="bearer-async",
         transport=transport,
     ) as client:
@@ -299,7 +299,7 @@ async def test_init_with_auth_provider_invokes_provider() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaGeocodingClient(
-        "http://example.test",
+        "https://example.test",
         auth_provider=auth,
         transport=transport,
     ) as client:

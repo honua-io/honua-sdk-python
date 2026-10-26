@@ -164,8 +164,28 @@ Proposals come from the agent surface (the MCP `honua_publish_service` tool
 for a governed principal). The server has no REST call for submitting one, so
 the CLI has no submit command.
 
-## `honua admin`
+## `honua admin` and other JavaScript CLI commands
 
-`honua admin ...` forwards to the `@honua/sdk-js` command line when that
-binary is on `PATH` or named by `HONUA_JS_CLI`. When neither is found, the
-command exits `127` and names the Python operator commands above.
+These commands are implemented only by the `@honua/sdk-js` command line, and
+`honua` forwards them to it with the same arguments and environment:
+
+`admin`, `connection`, `explain`, `geocode`, `import`, `login`, `logout`,
+`map`, `stac`, `studio`, `tiles`, `whoami`.
+
+`honua` looks for that CLI in two places:
+
+1. `HONUA_JS_CLI`, when set, names the program to run (for example the
+   `dist/src/cli/bin.js` of a local `honua-sdk-js` checkout). It is used as
+   given, so set it only to a program you trust.
+2. Otherwise each `honua` launcher on `PATH` (`honua`, `honua.cmd`,
+   `honua.ps1`) is checked. A launcher is used only when it resolves to
+   `dist/src/cli/bin.js` inside an installed package whose `package.json` is
+   named `@honua/sdk-js` and declares that file as its `honua` bin. The npm
+   symlink and the npm Windows shims both qualify. Any other program named
+   `honua` is ignored. The verified `bin.js` is run with `node`.
+
+When neither is found, the command exits `127` and names the Python operator
+commands above.
+
+Every other command runs in this Python CLI. An unknown command exits `2`,
+lists the available commands, and does not start another program.

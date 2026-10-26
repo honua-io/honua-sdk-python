@@ -23,7 +23,8 @@ classifiers = [
   "Private :: Do Not Upload",
 ]
 dependencies = [
-  "honua-sdk>=0.1.0",
+  # The floor tracks the honua-sdk release (release-please generic updater).
+  "honua-sdk>=0.1.19",  # x-release-please-version
   "honua-admin>=0.1.0",
 ]
 

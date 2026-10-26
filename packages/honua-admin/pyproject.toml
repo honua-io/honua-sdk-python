@@ -25,7 +25,9 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "honua-sdk>=0.1.1,<0.2",
+  # The floor tracks the honua-sdk release (release-please generic updater on the line
+  # below) so honua-admin always requires the SDK it was released with.
+  "honua-sdk>=0.1.19,<0.3",  # x-release-please-version
 ]
 
 [project.scripts]

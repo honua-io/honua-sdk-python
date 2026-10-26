@@ -213,3 +213,21 @@ def test_release_target_uses_rest_field_and_all_actions_are_sha_pinned() -> None
     _assert_actions_pinned(publish_workflow)
     _assert_actions_pinned(release_workflow)
     assert "googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7" in release_workflow
+
+
+def test_dependent_packages_require_the_sdk_they_are_released_with() -> None:
+    # honua-admin and honua-gp import helpers that only exist in the SDK they are
+    # released with (e.g. honua_sdk.http.ensure_secure_credential_transport), so the
+    # release-please SDK release rewrites their honua-sdk floor to the new version.
+    config = json.loads((ROOT / "release-please-config.json").read_text(encoding="utf-8"))
+    sdk_version = tomllib.loads(
+        (ROOT / "packages/honua-sdk/pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
+    extra_files = config["packages"]["packages/honua-sdk"]["extra-files"]
+
+    for package in ("honua-admin", "honua-gp"):
+        path = f"packages/{package}/pyproject.toml"
+        assert {"type": "generic", "path": f"/{path}"} in extra_files
+        text = (ROOT / path).read_text(encoding="utf-8")
+        floors = re.findall(r'"honua-sdk>=([0-9.]+)[^"]*",\s*# x-release-please-version\n', text)
+        assert floors == [sdk_version], f"{path} honua-sdk floor must track the SDK release"

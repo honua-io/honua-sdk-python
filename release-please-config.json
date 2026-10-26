@@ -13,7 +13,9 @@
           "type": "json",
           "path": "/conformance/protocol-certification.v1.json",
           "jsonpath": "$.clientVersion"
-        }
+        },
+        { "type": "generic", "path": "/packages/honua-admin/pyproject.toml" },
+        { "type": "generic", "path": "/packages/honua-gp/pyproject.toml" }
       ],
       "changelog-sections": [
         { "type": "feat", "section": "Features" },

@@ -256,7 +256,7 @@ def test_does_not_follow_redirects_by_default_and_raises() -> None:
 
     transport = httpx.MockTransport(handler)
     with HonuaAdminClient(
-        "http://test.honua.io",
+        "https://test.honua.io",
         transport=transport,
         api_key="test-key",
     ) as client:
@@ -265,7 +265,7 @@ def test_does_not_follow_redirects_by_default_and_raises() -> None:
 
     assert exc_info.value.status_code == 302
     assert len(seen) == 1
-    assert seen[0][0] == "http://test.honua.io/api/v1/admin/services/"
+    assert seen[0][0] == "https://test.honua.io/api/v1/admin/services/"
     assert seen[0][1] == "test-key"
 
 
@@ -292,7 +292,7 @@ def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host()
 
     transport = httpx.MockTransport(handler)
     with HonuaAdminClient(
-        "http://test.honua.io",
+        "https://test.honua.io",
         transport=transport,
         api_key="test-key",
         bearer_token="test-token",
@@ -317,7 +317,7 @@ def test_admin_client_auth_provider_headers_are_resolved_per_request() -> None:
     transport = httpx.MockTransport(handler)
     auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
 
-    with HonuaAdminClient("http://test.honua.io", transport=transport, auth_provider=auth_provider) as client:
+    with HonuaAdminClient("https://test.honua.io", transport=transport, auth_provider=auth_provider) as client:
         client.list_services()
         client.list_services()
 

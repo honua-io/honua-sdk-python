@@ -512,7 +512,7 @@ def test_ogc_records_errors_and_auth_use_shared_http_client() -> None:
         return httpx.Response(404, json={"error": {"message": "record not found"}})
 
     transport = httpx.MockTransport(handler)
-    with HonuaClient("http://example.test", transport=transport, api_key="records-key") as client:
+    with HonuaClient("https://example.test", transport=transport, api_key="records-key") as client:
         try:
             client.ogc_records().record("catalog", "missing")
         except Exception as exc:

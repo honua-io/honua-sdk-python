@@ -108,7 +108,7 @@ def test_operator_groups_are_mounted_from_honua_admin(
         admin_cli,
         "_make_client",
         lambda args: HonuaAdminClient(
-            "http://example.test", api_key=admin_cli._resolve_api_key(args), transport=httpx.MockTransport(handler)
+            "https://example.test", api_key=admin_cli._resolve_api_key(args), transport=httpx.MockTransport(handler)
         ),
     )
     assert cli.main(["proposal", "approve", "prop-1", "--api-key", "proposer", "--json"]) == 1
@@ -147,7 +147,6 @@ def test_missing_js_cli_message_names_python_operator_commands(
 ) -> None:
     monkeypatch.delenv("HONUA_JS_CLI", raising=False)
     monkeypatch.setenv("PATH", "")
-    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
     assert cli._delegate_control_plane(["admin", "connect"]) == 127
     assert "honua datasource|layer|proposal" in capsys.readouterr().err
 

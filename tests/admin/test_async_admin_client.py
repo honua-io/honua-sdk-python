@@ -308,7 +308,7 @@ async def test_async_init_api_key_sets_x_api_key_header() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
-        "http://test.honua.io",
+        "https://test.honua.io",
         api_key="admin-key",
         transport=transport,
     ) as client:
@@ -327,7 +327,7 @@ async def test_async_init_bearer_token_sets_authorization_header() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
-        "http://test.honua.io",
+        "https://test.honua.io",
         bearer_token="admin-bearer",
         transport=transport,
     ) as client:
@@ -352,7 +352,7 @@ async def test_async_init_auth_provider_is_invoked_per_request() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
-        "http://test.honua.io",
+        "https://test.honua.io",
         auth_provider=auth,
         transport=transport,
     ) as client:
@@ -1123,7 +1123,7 @@ async def test_async_admin_client_awaits_async_auth_provider() -> None:
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
-        "http://test.honua.io", transport=transport, auth_provider=provider
+        "https://test.honua.io", transport=transport, auth_provider=provider
     ) as client:
         await client.list_services()
 
@@ -1150,7 +1150,7 @@ async def test_async_admin_client_offloads_sync_auth_provider_off_the_loop() -> 
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
-        "http://test.honua.io", transport=transport, auth_provider=_RecordingProvider()
+        "https://test.honua.io", transport=transport, auth_provider=_RecordingProvider()
     ) as client:
         await client.list_services()
 

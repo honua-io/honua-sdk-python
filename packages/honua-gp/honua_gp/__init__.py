@@ -69,6 +69,11 @@ def configure(
     ``base_url`` + (``api_key`` or ``bearer_token``) is the standard path.
     The remaining keywords (``client``, ``admin_client``, ``processes_client``)
     accept pre-built instances for testing or wire-once integration cases.
+
+    Credentials are refused over a plain ``http://`` base URL unless its host
+    is ``localhost`` or a loopback address. Pass ``allow_insecure_http=True``
+    (forwarded to the SDK clients) or set ``HONUA_ALLOW_INSECURE_HTTP=1`` to
+    opt in.
     """
 
     get_session().configure(

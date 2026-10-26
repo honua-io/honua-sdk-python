@@ -23,7 +23,7 @@ from honua_admin import cli
 
 from .conftest import make_api_response
 
-BASE = "http://admin.test"
+BASE = "https://admin.test"
 ROOT_KEY = "root-key"
 PROPOSER_KEY = "proposer-key"
 APPROVER_KEY = "approver-key"
@@ -608,3 +608,15 @@ def test_list_proposals_tolerates_non_list_payload() -> None:
 
     with HonuaAdminClient(BASE, transport=httpx.MockTransport(handler)) as client:
         assert client.list_proposals() == []
+
+
+def test_credentials_over_plain_http_are_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("HONUA_ALLOW_INSECURE_HTTP", raising=False)
+    code, _, err = run(
+        capsys, "datasource", "list", "--base-url", "http://admin.example.test", "--api-key", "secret-key"
+    )
+    assert code == 2
+    assert "Refusing to send credentials over plain HTTP" in err
+    assert "secret-key" not in err

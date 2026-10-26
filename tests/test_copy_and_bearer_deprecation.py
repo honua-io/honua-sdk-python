@@ -76,10 +76,10 @@ def test_async_clients_expose_copy() -> None:
 @pytest.mark.parametrize(
     "factory",
     [
-        lambda: HonuaClient("http://example.test", bearer_token="t", max_retries=0),
-        lambda: AsyncHonuaClient("http://example.test", bearer_token="t", max_retries=0),
-        lambda: HonuaAdminClient("http://example.test", bearer_token="t", max_retries=0),
-        lambda: AsyncHonuaAdminClient("http://example.test", bearer_token="t", max_retries=0),
+        lambda: HonuaClient("https://example.test", bearer_token="t", max_retries=0),
+        lambda: AsyncHonuaClient("https://example.test", bearer_token="t", max_retries=0),
+        lambda: HonuaAdminClient("https://example.test", bearer_token="t", max_retries=0),
+        lambda: AsyncHonuaAdminClient("https://example.test", bearer_token="t", max_retries=0),
     ],
 )
 def test_bearer_token_emits_deprecation_warning(factory) -> None:  # type: ignore[no-untyped-def]
@@ -97,18 +97,18 @@ def test_auth_provider_does_not_warn() -> None:
     provider = StaticAuthProvider({"Authorization": "Bearer t"})
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
-        client = HonuaClient("http://example.test", auth_provider=provider, max_retries=0)
+        client = HonuaClient("https://example.test", auth_provider=provider, max_retries=0)
         client.close()
 
 
 def test_with_options_clone_does_not_refire_bearer_warning() -> None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        original = HonuaClient("http://example.test", bearer_token="t", max_retries=0)
+        original = HonuaClient("https://example.test", bearer_token="t", max_retries=0)
         # One warning so far (original construction).
         baseline = sum(1 for w in caught if issubclass(w.category, DeprecationWarning))
         # Internal clone re-forwards bearer_token but must NOT re-warn.
-        clone = original.with_options(base_url="http://other.test")
+        clone = original.with_options(base_url="https://other.test")
         after = sum(1 for w in caught if issubclass(w.category, DeprecationWarning))
     assert baseline == 1
     assert after == baseline

@@ -250,10 +250,10 @@ def test_auth_headers_api_key() -> None:
 
     transport = httpx.MockTransport(handler)
     with HonuaGeocodingClient(
-        "http://example.test",
+        "https://example.test",
         api_key="geo-test-key",
     ) as client:
-        client._client = httpx.Client(base_url="http://example.test/", transport=transport, event_hooks=client._client._event_hooks)
+        client._client = httpx.Client(base_url="https://example.test/", transport=transport, event_hooks=client._client._event_hooks)
         client.forward_geocode("test")
 
     assert seen["x_api_key"] == "geo-test-key"
@@ -270,10 +270,10 @@ def test_auth_headers_bearer_token() -> None:
 
     transport = httpx.MockTransport(handler)
     with HonuaGeocodingClient(
-        "http://example.test",
+        "https://example.test",
         bearer_token="geo-test-token",
     ) as client:
-        client._client = httpx.Client(base_url="http://example.test/", transport=transport, event_hooks=client._client._event_hooks)
+        client._client = httpx.Client(base_url="https://example.test/", transport=transport, event_hooks=client._client._event_hooks)
         client.forward_geocode("test")
 
     assert seen["x_api_key"] == ""

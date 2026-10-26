@@ -93,7 +93,12 @@ def _resolve_api_key(args: argparse.Namespace) -> str | None:
 
 
 def _make_client(args: argparse.Namespace) -> HonuaAdminClient:
-    return HonuaAdminClient(_resolve_base_url(args), api_key=_resolve_api_key(args), timeout=args.timeout)
+    base_url = _resolve_base_url(args)
+    try:
+        return HonuaAdminClient(base_url, api_key=_resolve_api_key(args), timeout=args.timeout)
+    except ValueError as exc:
+        # Configuration refusals (e.g. credentials over non-loopback http://).
+        raise CliUsageError(str(exc)) from exc
 
 
 # -- output ------------------------------------------------------------------

@@ -30,6 +30,8 @@ HTTP helpers (no leading underscore):
 * :func:`apply_sensitive_auth_headers_async` — awaitable variant for async
   clients; resolves dynamic/async auth providers without blocking the loop
 * :func:`extract_trusted_authority`
+* :func:`ensure_secure_credential_transport` — refuse credentials over
+  non-loopback plain HTTP unless opted in (``HONUA_ALLOW_INSECURE_HTTP``)
 * :func:`validate_auth_configuration`
 * :func:`validate_external_client_auth_configuration`
 * :func:`warn_deprecated_bearer_token`
@@ -60,10 +62,12 @@ from __future__ import annotations
 
 from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
 from ._http import (
+    INSECURE_HTTP_OPT_IN_ENV,
     _apply_sensitive_auth_headers,
     _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
     _encode_path_segment,
+    _ensure_secure_credential_transport,
     _extract_trusted_authority,
     _normalize_base_url,
     _parse_retry_after,
@@ -93,6 +97,7 @@ apply_sensitive_auth_headers = _apply_sensitive_auth_headers
 apply_sensitive_auth_headers_async = _apply_sensitive_auth_headers_async
 build_sensitive_auth_headers = _build_sensitive_auth_headers
 encode_path_segment = _encode_path_segment
+ensure_secure_credential_transport = _ensure_secure_credential_transport
 extract_trusted_authority = _extract_trusted_authority
 normalize_base_url = _normalize_base_url
 parse_retry_after = _parse_retry_after
@@ -103,6 +108,7 @@ validate_external_client_auth_configuration = _validate_external_client_auth_con
 warn_deprecated_bearer_token = _warn_deprecated_bearer_token
 
 __all__ = [
+    "INSECURE_HTTP_OPT_IN_ENV",
     "AsyncNonClosingTransport",
     "AsyncRetryTransport",
     "AuthProvider",
@@ -129,6 +135,7 @@ __all__ = [
     "build_sensitive_auth_headers",
     "encode_path_segment",
     "encode_request_path",
+    "ensure_secure_credential_transport",
     "extract_trusted_authority",
     "join_base_path",
     "merge_request_headers",

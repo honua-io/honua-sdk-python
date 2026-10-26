@@ -149,7 +149,7 @@ def test_validate_toolbox_translation_sends_the_admin_api_key() -> None:
         return httpx.Response(200, json=_REPORT)
 
     transport = httpx.MockTransport(handler)
-    with HonuaAdminClient("http://test.honua.io", api_key="admin-secret", transport=transport) as client:
+    with HonuaAdminClient("https://test.honua.io", api_key="admin-secret", transport=transport) as client:
         client.validate_toolbox_translation(_manifest())
 
     # The endpoint is in the admin import group, so it rides the existing admin

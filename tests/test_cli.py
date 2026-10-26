@@ -131,6 +131,52 @@ def test_main_forwards_admin_before_parsing(monkeypatch: pytest.MonkeyPatch) -> 
     assert seen["argv"] == ["admin", "install", "status", "--directory", ".honua"]
 
 
+@pytest.mark.parametrize("command", sorted(cli.JS_CLI_COMMANDS))
+def test_main_forwards_each_js_cli_command(command: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+    monkeypatch.setattr(cli, "_delegate_control_plane", lambda argv: seen.append(list(argv)) or 0)
+    assert cli.main([command, "--json"]) == 0
+    assert seen == [[command, "--json"]]
+
+
+def test_js_cli_commands_do_not_shadow_python_commands() -> None:
+    assert cli.JS_CLI_COMMANDS.isdisjoint(cli._parser_commands(cli.build_parser()))
+
+
+def test_console_python_commands_never_forward(monkeypatch: pytest.MonkeyPatch, patch_client: Any) -> None:
+    monkeypatch.setattr(cli, "_delegate_control_plane", lambda _argv: pytest.fail("forwarded"))
+    monkeypatch.setattr(cli, "_control_plane_cli", lambda: pytest.fail("looked up the JS CLI"))
+    patch_client(lambda _request: httpx.Response(200, json={"folders": [], "services": []}))
+    monkeypatch.setattr(cli.sys, "argv", ["honua", "services", "--base-url", "http://example.test"])
+    assert cli.main() == 0
+
+
+@pytest.mark.parametrize("argv", [["frobnicate"], ["frobnicate", "--api-key", "k"], ["Admin"]])
+def test_unknown_command_is_a_usage_error_and_never_execs(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "_control_plane_cli", lambda: pytest.fail("looked up the JS CLI"))
+    monkeypatch.setattr(cli.os, "execv", lambda *_args: pytest.fail("exec'd"))
+    monkeypatch.setattr(cli.sys, "argv", ["honua", *argv])
+    assert cli.main() == 2
+    err = capsys.readouterr().err
+    assert f"unknown command {argv[0]!r}" in err
+    assert "services" in err
+    assert "admin" in err
+
+
+def _fake_js_package(root: Path, *, name: str = "@honua/sdk-js", declare_bin: bool = True) -> Path:
+    package = root / "node_modules" / "@honua" / "sdk-js"
+    binary = package / "dist" / "src" / "cli" / "bin.js"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    manifest: dict[str, Any] = {"name": name}
+    if declare_bin:
+        manifest["bin"] = {"honua": "./dist/src/cli/bin.js"}
+    (package / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return binary
+
+
 def test_admin_delegate_uses_honua_js_cli(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     binary = tmp_path / "bin.js"
     binary.write_text("#!/usr/bin/env node\n", encoding="utf-8")
@@ -146,42 +192,85 @@ def test_admin_delegate_uses_honua_js_cli(tmp_path: Any, monkeypatch: pytest.Mon
     assert Path(seen["command"][0]).stem.lower() == "node"
 
 
-def test_control_plane_cli_finds_windows_cmd_shim(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    command = tmp_path / "honua.cmd"
-    command.write_text("@echo off\r\nnode bin.js %*\r\n", encoding="utf-8")
+def test_control_plane_cli_follows_npm_symlink_to_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    binary = _fake_js_package(tmp_path / "lib")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    binary.chmod(0o755)
+    (bin_dir / "honua").symlink_to(binary)
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    assert cli._control_plane_cli() == binary.resolve()
+
+
+def test_control_plane_cli_reads_windows_cmd_shim(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    binary = _fake_js_package(tmp_path)
+    (tmp_path / "honua.cmd").write_text(
+        '@ECHO off\r\nSET dp0=%~dp0\r\n"%_prog%"  "%dp0%\\node_modules\\@honua\\sdk-js\\dist\\src\\cli\\bin.js" %*\r\n',
+        encoding="utf-8",
+    )
     monkeypatch.delenv("HONUA_JS_CLI", raising=False)
     monkeypatch.setenv("PATH", str(tmp_path))
-    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
-    assert cli._control_plane_cli() == command
+    assert cli._control_plane_cli() == binary.resolve()
+
+
+def test_control_plane_cli_reads_powershell_shim(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    binary = _fake_js_package(tmp_path)
+    (tmp_path / "honua.ps1").write_text(
+        '& "$basedir/node$exe"  "$basedir/node_modules/@honua/sdk-js/dist/src/cli/bin.js" $args\n',
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert cli._control_plane_cli() == binary.resolve()
+
+
+def test_control_plane_cli_ignores_unrelated_honua_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    impostor = tmp_path / "honua"
+    impostor.write_text("#!/bin/sh\necho pwned\n", encoding="utf-8")
+    impostor.chmod(0o755)
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert cli._control_plane_cli() is None
+    assert cli._delegate_control_plane(["admin"], runner=lambda _cmd: pytest.fail("ran impostor")) == 127
+
+
+@pytest.mark.parametrize(("name", "declare_bin"), [("@evil/sdk-js", True), ("@honua/sdk-js", False)])
+def test_control_plane_cli_requires_the_package_identity(
+    name: str, declare_bin: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_js_package(tmp_path, name=name, declare_bin=declare_bin)
+    (tmp_path / "honua.cmd").write_text('"%dp0%\\node_modules\\@honua\\sdk-js\\dist\\src\\cli\\bin.js" %*', encoding="utf-8")
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert cli._control_plane_cli() is None
 
 
 def test_admin_delegate_skips_python_shim_on_path(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     shim = tmp_path / "honua"
     shim.write_text("#!/usr/bin/python3\nfrom honua_sdk.cli import main\n", encoding="utf-8")
+    shim.chmod(0o755)
     monkeypatch.delenv("HONUA_JS_CLI", raising=False)
     monkeypatch.setenv("PATH", str(tmp_path))
-    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
     assert cli._control_plane_cli() is None
     assert cli._delegate_control_plane(["admin"]) == 127
 
 
-def test_sibling_js_cli_reads_checkout_layout(tmp_path: Any) -> None:
-    origin = tmp_path / "honua-sdk-python" / "packages" / "honua-sdk" / "honua_sdk" / "cli.py"
-    binary = tmp_path / "honua-sdk-js" / "dist" / "src" / "cli" / "bin.js"
-    origin.parent.mkdir(parents=True)
-    binary.parent.mkdir(parents=True)
-    origin.write_text("# cli\n", encoding="utf-8")
-    binary.write_text("#!/usr/bin/env node\n", encoding="utf-8")
-    assert cli._sibling_js_cli(origin) == binary
-    assert cli._sibling_js_cli(tmp_path / "cli.py") is None
+def test_no_sibling_checkout_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HONUA_JS_CLI", raising=False)
+    monkeypatch.setenv("PATH", "")
+    assert not hasattr(cli, "_sibling_js_cli")
+    assert cli._control_plane_cli() is None
 
 
 def test_admin_delegate_explains_missing_js_cli(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.delenv("HONUA_JS_CLI", raising=False)
     monkeypatch.setenv("PATH", "")
-    monkeypatch.setattr(cli, "_sibling_js_cli", lambda: None)
-    assert cli._delegate_control_plane(["admin", "install", "local"]) == 127
-    assert "@honua/sdk-js" in capsys.readouterr().err
+    assert cli._delegate_control_plane(["map", "export", "svc"]) == 127
+    err = capsys.readouterr().err
+    assert "`honua map`" in err
+    assert "@honua/sdk-js" in err
+    assert "HONUA_JS_CLI" in err
 
 
 def test_main_handles_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -228,3 +317,13 @@ def _ns(**kwargs: Any) -> Any:
     defaults: dict[str, Any] = {"base_url": "http://example.test", "api_key": None}
     defaults.update(kwargs)
     return _Namespace(**defaults)
+
+
+
+def test_make_client_refuses_credentials_over_plain_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HONUA_ALLOW_INSECURE_HTTP", raising=False)
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["services", "--base-url", "http://api.example.test", "--api-key", "secret-key"])
+    message = str(excinfo.value.code)
+    assert message.startswith("error: Refusing to send credentials over plain HTTP")
+    assert "secret-key" not in message

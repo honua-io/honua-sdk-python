@@ -60,6 +60,26 @@ combination so the source of the `Authorization` header stays unambiguous. A
 static `api_key` can be combined with a bearer-token provider only when the
 server expects both headers.
 
+## Plain HTTP
+
+Credentials are sent only over `https://`, or over `http://` to `localhost` or
+a loopback address (`127.0.0.0/8`, `::1`). Constructing a client with an
+`api_key`, `bearer_token` or `auth_provider` for any other `http://` base URL
+raises `ValueError`, so a key is never sent in clear text by accident. This
+matches the .NET SDK.
+
+To send credentials over plain HTTP anyway, for example inside a private
+network, opt in explicitly:
+
+```python
+client = HonuaClient("http://honua.internal:8080", api_key=key, allow_insecure_http=True)
+```
+
+or set `HONUA_ALLOW_INSECURE_HTTP=1` in the environment. Both are accepted by
+the clients listed above and by `honua_gp.configure(...)`, which applies the
+same rule to `HONUA_BASE_URL` / `HONUA_API_KEY` / `HONUA_BEARER_TOKEN` and
+raises `HonuaGpConfigurationError`. Anonymous clients are not affected.
+
 ## Rotation
 
 `auth_provider` is resolved per request. This lets applications rotate API keys

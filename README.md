@@ -288,8 +288,9 @@ at [honua.io](https://honua.io) and
 
 Lint, type-check, and tests run from a clone. Besides Python 3.11+, the test
 suite needs Node.js with `node` on `PATH`: the `honua` CLI forwards
-`honua admin ...` to the JavaScript CLI, and `tests/test_cli.py` checks that
-forwarding. The editable installs below replace the published package, so they
+`honua admin ...`, `honua map ...` and the other commands only the JavaScript
+CLI implements to an installed `@honua/sdk-js`, and `tests/test_cli.py` checks
+that forwarding. The editable installs below replace the published package, so they
 belong in a development environment, not in the environment used to verify a
 release. The same contributor setup is in [AGENTS.md](AGENTS.md).
 

@@ -286,6 +286,7 @@ class HonuaSession:
             kwargs.setdefault("api_key", self.api_key)
         if self.bearer_token is not None:
             kwargs.setdefault("bearer_token", self.bearer_token)
+        _ensure_secure_transport(self.base_url, kwargs)
         return HonuaClient(self.base_url, **kwargs)
 
     def _build_admin_client(self) -> Any:
@@ -307,7 +308,32 @@ class HonuaSession:
             kwargs.setdefault("api_key", self.api_key)
         if self.bearer_token is not None:
             kwargs.setdefault("bearer_token", self.bearer_token)
+        _ensure_secure_transport(self.base_url, kwargs)
         return HonuaAdminClient(self.base_url, **kwargs)
+
+
+def _ensure_secure_transport(base_url: str, kwargs: dict[str, Any]) -> None:
+    """Refuse credentials over non-loopback plain HTTP before building a client.
+
+    Applies the SDK rule (``honua_sdk.http.ensure_secure_credential_transport``)
+    to the session's ``HONUA_BASE_URL`` / ``HONUA_API_KEY`` /
+    ``HONUA_BEARER_TOKEN`` configuration, raising the shim's own
+    configuration error. Opt in with ``configure(..., allow_insecure_http=True)``
+    or ``HONUA_ALLOW_INSECURE_HTTP=1``.
+    """
+
+    from honua_sdk.http import ensure_secure_credential_transport
+
+    try:
+        ensure_secure_credential_transport(
+            base_url,
+            has_credentials=bool(kwargs.get("api_key"))
+            or bool(kwargs.get("bearer_token"))
+            or kwargs.get("auth_provider") is not None,
+            allow_insecure_http=bool(kwargs.get("allow_insecure_http", False)),
+        )
+    except ValueError as exc:
+        raise HonuaGpConfigurationError(str(exc)) from exc
 
 
 _SESSION = HonuaSession()

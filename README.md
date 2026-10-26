@@ -351,7 +351,9 @@ and is not published.
 The conformance workflow uses an explicit Enterprise Development grant only for
 PR/nightly rehearsal fixtures. These receipts carry
 `development-grant-rehearsal-v1`, which does not match the governed release auth
-policy and cannot qualify release cells. Release dispatches clear the grant and
+policy and cannot qualify release cells, so those runs exercise every conformance
+case but request no protocol-certification fragment. Only a `certification_tier:
+release` dispatch emits one. Release dispatches clear the grant and
 require the operator-provisioned `HONUA_CERTIFICATION_LICENSE_CONTENT` secret;
 that input is currently an external wiring prerequisite under #282 and
 honua-io/honua-release#652. No license contents are included in generated Compose

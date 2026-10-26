@@ -375,7 +375,11 @@ jobs:
         env:
           HONUA_NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}
           HONUA_CONFORMANCE_SUMMARY_PATH: conformance-summary.md
-          HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request' && 'protocol-certification-fragment.json' || '' }}
+          # Only a release-tier dispatch can produce a governed fragment. PR, push and nightly-tier
+          # runs use the Development rehearsal grant, whose auth_policy_revision is
+          # development-grant-rehearsal-v1 and by design never matches a governed cell, so
+          # requesting a fragment there turns every trunk run red without producing evidence.
+          HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event.inputs.certification_tier == 'release' && 'protocol-certification-fragment.json' || '' }}
           HONUA_CERTIFICATION_REQUIREMENTS_PATH: ${{ github.workspace }}/honua-release-governance/protocol-certification-requirements.v1.json
         run: |
           "${HONUA_SDK_CERT_PYTHON}" -m pytest tests/conformance \

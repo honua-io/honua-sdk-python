@@ -27,7 +27,11 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
     assert "python -m build --wheel --no-isolation --outdir dist packages/honua-sdk" in workflow
     assert "HONUA_SDK_WHEEL_SOURCE=github-actions" in workflow
     assert "HONUA_SDK_SOURCE_SHA=${GITHUB_SHA}" in workflow
-    assert "HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request'" in workflow
+    assert (
+        "HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event.inputs.certification_tier == 'release' "
+        "&& 'protocol-certification-fragment.json' || '' }}"
+    ) in workflow
+    assert "HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request'" not in workflow
     assert workflow.count("--require-hashes") == 5
     assert workflow.count(".github/requirements/publish-python.lock") == 3
     assert "--no-isolation" in workflow

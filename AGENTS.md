@@ -1,263 +1,72 @@
-# AGENTS.md
+# honua-sdk-python: agent instructions
 
-## Overview
-
-Monorepo for the **Honua Python client libraries** — clients for a Honua
-geospatial server. Three independently installable packages live under
-`packages/`:
-
-| Package | PyPI name | License | Description |
-|---------|-----------|---------|-------------|
-| `packages/honua-sdk` | `honua-sdk` | Apache-2.0 | Data-plane client: feature queries, geocoding, multi-protocol clients (GeoServices/OGC/STAC/OData/WFS/WMS/WMTS/scenes), gRPC streaming, GeoPandas integration. |
-| `packages/honua-admin` | `honua-admin` | Apache-2.0 | Control-plane client: services, connections, layers, styles, metadata, manifests, compatibility checks. Depends on `honua-sdk`. |
-| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer (drop-in-style API for teams migrating from ArcGIS `arcpy`). Linted/tested under its own lenient gate, not the workspace-root strict rules. The only distribution in that directory; import `honua_gp`. |
-
-Status: alpha (`0.x`); APIs may change before 1.0.
-
-## Tech Stack
-
-- **Language:** Python, **requires 3.11+**. CI matrix tests 3.11, 3.12, 3.13.
-- **Build backend:** Hatchling (`hatch build`) per package.
-- **Core runtime dep:** `httpx>=0.27`. Optional extras on `honua-sdk`:
-  `grpc` (`grpcio`, `protobuf`), `geopandas` (`geopandas`, `shapely`).
-- **Tooling:** ruff (lint + import sort), mypy (type-check), pytest +
-  pytest-cov (test + coverage), pip-audit (security), twine (dist check).
-- **Docs:** mkdocs-material (`mkdocs.yml`, `docs/`).
-- **Release:** release-please (`python-sdk-v*` / `python-admin-v*` tags → PyPI).
+Python clients for Honua: `honua-sdk` (data plane), `honua-admin` (control plane), and the
+proprietary `honua-gp` arcpy compatibility layer, each under `packages/`. Status: alpha
+(`0.x`); APIs may change before 1.0. Python 3.11+; CI tests 3.11, 3.12 and 3.13.
 
 ## Setup
-
-The repo root `pyproject.toml` is **NOT installable** — it only holds shared
-tool config (ruff/mypy/pytest/coverage). Install the per-package directories:
-
+The root `pyproject.toml` holds shared tool config only and is not installable. Never run
+`pip install .` or `pip install -e .` at the root; install the package directories:
 ```bash
-# Editable install of both packages with all extras (typical dev setup)
 pip install -e "packages/honua-sdk[grpc,geopandas]"
 pip install -e "packages/honua-admin"
-
-# Test/dev tooling
 pip install pytest pytest-cov ruff mypy
 ```
 
-## Commands
-
-All commands run from the repo root unless noted. These are copied from CI
-(`.github/workflows/ci.yml`) and README; do not invent variants.
-
+## Commands (from the repo root; copied from `.github/workflows/ci.yml`)
 ```bash
-# Lint (workspace-root strict ruleset; honua-gp is excluded)
-ruff check .
-
-# Type-check
+ruff check .                                          # lint (honua-gp excluded)
+python scripts/check_docs_command_policy.py           # no raw-HTTP examples in docs
 python -m mypy packages/honua-sdk/honua_sdk packages/honua-admin/honua_admin
-
-# Full deterministic local test suite
-python3 -m pytest tests/ -q
-
-# Tests with the combined coverage gate (mirrors CI; fails under 94%)
-python -m pytest tests/ -q --tb=short \
-  --cov=honua_sdk --cov=honua_admin \
-  --cov-report=term-missing --cov-fail-under=94
-
-# Compatibility / public-API snapshot gate
-python scripts/compatibility_gate.py
-
-# Regenerate the synchronous clients from their async source-of-truth.
-# honua_sdk/client.py and honua_admin/_client.py are GENERATED from
-# async_client.py / _async_client.py by this script and committed; never
-# hand-edit them. Edit the async module, then regenerate. `--check` (run in
-# CI's lint job) fails if a committed sync file is stale. Requires ruff on PATH.
-python scripts/gen_sync.py            # rewrite the committed sync files
-python scripts/gen_sync.py --check    # verify they are up to date
-
-# Build a package wheel + sdist (run inside the package dir)
-hatch build                         # in packages/honua-sdk or packages/honua-admin
-twine check dist/*
-
-# Security audit
-python -m pip_audit --strict
-
-# Opt-in staging smoke suite (needs HONUA_BASE_URL)
-python3 -m pytest tests/integration -q --run-integration \
-  -m "integration and staging and smoke"
-
-# Live-server conformance lane: shared geospatial-grpc fixtures vs a pinned
-# honua-server:nightly via the httpx clients (blocking on PR/push to trunk).
-# Fetch the pinned shared fixtures, point a live target at the seeded server,
-# then run the suite (needs HONUA_BASE_URL; opt-in via --run-integration).
-conformance/fetch-fixtures.sh --version "$(cat conformance/FIXTURES_VERSION)" \
-  --repo honua-io/geospatial-grpc \
-  --dest "./conformance-fixtures-$(cat conformance/FIXTURES_VERSION)"
-HONUA_CONFORMANCE_FIXTURES_DIR="./conformance-fixtures-$(cat conformance/FIXTURES_VERSION)" \
-  python3 -m pytest tests/conformance -q --run-integration \
-  -m "integration and conformance" -rsxX
-
-# Release smoke against an installed build (needs HONUA_BASE_URL)
-python3 scripts/release_smoke.py
+python3 -m pytest tests/ -q                           # deterministic local suite
+python -m pytest tests/ -q --tb=short --cov=honua_sdk --cov=honua_admin \
+  --cov-report=term-missing --cov-fail-under=94       # coverage gate
+python scripts/compatibility_gate.py                  # public-API snapshot gate
+python scripts/gen_sync.py --check                    # generated sync clients are fresh
+python3 scripts/check-okf-bundle.py && python3 scripts/generate-summary.py --check   # docs/
 ```
+Opt-in lanes (staging smoke, live-server conformance, release smoke, wheel build,
+pip-audit, honua-gp): `docs/contributor/development.md`.
 
-honua-gp has a separate lane (`.github/workflows/honua-gp-eval.yml`):
-`python -m pytest packages/honua-gp/tests -q` and a CLI
-(`python -m honua_gp._cli ...`).
+## Rules
+- `honua_sdk/client.py` and `honua_admin/_client.py` are generated from `async_client.py` /
+  `_async_client.py`. Edit the async module, run `python scripts/gen_sync.py`, commit both.
+- mypy is `strict` workspace-wide; annotate every def in `honua_sdk` and `honua_admin`.
+  Coverage floors: 94 combined, 93 per package. Keep ruff per-file ignores narrow and keep
+  UP037 quoted forward refs (the API snapshot depends on them).
+- Use canonical cross-SDK protocol ids (`geoservices-feature-service`, `ogc-features`,
+  `stac`, `odata`); aliases go through `normalize_protocol`.
+- Integration and conformance tests are opt-in (`--run-integration`, `HONUA_BASE_URL`).
+- Never add custom-code submission or execution-backend selection (honua-server ADR-0063);
+  `tests/test_custom_code_batch_only_policy.py` enforces it.
+- A contract or schema version bump updates `release/component-versions.json` in the same PR.
+  Starting or stopping reliance on a server capability updates
+  `release/sdk-capability-baseline.json` in the same PR.
+- New pages under `docs/` need OKF frontmatter; regenerate `docs/SUMMARY.md` with
+  `python3 scripts/generate-summary.py`.
 
-## Architecture
+## Read before you act
+- Conformance lane, known server gaps, lint/type settings, layout, release declarations:
+  `docs/contributor/development.md`.
+- Public-API and breaking-change policy: `docs/compatibility.md`.
+- Review-only development source inputs: `docs/contributor/development-source-inputs.md`.
 
-- **`honua_sdk`** — data plane. Public entry points: `HonuaClient` /
-  `AsyncHonuaClient` (`client.py`, `async_client.py`). **`async_client.py` is the
-  hand-written source of truth; `client.py` is GENERATED from it** by
-  `scripts/gen_sync.py` (same for `honua_admin._async_client` → `_client`). Edit
-  the async module and run `python scripts/gen_sync.py`; never hand-edit the
-  generated sync file (its header says so, and CI's `--check` step fails on
-  drift). The canonical query path
-  is `client.source(SourceDescriptor(...))` → a `Source` facade
-  (`source.py`) exposing `query`/`query_all`/`stream`/`apply_edits`/`protocol`,
-  returning normalized `Result` / `QueryFeature` (`models.py`). Compact helpers
-  `client.query(...)` / `query_features(...)` remain for one-liners.
-  - `protocols/` — per-protocol clients (geoservices, ogc_extras, stac, odata,
-    wfs, wms, wmts, scenes) over a shared `_base.py`.
-  - `ogc.py` — OGC API Features facade. `geocoding.py` / `async_geocoding.py`.
-  - `grpc/` — `HonuaGrpcClient` for streaming; `_generated/` holds codegen'd
-    protobuf shims (excluded from lint/type/coverage).
-  - `geopandas.py` — `features_to_geodataframe` / `geodataframe_to_features`
-    (behind the optional `geopandas` extra; omitted from coverage gate).
-  - `_http.py`, `_retry*.py` — transport + automatic retry on 429/502/503 with
-    exponential backoff and `Retry-After` support.
-  - `auth.py`, `errors.py`, `migration/arcpy.py`, `_endpoints.py`.
-- **`honua_admin`** — control plane: `HonuaAdminClient` /
-  `_async_client.py`, `_models.py`, `_endpoints.py`, `_arcpy_scanner.py`
-  (AST-walking inventory scanner).
-- **`scripts/`** — `compatibility_gate.py`, `gen_sync.py` (async→sync client
-  codegen), `release_smoke.py`, `backlog_review.py`, `validate_publish_tag.py`,
-  `generate_proto.sh`.
+<!-- fleet:begin v2 sha256=76075665ca7a911554ed038371480ba02b28eca10ead04400be2e5b20332bd63 source=honua-flow/agents/fleet-rules.md -->
+## Fleet rules (all Honua repos)
 
-## Directory Layout
+Generated from honua-flow `agents/fleet-rules.md` (full text, repo map). Do not edit here.
 
-```
-packages/honua-sdk/honua_sdk/    # data-plane package source
-packages/honua-admin/honua_admin/# control-plane package source
-packages/honua-gp/            # proprietary arcpy shim (own gate)
-tests/                           # shared test suite (admin/, grpc_sdk/,
-                                 #   integration/, fixtures/, conftest.py)
-scripts/                         # gates, smoke, release helpers
-docs/                            # mkdocs sources
-examples/                        # runnable examples (ETL, FastAPI, demos)
-.github/workflows/               # ci.yml, release-please, publish, staging, docs
-pyproject.toml                   # shared tool config ONLY (not installable)
-.coveragerc                      # coverage omit/exclude rules
-```
-
-## Conventions & Gotchas
-
-- **Do not run `pip install .` / `-e .` at the repo root** — root has no
-  `[build-system]`/`[project]`; install per-package dirs instead.
-- **Coverage gates are real**: combined `--cov-fail-under=94`, plus per-package
-  floors of 93 (`honua_sdk` across `tests/`, `honua_admin` across `tests/admin`).
-- **ruff**: line-length 120, target py311, selects `E,F,I,UP,B,SIM,RUF,TID,PL,S`.
-  Generated grpc code and `packages/honua-gp` are excluded. Many narrow
-  per-file ignores exist — match the existing pattern, don't widen globally.
-- **mypy**: full `strict = true` workspace-wide (`pyproject.toml`
-  `[tool.mypy]`). Every def in `honua_sdk`/`honua_admin` is annotated; keep it
-  that way. A narrow override exempts the generated protobuf stubs
-  (`honua_sdk.grpc._generated.*`) from `disallow_untyped_defs`,
-  `disallow_untyped_calls`, `disallow_any_generics`, and
-  `disallow_subclassing_any`, since they're untyped upstream codegen output
-  and regenerating them just to add annotations would be erased by the next
-  codegen run.
-- **UP037 (quoted forward refs) is intentionally kept** in package source so the
-  compatibility-gate public-API snapshot stays stable — don't strip the quotes.
-- **Protocol IDs**: use canonical cross-SDK ids (`geoservices-feature-service`,
-  `ogc-features`, `stac`, `odata`); aliases are normalized at runtime via
-  `honua_sdk.normalize_protocol` / `PROTOCOL_ALIASES`.
-- **Integration tests are opt-in** (`--run-integration`, markers
-  `integration`/`staging`/`smoke`) and require `HONUA_BASE_URL`. Set
-  `HONUA_ENABLE_WRITE_SMOKE=true` to enable the write roundtrip. The same
-  `--run-integration` flag gates `tests/conformance` (marker `conformance`).
-- **Live-server conformance lane** (`tests/conformance`, `scripts/_conformance.py`,
-  `.github/workflows/conformance.yml`): blocking on PR/push to trunk. It pulls a
-  **pinned** `honua-server:nightly` (`nightly-20260530`, recorded with its
-  resolved digest/revision in the job summary), fetches the **shared
-  geospatial-grpc conformance fixtures** with `conformance/fetch-fixtures.sh`
-  (version pinned in `conformance/FIXTURES_VERSION`, 1:1 with a `geospatial.v1`
-  schema release), and exercises them against the live REST surfaces via the
-  `httpx` clients — failing on any drift **in a required (non-`known_gap`)
-  case**. The seeded server must run with
-  `ASPNETCORE_ENVIRONMENT=Development` (the client-compat seed activates the
-  metadata-v2 snapshot for `default`/`Development`/`Test`, not `Production`).
-  10 cases total (plus a registry self-check); 8 are unconditionally required,
-  2 are known gaps. Known, already-tracked nightly server gaps are marked
-  `xfail` (strict=False) with explicit issue references in
-  `scripts/_conformance.py::KNOWN_SERVER_GAPS`:
-  - `temporal_query` → honua-server#2643 (client-compat-v1.sql doesn't set
-    `timeInfo` on `test_service` layer 0, so `time=` queries 400 as
-    non-time-aware by design (honua-server#1444) instead of filtering — a seed
-    gap, not a query-engine bug).
-  - `replica_sync_surface` → honua-server#2645 (client-compat-v1.sql hardcodes
-    an empty Metadata-V2 `options` object for `test_service`, so the
-    already-implemented Sync-capability advertisement can never surface a
-    `Sync` token/`syncEnabled` field for the seeded layer — also a seed gap).
-
-  When a fix lands, clear the case's `known_gap_issue` to make it required.
-  As of 2026-07-10, honua-server#1238 (JSONB-attribute projection) and
-  honua-server#1237 (analysis process list/estimate) — both closed 2026-05-31
-  — were re-verified live and now pass genuinely; no case references either
-  any more. honua-server#1166 and #1167 were also re-verified: both are
-  closed, but on inspection neither was ever the actual cause of the
-  `temporal_query`/`replica_sync_surface` failures (#1166 ships an unrelated
-  as-of/diff/rollback temporal-history API; #1167 ships an unrelated admin
-  conflict-review/named-replica API) — the *real* blockers are the two seed
-  gaps above, tracked under the newly-filed #2643/#2645 instead of the stale
-  numbers.
-
-  **Structural fix landed 2026-07-10:** an `xfail`ed case is non-enforcing for
-  its *whole* assertion body, not just the tracked-gap line, so a
-  `known_gap`-tagged case must never also carry unrelated required assertions.
-  `feature_query_envelope` and `ogc_features_items` now hold only the core
-  read-contract assertions (a `features[]` array, `exceededTransferLimit`,
-  attributes/geometry presence, `FeatureCollection` shape, etc.) and are
-  **unconditionally required** — no `known_gap_issue`, ever. The
-  JSONB-typed-attribute-projection assertion (the honua-server#1238 class of
-  regression) lives in its own separate cases, `feature_query_jsonb_projection`
-  and `ogc_features_items_jsonb_projection`, so a future regression there is
-  attributable without re-gating the core contract behind an xfail. New/untracked
-  drift in a required case still fails the lane — never blanket `continue-on-error`.
-- **No custom-code submission or server execution-backend selector (custom GP
-  tools are AWS-Batch-only server-side).** The SDK intentionally exposes **no** way to submit "custom code"
-  (operator-authored geoprocessing tools) and **no** way to select an execution
-  backend — backend selection is entirely server configuration. Per honua-server
-  **ADR-0063**, untrusted custom GP code runs only in an isolated cloud-managed AWS
-  Batch container, never on-host. The ArcPy/ModelBuilder migration codemod
-  (`honua_sdk.migration`) only ever translates recognized tools to **built-in
-  server processes** (`EXECUTABLE_PROCESS_IDS`); anything unrecognized is emitted as
-  `manual-review`, never an auto-submitted custom-code job. Do not add a
-  local server-job execution path or a `customcode`/backend-selection submission
-  helper here. `honua gp inspect` and `honua gp logs` read the canonical
-  job diagnostics projection in this SDK. Every other `honua gp` command
-  delegates to a separately installed trusted local devkit, per ADR-0063's
-  local-authoring clarification; it never changes SDK server submission or
-  workload routing.
-  `tests/test_custom_code_batch_only_policy.py` is a tripwire that
-  fails if such a surface is introduced.
-- CI runs on the `trunk` branch (lint, typecheck, test matrix, compatibility,
-  security-audit, package smoke-install of built wheels, and the live-server
-  conformance lane).
-
-## Shared dev-environment rules (multi-agent WSL)
-
-This machine runs many agents concurrently (**Codex + Claude**, often via agentflow with multiple tabs/agents). To prevent host lockups and lost work, every agent MUST follow these:
-
-1. **Heavy builds/tests are throttled by a shared lock.** `dotnet` and `npm` are PATH-shimmed, so their build/test/publish/pack and ci/install/test/run-build/run-test subcommands automatically run under a global semaphore (default 1 concurrent, `HONUA_BUILD_SLOTS`). For other heavy tools, call the wrapper explicitly: `with-build-lock pytest ...`, `with-build-lock cargo build`, `with-build-lock make build`. The lock is shared across ALL of this user's processes (every Codex/Claude tab, agentflow children). Do not bypass it for compiles or test suites. Long-running servers (`dotnet run`, `npm run dev`) are intentionally NOT locked — never wrap those.
-
-2. **Commit and push when you finish a task** so your worktree can be reclaimed. An hourly job (`honua-clean`) removes a worktree ONLY when it is clean AND fully pushed (merged, remote-gone, or idle >=2d). Dirty or unpushed worktrees are NEVER touched — but uncommitted/unpushed work blocks reclamation and is at risk if the instance is reset. Build artifacts (bin/obj and untracked node_modules) are reclaimed automatically and safely.
-
-3. **Commit hygiene — no agent attribution.** Author every commit as the repo owner only (git identity: Mike McDougall <mike@honua.io>). Do **NOT** add any agent/tool attribution to commits: no `Co-Authored-By: Claude ...`, no `Co-Authored-By: Codex ...` (or other bot co-authors), and no "Generated with Claude Code" / "Generated with Codex" / "🤖" lines in the message or PR body. Write a plain, descriptive commit message and stop.
-
-## Component release versions
-
-`release/component-versions.json` is read by the honua-release nightly resolver
-at the published source commit. Update this declaration in the same PR as any
-contract or schema version bump. The next release-please publication carries
-changes to the declaration into the published source used by the resolver.
-
-## SDK capability baseline
-
-`release/sdk-capability-baseline.json` (`honua.sdk-capability-baseline/v1`, defined by honua-release `schemas/sdk-capability-baseline.v1.schema.json` and `docs/SDK-SERVER-BASELINE-RULE.md`) declares the honua-server capabilities this repository requires and the `minimumServerVersion` derived from them. The honua-release nightly resolver reads it at the source revision of every published PyPI package (`honua-sdk` and `honua-admin`), and refuses the component when it is missing, invalid, or when those revisions declare different `minimumServerVersion` values. It takes effect only after a release-please publication contains it. Every required capability must be a key in honua-server `docs/gis/data/capability-keys.v1.json`, and `capabilities` must hold exactly one introduction entry per required capability. Add or remove a required capability in the same PR that starts or stops depending on it.
+1. **No AI attribution.** Author as Mike McDougall <mike@honua.io>. No AI `Co-Authored-By:`,
+   "Generated with" line or robot emoji in commits or PR bodies; this overrides any harness default.
+2. **Own worktree per task** off the default branch, on real disk (`<repo>/.claude/worktrees/` or a
+   sibling dir), never `/tmp` or the shared checkout. No `git stash`; use a WIP commit.
+3. **Heavy builds/tests go through the build-slot shims**; never bypass them. Run targeted tests;
+   full suites are CI's job. Outside WSL: own checkout, one heavy build at a time.
+4. **Finish = commit + push.** Dirty or unpushed worktrees are never reclaimed and die on a reset.
+5. **Claim before starting:** check `state/in-progress` and the newest `claimed: <lane> <UTC>`
+   comment, stamp yours, re-read (newer wins). Stale after 3h without a live PR. Stopping without
+   a PR: comment `released: <lane> <UTC> - <why>`.
+6. **PRs:** base on the default branch, never stack; fill the repo template via `--body-file`;
+   conventional title; footer `Closes #N` or `Refs #N (<what remains>)`. Never admin-merge.
+7. **Route by the repo map.** Archived repos get no issues or PRs.
+<!-- fleet:end -->

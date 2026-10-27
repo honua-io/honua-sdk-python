@@ -231,3 +231,28 @@ def test_dependent_packages_require_the_sdk_they_are_released_with() -> None:
         text = (ROOT / path).read_text(encoding="utf-8")
         floors = re.findall(r'"honua-sdk>=([0-9.]+)[^"]*",\s*# x-release-please-version\n', text)
         assert floors == [sdk_version], f"{path} honua-sdk floor must track the SDK release"
+
+
+def test_attestation_jobs_bind_verified_bytes_to_the_release_commit() -> None:
+    """honua-release's collector verifies --source-digest <release commit> and this signer workflow."""
+    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+
+    for package in ("honua-sdk", "honua-admin"):
+        attest = _job_block(workflow, f"attest-{package}")
+        assert f"- verify-{package}-pypi" in attest
+        assert f"needs.verify-{package}-pypi.result == 'success'" in attest
+        assert "needs.resolve-publish-targets.outputs.publish == 'true'" in attest
+        assert "id-token: write" in attest
+        assert "attestations: write" in attest
+        assert "contents: read" in attest
+        assert "environment:" not in attest
+        assert 'if [ "$GITHUB_SHA" != "$RELEASE_SHA" ]' in attest
+        assert attest.index("Require the workflow source") < attest.index("actions/attest-build-provenance@")
+        assert "actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8" in attest
+        assert "actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e" in attest
+        assert "anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c" in attest
+        assert "format: cyclonedx-json" in attest
+        assert f"name: {package}-dist-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}" in attest
+        assert "subject-path: artifact/dist/*" in attest
+        assert "actions/checkout@" not in attest
+        assert "pypa/gh-action-pypi-publish@" not in attest

@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+
+
 
 WORKFLOW = Path(__file__).parents[1] / ".github" / "workflows" / "conformance.yml"
 
@@ -153,3 +156,200 @@ def test_governed_nightly_inputs_are_data_and_never_interpolated_into_shell_sour
     assert "REQUIREMENTS_SOURCE_SHA: ${{ github.event.inputs.requirements_ref || '' }}" in workflow
     assert 'args+=(--source-sha "${REQUIREMENTS_SOURCE_SHA}" --requirements-revision "${REQUIREMENTS_REVISION}")' in workflow
     assert 'python3 scripts/fetch_certification_requirements.py "${args[@]}"' in workflow
+
+
+_NIGHTLY_PACKAGE_INPUTS = ("sdk_package", "sdk_package_version", "sdk_package_digest", "sdk_source_sha")
+_BIND_STEP = "Bind nightly dispatch to the exact published honua-sdk package"
+_INSTALL_STEP = "Download and install exact public honua-sdk wheel"
+_DISPATCHED_DIGEST = "1" * 64
+_DISPATCHED = {
+    "NIGHTLY_DISPATCH_ID": "nightly-certification-123-1",
+    "REQUIREMENTS_SOURCE_SHA": "a" * 40,
+    "REQUIREMENTS_REVISION": "requirements-test-17",
+    "SDK_PACKAGE": "honua-sdk",
+    "SDK_PACKAGE_VERSION": "0.1.19",
+    "SDK_PACKAGE_DIGEST": "sha256:" + _DISPATCHED_DIGEST,
+    "SDK_SOURCE_SHA": "c" * 40,
+    "GITHUB_EVENT_NAME": "workflow_dispatch",
+    "GITHUB_SHA": "e" * 40,
+}
+
+
+def _step(name: str) -> tuple[str, str]:
+    """Return (step block, dedented run script) for the named workflow step."""
+    import textwrap
+
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    start = workflow.index(f"      - name: {name}\n")
+    end = workflow.find("\n      - name: ", start + 1)
+    block = workflow[start:end if end != -1 else len(workflow)]
+    script = block[block.index("        run: |\n") + len("        run: |\n"):]
+    return block, textwrap.dedent(script)
+
+
+def _run_step(name: str, env: dict[str, str], tmp_path: Path, path_prefix: Path | None = None):
+    import os
+    import shutil
+    import subprocess
+
+    bash = shutil.which("bash")
+    assert bash is not None
+    _, script = _step(name)
+    github_env = tmp_path / "github_env"
+    github_env.write_text("")
+    base = {key: value for key, value in os.environ.items()
+            if not key.startswith(("HONUA_", "SDK_", "NIGHTLY_", "REQUIREMENTS_", "GITHUB_"))}
+    if path_prefix is not None:
+        base["PATH"] = str(path_prefix) + os.pathsep + base["PATH"]
+    result = subprocess.run(  # noqa: S603 -- maintained workflow step with local stubs; no network or services
+        [bash, "-c", script], env={**base, "GITHUB_ENV": str(github_env), "GITHUB_STEP_SUMMARY": os.devnull,
+                                   "RUNNER_TEMP": str(tmp_path), **env},
+        cwd=tmp_path, capture_output=True, text=True, check=False)
+    return result, github_env.read_text()
+
+
+def test_nightly_dispatch_declares_the_pinned_package_inputs_as_data() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    for name in _NIGHTLY_PACKAGE_INPUTS:
+        assert f"      {name}:\n" in workflow
+        # Never interpolated into shell source: only ever bound through step env.
+        assert workflow.count(f"github.event.inputs.{name} ") == workflow.count(
+            f": ${{{{ github.event.inputs.{name} || '' }}}}")
+    for name in ("Retain immutable protected-trunk certification requirements", _BIND_STEP, _INSTALL_STEP):
+        _, script = _step(name)
+        assert "${{" not in script
+    assert workflow.index(_BIND_STEP) < workflow.index("Retain immutable protected-trunk certification")
+    install_block, _ = _step(_INSTALL_STEP)
+    for variable, source in (("NIGHTLY_DISPATCH_ID", "nightly_dispatch_id"), ("SDK_PACKAGE_VERSION", "sdk_package_version"),
+                             ("SDK_PACKAGE_DIGEST", "sdk_package_digest"), ("SDK_SOURCE_SHA", "sdk_source_sha")):
+        assert f"{variable}: ${{{{ github.event.inputs.{source} || '' }}}}" in install_block
+
+
+def test_undispatched_runs_need_no_nightly_package_inputs(tmp_path) -> None:
+    # Step env always binds every input; blank on push and ad-hoc dispatch.
+    blank = {key: "" for key in _DISPATCHED if not key.startswith("GITHUB_")}
+    result, written = _run_step(_BIND_STEP, {**blank, "GITHUB_EVENT_NAME": "push", "GITHUB_SHA": "e" * 40}, tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert written == ""
+
+
+def test_complete_nightly_dispatch_binds(tmp_path) -> None:
+    result, written = _run_step(_BIND_STEP, _DISPATCHED, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert written == ""
+
+
+@pytest.mark.parametrize("field,value", [
+    ("REQUIREMENTS_SOURCE_SHA", ""), ("REQUIREMENTS_SOURCE_SHA", "a" * 39), ("REQUIREMENTS_SOURCE_SHA", "trunk"),
+    ("REQUIREMENTS_REVISION", ""), ("REQUIREMENTS_REVISION", "   "),
+    ("SDK_PACKAGE", ""), ("SDK_PACKAGE", "honua_sdk"), ("SDK_PACKAGE", "Honua.Sdk"),
+    ("SDK_PACKAGE_VERSION", ""), ("SDK_PACKAGE_VERSION", "latest"), ("SDK_PACKAGE_VERSION", "0.1.19 --pre"),
+    ("SDK_PACKAGE_VERSION", "0.1.19;x"), ("SDK_PACKAGE_VERSION", ">=0.1"), ("SDK_PACKAGE_VERSION", "0.1.19+local"),
+    ("SDK_PACKAGE_DIGEST", ""), ("SDK_PACKAGE_DIGEST", _DISPATCHED_DIGEST),
+    ("SDK_PACKAGE_DIGEST", "sha256:" + "A" * 64), ("SDK_PACKAGE_DIGEST", "sha256:" + "1" * 63),
+    ("SDK_PACKAGE_DIGEST", "sha512:" + "1" * 64),
+    ("SDK_SOURCE_SHA", ""), ("SDK_SOURCE_SHA", "c" * 41), ("SDK_SOURCE_SHA", "C" * 40),
+    ("GITHUB_EVENT_NAME", "push"), ("GITHUB_SHA", ""), ("GITHUB_SHA", "e" * 39),
+])
+def test_nightly_dispatch_fails_closed_on_missing_or_malformed_inputs(tmp_path, field, value) -> None:
+    result, written = _run_step(_BIND_STEP, {**_DISPATCHED, field: value}, tmp_path)
+    assert result.returncode != 0
+    assert "::error::" in result.stdout
+    assert written == ""
+
+
+def _pip_stubs(tmp_path: Path, wheel_bytes: bytes) -> Path:
+    """Stub python/pip so the install step runs offline; records what it was asked to download."""
+    bin_dir = tmp_path / "stub-bin"
+    bin_dir.mkdir()
+    (tmp_path / "wheel-bytes").write_bytes(wheel_bytes)
+    venv_python = (
+        '#!/bin/sh\n'
+        'if [ "$1" = "-c" ]; then echo "$STUB_INSTALLED_VERSION"; exit 0; fi\n'
+        'echo "venv-python $*" >> "$STUB_EVENTS"\n'
+    )
+    python = (
+        '#!/bin/sh\n'
+        'echo "python $*" >> "$STUB_EVENTS"\n'
+        'if [ "$1 $2 $3" = "-m pip download" ]; then\n'
+        '  for arg; do last="$arg"; done\n'
+        '  version="${last#honua-sdk==}"\n'
+        '  cp "$STUB_WHEEL_BYTES" "dist/honua_sdk-${version}-py3-none-any.whl"\n'
+        'elif [ "$1 $2" = "-m venv" ]; then\n'
+        '  mkdir -p "$3/bin"\n'
+        f'  cat > "$3/bin/python" <<\'STUB\'\n{venv_python}STUB\n'
+        '  chmod +x "$3/bin/python"\n'
+        'fi\n'
+    )
+    stub = bin_dir / "python"
+    stub.write_text(python)
+    stub.chmod(0o755)
+    return bin_dir
+
+
+def _install(tmp_path: Path, env: dict[str, str], wheel_bytes: bytes, installed_version: str):
+    bin_dir = _pip_stubs(tmp_path, wheel_bytes)
+    pinned = {
+        "HONUA_SDK_PUBLIC_VERSION": "0.1.18",
+        "HONUA_SDK_PUBLIC_WHEEL": "honua_sdk-0.1.18-py3-none-any.whl",
+        "HONUA_SDK_PUBLIC_WHEEL_SHA256": "2" * 64,
+        "HONUA_SDK_PUBLIC_SOURCE_SHA": "3" * 40,
+    }
+    stub_env = {"STUB_EVENTS": str(tmp_path / "events"), "STUB_WHEEL_BYTES": str(tmp_path / "wheel-bytes"),
+                "STUB_INSTALLED_VERSION": installed_version}
+    result, written = _run_step(_INSTALL_STEP, {**pinned, **stub_env, **env}, tmp_path, bin_dir)
+    events = (tmp_path / "events").read_text() if (tmp_path / "events").exists() else ""
+    return result, dict(line.split("=", 1) for line in written.splitlines()), events
+
+
+def test_nightly_install_downloads_and_verifies_the_dispatched_package(tmp_path) -> None:
+    import hashlib
+
+    wheel_bytes = b"dispatched wheel"
+    digest = hashlib.sha256(wheel_bytes).hexdigest()
+    result, written, events = _install(
+        tmp_path, {**_DISPATCHED, "SDK_PACKAGE_DIGEST": "sha256:" + digest}, wheel_bytes, "0.1.19")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "honua-sdk==0.1.19" in events
+    assert "honua-sdk==0.1.18" not in events
+    assert written["HONUA_SDK_WHEEL_FILENAME"] == "honua_sdk-0.1.19-py3-none-any.whl"
+    assert written["HONUA_SDK_WHEEL_SHA256"] == digest
+    assert written["HONUA_SDK_WHEEL_SOURCE"] == "pypi"
+    assert written["HONUA_SDK_SOURCE_SHA"] == "c" * 40
+    requirement = (tmp_path / "honua-sdk-wheel-requirement.txt").read_text()
+    assert requirement.endswith(f"honua_sdk-0.1.19-py3-none-any.whl --hash=sha256:{digest}\n")
+
+
+def test_nightly_install_refuses_a_package_whose_digest_differs(tmp_path) -> None:
+    result, written, events = _install(tmp_path, _DISPATCHED, b"tampered wheel", "0.1.19")
+    assert result.returncode != 0
+    assert "honua-sdk==0.1.19" in events
+    assert "venv" not in events
+    assert written == {}
+
+
+def test_nightly_install_refuses_a_different_installed_version(tmp_path) -> None:
+    import hashlib
+
+    wheel_bytes = b"dispatched wheel"
+    digest = hashlib.sha256(wheel_bytes).hexdigest()
+    result, written, _ = _install(
+        tmp_path, {**_DISPATCHED, "SDK_PACKAGE_DIGEST": "sha256:" + digest}, wheel_bytes, "0.1.18")
+    assert result.returncode != 0
+    assert written == {}
+
+
+def test_undispatched_install_keeps_the_repository_pinned_public_wheel(tmp_path) -> None:
+    import hashlib
+
+    wheel_bytes = b"pinned wheel"
+    digest = hashlib.sha256(wheel_bytes).hexdigest()
+    ignored = {key: value for key, value in _DISPATCHED.items() if key.startswith("SDK_")}
+    result, written, events = _install(
+        tmp_path, {**ignored, "NIGHTLY_DISPATCH_ID": "", "HONUA_SDK_PUBLIC_WHEEL_SHA256": digest},
+        wheel_bytes, "0.1.18")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "honua-sdk==0.1.18" in events
+    assert written["HONUA_SDK_WHEEL_FILENAME"] == "honua_sdk-0.1.18-py3-none-any.whl"
+    assert written["HONUA_SDK_WHEEL_SHA256"] == digest
+    assert written["HONUA_SDK_SOURCE_SHA"] == "3" * 40

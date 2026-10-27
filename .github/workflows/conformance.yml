@@ -41,6 +41,22 @@ on:
         description: "Exact governed candidate cut timestamp (YYYY-MM-DDTHH:MM:SSZ). Required for release certification."
         required: false
         default: ""
+      sdk_package:
+        description: "Nightly only: published package to certify (honua-sdk). Required with nightly_dispatch_id."
+        required: false
+        default: ""
+      sdk_package_version:
+        description: "Nightly only: exact published honua-sdk version on PyPI. Required with nightly_dispatch_id."
+        required: false
+        default: ""
+      sdk_package_digest:
+        description: "Nightly only: sha256:<64 hex> of the universal wheel file. Required with nightly_dispatch_id."
+        required: false
+        default: ""
+      sdk_source_sha:
+        description: "Nightly only: 40-hex source commit the published wheel was built from. Required with nightly_dispatch_id."
+        required: false
+        default: ""
       certification_tier:
         description: "Evidence policy tier: nightly or release. Release requires immutable image and full server SHA."
         required: false
@@ -63,6 +79,9 @@ env:
   CONFORMANCE_FIXTURES_VERSION: "1.0.3"
   # Exact published wheel selected by the platform manifest. Keep version,
   # filename, registry digest and published tag source together as one identity.
+  # A governed nightly dispatch (nightly_dispatch_id) supplies this identity as
+  # sdk_package* / sdk_source_sha inputs instead: the run is the trunk harness
+  # certifying that exact published package, so these pins are not consulted.
   HONUA_SDK_PUBLIC_VERSION: "0.1.18"
   HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.18-py3-none-any.whl"
   HONUA_SDK_PUBLIC_WHEEL_SHA256: "11d5c0074a8c3065b2ca2777a33efab6672dd1f03e0d664abc5f9f964727b033"
@@ -79,6 +98,43 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Bind nightly dispatch to the exact published honua-sdk package
+        env:
+          NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}
+          REQUIREMENTS_SOURCE_SHA: ${{ github.event.inputs.requirements_ref || '' }}
+          REQUIREMENTS_REVISION: ${{ github.event.inputs.requirements_revision || '' }}
+          SDK_PACKAGE: ${{ github.event.inputs.sdk_package || '' }}
+          SDK_PACKAGE_VERSION: ${{ github.event.inputs.sdk_package_version || '' }}
+          SDK_PACKAGE_DIGEST: ${{ github.event.inputs.sdk_package_digest || '' }}
+          SDK_SOURCE_SHA: ${{ github.event.inputs.sdk_source_sha || '' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NIGHTLY_DISPATCH_ID}" ]]; then
+            echo "No nightly dispatch: certifying the repository-pinned public wheel."
+            exit 0
+          fi
+          # The nightly runs this trunk harness against the exact published package it names.
+          # Every identity input is required; refuse before anything is fetched or installed.
+          fail() { echo "::error::nightly dispatch $1"; exit 1; }
+          sha40='^[0-9a-f]{40}$'
+          digest='^sha256:[0-9a-f]{64}$'
+          version='^[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$'
+          [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]] || fail "must arrive through workflow_dispatch"
+          [[ "${REQUIREMENTS_SOURCE_SHA}" =~ ${sha40} ]] || fail "requires requirements_ref as a 40-hex honua-release commit"
+          [[ -n "${REQUIREMENTS_REVISION//[[:space:]]/}" ]] || fail "requires requirements_revision"
+          [[ "${SDK_PACKAGE}" == "honua-sdk" ]] || fail "requires sdk_package=honua-sdk"
+          [[ "${SDK_PACKAGE_VERSION}" =~ ${version} ]] || fail "requires sdk_package_version as an exact normalized release version"
+          [[ "${SDK_PACKAGE_DIGEST}" =~ ${digest} ]] || fail "requires sdk_package_digest as sha256:<64 lowercase hex>"
+          [[ "${SDK_SOURCE_SHA}" =~ ${sha40} ]] || fail "requires sdk_source_sha as a 40-hex source commit"
+          [[ "${GITHUB_SHA}" =~ ${sha40} ]] || fail "requires a 40-hex harness commit"
+          {
+            echo "## Nightly certification identity"
+            echo "- Harness commit: \`${GITHUB_SHA}\`"
+            echo "- Package: \`${SDK_PACKAGE}==${SDK_PACKAGE_VERSION}\` (\`${SDK_PACKAGE_DIGEST}\`)"
+            echo "- Package source: \`${SDK_SOURCE_SHA}\`"
+            echo "- Requirements: \`${REQUIREMENTS_SOURCE_SHA}\` (\`${REQUIREMENTS_REVISION}\`)"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Retain immutable protected-trunk certification requirements
         env:
@@ -134,8 +190,20 @@ jobs:
 
       - name: Download and install exact public honua-sdk wheel
         if: ${{ github.event_name != 'pull_request' }}
+        env:
+          NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}
+          SDK_PACKAGE_VERSION: ${{ github.event.inputs.sdk_package_version || '' }}
+          SDK_PACKAGE_DIGEST: ${{ github.event.inputs.sdk_package_digest || '' }}
+          SDK_SOURCE_SHA: ${{ github.event.inputs.sdk_source_sha || '' }}
         run: |
           set -euo pipefail
+          if [[ -n "${NIGHTLY_DISPATCH_ID}" ]]; then
+            # Validated by the bind step: the dispatched package is the governed identity.
+            HONUA_SDK_PUBLIC_VERSION="${SDK_PACKAGE_VERSION}"
+            HONUA_SDK_PUBLIC_WHEEL="honua_sdk-${SDK_PACKAGE_VERSION}-py3-none-any.whl"
+            HONUA_SDK_PUBLIC_WHEEL_SHA256="${SDK_PACKAGE_DIGEST#sha256:}"
+            HONUA_SDK_PUBLIC_SOURCE_SHA="${SDK_SOURCE_SHA}"
+          fi
           mkdir -p dist
           python -m pip download \
             --dest dist \

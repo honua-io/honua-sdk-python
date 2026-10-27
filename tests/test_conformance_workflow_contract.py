@@ -287,6 +287,22 @@ def _pip_stubs(tmp_path: Path, wheel_bytes: bytes) -> Path:
     return bin_dir
 
 
+def _gnu_sha256sum() -> bool:
+    import shutil
+    import subprocess
+
+    tool = shutil.which("sha256sum")
+    if tool is None:
+        return False
+    probe = subprocess.run([tool, "--version"], capture_output=True, text=True, check=False)  # noqa: S603
+    return probe.returncode == 0 and "GNU coreutils" in probe.stdout
+
+
+# The step runs on ubuntu-24.04 and relies on GNU `sha256sum --check --strict`.
+_needs_gnu_sha256sum = pytest.mark.skipif(
+    not _gnu_sha256sum(), reason="install step targets GNU coreutils sha256sum (ubuntu runner)")
+
+
 def _install(tmp_path: Path, env: dict[str, str], wheel_bytes: bytes, installed_version: str):
     bin_dir = _pip_stubs(tmp_path, wheel_bytes)
     pinned = {
@@ -302,6 +318,7 @@ def _install(tmp_path: Path, env: dict[str, str], wheel_bytes: bytes, installed_
     return result, dict(line.split("=", 1) for line in written.splitlines()), events
 
 
+@_needs_gnu_sha256sum
 def test_nightly_install_downloads_and_verifies_the_dispatched_package(tmp_path) -> None:
     import hashlib
 
@@ -320,6 +337,7 @@ def test_nightly_install_downloads_and_verifies_the_dispatched_package(tmp_path)
     assert requirement.endswith(f"honua_sdk-0.1.19-py3-none-any.whl --hash=sha256:{digest}\n")
 
 
+@_needs_gnu_sha256sum
 def test_nightly_install_refuses_a_package_whose_digest_differs(tmp_path) -> None:
     result, written, events = _install(tmp_path, _DISPATCHED, b"tampered wheel", "0.1.19")
     assert result.returncode != 0
@@ -328,6 +346,7 @@ def test_nightly_install_refuses_a_package_whose_digest_differs(tmp_path) -> Non
     assert written == {}
 
 
+@_needs_gnu_sha256sum
 def test_nightly_install_refuses_a_different_installed_version(tmp_path) -> None:
     import hashlib
 
@@ -339,6 +358,7 @@ def test_nightly_install_refuses_a_different_installed_version(tmp_path) -> None
     assert written == {}
 
 
+@_needs_gnu_sha256sum
 def test_undispatched_install_keeps_the_repository_pinned_public_wheel(tmp_path) -> None:
     import hashlib
 

@@ -1468,6 +1468,21 @@ def _certification_producer_run() -> dict[str, Any] | None:
             "run_id": int(run_id), "run_attempt": int(attempt), "dispatch_id": dispatch}
 
 
+def _certification_harness_commit() -> str | None:
+    """Record the exact trunk harness commit only when the nightly dispatched the run.
+
+    The nightly runs this repository's trunk harness against the pinned published
+    package, so the harness (``GITHUB_SHA``) and the package source
+    (``producer_source_sha``) are distinct governed identities.
+    """
+    if not os.environ.get("HONUA_NIGHTLY_DISPATCH_ID", ""):
+        return None
+    commit = os.environ.get("GITHUB_SHA", "")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ConformanceFixturesError("nightly identity requires the exact 40-hex harness commit (GITHUB_SHA)")
+    return commit
+
+
 def _certification_request_url(
     case: ConformanceCase,
     result: CaseResult,
@@ -1664,6 +1679,7 @@ def build_certification_fragment(
     )
 
     producer_run = _certification_producer_run()
+    harness_commit = _certification_harness_commit()
     client_version = importlib.metadata.version("honua-sdk")
     payload_base64 = base64.b64encode(json.dumps(
         [
@@ -1725,6 +1741,7 @@ def build_certification_fragment(
                 "required_tier": required_tier,
                 "requirements_revision": requirements_revision,
                 **({"producer_run": producer_run} if producer_run is not None else {}),
+                **({"harness_commit": harness_commit} if harness_commit is not None else {}),
                 "source_sha": target.server_commit,
                 "producer_source_sha": target.sdk_source_sha,
                 "client_package": {

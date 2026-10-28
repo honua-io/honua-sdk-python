@@ -682,6 +682,8 @@ def test_actual_producer_reproduces_shared_consumer_receipt_bytes(tmp_path, monk
     identity = bound["observations"][0]["evidence_receipt"]["identity"]
     assert identity["producer_run"]["run_id"] == 456
     assert identity["producer_run"]["dispatch_id"] == "nightly-certification-123-1"
+    assert identity["harness_commit"] == "e" * 40
+    assert identity["producer_source_sha"] == "c" * 40
     assert bound["observations"][0]["evidence_digest"] != actual["observations"][0]["evidence_digest"]
     declaration = json.loads((Path(__file__).parents[1] / "release/component-versions.json").read_text())
     assert declaration["schemaVersions"]["certification-evidence-receipt"] == "2.0"
@@ -702,7 +704,7 @@ def _nightly_actions_context(monkeypatch):
     values = {"HONUA_NIGHTLY_DISPATCH_ID": "nightly-certification-123-1", "GITHUB_ACTIONS": "true",
         "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REPOSITORY": "honua-io/honua-sdk-python",
         "GITHUB_WORKFLOW_REF": "honua-io/honua-sdk-python/.github/workflows/conformance.yml@refs/heads/trunk",
-        "GITHUB_RUN_ID": "456", "GITHUB_RUN_ATTEMPT": "2"}
+        "GITHUB_RUN_ID": "456", "GITHUB_RUN_ATTEMPT": "2", "GITHUB_SHA": "e" * 40}
     for key, value in values.items():
         monkeypatch.setenv(key, value)
 
@@ -752,4 +754,75 @@ def test_actual_producer_refuses_governed_context_drift(monkeypatch, field, valu
     case = _case("feature_query_envelope")
     with pytest.raises(RuntimeError, match=f"observed {field} differs"):
         build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target,
+                                     [(case, _result(case.name, "passed"))])
+
+
+def _published_target(**overrides):
+    values = dict(base_url="http://localhost:5000", server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64, sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl", sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi", evidence_uri="https://example.test/run", entitlement_mode="signed",
+        candidate_cut_at="2026-08-20T09:00:00Z", grpc_target="localhost:5001")
+    values.update(overrides)
+    return ConformanceTarget(**values)
+
+
+def test_nightly_receipts_bind_the_trunk_harness_to_the_published_package(monkeypatch):
+    """Ruling sdk-harness-trunk-pinned-package: trunk harness, pinned package, both in the identity."""
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    _nightly_actions_context(monkeypatch)
+    cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), _published_target(), cases)
+    assert fragment["observations"]
+    for row in fragment["observations"]:
+        identity = row["evidence_receipt"]["identity"]
+        assert identity["harness_commit"] == "e" * 40
+        assert identity["producer_source_sha"] == "c" * 40 == row["producer_source_sha"]
+        assert identity["harness_commit"] != identity["producer_source_sha"]
+        assert identity["client_package"] == {"filename": "honua_sdk-9.9.9-py3-none-any.whl",
+                                              "sha256": "d" * 64, "source": "pypi"}
+        assert identity["client_version"] == "9.9.9"
+        assert identity["contract_revision"] == "sdk-python-certification@" + "c" * 40
+        assert identity["producer_run"]["dispatch_id"] == "nightly-certification-123-1"
+
+
+def test_harness_commit_changes_the_content_addressed_receipt(monkeypatch):
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    _nightly_actions_context(monkeypatch)
+    case = _case("feature_query_envelope")
+    first = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), _published_target(),
+                                         [(case, _result(case.name, "passed"))])
+    monkeypatch.setenv("GITHUB_SHA", "f" * 40)
+    second = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), _published_target(),
+                                          [(case, _result(case.name, "passed"))])
+    assert second["observations"][0]["evidence_receipt"]["identity"]["harness_commit"] == "f" * 40
+    assert first["observations"][0]["evidence_digest"] != second["observations"][0]["evidence_digest"]
+
+
+def test_undispatched_receipts_carry_no_harness_commit(monkeypatch):
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    monkeypatch.delenv("HONUA_NIGHTLY_DISPATCH_ID", raising=False)
+    monkeypatch.setenv("GITHUB_SHA", "e" * 40)
+    case = _case("feature_query_envelope")
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), _published_target(),
+                                            [(case, _result(case.name, "passed"))])
+    identity = fragment["observations"][0]["evidence_receipt"]["identity"]
+    assert "harness_commit" not in identity
+    assert "producer_run" not in identity
+
+
+@pytest.mark.parametrize("sha", [None, "", "e" * 39, "E" * 40, "e" * 41, "trunk"])
+def test_nightly_refuses_a_missing_or_malformed_harness_commit(monkeypatch, sha):
+    from scripts._conformance import _certification_harness_commit
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    _nightly_actions_context(monkeypatch)
+    if sha is None:
+        monkeypatch.delenv("GITHUB_SHA", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_SHA", sha)
+    with pytest.raises(RuntimeError, match="harness commit"):
+        _certification_harness_commit()
+    case = _case("feature_query_envelope")
+    with pytest.raises(RuntimeError, match="harness commit"):
+        build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), _published_target(),
                                      [(case, _result(case.name, "passed"))])

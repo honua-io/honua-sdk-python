@@ -1614,6 +1614,14 @@ honua-server image through the <code>httpx</code> clients.</p>
 <li>The fixture version is pinned in <code>conformance/FIXTURES_VERSION</code> (1:1 with a
   <code>geospatial.v1</code> schema release) and must equal the workflow's
   <code>CONFORMANCE_FIXTURES_VERSION</code>.</li>
+<li>Trunk pushes and ad-hoc dispatches certify the published wheel pinned in the
+  workflow's <code>HONUA_SDK_PUBLIC_*</code> env. A governed nightly dispatch
+  (<code>nightly_dispatch_id</code>) instead runs the trunk harness against the package it
+  names: <code>sdk_package</code>, <code>sdk_package_version</code>, <code>sdk_package_digest</code> and
+  <code>sdk_source_sha</code> are then required with <code>requirements_ref</code> and
+  <code>requirements_revision</code>, the downloaded wheel must match the digest, and each
+  receipt identity records <code>harness_commit</code> (the run's <code>GITHUB_SHA</code>) beside
+  <code>producer_source_sha</code> (the published source).</li>
 <li>The seeded server must run with <code>ASPNETCORE_ENVIRONMENT=Development</code>. The
   client-compat seed activates the metadata-v2 snapshot for
   <code>default</code>/<code>Development</code>/<code>Test</code>, not <code>Production</code>.</li>

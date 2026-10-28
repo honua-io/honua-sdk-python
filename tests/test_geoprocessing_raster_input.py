@@ -540,7 +540,7 @@ def test_result_json_value_fetches_live_href() -> None:
     # A Table/Scalar member with no inline value/data-uri href, only a live
     # fetchable href -- exercises the (extras-independent) fetch fallback.
     payload = json.dumps({"mean": 5.0}).encode("utf-8")
-    results = {"stats": {"id": "x", "kind": "Scalar", "href": "https://example.test/artifacts/stats.json"}}
+    results = {"stats": {"id": "x", "kind": "Scalar", "href": "http://example.test/artifacts/stats.json"}}
     with _fetch_client(payload, "/artifacts/stats.json") as client:
         assert client.geoprocessing()._result_json_value(results) == {"mean": 5.0}
 
@@ -568,7 +568,7 @@ def test_result_feature_collection_resolves_via_pure_decode() -> None:
 
 def test_result_feature_collection_fetches_live_href() -> None:
     payload = json.dumps(_CONTOUR_FC).encode("utf-8")
-    results = {"contour": {"id": "x", "kind": "FeatureLayer", "href": "https://example.test/artifacts/c.geojson"}}
+    results = {"contour": {"id": "x", "kind": "FeatureLayer", "href": "http://example.test/artifacts/c.geojson"}}
     with _fetch_client(payload, "/artifacts/c.geojson") as client:
         assert client.geoprocessing()._result_feature_collection(results) == _CONTOUR_FC
 
@@ -709,7 +709,7 @@ async def test_async_result_json_value_sniffs_nested_value_wrapper_without_kind(
 @pytest.mark.anyio
 async def test_async_result_json_value_fetches_live_href() -> None:
     payload = json.dumps({"mean": 5.0}).encode("utf-8")
-    results = {"stats": {"id": "x", "kind": "Scalar", "href": "https://example.test/artifacts/stats.json"}}
+    results = {"stats": {"id": "x", "kind": "Scalar", "href": "http://example.test/artifacts/stats.json"}}
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/artifacts/stats.json"
@@ -757,7 +757,7 @@ async def test_async_result_feature_collection_resolves_via_pure_decode() -> Non
 @pytest.mark.anyio
 async def test_async_result_feature_collection_fetches_live_href() -> None:
     payload = json.dumps(_CONTOUR_FC).encode("utf-8")
-    results = {"contour": {"id": "x", "kind": "FeatureLayer", "href": "https://example.test/artifacts/c.geojson"}}
+    results = {"contour": {"id": "x", "kind": "FeatureLayer", "href": "http://example.test/artifacts/c.geojson"}}
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/artifacts/c.geojson"

@@ -1,4 +1,5 @@
 name: Python SDK Conformance
+run-name: ${{ inputs.nightly_dispatch_id && format('Python SDK Conformance [{0}]', inputs.nightly_dispatch_id) || 'Python SDK Conformance' }}
 
 # Blocking live-server conformance lane (issue #81, epic geospatial-grpc#18 —
 # the cross-repo Compatibility Train). It runs the *shared* geospatial-grpc

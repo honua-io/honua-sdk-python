@@ -148,6 +148,17 @@ def test_certification_receipts_use_repository_governed_requirements() -> None:
     assert "HONUA_CERTIFICATION_REQUIREMENTS_PATH:" in workflow
 
 
+def test_nightly_dispatch_names_the_run_for_candidate_tag_intake():
+    # honua-evidence admits a run on refs/tags/nightly-candidate/<pin> only when its
+    # display title is exactly "<title> [<dispatch_id>]" (fetch-certification-producers.py).
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    assert workflow.splitlines()[1] == (
+        "run-name: ${{ inputs.nightly_dispatch_id && format('Python SDK Conformance [{0}]', "
+        "inputs.nightly_dispatch_id) || 'Python SDK Conformance' }}"
+    )
+    assert workflow.splitlines()[0] == "name: Python SDK Conformance"
+
+
 def test_governed_nightly_inputs_are_data_and_never_interpolated_into_shell_source():
     workflow = WORKFLOW.read_text()
     assert "nightly_dispatch_id:" in workflow

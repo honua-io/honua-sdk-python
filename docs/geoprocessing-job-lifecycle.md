@@ -22,6 +22,7 @@ or execute arbitrary Python code.
 | Auth | `HonuaClient` API key, bearer token, or refreshable auth provider |
 | Fixture | `honua-samples/jobs/geoprocessing-job-lifecycle.json#job-page-fixture:geometry-buffer-v1` |
 | Maturity | Source preview; not yet published to PyPI |
+| Result href | Absolute result links are fetched only when scheme, host, and port match the client. A foreign origin is refused. |
 
 Inspect the process description before constructing `inputs`; those schemas are
 defined by the registered server process. The focused example therefore takes

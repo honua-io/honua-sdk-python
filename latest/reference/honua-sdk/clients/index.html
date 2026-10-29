@@ -14686,8 +14686,8 @@ extra.</p>
         <p>Return the GeoTIFF bytes of a results document's raster output.</p>
 <p>Selects the raster output (see
 :func:<code>honua_sdk.raster.find_raster_output</code>), decoding an inline base64
-<code>value</code> or fetching a by-reference <code>href</code> through the bound client
-(so base URL, auth, and retry policy apply). Raises
+<code>value</code> or fetching a same-origin <code>href</code> through the bound client.
+A foreign origin is refused. Raises
 :class:<code>~honua_sdk.errors.HonuaError</code> when no usable raster output is
 present.</p>
 

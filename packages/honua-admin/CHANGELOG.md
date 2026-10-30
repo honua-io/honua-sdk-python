@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.13...python-admin-v0.2.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sdk:** constructing a client with credentials and a plain http:// base URL on a non-loopback host now raises ValueError (HonuaGpConfigurationError in honua_gp). Use an https:// base URL, a loopback host, or opt in with allow_insecure_http=True / HONUA_ALLOW_INSECURE_HTTP=1. The `honua` CLI no longer forwards arbitrary unknown commands, and forwards JS-only commands only to HONUA_JS_CLI or an installed @honua/sdk-js launcher.
+
+### Bug Fixes
+
+* **sdk:** refuse credentials over plain HTTP to non-loopback hosts and delegate CLI to @honua/sdk-js ([#328](https://github.com/honua-io/honua-sdk-python/issues/328)) ([ea8a119](https://github.com/honua-io/honua-sdk-python/commit/ea8a1195a4bf4c4a266fcf1a2fd4077810996c85))
+
 ## [0.1.13](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.1.12...python-admin-v0.1.13) (2026-10-26)
 
 

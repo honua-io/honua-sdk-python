@@ -20,6 +20,7 @@ import httpx
 import pytest
 
 from honua_sdk import AsyncHonuaClient, HonuaClient
+from honua_sdk.errors import HonuaError
 from honua_sdk.geoprocessing import (
     CANONICAL_PROCESS_ID,
     LAYER_SCOPE_PROCESS_IDS,
@@ -79,6 +80,59 @@ def _status(job_id: str, status: str, *, process_id: str = "geometry.buffer") ->
 # ---------------------------------------------------------------------------
 # Discovery
 # ---------------------------------------------------------------------------
+
+
+def test_feature_href_same_origin_is_fetched() -> None:
+    collection = {"type": "FeatureCollection", "features": []}
+    results = {
+        "outputFeatureLayer": {
+            "kind": "FeatureLayer",
+            "href": "http://example.test/artifacts/artifact-1?f=json",
+        }
+    }
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, request.url.query.decode()))
+        return httpx.Response(200, json=collection)
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        fetched = client.geoprocessing()._result_feature_collection(results)
+
+    assert fetched == collection
+    assert seen == [("/artifacts/artifact-1", "f=json")]
+
+
+def test_feature_href_foreign_origin_is_refused() -> None:
+    results = {
+        "outputFeatureLayer": {
+            "kind": "FeatureLayer",
+            "href": "https://api.honua.test/artifacts/artifact-1",
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaError, match="outside the client's configured origin"):
+            client.geoprocessing()._result_feature_collection(results)
+
+
+def test_feature_href_scheme_mismatch_is_refused() -> None:
+    results = {
+        "outputFeatureLayer": {
+            "kind": "FeatureLayer",
+            "href": "https://example.test/artifacts/artifact-1",
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"unexpected fetch {request.url}")
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(HonuaError, match="outside the client's configured origin"):
+            client.geoprocessing()._result_feature_collection(results)
 
 
 def test_processes_and_describe() -> None:

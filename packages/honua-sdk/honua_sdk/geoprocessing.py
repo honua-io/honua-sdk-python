@@ -52,8 +52,10 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+import httpx
+
 from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
-from ._http import _encode_path_segment
+from ._http import _encode_path_segment, _ensure_same_origin_continuation
 from .errors import HonuaError
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -684,15 +686,22 @@ def _next_poll_delay(current: float) -> float:
     return min(current * 2.0, _MAX_POLL_INTERVAL)
 
 
-def _href_path_and_params(href: str) -> tuple[str, dict[str, str]]:
-    """Split a (possibly absolute) ``href`` into a request path and query params.
+def _href_path_and_params(href: str, base_url: httpx.URL) -> tuple[str, dict[str, str]]:
+    """Return a same-origin path and query for a result ``href``.
 
-    By-reference raster outputs point at a result on the same Honua host; only
-    the path + query are forwarded so the bound client's base URL, auth, and
-    retry policy apply (the host/scheme are taken from the client).
+    A relative href stays on the bound client. An absolute href is fetched
+    only when its scheme, host, and port match ``base_url``. A foreign origin
+    is refused: the host is not stripped and replayed against the configured
+    server, and the client's credentials are not sent to another host.
     """
     parsed = urlsplit(href)
-    path = parsed.path or href
+    if parsed.netloc and not parsed.scheme:
+        raise HonuaError("Refusing a protocol-relative geoprocessing result href.")
+    if parsed.scheme or parsed.netloc:
+        _ensure_same_origin_continuation(httpx.URL(href), base_url)
+        path = parsed.path or "/"
+    else:
+        path = parsed.path or href
     return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
 
 
@@ -877,8 +886,8 @@ class HonuaGeoprocessing:
 
         Selects the raster output (see
         :func:`honua_sdk.raster.find_raster_output`), decoding an inline base64
-        ``value`` or fetching a by-reference ``href`` through the bound client
-        (so base URL, auth, and retry policy apply). Raises
+        ``value`` or fetching a same-origin ``href`` through the bound client.
+        A foreign origin is refused. Raises
         :class:`~honua_sdk.errors.HonuaError` when no usable raster output is
         present.
         """
@@ -895,7 +904,7 @@ class HonuaGeoprocessing:
             data_uri = _data_uri_bytes(href)
             if data_uri is not None:
                 return data_uri
-            path, params = _href_path_and_params(href)
+            path, params = _href_path_and_params(href, self.client._base_url)
             return self.client._request("GET", path, params=params).content
         raise HonuaError("Raster output has neither an inline value nor an href to fetch.")
 
@@ -1010,7 +1019,7 @@ class HonuaGeoprocessing:
         if data is None:
             href = member.get("href")
             if isinstance(href, str) and href and not href.startswith("data:"):
-                path, params = _href_path_and_params(href)
+                path, params = _href_path_and_params(href, self.client._base_url)
                 data = self.client._request("GET", path, params=params).content
         if data is None:
             value = member.get("value")
@@ -1033,7 +1042,7 @@ class HonuaGeoprocessing:
         member = _primary_output_member(results)
         href = member.get("href") if member is not None else None
         if isinstance(href, str) and href and not href.startswith("data:"):
-            path, params = _href_path_and_params(href)
+            path, params = _href_path_and_params(href, self.client._base_url)
             parsed = json.loads(self.client._request("GET", path, params=params).content)
             if _is_feature_collection(parsed):
                 return cast(JsonObject, parsed)
@@ -1342,7 +1351,7 @@ class AsyncHonuaGeoprocessing:
             data_uri = _data_uri_bytes(href)
             if data_uri is not None:
                 return data_uri
-            path, params = _href_path_and_params(href)
+            path, params = _href_path_and_params(href, self.client._base_url)
             response = await self.client._request("GET", path, params=params)
             return response.content
         raise HonuaError("Raster output has neither an inline value nor an href to fetch.")
@@ -1447,7 +1456,7 @@ class AsyncHonuaGeoprocessing:
         if data is None:
             href = member.get("href")
             if isinstance(href, str) and href and not href.startswith("data:"):
-                path, params = _href_path_and_params(href)
+                path, params = _href_path_and_params(href, self.client._base_url)
                 response = await self.client._request("GET", path, params=params)
                 data = response.content
         if data is None:
@@ -1471,7 +1480,7 @@ class AsyncHonuaGeoprocessing:
         member = _primary_output_member(results)
         href = member.get("href") if member is not None else None
         if isinstance(href, str) and href and not href.startswith("data:"):
-            path, params = _href_path_and_params(href)
+            path, params = _href_path_and_params(href, self.client._base_url)
             response = await self.client._request("GET", path, params=params)
             parsed = json.loads(response.content)
             if _is_feature_collection(parsed):

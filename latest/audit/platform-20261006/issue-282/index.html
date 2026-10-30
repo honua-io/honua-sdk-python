@@ -1414,8 +1414,8 @@
 <tbody>
 <tr>
 <td><code>SDKPY-003</code></td>
-<td>fixed</td>
-<td><code>test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope</code> proves that completing every REST harness case still leaves the independently catalogued <code>grpc-feature-service/query-features</code> and <code>query-features-stream</code> operations uncovered, and that release validation fails closed.</td>
+<td>guarded</td>
+<td><code>test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope</code> proves REST-only evidence leaves the gRPC operations uncovered. <code>test_failed_case_does_not_complete_scope_when_factories_are_covered</code> proves a listed case that did not pass does not complete the scope. <code>test_public_factories_without_a_case_cannot_pass_or_complete_scope</code> keeps every other public protocol factory as <code>skip</code> under #282, so a green harness cannot report <code>operation_scope.complete</code>.</td>
 </tr>
 <tr>
 <td><code>SDKPY-007</code></td>

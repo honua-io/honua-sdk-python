@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
   # The floor tracks the honua-sdk release (release-please generic updater).
-  "honua-sdk>=0.1.19",  # x-release-please-version
+  "honua-sdk>=0.2.0",  # x-release-please-version
   "honua-admin>=0.1.0",
 ]
 

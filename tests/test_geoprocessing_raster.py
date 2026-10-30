@@ -175,7 +175,7 @@ def test_result_to_xarray_inline_value() -> None:
 def test_result_raster_bytes_fetches_href() -> None:
     pytest.importorskip("rasterio")
     data = _tiny_geotiff()
-    results = {"out": {"href": "https://example.test/artifacts/r.tif", "type": "image/tiff"}}
+    results = {"out": {"href": "http://example.test/artifacts/r.tif", "type": "image/tiff"}}
     seen: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -228,7 +228,7 @@ def test_execute_raster_end_to_end() -> None:
 async def test_async_result_to_xarray_and_href() -> None:
     pytest.importorskip("rioxarray")
     data = _tiny_geotiff()
-    results = {"out": {"href": "https://example.test/artifacts/r.tif", "type": "image/tiff"}}
+    results = {"out": {"href": "http://example.test/artifacts/r.tif", "type": "image/tiff"}}
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=data, headers={"content-type": "image/tiff"})

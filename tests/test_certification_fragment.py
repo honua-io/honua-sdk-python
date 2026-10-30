@@ -33,6 +33,17 @@ def _case(name: str, known_gap_issue: str | None = None) -> ConformanceCase:
     )
 
 
+def _pretend_scope_complete(fragment: dict) -> dict:
+    """Later receipt gates assume a complete scope. Completeness has its own tests."""
+    fragment["operation_scope"]["complete"] = True
+    fragment["operation_scope"]["required_operations"] = [
+        {"surface": row["surface"], "operation": row["operation"]}
+        for row in fragment["observations"]
+    ]
+    fragment["operation_scope"]["uncovered_operations"] = []
+    return fragment
+
+
 def _result(name: str, status: str) -> CaseResult:
     return CaseResult(
         name=name,
@@ -411,7 +422,9 @@ def test_release_validator_rejects_mismatched_governed_context(
         candidate_cut_at="2026-08-20T00:00:00Z",
     )
     cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
-    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment = _pretend_scope_complete(
+        build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    )
     fragment["observations"][0]["evidence_receipt"]["identity"][field] = value
     with pytest.raises(AssertionError, match="not bound to governed certification context"):
         validate_release_certification_fragment(fragment)
@@ -429,7 +442,9 @@ def test_release_validator_rejects_context_less_receipt_and_row(monkeypatch, fie
         candidate_cut_at="2026-08-20T00:00:00Z",
     )
     cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
-    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment = _pretend_scope_complete(
+        build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    )
     row = fragment["observations"][0]
     del row[field]
     del row["evidence_receipt"]["identity"][field]
@@ -447,7 +462,9 @@ def test_release_validator_rejects_non_object_receipt(monkeypatch) -> None:
         candidate_cut_at="2026-08-20T00:00:00Z",
     )
     cases = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
-    fragment = build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    fragment = _pretend_scope_complete(
+        build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, cases)
+    )
     fragment["observations"][0]["evidence_receipt"] = "receipt"
     with pytest.raises(AssertionError, match="not bound to governed certification context"):
         validate_release_certification_fragment(fragment)
@@ -537,6 +554,93 @@ def test_machine_readable_certification_contract_matches_case_mapping() -> None:
     assert contract["clientVersion"] == package["project"]["version"]
 
 
+def test_public_factories_without_a_case_cannot_pass_or_complete_scope(monkeypatch) -> None:
+    """A harness that passes every existing case still does not cover factories with no runner."""
+    import scripts._conformance as conformance
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    factories = json.loads(
+        (Path(__file__).resolve().parents[1] / "compatibility" / "protocol-factories.json").read_text()
+    )
+    names = set(factories["clients"]["async"]) | set(factories["clients"]["sync"])
+    cases = {case.name: case for case in build_cases()}
+    assert set(CASE_CERTIFICATION) == set(cases)
+    for case in cases.values():
+        assert callable(case.runner)
+    surfaces = {cell[1] for cell in CASE_CERTIFICATION.values()}
+    for factory, surface in conformance.COVERED_PROTOCOL_FACTORIES.items():
+        assert factory in names
+        assert surface in surfaces
+    uncovered_names = names - set(conformance.COVERED_PROTOCOL_FACTORIES)
+    assert uncovered_names
+    target = ConformanceTarget(
+        base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
+        evidence_uri="https://evidence.invalid/run/1",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+        certification_tier="release",
+    )
+    fragment = build_certification_fragment(
+        FixtureBundle(Path("."), "fixture-v1"),
+        target,
+        [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION],
+    )
+    listed = {
+        (row["surface"], row["operation"])
+        for row in fragment["operation_scope"]["uncovered_operations"]
+    }
+    assert listed == {("sdk-factory", name.replace("_", "-")) for name in uncovered_names}
+    observed = {(row["surface"], row["operation"]) for row in fragment["observations"]}
+    assert observed.isdisjoint(listed)
+    for row in fragment["operation_scope"]["uncovered_operations"]:
+        assert row["result"] == "skip"
+        assert row["result"] != "pass"
+        assert row["owner_issue"].endswith("/issues/282")
+    assert fragment["operation_scope"]["complete"] is False
+    with pytest.raises(AssertionError, match="operation scope is incomplete"):
+        validate_release_certification_fragment(fragment)
+
+
+def test_failed_case_does_not_complete_scope_when_factories_are_covered(monkeypatch) -> None:
+    """Listing a case is not enough. A failed result leaves the scope incomplete."""
+    import scripts._conformance as conformance
+
+    monkeypatch.setattr(conformance, "UNCOVERED_CERTIFICATION_OPERATIONS", frozenset())
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
+    target = ConformanceTarget(
+        base_url="http://localhost:5000",
+        entitlement_mode="signed",
+        grpc_target="localhost:5001",
+        server_commit="a" * 40,
+        server_image_digest="sha256:" + "b" * 64,
+        sdk_source_sha="c" * 40,
+        sdk_wheel_filename="honua_sdk-9.9.9-py3-none-any.whl",
+        sdk_wheel_sha256="d" * 64,
+        sdk_wheel_source="pypi",
+        evidence_uri="https://evidence.invalid/run/1",
+        candidate_cut_at="2026-08-20T00:00:00Z",
+        certification_tier="release",
+    )
+    failed = [(_case(name), _result(name, "failed" if name == "grpc_query_features" else "passed"))
+              for name in CASE_CERTIFICATION]
+    fragment = conformance.build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, failed)
+    assert fragment["operation_scope"]["complete"] is False
+    assert fragment["operation_scope"]["uncovered_operations"] == []
+    row = next(item for item in fragment["observations"]
+               if item["surface"] == "grpc-feature-service" and item["operation"] == "query-features")
+    assert row["result"] == "fail"
+    passed = [(_case(name), _result(name, "passed")) for name in CASE_CERTIFICATION]
+    complete = conformance.build_certification_fragment(FixtureBundle(Path("."), "fixture-v1"), target, passed)
+    assert complete["operation_scope"]["complete"] is True
+
+
 def test_sdkpy_003_full_rest_case_list_does_not_complete_grpc_operation_scope(monkeypatch) -> None:
     """SDKPY-003: REST-only evidence must not certify public gRPC operations."""
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "9.9.9")
@@ -617,10 +721,18 @@ def test_apply_edits_stays_required_when_grpc_cases_join_the_harness(monkeypatch
     required = {
         (row["surface"], row["operation"]) for row in fragment["operation_scope"]["required_operations"]
     }
+    uncovered = {
+        (row["surface"], row["operation"])
+        for row in fragment["operation_scope"]["uncovered_operations"]
+    }
+    assert uncovered
+    assert observed.isdisjoint(uncovered)
     assert ("geoservices-featureserver", "apply-edits") in required
     assert ("geoservices-featureserver", "apply-edits") not in observed
-    assert observed == required - {("geoservices-featureserver", "apply-edits")}
+    assert observed == (required - uncovered) - {("geoservices-featureserver", "apply-edits")}
     assert fragment["operation_scope"]["complete"] is False
+    assert all(row["result"] == "skip" and row["owner_issue"].endswith("/issues/282")
+               for row in fragment["operation_scope"]["uncovered_operations"])
     sync = next(row for row in fragment["observations"] if row["capability_key"] == "sync.featureserver-replicas")
     assert sync["operation"] == "sync-capability"
     with pytest.raises(AssertionError, match="operation scope is incomplete"):

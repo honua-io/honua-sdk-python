@@ -1359,6 +1359,99 @@ REQUIRED_CERTIFICATION_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     }
 )
 
+# Factories in compatibility/protocol-factories.json that already have a certification
+# surface. Every other public factory is an uncovered row, never a pass.
+COVERED_PROTOCOL_FACTORIES: dict[str, str] = {
+    "feature_server": "geoservices-featureserver",
+    "grpc": "grpc-feature-service",
+    "ogc_features": "ogc-api-features",
+    "ogc_processes": "ogc-api-processes",
+}
+UNCOVERED_CERTIFICATION_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/282"
+
+
+def _protocol_factory_names() -> set[str]:
+    path = Path(__file__).resolve().parents[1] / "compatibility" / "protocol-factories.json"
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ConformanceFixturesError(f"protocol factories are unreadable: {path}") from exc
+    clients = document.get("clients") if isinstance(document, dict) else None
+    if not isinstance(clients, dict) or not clients:
+        raise ConformanceFixturesError("protocol factories are missing clients")
+    names: set[str] = set()
+    for side in clients.values():
+        if not isinstance(side, dict) or not side:
+            raise ConformanceFixturesError("protocol factory client list is empty")
+        names.update(str(name) for name in side)
+    unknown = set(COVERED_PROTOCOL_FACTORIES) - names
+    if unknown:
+        raise ConformanceFixturesError(
+            "covered factories are not in protocol-factories.json: " + ", ".join(sorted(unknown))
+        )
+    return names
+
+
+def uncovered_certification_operations() -> frozenset[tuple[str, str]]:
+    """Public factories with no certification case. Presence in the harness is not coverage."""
+    return frozenset(
+        ("sdk-factory", name.replace("_", "-"))
+        for name in _protocol_factory_names()
+        if name not in COVERED_PROTOCOL_FACTORIES
+    )
+
+
+UNCOVERED_CERTIFICATION_OPERATIONS = uncovered_certification_operations()
+
+
+def _passed_certification_operations(
+    case_results: Sequence[tuple[ConformanceCase, CaseResult]],
+) -> set[tuple[str, str]]:
+    passed: set[tuple[str, str]] = set()
+    for case, result in case_results:
+        if result.status != "passed":
+            continue
+        _capability, surface, operation, _facets = CASE_CERTIFICATION[case.name]
+        passed.add((surface, operation))
+    return passed
+
+
+def _required_certification_operations() -> frozenset[tuple[str, str]]:
+    return frozenset(REQUIRED_CERTIFICATION_OPERATIONS) | frozenset(UNCOVERED_CERTIFICATION_OPERATIONS)
+
+
+def _operation_scope(
+    case_results: Sequence[tuple[ConformanceCase, CaseResult]],
+) -> dict[str, Any]:
+    """Complete only when every required operation passed. Uncovered factories stay skip."""
+    required = _required_certification_operations()
+    passed = _passed_certification_operations(case_results)
+    uncovered = sorted(UNCOVERED_CERTIFICATION_OPERATIONS)
+    return {
+        "complete": passed == required,
+        "owner_issue": CERTIFICATION_SCOPE_OWNER,
+        "disposition": (
+            "Passing harness cases do not complete the scope. A public protocol factory "
+            "without an executing case stays non-pass under the uncovered owner, and a "
+            "failed or skipped case does not count."
+        ),
+        "required_operations": [
+            {"surface": surface, "operation": operation}
+            for surface, operation in sorted(required)
+        ],
+        "uncovered_operations": [
+            {
+                "surface": surface,
+                "operation": operation,
+                "result": "skip",
+                "owner_issue": UNCOVERED_CERTIFICATION_OWNER,
+                "reason": "No executing certification case. This row is not a pass.",
+            }
+            for surface, operation in uncovered
+        ],
+    }
+
+
 CERTIFICATION_SCOPE_OWNER = "https://github.com/honua-io/honua-sdk-python/issues/21"
 CERTIFICATION_AUTH_POLICY_REVISION = "anonymous-public-v1"
 CERTIFICATION_CLIENT_ID = "Honua SDK Python"
@@ -1822,21 +1915,6 @@ def build_certification_fragment(
             "image_digest": target.server_image_digest,
             "cut_at": target.candidate_cut_at,
         },
-        "operation_scope": {
-            "complete": {
-                (CASE_CERTIFICATION[case.name][1], CASE_CERTIFICATION[case.name][2])
-                for case, _ in case_results
-            }
-            == REQUIRED_CERTIFICATION_OPERATIONS,
-            "owner_issue": CERTIFICATION_SCOPE_OWNER,
-            "disposition": (
-                "The live cases are a bounded initial certification slice; the complete public/addressable "
-                "SDK operation denominator is tracked by the owner issue and release evidence must fail closed."
-            ),
-            "required_operations": [
-                {"surface": surface, "operation": operation}
-                for surface, operation in sorted(REQUIRED_CERTIFICATION_OPERATIONS)
-            ],
-        },
+        "operation_scope": _operation_scope(case_results),
         "observations": observations,
     }

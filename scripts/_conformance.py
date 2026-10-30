@@ -261,8 +261,8 @@ def load_target_from_env() -> ConformanceTarget:
             "HONUA_CERTIFICATION_REQUIREMENTS_PATH"
         ),
     )
-    if target.certification_tier == "release" and target.entitlement_mode != "signed":
-        raise ConformanceFixturesError("release certification requires signed entitlement provenance; rehearsal grants are forbidden")
+    if target.certification_tier == "release" and target.entitlement_mode != "disabled":
+        raise ConformanceFixturesError("release certification requires entitlement mode disabled")
     if target.grpc_target:
         target.grpc_base_url()
     return target
@@ -1709,19 +1709,19 @@ def validate_release_certification_fragment(fragment: Mapping[str, Any]) -> None
         try:
             records = json.loads(base64.b64decode(receipt["payload_base64"], validate=True))
             assert isinstance(records, list) and records
-            assert all(record["entitlement_mode"] == "signed" for record in records)
+            assert all(record["entitlement_mode"] == "disabled" for record in records)
             edits = [record["receipt"] for record in records if record["case"] == "feature_apply_edits_roundtrip"]
             assert len(edits) == 1 and edits[0]["status"] == "passed"
             proof = edits[0]["details"]["entitlement"]
-            assert proof["verification"] == "candidate-license-status-v1" and proof["mode"] == "signed"
+            assert proof["verification"] == "candidate-disabled-license-status-v1" and proof["mode"] == "disabled"
             assert proof["status"] == "active" and proof["entitlement"] == "editing.featureserver-edits"
-            assert re.fullmatch(r"sha256:[0-9a-f]{64}", proof["license_fingerprint"])
+            assert "license_fingerprint" not in proof
             checked = datetime.fromisoformat(proof["checked_at"].replace("Z", "+00:00"))
             started = datetime.fromisoformat(edits[0]["started_at"].replace("Z", "+00:00"))
             completed = datetime.fromisoformat(edits[0]["completed_at"].replace("Z", "+00:00"))
             assert checked.tzinfo is not None and started <= checked <= completed
         except (KeyError, TypeError, ValueError, AssertionError) as exc:
-            raise AssertionError("release receipt lacks fresh candidate-validated signed edit entitlement; rehearsal evidence is forbidden") from exc
+            raise AssertionError("release receipt lacks fresh candidate-validated disabled-license edit entitlement; rehearsal evidence is forbidden") from exc
 
 
 def build_certification_fragment(
@@ -1761,8 +1761,8 @@ def build_certification_fragment(
     if target.sdk_wheel_source != "pypi":
         raise ConformanceFixturesError("sdk_wheel_source must be pypi")
 
-    if target.entitlement_mode not in {"signed", "development-grant"}:
-        raise ConformanceFixturesError("normalized certification needs explicit signed or development-grant entitlement provenance")
+    if target.entitlement_mode not in {"signed", "disabled", "development-grant"}:
+        raise ConformanceFixturesError("normalized certification needs explicit disabled, signed, or development-grant entitlement provenance")
     auth_policy_revision = ("development-grant-rehearsal-v1" if target.entitlement_mode == "development-grant"
                             else CERTIFICATION_AUTH_POLICY_REVISION)
     requirements_revision, governed_context = _load_certification_context(

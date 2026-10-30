@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from hashlib import sha256
 
 import pytest
@@ -126,6 +127,30 @@ def test_renew_replaces_an_expired_binding_from_the_current_staging_variables(
         fetch_descriptor=lambda _url: descriptor(),
     )
     assert summary["expires_at"] > summary["generated_at"]
+
+
+def test_renew_uses_the_smoke_loader_defaults_when_service_and_layer_are_unset(
+    staging_env: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A live target may omit HONUA_SERVICE_ID and HONUA_LAYER_ID.
+
+    load_smoke_config_from_env treats that as test_service / 0. Renewal has to
+    do the same, or the new step fails a configuration the suite already accepts.
+    """
+    stale = _expired(maker.build(DESCRIPTOR_URL, sha256(descriptor()).hexdigest(), 30))
+    monkeypatch.delenv("HONUA_SERVICE_ID")
+    monkeypatch.delenv("HONUA_LAYER_ID")
+    payload = json.loads(descriptor())
+    payload["service"]["name"] = smoke.DEFAULT_SERVICE_ID
+    payload["service"]["layerId"] = smoke.DEFAULT_LAYER_ID
+    agreed = json.dumps(payload).encode("utf-8")
+
+    renewed = maker.renew(stale, fetch_descriptor=lambda _url: agreed)
+    parsed = json.loads(renewed)
+    assert parsed["target"]["serviceName"] == smoke.DEFAULT_SERVICE_ID
+    assert parsed["target"]["layerId"] == smoke.DEFAULT_LAYER_ID
+    assert os.environ.get("HONUA_SERVICE_ID") is None
+    assert os.environ.get("HONUA_LAYER_ID") is None
 
 
 def test_renew_rejects_a_descriptor_that_disagrees_with_staging(staging_env: None) -> None:

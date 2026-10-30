@@ -49,6 +49,8 @@ from scripts._smoke_harness import (  # noqa: E402
     CLIENT_COMPAT_BINDING_FORMAT,
     CLIENT_COMPAT_DESCRIPTOR_URL_PATTERN,
     CLIENT_COMPAT_OWNER_REPOSITORY,
+    DEFAULT_LAYER_ID,
+    DEFAULT_SERVICE_ID,
     SmokeConfigError,
     validate_client_compat_binding,
 )
@@ -166,6 +168,10 @@ def renew(
     The returned JSON has already passed ``validate_client_compat_binding``.
     A descriptor that disagrees with the staging variables raises
     ``SmokeConfigError`` and nothing is returned.
+
+    ``HONUA_SERVICE_ID`` and ``HONUA_LAYER_ID`` follow ``load_smoke_config_from_env``:
+    a live target that omits them uses ``test_service`` and layer ``0``. An explicit
+    value still wins. The process environment is left as the caller set it.
     """
     if not 0 < days <= MAX_WINDOW_DAYS:
         raise SmokeConfigError(
@@ -175,12 +181,38 @@ def renew(
     payload = (fetch_descriptor or descriptor_bytes)(url)
     from hashlib import sha256
 
-    binding = build(url, sha256(payload).hexdigest(), days)
-    renewed = json.dumps(binding, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    # Re-validate the exact bytes the digest was taken from. A disagreement
-    # (service, layer, profile, base URL) stays a hard failure.
-    check(renewed, fetch_descriptor=lambda _url: payload)
+    with _smoke_identity_defaults():
+        binding = build(url, sha256(payload).hexdigest(), days)
+        renewed = json.dumps(binding, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        # Re-validate the exact bytes the digest was taken from. A disagreement
+        # (service, layer, profile, base URL) stays a hard failure.
+        check(renewed, fetch_descriptor=lambda _url: payload)
     return renewed
+
+
+class _smoke_identity_defaults:
+    """Apply the smoke loader's service and layer defaults for one renewal."""
+
+    _NAMES = (
+        ("HONUA_SERVICE_ID", DEFAULT_SERVICE_ID),
+        ("HONUA_LAYER_ID", str(DEFAULT_LAYER_ID)),
+    )
+
+    def __enter__(self) -> None:
+        self._saved: list[tuple[str, str | None]] = []
+        for name, default in self._NAMES:
+            current = os.environ.get(name, "").strip()
+            if current:
+                continue
+            self._saved.append((name, os.environ.get(name)))
+            os.environ[name] = default
+
+    def __exit__(self, *_exc: object) -> None:
+        for name, previous in reversed(self._saved):
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
 
 
 def main(argv: list[str]) -> int:

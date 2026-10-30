@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts._conformance_entitlement import observe, profile, signed_status
+from scripts._conformance_entitlement import disabled_status, observe, profile, signed_status
 
 NOW = datetime(2026, 10, 17, tzinfo=timezone.utc)
 STATUS = {"success": True, "data": {"mode": "enabled", "isValid": True, "validationState": "Valid",
@@ -19,21 +19,36 @@ STATUS = {"success": True, "data": {"mode": "enabled", "isValid": True, "validat
 
 
 def test_rehearsal_grant_is_explicit_and_development_only():
-    assert profile("pr", "pull_request", "Development", "") == {"mode": "development-grant", "devGrantEdition": "Enterprise"}
+    assert profile("pr", "pull_request", "Development", "") == {
+        "mode": "development-grant", "devGrantEdition": "Enterprise", "licensingMode": "Enabled"}
     for tier, event, environment in [("pr", "pull_request", "Production"), ("unknown", "local", "Development")]:
         with pytest.raises(ValueError):
             profile(tier, event, environment, "")
 
 
-def test_release_never_inherits_rehearsal_defaults_and_requires_governed_input():
-    for event, content in [("workflow_dispatch", ""), ("workflow_dispatch", "not JSON"), ("workflow_dispatch", "{}"), ("pull_request", '{"x":1}')]:
-        with pytest.raises(ValueError):
-            profile("release", event, "Development", content)
-    # Merely shaped input does not establish eligibility; live signature/entitlement
-    # validation by the candidate and actual edit/readback operations remain required.
-    assert profile("release", "workflow_dispatch", "Development", '{"unverified":true}') == {"mode": "signed", "devGrantEdition": ""}
+def test_release_boots_disabled_without_reading_a_license_envelope():
+    for content in ("", "not JSON", "{}", '{"unverified":true}'):
+        assert profile("release", "workflow_dispatch", "Development", content) == {
+            "mode": "disabled", "devGrantEdition": "", "licensingMode": "Disabled"}
+    with pytest.raises(ValueError, match="explicit governed dispatch"):
+        profile("release", "pull_request", "Development", "")
     with pytest.raises(AssertionError, match="signed non-development"):
         signed_status({"success": True, "data": {}}, now=NOW)
+
+
+def test_disabled_status_requires_the_2026_1_runtime_and_the_edit_entitlement():
+    status = {"success": True, "data": {"mode": "disabled", "isValid": True, "validationState": "Disabled",
+              "licenseId": None, "entitlements": [{"key": "editing.featureserver-edits", "isActive": True}]}}
+    proof = disabled_status(status, now=NOW)
+    assert proof["mode"] == "disabled" and proof["status"] == "active"
+    assert proof["verification"] == "candidate-disabled-license-status-v1"
+    assert "license_fingerprint" not in proof
+    for field, value in (("mode", "enabled"), ("isValid", False), ("validationState", "Valid"),
+                         ("licenseId", "signed-license-identifier"), ("entitlements", [])):
+        refused = copy.deepcopy(status)
+        refused["data"][field] = value
+        with pytest.raises(AssertionError):
+            disabled_status(refused, now=NOW)
 
 
 @pytest.mark.parametrize(("field", "value"), [("mode", "disabled"), ("isValid", False), ("validationState", "Expired"),
@@ -59,26 +74,30 @@ def test_release_probe_refuses_rehearsal_before_any_network():
         observe(SimpleNamespace(certification_tier="release", entitlement_mode="development-grant"))
 
 
-def test_workflow_invokes_profile_policy_and_never_persists_license_contents():
+def test_workflow_boots_licensing_mode_from_the_profile_and_reads_no_license_secret():
     workflow = (Path(__file__).parents[1] / ".github/workflows/conformance.yml").read_text()
     assert 'from scripts._conformance_entitlement import profile' in workflow
     assert 'CERTIFICATION_EVENT: ${{ github.event_name }}' in workflow
-    assert "github.event_name == 'workflow_dispatch' && github.event.inputs.certification_tier == 'release' && secrets.HONUA_CERTIFICATION_LICENSE_CONTENT" in workflow
+    assert "HONUA_CERTIFICATION_LICENSE_CONTENT" not in workflow
+    assert 'Licensing__LicenseContent' not in workflow
     assert 'Licensing__DevGrantEdition: "${dev_grant}"' in workflow
-    assert 'Licensing__LicenseContent: "\\${HONUA_CERTIFICATION_LICENSE_CONTENT:-}"' in workflow
+    assert "Licensing__Mode: ${licensing_mode}" in workflow
+    assert '.licensingMode | select(. == "Disabled" or . == "Enabled")' in workflow
 
 
 def test_release_fragment_rejects_rehearsal_and_stale_entitlement_receipts():
     from scripts._conformance import validate_release_certification_fragment
-    record = {"case": "feature_apply_edits_roundtrip", "entitlement_mode": "signed", "receipt": {
+    record = {"case": "feature_apply_edits_roundtrip", "entitlement_mode": "disabled", "receipt": {
         "status": "passed", "started_at": "2026-10-17T00:00:00Z", "completed_at": "2026-10-17T00:00:01Z",
-        "details": {"entitlement": signed_status(STATUS, now=NOW)}}}
+        "details": {"entitlement": disabled_status({"success": True, "data": {
+            "mode": "disabled", "isValid": True, "validationState": "Disabled", "licenseId": None,
+            "entitlements": [{"key": "editing.featureserver-edits", "isActive": True}]}}, now=NOW)}}}
     def fragment(value):
         return {"requirements_revision": "fixture-v2", "candidate": {"cut_at": "2026-10-17T00:00:00Z"}, "operation_scope": {"complete": True,
             "required_operations": [{"surface": "s", "operation": "edit"}]}, "observations": [{"surface": "s", "operation": "edit", "result": "pass", "maturity": "supported", "required_tier": "release",
             "evidence_receipt": {"schema": "honua.certification-evidence-receipt/v2", "identity": {"candidate_cut_at": "2026-10-17T00:00:00Z", "maturity": "supported", "required_tier": "release", "requirements_revision": "fixture-v2"}, "payload_base64": base64.b64encode(json.dumps([value]).encode()).decode()}}]}
     validate_release_certification_fragment(fragment(record))
-    for mode in ("development-grant", "unspecified"):
+    for mode in ("development-grant", "unspecified", "signed"):
         wrong = copy.deepcopy(record)
         wrong["entitlement_mode"] = mode
         with pytest.raises(AssertionError, match="rehearsal evidence"):
@@ -126,6 +145,12 @@ def test_rehearsal_receipts_cannot_match_the_governed_release_auth_policy(monkey
     assert row["auth_policy_revision"] == "development-grant-rehearsal-v1"
     assert row["evidence_receipt"]["identity"]["auth_policy_revision"] == row["auth_policy_revision"]
     assert row["auth_policy_revision"] != CERTIFICATION_AUTH_POLICY_REVISION
+    target = replace(target, entitlement_mode="disabled")
+    disabled_governance = json.loads(governance.read_text())
+    disabled_governance["requirements"][0]["auth_policy_revision"] = CERTIFICATION_AUTH_POLICY_REVISION
+    governance.write_text(json.dumps(disabled_governance))
+    fragment = build_certification_fragment(FixtureBundle(Path("."), "1.0.3"), target, [(case, result)])
+    assert fragment["observations"][0]["auth_policy_revision"] == CERTIFICATION_AUTH_POLICY_REVISION
     target = replace(target, entitlement_mode="unspecified")
-    with pytest.raises(ConformanceFixturesError, match="explicit signed or development-grant"):
+    with pytest.raises(ConformanceFixturesError, match="explicit disabled, signed, or development-grant"):
         build_certification_fragment(FixtureBundle(Path("."), "1.0.3"), target, [(case, result)])

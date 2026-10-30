@@ -354,11 +354,10 @@ PR/nightly rehearsal fixtures. These receipts carry
 `development-grant-rehearsal-v1`, which does not match the governed release auth
 policy and cannot qualify release cells, so those runs exercise every conformance
 case but request no protocol-certification fragment. Only a `certification_tier:
-release` dispatch emits one. Release dispatches clear the grant and
-require the operator-provisioned `HONUA_CERTIFICATION_LICENSE_CONTENT` secret;
-that input is currently an external wiring prerequisite under #282 and
-honua-io/honua-release#652. No license contents are included in generated Compose
-overrides or artifacts. Before actual SDK edit/rollback/readback, release runs
-require the candidate to validate a signed, active, non-development editing
-entitlement. The receipt retains a safe fingerprint and fresh observation;
-missing, invalid, expired, disabled, rehearsal, or stale proof fails closed.
+release` dispatch emits one. Release dispatches clear the grant and boot
+`Licensing__Mode=Disabled`, the 2026.1 runtime, and leave the signed license
+envelope unread. Compose overrides and artifacts contain no license bytes.
+Before SDK edit/rollback/readback, release runs require the candidate license
+status to report mode disabled with the editing entitlement active. The receipt
+retains that fresh observation. A rehearsal grant, a signed-license claim, or a
+stale observation fails closed.

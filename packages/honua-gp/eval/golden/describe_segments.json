@@ -26,7 +26,7 @@
       "created_at": "Date",
       "description": "String",
       "eo:cloud_cover": "Double",
-      "event_date": "Date",
+      "event_date": "DateOnly",
       "event_time": "String",
       "name": "String",
       "numbers": "String",

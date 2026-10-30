@@ -30,6 +30,28 @@ def test_eval_scripts_pair_with_golden_records() -> None:
         assert golden.exists(), f"Missing golden file for {script.name}"
 
 
+def test_segment_goldens_record_calendar_dates_as_dateonly() -> None:
+    """event_date is a calendar date (DateOnly); created_at stays a timestamp (Date).
+
+    The 2026-10-29 moving canary (run 40941850041) returned esriFieldTypeDateOnly
+    for event_date and esriFieldTypeDate for created_at. These three goldens and
+    the pinned server identity move together.
+    """
+
+    names = (
+        "describe_segments",
+        "describe_segments_fields",
+        "list_fields_segments",
+    )
+    for name in names:
+        golden = json.loads(
+            (_PACKAGE_ROOT / "eval" / "golden" / f"{name}.json").read_text(encoding="utf-8")
+        )
+        field_types = golden["response"]["field_types"]
+        assert field_types["event_date"] == "DateOnly", name
+        assert field_types["created_at"] == "Date", name
+
+
 def test_every_supported_script_has_a_response_oracle() -> None:
     """A supported script must record what the server returned (#202).
 

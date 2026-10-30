@@ -192,15 +192,17 @@ jobs:
   # ``not-executed``. Only ``passed`` -- every script executed live and passed
   # -- counts as success.
   #
-  # PINNED IDENTITY: 2026.1 candidate re-pin (honua-release PR #349,
-  # platform-manifest.yaml components.honua-server, 2026-09-15):
-  # honua-server@548b7a5263da5a3f2381eb43f232687cdf92b0bf, AOT image
-  # sha256:29974ee7.... Verified live on a fresh seed: SpatialJoin layer
-  # served, 52/52 live (supported 27/27). The previous pin was
-  # 7ba4226 = sha256:dd50cd81.... (The 2026-08-19 conformance.yml pin, f897700, predates
-  # honua-server#4645's SRID-correct buffer that #234's MultiPolygon oracles
-  # encode.) The layer-aware ops (Buffer / SpatialJoin / Dissolve / Project,
-  # issue #157) depend on honua-server#2327, an ancestor of this revision.
+  # PINNED IDENTITY: promoted from the 2026-10-29 moving canary
+  # (run 40941850041, smoke-identity.json). That run pulled
+  # ghcr.io/honua-io/honua-server:nightly-aot and recorded digest
+  # sha256:c8d7aef98761618145725530b6a4e4b25ea4a9ae121da168362f9be4cf5f7d37
+  # with revision a4bde4b8c5ee8cc3dec05ad8b3d4f84470c1ea6e. The only oracle
+  # drift was event_date: the server advertises calendar Date fields as
+  # esriFieldTypeDateOnly, which honua-gp already maps to arcpy DateOnly.
+  # created_at stayed Date. The previous pin was 548b7a52 =
+  # sha256:29974ee7.... (honua-release PR #349, 2026-09-15), which collapsed
+  # Date and DateTime into esriFieldTypeDate. Goldens and both pins move
+  # together so the blocking lane and the canary grade the same contract.
   #
   # PROMOTION PATH -- move the pin only in a reviewed PR, both values together:
   #   1. Pick the new identity: the governed candidate in honua-release's
@@ -238,8 +240,8 @@ jobs:
       identity-source: ${{ steps.identity.outputs.source }}
     env:
       HONUA_GP_EVAL_MODE: ${{ (github.event_name == 'schedule' || inputs.mode == 'canary') && 'canary' || 'pinned' }}
-      HONUA_GP_EVAL_PINNED_IMAGE: ghcr.io/honua-io/honua-server@sha256:29974ee7b722e3ae15c3b891024e5e70800f412188aeccf5ec3d32d9dac675c1
-      HONUA_GP_EVAL_PINNED_SEED_REVISION: 548b7a5263da5a3f2381eb43f232687cdf92b0bf
+      HONUA_GP_EVAL_PINNED_IMAGE: ghcr.io/honua-io/honua-server@sha256:c8d7aef98761618145725530b6a4e4b25ea4a9ae121da168362f9be4cf5f7d37
+      HONUA_GP_EVAL_PINNED_SEED_REVISION: a4bde4b8c5ee8cc3dec05ad8b3d4f84470c1ea6e
       HONUA_GP_EVAL_CANARY_IMAGE: ghcr.io/honua-io/honua-server:nightly-aot
       # Persistent-target override: manual dispatch only -- see the job comment.
       HONUA_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && vars.HONUA_GP_EVAL_BASE_URL || '' }}

@@ -23,6 +23,13 @@ the binding cannot drift from them: HONUA_BASE_URL, HONUA_SERVICE_ID,
 HONUA_LAYER_ID, HONUA_SERVER_COMMIT, HONUA_SERVER_IMAGE, HONUA_SEED_PROFILE.
 Pass --check to validate the binding already in the variable instead of making a
 new one.
+
+Pass --renew to rebuild a fresh window from the descriptor URL already stored in
+HONUA_CLIENT_COMPAT_BINDING_JSON. Expiry on that stored blob is ignored; the URL
+is the only field kept. Timestamps, the descriptor digest, and the target are
+rebuilt from the current staging variables and re-checked by the same validator.
+A descriptor that no longer matches those variables still fails. Nothing here
+writes the repository variable back: stdout is the binding for this run.
 """
 
 from __future__ import annotations
@@ -31,6 +38,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -39,7 +47,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts._smoke_harness import (  # noqa: E402
     CLIENT_COMPAT_BINDING_ENV,
     CLIENT_COMPAT_BINDING_FORMAT,
+    CLIENT_COMPAT_DESCRIPTOR_URL_PATTERN,
     CLIENT_COMPAT_OWNER_REPOSITORY,
+    DEFAULT_LAYER_ID,
+    DEFAULT_SERVICE_ID,
     SmokeConfigError,
     validate_client_compat_binding,
 )
@@ -104,7 +115,11 @@ def descriptor_bytes(url: str) -> bytes:
         raise SystemExit(f"descriptor fetch failed for {url}: {exc.reason}") from exc
 
 
-def check(binding_json: str) -> dict:
+def check(
+    binding_json: str,
+    *,
+    fetch_descriptor: Callable[[str], bytes] | None = None,
+) -> dict:
     """Run the binding through the suite's own validator."""
     return validate_client_compat_binding(
         binding_json,
@@ -114,7 +129,90 @@ def check(binding_json: str) -> dict:
         server_commit=required_env("HONUA_SERVER_COMMIT"),
         server_image=required_env("HONUA_SERVER_IMAGE"),
         seed_profile=os.environ.get("HONUA_SEED_PROFILE") or None,
+        fetch_descriptor=fetch_descriptor,
     )
+
+
+def pinned_descriptor_url(binding_json: str) -> str:
+    """Recover the commit-pinned descriptor URL from a stored binding.
+
+    Expiry is ignored on purpose. The stored variable is allowed to be stale;
+    the URL is the only field renewal trusts. Every other field is rebuilt from
+    the current staging variables and re-checked by the validator.
+    """
+    try:
+        binding = json.loads(binding_json)
+    except json.JSONDecodeError as exc:
+        raise SmokeConfigError(
+            f"{CLIENT_COMPAT_BINDING_ENV} must contain valid JSON."
+        ) from exc
+    if not isinstance(binding, dict):
+        raise SmokeConfigError(f"{CLIENT_COMPAT_BINDING_ENV} must contain a JSON object.")
+    descriptor = binding.get("descriptor")
+    url = descriptor.get("url") if isinstance(descriptor, dict) else None
+    if not isinstance(url, str) or not CLIENT_COMPAT_DESCRIPTOR_URL_PATTERN.fullmatch(url):
+        raise SmokeConfigError(
+            "Client-compat descriptor URL must be commit-pinned to honua-demo-infra."
+        )
+    return url
+
+
+def renew(
+    binding_json: str,
+    *,
+    days: int = MAX_WINDOW_DAYS,
+    fetch_descriptor: Callable[[str], bytes] | None = None,
+) -> str:
+    """Rebuild a fresh binding from the stored descriptor URL and current env.
+
+    The returned JSON has already passed ``validate_client_compat_binding``.
+    A descriptor that disagrees with the staging variables raises
+    ``SmokeConfigError`` and nothing is returned.
+
+    ``HONUA_SERVICE_ID`` and ``HONUA_LAYER_ID`` follow ``load_smoke_config_from_env``:
+    a live target that omits them uses ``test_service`` and layer ``0``. An explicit
+    value still wins. The process environment is left as the caller set it.
+    """
+    if not 0 < days <= MAX_WINDOW_DAYS:
+        raise SmokeConfigError(
+            f"Client-compat binding expiry window must be positive and at most {MAX_WINDOW_DAYS} days."
+        )
+    url = pinned_descriptor_url(binding_json)
+    payload = (fetch_descriptor or descriptor_bytes)(url)
+    from hashlib import sha256
+
+    with _smoke_identity_defaults():
+        binding = build(url, sha256(payload).hexdigest(), days)
+        renewed = json.dumps(binding, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        # Re-validate the exact bytes the digest was taken from. A disagreement
+        # (service, layer, profile, base URL) stays a hard failure.
+        check(renewed, fetch_descriptor=lambda _url: payload)
+    return renewed
+
+
+class _smoke_identity_defaults:
+    """Apply the smoke loader's service and layer defaults for one renewal."""
+
+    _NAMES = (
+        ("HONUA_SERVICE_ID", DEFAULT_SERVICE_ID),
+        ("HONUA_LAYER_ID", str(DEFAULT_LAYER_ID)),
+    )
+
+    def __enter__(self) -> None:
+        self._saved: list[tuple[str, str | None]] = []
+        for name, default in self._NAMES:
+            current = os.environ.get(name, "").strip()
+            if current:
+                continue
+            self._saved.append((name, os.environ.get(name)))
+            os.environ[name] = default
+
+    def __exit__(self, *_exc: object) -> None:
+        for name, previous in reversed(self._saved):
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
 
 
 def main(argv: list[str]) -> int:
@@ -126,7 +224,29 @@ def main(argv: list[str]) -> int:
                         help=f"Validity window in days (max {MAX_WINDOW_DAYS}).")
     parser.add_argument("--check", action="store_true",
                         help=f"Validate the binding in ${CLIENT_COMPAT_BINDING_ENV} instead of generating one.")
+    parser.add_argument("--renew", action="store_true",
+                        help=(f"Rebuild a fresh window from the descriptor URL in "
+                              f"${CLIENT_COMPAT_BINDING_ENV}. Prints JSON; does not write the variable."))
     args = parser.parse_args(argv)
+
+    if args.check and args.renew:
+        raise SystemExit("--check and --renew are mutually exclusive.")
+
+    if args.renew:
+        existing = os.environ.get(CLIENT_COMPAT_BINDING_ENV, "").strip()
+        if not existing:
+            raise SystemExit(f"{CLIENT_COMPAT_BINDING_ENV} is not set.")
+        if not 0 < args.days <= MAX_WINDOW_DAYS:
+            raise SystemExit(f"--days must be between 1 and {MAX_WINDOW_DAYS}.")
+        try:
+            renewed = renew(existing, days=args.days)
+        except SmokeConfigError as exc:
+            raise SystemExit(f"could not renew the client-compat binding: {exc}") from exc
+        print(renewed)
+        expires_at = json.loads(renewed)["expiresAt"]
+        print(f"\n# valid until {expires_at}", file=sys.stderr)
+        print("# this run only; the stored staging variable is left unchanged", file=sys.stderr)
+        return 0
 
     if args.check:
         existing = os.environ.get(CLIENT_COMPAT_BINDING_ENV, "").strip()

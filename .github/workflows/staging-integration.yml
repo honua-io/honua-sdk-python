@@ -1,11 +1,12 @@
 name: Python SDK Staging Integration
 
-# Daily + manual only. The smoke targets the `staging` environment, whose
+# Daily + manual only. The smoke targets the `staging` environment. The stored
 # client-compat binding (HONUA_CLIENT_COMPAT_BINDING_JSON) expires after at most
-# 30 days and is refreshed outside this repository. When it went stale the
-# lane failed 50/54 push and pull-request runs in one week without saying
-# anything about the change under test, so it no longer runs per push/PR; a
-# scheduled failure opens or updates one tracking issue instead (job below).
+# 30 days. On a live target the job renews that window from the binding's
+# commit-pinned descriptor URL and the current staging variables before pytest.
+# It does not write the variable back. A descriptor that no longer matches the
+# staging target still fails. The lane does not run per push/PR; a scheduled
+# failure opens or updates one tracking issue instead (job below).
 on:
   workflow_dispatch:
   schedule:
@@ -186,6 +187,17 @@ jobs:
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Renew the client-compat binding for this run
+        if: ${{ steps.smoke-config.outputs.local_stack == 'false' }}
+        run: |
+          set -euo pipefail
+          renewed="$(python scripts/make_client_compat_binding.py --renew)"
+          {
+            echo "HONUA_CLIENT_COMPAT_BINDING_JSON<<EOF"
+            echo "$renewed"
+            echo "EOF"
+          } >> "${GITHUB_ENV}"
+
       - name: Run staging smoke suite
         if: ${{ steps.smoke-config.outputs.configured == 'true' }}
         run: |
@@ -301,7 +313,7 @@ jobs:
             echo "- Run: ${RUN_URL} (artifacts hold the JUnit report and smoke results)"
             echo "- SDK commit: \`${SDK_COMMIT}\`"
             echo
-            echo "A \`SmokeConfigError: Client-compat binding is stale\` means the \`staging\` environment variable \`HONUA_CLIENT_COMPAT_BINDING_JSON\` must be regenerated (expiry window is at most 30 days); re-run with workflow_dispatch after refreshing it."
+            echo "The live-target job renews the client-compat expiry window from the stored descriptor URL before pytest, so a stale clock is not a reason to regenerate the variable. A \`SmokeConfigError\` that names the descriptor means that commit-pinned URL no longer matches the staging variables; update the descriptor pin in \`HONUA_CLIENT_COMPAT_BINDING_JSON\`, then re-run with workflow_dispatch."
           } > "${body_file}"
 
           if [[ -n "${existing}" ]]; then

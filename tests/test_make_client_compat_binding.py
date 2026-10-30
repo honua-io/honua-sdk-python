@@ -87,3 +87,53 @@ def test_missing_staging_variable_is_a_clear_exit(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delenv("HONUA_BASE_URL", raising=False)
     with pytest.raises(SystemExit, match="HONUA_BASE_URL is not set"):
         maker.required_env("HONUA_BASE_URL")
+
+
+def _expired(binding: dict) -> str:
+    binding["generatedAt"] = "2020-01-01T00:00:00Z"
+    binding["expiresAt"] = "2020-01-31T00:00:00Z"
+    return json.dumps(binding)
+
+
+def test_renew_replaces_an_expired_binding_from_the_current_staging_variables(
+    staging_env: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale clock must not keep the suite red, and stale target fields must not survive."""
+    stale_binding = maker.build(DESCRIPTOR_URL, sha256(descriptor()).hexdigest(), 30)
+    stale_binding["target"]["serviceName"] = "stale-service"
+    stale_binding["target"]["server"]["image"] = f"ghcr.io/honua-io/honua-server@sha256:{'d' * 64}"
+    stale = _expired(stale_binding)
+    with pytest.raises(smoke.SmokeConfigError, match="expiresAt has passed"):
+        smoke.validate_client_compat_binding(
+            stale,
+            base_url=BASE_URL, service_id="svc", layer_id=0,
+            server_commit=COMMIT, server_image=IMAGE, seed_profile="demo",
+            fetch_descriptor=lambda _url: descriptor(),
+        )
+
+    current_image = f"ghcr.io/honua-io/honua-server@sha256:{'e' * 64}"
+    monkeypatch.setenv("HONUA_SERVER_IMAGE", current_image)
+    renewed = maker.renew(stale, fetch_descriptor=lambda _url: descriptor())
+    parsed = json.loads(renewed)
+    assert parsed["descriptor"]["url"] == DESCRIPTOR_URL
+    assert parsed["target"]["serviceName"] == "svc"
+    assert parsed["target"]["server"]["image"] == current_image
+    assert parsed["target"]["server"]["commit"] == COMMIT
+    summary = smoke.validate_client_compat_binding(
+        renewed,
+        base_url=BASE_URL, service_id="svc", layer_id=0,
+        server_commit=COMMIT, server_image=current_image, seed_profile="demo",
+        fetch_descriptor=lambda _url: descriptor(),
+    )
+    assert summary["expires_at"] > summary["generated_at"]
+
+
+def test_renew_rejects_a_descriptor_that_disagrees_with_staging(staging_env: None) -> None:
+    """Renewal must not extend a window whose descriptor no longer matches the target."""
+    stale = _expired(maker.build(DESCRIPTOR_URL, sha256(descriptor()).hexdigest(), 30))
+    disagreed = descriptor(profile="demo")
+    payload = json.loads(disagreed)
+    payload["service"]["name"] = "other"
+    disagreed = json.dumps(payload).encode("utf-8")
+    with pytest.raises(smoke.SmokeConfigError, match="descriptor target disagrees"):
+        maker.renew(stale, fetch_descriptor=lambda _url: disagreed)

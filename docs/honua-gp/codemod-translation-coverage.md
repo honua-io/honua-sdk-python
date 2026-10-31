@@ -5,15 +5,14 @@ description: "What the offline codemod in honua_sdk.migration translates today, 
 resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"
 tags: [migration, codemod, coverage]
 ---
-# ArcPy migration codemod: translation coverage
+# Geoprocessing migration codemod: translation coverage
 
 This documents the **offline codemod** in `honua_sdk.migration` (the
 `honua-migrate` CLI) -- distinct from the runtime `honua-gp` shim and its
 [compatibility matrix](compatibility-matrix.md). The codemod statically reads
 ArcPy inventory from four input shapes and classifies every geoprocessing call
 against a registry of Honua [OGC API - Processes](https://ogcapi.ogc.org/processes/)
-targets, emitting a parity-evidence report. It never imports `arcpy` or runs
-licensed Esri software.
+targets, emitting a parity-evidence report. It analyzes source text and never executes input scripts.
 
 ## Inputs
 
@@ -22,28 +21,28 @@ licensed Esri software.
 | `.py` ArcPy script | `scan_arcpy_source` / `translate_arcpy_source` | `honua-migrate scan` / `translate` | `ArcPyScanReport` / `ArcPyMigrationPlan` |
 | `.pyt` Python toolbox | `parse_pyt_file` | `honua-migrate pyt` / `translate` | `PytToolbox` (per-tool `execute` body classified) |
 | `.atbx` ModelBuilder toolbox | `parse_atbx_toolbox` | `honua-migrate atbx` / `translate` | `ModelBuilderToolbox` (models + script-tool names) |
-| ArcGIS REST GPServer task defs | `parse_gp_service_definition` / `parse_gp_task_definition` | `honua-migrate gpservice` | `GpService` / `GpTask` |
+| GeoServices REST geoprocessing-service task definitions | `parse_gp_service_definition` / `parse_gp_task_definition` | `honua-migrate gpservice` | `GpService` / `GpTask` |
 
 All four share the same registry-driven classification, so a `Buffer` maps to
-`geometry.buffer` whether it is a `.py` call, a `.pyt` tool body, a ModelBuilder
+`geometry.buffer` whether it is a `.py` call, a `.pyt` tool body, a visual-model
 step, or a GPServer task.
 
 ### Format / compliance notes
 
-* **`.atbx`** is the published, open ArcGIS Pro zip-of-JSON toolbox container.
+* **`.atbx`** is the published, open zip-of-JSON toolbox container.
   `parse_atbx_toolbox` reads it **clean-room**: it unzips the archive and
   JSON-decodes the per-tool definitions (`*.tool/*.content` / `.rc` / `.json`).
   Models (a process/step list) are translated; script tools (which reference an
   external `.py`) are surfaced by name for the caller to scan via the `.py`
   path. The proprietary binary **`.tbx`** format is **not** parsed (it is not
   clean-room readable) -- `parse_binary_toolbox`/`parse_atbx_toolbox` raise a
-  clear redirect carrying the concrete ArcGIS Pro export steps
+  clear redirect carrying the concrete desktop export steps
   (`BINARY_TOOLBOX_EXPORT_GUIDANCE`). This is a standing policy decision, not an
-  unimplemented stub: Honua never reverse-engineers a proprietary Esri
+  unimplemented stub: Honua never reverse-engineers a proprietary
   container, and the migration path is always export-to-open-format -- the same
   rule that governs `.loc`/`.lox` locator files. Export `.tbx` to `.atbx` or
   `.pyt` first.
-* **GP-service** definitions are public ArcGIS REST API JSON
+* **GP-service** definitions are public GeoServices REST API JSON
   (`.../GPServer?f=json` and per-task `.../GPServer/<task>?f=json`).
 
 ## Classification statuses
@@ -53,7 +52,7 @@ Each call resolves to one of:
 * **translatable** -- mapped to a Honua process the reconciled server can
   *job-execute* today (`EXECUTABLE_PROCESS_IDS`). Emits a runnable OGC payload.
 * **manual-review** -- mapped to a known Honua process whose target is not yet
-  job-executable, or whose ArcGIS semantics differ enough to need a human (with
+  job-executable, or whose source semantics differ enough to need a human (with
   a reason). Emits an OGC payload + a reason; never claims a runnable migration.
 * **unsupported** -- no Honua mapping registered; flagged with a reason.
 
@@ -167,4 +166,4 @@ single source of truth; this table is a human-readable projection of it.
   export-to-open-format is the migration path).
 * Resolving an `.atbx` script tool's referenced `.py` body automatically
   (today its name is surfaced; point the `.py` scanner at it).
-* Compiled .NET / ArcObjects custom tools (separate track).
+* Compiled .NET desktop GP tools (separate track).

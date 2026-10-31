@@ -114,7 +114,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
     if path in overrides:
         return ResolvedSource(source=overrides[path], kind="honua-uri", raw=raw)
 
-    # 4. ArcGIS REST FeatureServer layer URL/path. ArcPy callers commonly pass
+    # 4. GeoServices REST FeatureServer layer URL/path. ArcPy callers commonly pass
     # the same live URL they use with the real arcpy module; canonicalize it to
     # the shim's existing source URI instead of treating the URL as a workspace
     # name and sending it as a service id.
@@ -127,7 +127,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
             raise HonuaGpResolveError(
                 raw,
                 hint=(
-                    "Foldered ArcGIS services (rest/services/<folder>/<service>/FeatureServer) "
+                    "Foldered GeoServices services (rest/services/<folder>/<service>/FeatureServer) "
                     "are not addressable through honua_gp; map this URL to "
                     "honua://services/<service>/<layer> with HONUA_GP_PATH_MAP."
                 ),

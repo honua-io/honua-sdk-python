@@ -768,7 +768,7 @@ COMPAT: dict[str, FunctionEntry] = {
     # tools return a :class:`honua_gp.RasterResult` handle (lazy xarray /
     # GeoDataFrame conversion via the ``raster`` / ``geopandas`` extras);
     # ZonalStatisticsAsTable returns the Table-kind JSON (a list of per-zone
-    # dicts) directly. Esri task names mirror honua-server's
+    # dicts) directly. Task aliases mirror honua-server's
     # ``GPServerEsriTaskAliases`` where a mapping exists.
     "sa.Slope": FunctionEntry(
         backend="raster",
@@ -921,7 +921,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "Projects arcpy.management.ProjectRaster onto honua-server's raster.reproject "
             "GDAL-worker process (gdalwarp -t_srs). target_srid (required) -> targetSrid; "
             "resampling -> resampling (nearestneighbor/bilinear/cubic/lanczos). Matches "
-            "the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle."
+            "the GPServer 'ProjectRaster' task alias. Returns a RasterResult handle."
         ),
         param_map={"target_srid": "targetSrid", "resampling": "resampling"},
     ),
@@ -933,7 +933,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "Projects arcpy.management.Resample onto honua-server's raster.resample "
             "GDAL-worker process (gdalwarp -tr). cell_size (required) -> cellSize; "
             "cell_size_y -> cellSizeY; resampling -> resampling. Matches the GPServer "
-            "'Resample' Esri task alias. Returns a RasterResult handle."
+            "'Resample' task alias. Returns a RasterResult handle."
         ),
         param_map={
             "cell_size": "cellSize",
@@ -965,7 +965,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "Projects arcpy.sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker "
             "process (gdal_grid -a invdist). Takes a scattered point FeatureCollection "
             "(encoded to the base64 'points' input); z_field -> zField, power -> power, "
-            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' Esri "
+            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' "
             "task alias. Partial: the native worker sizes the output via width/height "
             "(passthrough) rather than an arcpy cell_size, and arcpy barrier/variable "
             "search options are not modelled. Returns a RasterResult handle."
@@ -1009,7 +1009,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "plus polygonal zones and returns the Table-kind JSON (a list of per-zone "
             "aggregate dicts) directly rather than a raster. band -> band, statistics -> "
             "statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer "
-            "'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones "
+            "'ZonalStatisticsAsTable' task alias. Partial: only inline-GeoJSON zones "
             "are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved "
             "zones are deferred server-side."
         ),
@@ -1019,7 +1019,7 @@ COMPAT: dict[str, FunctionEntry] = {
     # unambiguous single arcpy Spatial Analyst tool-name analog (histograms are
     # reached in arcpy through RasterObject/segmentation, and spectral indices
     # through per-index raster functions / the multidimensional toolset), and
-    # honua-server's GPServerEsriTaskAliases assigns them no Esri task name
+    # honua-server's GPServerEsriTaskAliases assigns them no task alias
     # either. Rather than invent a fake arcpy name, they are surfaced as
     # explicit stubs so the migration tool reports the gap honestly.
     "sa.Histogram": FunctionEntry(

@@ -1,8 +1,8 @@
 """ExecuteError-shaped exception hierarchy for the honua-gp shim.
 
-Customer scripts that catch ``arcpy.ExecuteError`` continue to work; the
+Customer scripts that catch ``ExecuteError`` continue to work; the
 top-level ``honua_gp.ExecuteError`` aliases this class so the legacy
-``except arcpy.ExecuteError:`` idiom catches every shim failure.
+``except ExecuteError:`` idiom catches every shim failure.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import Any
 
 
 class ExecuteError(Exception):
-    """Top-level shim error, shaped like ``arcpy.ExecuteError``.
+    """Top-level shim error, shaped like ``ExecuteError``.
 
     Carries the original ``honua_sdk`` / ``honua_admin`` cause where one
     exists so callers can drill into the underlying transport or capability
@@ -86,10 +86,10 @@ class HonuaGpConfigurationError(ExecuteError):
 
 
 class HonuaGpResolveError(ExecuteError):
-    """Raised when an arcpy path cannot be resolved to a Honua source."""
+    """Raised when a workspace path cannot be resolved to a Honua source."""
 
     def __init__(self, path: str, *, hint: str | None = None) -> None:
-        message = f"Could not resolve arcpy path {path!r} to a Honua source."
+        message = f"Could not resolve workspace path {path!r} to a Honua source."
         if hint:
             message = f"{message} {hint}"
         super().__init__(message, error_kind="resolve")

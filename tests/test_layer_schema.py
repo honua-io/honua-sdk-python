@@ -2,7 +2,7 @@
 
 Covers parsing a real FeatureServer ``layer_metadata`` JSON shape into typed
 fields, normalized geometry type, resolved SRID, and a typed extent — the
-``arcpy.Describe`` / ``ListFields`` analogue — plus the OGC ``properties`` shape
+``Describe`` / ``ListFields`` analogue — plus the OGC ``properties`` shape
 and the ``Source.schema`` / ``feature_server.schema`` facade methods.
 """
 

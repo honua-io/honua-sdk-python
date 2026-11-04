@@ -1,11 +1,11 @@
-"""Bind arcpy output names to the inline results of honua-server GP jobs.
+"""Bind scripting-API output names to the inline results of honua-server GP jobs.
 
 honua-server's layer-aware processes (``analytics.buffer-aggregate``,
 ``analytics.spatial-join``, ``generalization.dissolve``,
 ``conversion.feature-project``) return their FeatureLayer result *by value*:
 the ``/jobs/{id}/results`` document carries ``outputFeatureLayer`` whose
 ``value`` is a GeoJSON FeatureCollection. Nothing is written to a server
-layer, so the only real artifact an arcpy output name can be bound to is that
+layer, so the only real artifact a scripting-API output name can be bound to is that
 collection.
 
 :func:`read_output_artifact` validates the results document and returns the

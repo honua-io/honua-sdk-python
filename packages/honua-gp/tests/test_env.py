@@ -1,4 +1,4 @@
-"""arcpy.env attribute mirroring."""
+"""env attribute mirroring."""
 
 from __future__ import annotations
 
@@ -21,9 +21,9 @@ def test_env_attributes_mirror_to_session() -> None:
 
 
 def test_env_unknown_attribute_falls_into_extra_env_options() -> None:
-    """Unknown ``arcpy.env.*`` writes land in ``extra_env_options`` -- *not*
+    """Unknown ``env.*`` writes land in ``extra_env_options`` -- *not*
     ``extra_client_options`` -- so common legacy writes like
-    ``arcpy.env.extent`` do not leak into the ``HonuaClient(**kwargs)``
+    ``env.extent`` do not leak into the ``HonuaClient(**kwargs)``
     constructor (which has a closed keyword signature and would crash with
     ``TypeError`` before the first backend call)."""
 
@@ -37,13 +37,13 @@ def test_env_unknown_attribute_falls_into_extra_env_options() -> None:
 
 
 def test_env_unknown_attribute_does_not_break_client_construction() -> None:
-    """``arcpy.env.extent`` and similar legacy writes must not crash
+    """``env.extent`` and similar legacy writes must not crash
     ``_build_client``. Regression for the prior behaviour where the env
     proxy stashed unknown attrs in ``extra_client_options`` and the SDK
     constructor rejected them as unexpected keyword arguments."""
 
     honua_gp.configure(base_url="https://example.com", api_key="k")
-    # Common legacy writes that arcpy scripts emit before the first backend
+    # Common legacy writes that geoprocessing scripts emit before the first backend
     # call. None of them should leak into the SDK constructor (which has a
     # closed keyword signature -- ``extent`` would raise ``TypeError``).
     honua_gp.env.extent = "0 0 100 100"

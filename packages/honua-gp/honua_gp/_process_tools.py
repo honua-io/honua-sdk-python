@@ -1,7 +1,7 @@
-"""Projection adapters: arcpy GP tool signatures -> honua-server process inputs.
+"""Projection adapters: scripting-API GP tool signatures -> honua-server process inputs.
 
 Audit pass 8 downgraded every process-backed analysis/management entry to a
-stub because the shim emitted an arcpy-style ``input_features`` / ``result``
+stub because the shim emitted a scripting-API-style ``input_features`` / ``result``
 payload while honua-server's ``BuiltInProcessCatalog`` expects either raw WKB
 geometries (the ``geometry.*`` family -- single-geometry, not feature-class
 shaped) or ``layerId``-addressed references (the ``analytics.*`` /
@@ -11,14 +11,14 @@ families).
 This module supplies the projection that re-promotes the **layer-aware**
 tools. Each adapter:
 
-1. Accepts the arcpy-style positional/keyword parameters.
+1. Accepts the scripting-API-style positional/keyword parameters.
 2. Translates the input feature class / layer alias to a numeric ``layerId``
    (via :func:`honua_gp._resolve.resolve_layer_id`) and maps the remaining
-   arcpy parameters onto the process's typed input names.
+   scripting-API parameters onto the process's typed input names.
 3. Submits the process as an async OGC API Processes job and polls it to a
    terminal state (:func:`honua_gp._process_jobs.submit_and_wait`).
 4. Binds the named output to the job's real result -- the inline FeatureLayer
-   collection honua-server returns -- and returns an arcpy-style
+   collection honua-server returns -- and returns a scripting-API-style
    :class:`Result`. Reads of that name (GetCount, cursors) are served from the
    bound result; a name whose job never succeeded has no binding and fails to
    resolve.
@@ -53,9 +53,9 @@ from ._wkb import WkbEncodingError, geojson_to_base64_wkb, position_count
 
 @dataclass(frozen=True)
 class Result:
-    """arcpy ``Result``-shaped return value for a completed GP tool.
+    """Scripting-API ``Result``-shaped return value for a completed GP tool.
 
-    Real ``arcpy`` tools return a ``Result`` whose ``[0]`` (and ``str(...)``)
+    The real scripting API tools return a ``Result`` whose ``[0]`` (and ``str(...)``)
     is the output dataset path and whose ``.status`` is ``4`` (succeeded). The
     shim mirrors the subset of that surface customer scripts actually use:
     indexing ``result[0]`` for the output name, ``str(result)`` for the path,
@@ -65,7 +65,7 @@ class Result:
 
     output: str
     job_id: str
-    status: int = 4  # arcpy esriJobSucceeded
+    status: int = 4  # esriJobSucceeded
     outputs: Mapping[str, Any] | None = None
 
     def __str__(self) -> str:
@@ -75,24 +75,24 @@ class Result:
         return self.status
 
     def __getitem__(self, index: int) -> Any:
-        # arcpy's Result.getOutput(i); index 0 is the output dataset.
+        # As in the scripting API's Result.getOutput(i), index 0 is the output dataset.
         if index == 0:
             return self.output
         raise IndexError(f"Result has no output at index {index}.")
 
-    def getOutput(self, index: int) -> Any:  # noqa: N802 -- arcpy API name.
+    def getOutput(self, index: int) -> Any:  # noqa: N802 -- scripting API name.
         return self[index]
 
 
 def _bound(entry: FunctionEntry, args: Sequence[Any], kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    """Bind positional + keyword args to the manifest's arcpy parameter order.
+    """Bind positional and keyword arguments in the manifest's positional parameter order.
 
-    Uses the full ``arcpy_params`` signature (output + non-input params
-    included) so positional binding matches real arcpy, not just the
+    Uses the full ``positional_params`` signature (output + non-input params
+    included) so positional binding matches the real scripting API, not just the
     ``param_map`` subset that the server-catalog contract validates.
     """
 
-    ordered = list(entry.arcpy_params) or list(entry.param_map.keys())
+    ordered = list(entry.positional_params) or list(entry.param_map.keys())
     bound: dict[str, Any] = {}
     for index, value in enumerate(args):
         if index < len(ordered):
@@ -104,9 +104,9 @@ def _bound(entry: FunctionEntry, args: Sequence[Any], kwargs: Mapping[str, Any])
 
 
 def _parse_linear_distance(value: Any) -> tuple[float, str]:
-    """Coerce an arcpy linear-distance argument into a (value, unit) pair.
+    """Coerce a scripting-API linear-distance argument into a (value, unit) pair.
 
-    arcpy accepts both a number (``25``) and a ``"25 Meters"`` linear-unit
+    The scripting API accepts both a number (``25``) and a ``"25 Meters"`` linear-unit
     string. honua-server's ``analytics.buffer-aggregate`` takes a numeric
     ``distance`` plus a ``unit`` enum, so the shim splits the string form into
     a value + unit. Only the unit families honua-server accepts
@@ -120,7 +120,7 @@ def _parse_linear_distance(value: Any) -> tuple[float, str]:
         return float(value), "meters"
     if not isinstance(value, str) or not value.strip():
         raise HonuaGpConfigurationError(
-            f"Buffer distance {value!r} is not a number or an arcpy linear-unit string."
+            f"Buffer distance {value!r} is not a number or a scripting-API linear-unit string."
         )
     parts = value.split()
     try:
@@ -146,7 +146,7 @@ def _parse_linear_distance(value: Any) -> tuple[float, str]:
 
 
 def _csv_fields(value: Any) -> str | None:
-    """Normalize an arcpy field-list argument into a comma-separated string."""
+    """Normalize a scripting-API field-list argument into a comma-separated string."""
 
     if value is None:
         return None
@@ -159,7 +159,7 @@ def _csv_fields(value: Any) -> str | None:
 
 @dataclass
 class _ProjectedCall:
-    """Result of projecting bound arcpy args onto a process payload."""
+    """Result of projecting bound scripting-API arguments onto a process payload."""
 
     inputs: dict[str, Any]
     output_name: str | None = None
@@ -228,7 +228,7 @@ def _with_group_values(
 def _reserve_output(name: Any, *, session: HonuaSession, projected: _ProjectedCall) -> None:
     """Reserve the GP tool's named output ahead of job submission.
 
-    Mirrors arcpy's fail-fast duplicate-output check (``env.overwriteOutput``)
+    Mirrors the scripting API's fail-fast duplicate-output check (``env.overwriteOutput``)
     so a call that would collide with an existing alias never submits a job
     at all -- but, unlike the old behaviour, this does **not** publish a
     usable alias yet. The name is only bound to a real backing artifact by
@@ -242,7 +242,7 @@ def _reserve_output(name: Any, *, session: HonuaSession, projected: _ProjectedCa
         return
     if not session.overwrite_output and session.get_layer(name) is not None:
         raise HonuaGpConfigurationError(
-            f"Layer alias {name!r} already exists; set arcpy.env.overwriteOutput = True to replace."
+            f"Layer alias {name!r} already exists; set env.overwriteOutput = True to replace."
         )
     projected.output_name = name
 
@@ -298,12 +298,12 @@ def _bind_output(
 # ---------------------------------------------------------------------------
 # Parameter-semantics validation
 #
-# Every ``arcpy_params`` entry the projector does not translate into a
+# Every ``positional_params`` entry the projector does not translate into a
 # process input is a parameter the customer's script *thinks* is doing
 # something. Silently accepting a nondefault value there means the tool ran
 # with different semantics than requested without telling anyone. These
 # helpers reject any such value up front (before layer resolution / job
-# submission) unless it is the arcpy default the shim already implements.
+# submission) unless it is the scripting-API default the shim already implements.
 # ---------------------------------------------------------------------------
 
 
@@ -436,7 +436,7 @@ def _validate_project_options(bound: Mapping[str, Any]) -> None:
 # Selection and environment semantics
 #
 # A MakeFeatureLayer / SelectLayerByAttribute selection on an input layer and
-# arcpy.env settings that change the output are semantics the caller expects
+# env settings that change the output are semantics the caller expects
 # the tool to honour. Forward a selection where the process can filter that
 # input; reject everything else before submission.
 # ---------------------------------------------------------------------------
@@ -445,10 +445,10 @@ _UNAPPLIED_ENVIRONMENT = ("extent", "XYTolerance", "XYResolution")
 
 
 def _validate_environment(qualified: str, session: HonuaSession) -> None:
-    # Project takes its output coordinate system from out_coor_system, as arcpy does.
+    # Project takes its output coordinate system from out_coor_system, as the scripting API does.
     if qualified != "management.Project" and session.output_coordinate_system is not None:
         raise HonuaGpConfigurationError(
-            f"{qualified} does not apply arcpy.env.outputCoordinateSystem="
+            f"{qualified} does not apply env.outputCoordinateSystem="
             f"{session.output_coordinate_system!r}; honua-server returns the output in the "
             "input layer's spatial reference. Clear the environment setting."
         )
@@ -459,7 +459,7 @@ def _validate_environment(qualified: str, session: HonuaSession) -> None:
         value = session.extra_env_options.get(name)
         if value is not None and value != "":
             raise HonuaGpConfigurationError(
-                f"{qualified} does not apply arcpy.env.{name}={value!r}; honua-server's process "
+                f"{qualified} does not apply env.{name}={value!r}; honua-server's process "
                 "has no equivalent input. Clear the environment setting."
             )
 
@@ -498,7 +498,7 @@ def _combine_where(*clauses: Any) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Per-tool projections (arcpy signature -> process inputs)
+# Per-tool projections (scripting-API signature -> process inputs)
 # ---------------------------------------------------------------------------
 
 
@@ -507,7 +507,7 @@ def _project_buffer(bound: Mapping[str, Any], *, session: HonuaSession, projecte
     layer_id = resolve_layer_id(bound.get("in_features"), session=session)
     distance, unit = _parse_linear_distance(bound.get("buffer_distance_or_field"))
     inputs: dict[str, Any] = {"layerId": layer_id, "distance": distance, "unit": unit}
-    # arcpy dissolve_option ALL/LIST -> dissolve=true; NONE -> dissolve=false.
+    # Scripting-API dissolve_option ALL/LIST -> dissolve=true; NONE -> dissolve=false.
     dissolve_option = bound.get("dissolve_option")
     if dissolve_option is not None:
         inputs["dissolve"] = str(dissolve_option).upper() != "NONE"
@@ -529,7 +529,7 @@ def _project_spatial_join(bound: Mapping[str, Any], *, session: HonuaSession, pr
     layer_id = resolve_layer_id(bound.get("target_features"), session=session)
     join_id = resolve_layer_id(bound.get("join_features"), session=session)
     inputs: dict[str, Any] = {"layerId": layer_id, "joinLayerId": join_id}
-    # Map arcpy match_option vocabulary onto honua-server's predicate enum.
+    # Map the scripting-API match_option vocabulary onto honua-server's predicate enum.
     match_option = bound.get("match_option")
     if match_option is not None:
         predicate, distance = _match_option_to_predicate(match_option, bound.get("search_radius"))
@@ -693,12 +693,12 @@ def _project_project(bound: Mapping[str, Any], *, session: HonuaSession, project
 
 
 def _coerce_srid(value: Any) -> int:
-    """Coerce an arcpy spatial-reference argument into an integer SRID.
+    """Coerce a scripting-API spatial-reference argument into an integer SRID.
 
-    arcpy's ``out_coor_system`` is usually an EPSG/WKID int (``4326``) or a
+    The scripting API's ``out_coor_system`` is usually an EPSG/WKID int (``4326``) or a
     numeric string. honua-server's ``conversion.feature-project`` takes a
     plain ``targetSrid`` integer, so the shim accepts the int / numeric-string
-    forms and rejects opaque ``arcpy.SpatialReference`` objects with a clear
+    forms and rejects opaque ``SpatialReference`` objects with a clear
     message instead of POSTing an unparseable value.
     """
 
@@ -713,7 +713,7 @@ def _coerce_srid(value: Any) -> int:
         return factory_code
     raise HonuaGpConfigurationError(
         f"Project out_coor_system {value!r} must be an EPSG/WKID code "
-        "(integer or numeric string); arcpy.SpatialReference objects are not "
+        "(integer or numeric string); SpatialReference objects are not "
         "resolvable by the shim. Pass the WKID directly (e.g. 4326)."
     )
 
@@ -728,7 +728,7 @@ _PROJECTORS = {
 
 
 def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
-    """Project, submit, poll, and return an arcpy ``Result`` for a GP tool.
+    """Project, submit, poll, and return a scripting-API ``Result`` for a GP tool.
 
     This is the entry point every promoted process-backed shim calls. It owns
     the full lifecycle under a single audit ``record_call`` so each tool
@@ -786,7 +786,7 @@ def run_layer_process(qualified: str, *args: Any, **kwargs: Any) -> Result:
         # server's OGC execute endpoint) so the eval harness can diff the
         # dispatch/parameter-translation against a golden fingerprint. This is
         # deterministic across the stub and a live server -- the projection is
-        # transport-independent -- so a regression that maps an arcpy argument
+        # transport-independent -- so a regression that maps a scripting-API argument
         # to the wrong process input is caught in BOTH modes, not just when a
         # real server happens to reject the malformed payload. Redacted with
         # the same heuristics as args/kwargs; the typed inputs (layerId,

@@ -27,7 +27,7 @@ def render_compat_matrix() -> str:
     lines.append("type: reference")
     lines.append('title: "honua-gp compatibility matrix"')
     lines.append(
-        'description: "Which arcpy surfaces the shim supports, which run with '
+        'description: "Which scripting API surfaces the shim supports, which run with '
         'documented deviations, and which raise rather than fail silently. Check '
         'this before committing to a migration."'
     )
@@ -36,7 +36,7 @@ def render_compat_matrix() -> str:
     lines.append(
         'resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"'
     )
-    lines.append("tags: [honua-gp, arcpy, compatibility, generated]")
+    lines.append("tags: [honua-gp, geoprocessing, compatibility, generated]")
     lines.append("---")
     lines.append("# honua-gp compatibility matrix")
     lines.append("")
@@ -49,7 +49,7 @@ def render_compat_matrix() -> str:
     lines.append("")
 
     for family in families:
-        lines.append(f"## arcpy.{family}.*")
+        lines.append(f"## {family}.*")
         lines.append("")
         lines.append("| Function | Status | Backend | Replacement / notes |")
         lines.append("| --- | --- | --- | --- |")
@@ -63,7 +63,7 @@ def render_compat_matrix() -> str:
             if entry.tracking:
                 cell = f"{cell}<br>**tracking:** `{entry.tracking}`"
             lines.append(
-                f"| <a id=\"{anchor_id}\"></a>`arcpy.{name}` | {status} | `{backend}` | {cell} |"
+                f"| <a id=\"{anchor_id}\"></a>`{name}` | {status} | `{backend}` | {cell} |"
             )
         lines.append("")
 

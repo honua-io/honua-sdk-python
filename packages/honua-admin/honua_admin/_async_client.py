@@ -1239,7 +1239,7 @@ class AsyncHonuaAdminClient:
         server-authoritative per-tool classification.
 
         The server owns the round-trip proof: it never parses toolbox sources
-        and never emulates ``arcpy``. The SDK proposes a mapping; the catalog
+        and never emulates the scripting API. The SDK proposes a mapping; the catalog
         decides whether that mapping is ``translated``,
         ``partially-translated``, or ``unsupported``, and returns the specific
         reasons a tool cannot be fully translated.

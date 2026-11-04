@@ -1,4 +1,4 @@
-"""Layer-aware GP tool projection: arcpy signature -> honua-server process.
+"""Layer-aware GP tool projection: scripting-API signature -> honua-server process.
 
 Each promoted tool (Buffer, SpatialJoin, Dissolve, Project) is exercised
 through a faked OGC API Processes transport that models
@@ -6,7 +6,7 @@ the async job lifecycle honua-server uses: ``execute`` returns a ``201``
 StatusInfo with a ``jobID`` + ``accepted`` status, ``job(jobID)`` resolves to
 ``successful``, and ``job_results(jobID)`` returns the results document. The
 tests assert the projected process id, the typed inputs, that the job was
-submitted + polled, and the arcpy-style ``Result`` mapping.
+submitted + polled, and the scripting-API-style ``Result`` mapping.
 """
 
 from __future__ import annotations
@@ -587,7 +587,7 @@ def test_failed_overwrite_leaves_prior_alias_untouched(_isolated_audit_dir: Path
 
 
 # ---------------------------------------------------------------------------
-# Input selections and arcpy.env semantics
+# Input selections and env semantics
 # ---------------------------------------------------------------------------
 
 

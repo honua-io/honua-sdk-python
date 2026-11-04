@@ -1,7 +1,7 @@
 """Typed layer schema models.
 
-A GP tool authored against ``arcpy`` reaches for ``arcpy.Describe`` /
-``arcpy.ListFields`` to discover a layer's fields, geometry type, spatial
+A GP tool authored against the scripting API reaches for ``Describe`` /
+``ListFields`` to discover a layer's fields, geometry type, spatial
 reference, and extent before mapping outputs. The Honua SDK previously only
 returned the raw ``FeatureServer`` ``layer_metadata`` JSON, forcing every tool
 to hand-parse ``fields[]`` / ``geometryType`` / ``extent`` / ``spatialReference``.
@@ -57,7 +57,7 @@ def _srid_from_spatial_reference(spatial_reference: Mapping[str, Any] | None) ->
 class Field:
     """A single typed attribute field on a layer.
 
-    Mirrors the fields surfaced by ``arcpy.ListFields`` / the ArcGIS-API layer
+    Mirrors the fields surfaced by ``ListFields`` / the ArcGIS-API layer
     ``fields`` property. ``type`` retains the server's native type token (the
     Esri ``esriFieldType*`` family or an OGC/JSON-schema type) verbatim.
     """
@@ -132,7 +132,7 @@ class LayerSchema:
 
     Built from a FeatureServer/MapServer ``layer_metadata`` JSON response (or
     the OGC-style ``properties``/``queryables`` shape) via
-    :meth:`from_metadata`. The :class:`arcpy.Describe` analogue for Honua GP
+    :meth:`from_metadata`. The :class:`Describe` analogue for Honua GP
     authoring: ``fields``, ``geometry_type``, ``srid``, and ``extent`` are all
     typed so a tool never hand-parses the raw JSON.
 
@@ -161,7 +161,7 @@ class LayerSchema:
 
     @property
     def field_names(self) -> tuple[str, ...]:
-        """Field names in server order (the ``arcpy.ListFields`` name list)."""
+        """Field names in server order (the ``ListFields`` name list)."""
         return tuple(f.name for f in self.fields)
 
     def field(self, name: str) -> "Field | None":

@@ -1,4 +1,4 @@
-"""Tests for arcpy.da-style cursor ergonomics and the first-class to_geodataframe.
+"""Tests for desktop GIS API.da-style cursor ergonomics and the first-class to_geodataframe.
 
 Covers:
 * ``Source.search_cursor`` / ``iter_rows`` — lazy row iteration with positional

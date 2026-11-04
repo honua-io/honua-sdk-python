@@ -73,7 +73,7 @@ honua query lifecycle 1 --count --json
 ```
 
 `query` makes one request and prints the server's page as GeoJSON (the
-default) or as Esri JSON (`--format json`). If the server cut the page short,
+default) or as GeoServices REST JSON (`--format json`). If the server cut the page short,
 it carries `exceededTransferLimit`; use `--limit` and `--offset` to read the
 next page.
 

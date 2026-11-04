@@ -11,32 +11,32 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 
-arcpy.env.workspace = "honua://services/transport"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/transport"
+gp.env.overwriteOutput = True
 
 from eval._emit import apply_edits_fingerprint, edited_object_ids
 
 # The script owns its fixture row (scoped by name), so the oracle does not
 # depend on which other scripts ran first or on a previous run's leftovers.
-with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+with gp.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["CLOSED", "Close Status Rd"])
-with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Close Status Rd'") as cursor:
+with gp.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Close Status Rd'") as cursor:
     for row in cursor:
         if row[1] == "CLOSED":
             row[1] = "ARCHIVED"
             cursor.updateRow(row)
     edits = cursor.flush()
 updated = edited_object_ids(edits, "update")
-with arcpy.da.SearchCursor("roads", ["OID@", "STATUS", "name"], "name = 'Close Status Rd'") as cursor:
+with gp.da.SearchCursor("roads", ["OID@", "STATUS", "name"], "name = 'Close Status Rd'") as cursor:
     rows = list(cursor)
 updated_rows = sorted([row[1], row[2]] for row in rows if str(row[0]) in updated)
 closed_remaining = sum(1 for row in rows if row[1] == "CLOSED")

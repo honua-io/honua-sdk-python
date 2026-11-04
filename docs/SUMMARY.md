@@ -8,7 +8,7 @@
 * [Command-line clients](cli/README.md)
 * [Analyst demo suite](demo-suite.md)
 * [Runnable examples](examples.md)
-* [honua-gp compatibility shim](honua-gp/README.md)
+* [honua-gp documentation](honua-gp/README.md)
 
 ## Quickstart
 
@@ -21,7 +21,6 @@
 * [Produce immutable development source inputs](contributor/development-source-inputs.md)
 * [Develop and test the Python SDKs](contributor/development.md)
 * [Collect a support bundle](diagnostic-bundles.md)
-* [Hand an ArcPy inventory to the codemod](honua-gp/scanner-handoff.md)
 * [Import the geoprocessing package](migration/gp-import.md)
 * [When something does not work](troubleshooting.md)
 
@@ -36,7 +35,6 @@
 * [Command reference](cli/reference.md)
 * [SDK compatibility policy](compatibility.md)
 * [Protocol-native client methods](core-client.md)
-* [Codemod translation coverage](honua-gp/codemod-translation-coverage.md)
 * [honua-gp compatibility matrix](honua-gp/compatibility-matrix.md)
 * [How pagination works](pagination.md)
 * [Examples per protocol wrapper](protocol-examples.md)

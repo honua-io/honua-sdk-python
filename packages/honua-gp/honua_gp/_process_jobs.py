@@ -3,10 +3,10 @@
 honua-server's ``BuiltInProcessCatalog`` operations all execute as
 **asynchronous jobs**: ``POST .../execution`` returns a ``201 Created`` with an
 ``OgcStatusInfo`` body (``{"jobID": ..., "status": "accepted"}``) rather than an
-inline result. The arcpy idiom is synchronous -- ``arcpy.analysis.Buffer(...)``
+inline result. The gp idiom is synchronous -- ``gp.analysis.Buffer(...)``
 returns a ``Result`` whose ``[0]`` is the output path -- so every promoted
 process-backed shim must submit the job, poll ``/jobs/{id}`` until it reaches a
-terminal state, and surface the outcome arcpy-style.
+terminal state, and surface the outcome gp-style.
 
 This module owns that submit/poll loop. It is deliberately transport-agnostic:
 it only calls the four methods every ``OgcProcessesClient`` exposes
@@ -43,7 +43,7 @@ _TERMINAL = {_TERMINAL_OK, *_TERMINAL_ERROR}
 # HTTP statuses of a results fetch for a successful job whose results are gone.
 _RESULTS_GONE_STATUSES = frozenset({404, 410})
 
-# Default polling envelope. These mirror a conservative arcpy "wait for the GP
+# Default polling envelope. These mirror a conservative gp "wait for the GP
 # tool to finish" loop; callers can override per-tool when a process is known to
 # be long-running.
 DEFAULT_POLL_INTERVAL_SECONDS = 0.5

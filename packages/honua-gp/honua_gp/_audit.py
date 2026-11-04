@@ -15,14 +15,14 @@ Every call to a supported shim function produces one JSON line. The shape is::
 
 The file path is ``${HONUA_GP_AUDIT_DIR:-./.honua-gp/audit}/audit-YYYYMMDD.jsonl``
 in UTC, written append-only with one writer at a time per process. Redaction
-delegates to :mod:`honua_admin._arcpy_scanner` so we don't reinvent path /
-secret heuristics.
+uses local path, URL, and secret-key heuristics before writing.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -30,38 +30,55 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
-try:  # honua_admin owns the canonical redaction heuristics.
-    from honua_admin._arcpy_scanner import (
-        _PATH_EXTENSIONS,
-        _is_sensitive_context,
-        _looks_like_bare_secret,
-        _looks_like_path,
-        _looks_like_url,
-        _redact_path,
-        _redact_url,
+_PATH_EXTENSIONS = (".shp", ".gpkg", ".gdb", ".sde", ".geojson", ".tif", ".tiff", ".csv")
+_URL_SCHEMES = frozenset({"http", "https", "s3", "gs", "file"})
+_SENSITIVE_NAME = re.compile(r"(?i)(password|secret|token|api[_-]?key|access[_-]?key|authorization)")
+
+
+def _is_sensitive_context(context: str | None) -> bool:
+    return bool(context and _SENSITIVE_NAME.search(context))
+
+
+def _looks_like_bare_secret(value: str) -> bool:
+    return bool(re.search(r"(?i)\b(bearer|password|secret|token)\s*[:= ]", value))
+
+
+def _looks_like_url(value: str) -> bool:
+    parsed = urlsplit(value)
+    return parsed.scheme.casefold() in _URL_SCHEMES and bool(parsed.netloc or parsed.scheme == "file")
+
+
+def _redact_url(value: str) -> str:
+    parsed = urlsplit(value)
+    if parsed.scheme.casefold() == "file":
+        return f"file://{_redact_path(parsed.path)}"
+    netloc = parsed.netloc.rsplit("@", maxsplit=1)[-1]
+    query = "&".join(
+        f"{quote(key)}={quote('<redacted>' if _is_sensitive_context(key) else item, safe='<>')}"
+        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
     )
-except Exception:  # pragma: no cover -- honua-admin is a hard dependency at runtime
-    _PATH_EXTENSIONS = ()  # type: ignore[assignment]
+    return urlunsplit((parsed.scheme, f"<redacted>@{netloc}" if "@" in parsed.netloc else netloc, parsed.path, query, parsed.fragment))
 
-    def _is_sensitive_context(context: str | None) -> bool:  # type: ignore[misc]
-        return bool(context and any(token in context.lower() for token in ("password", "secret", "token", "key")))
 
-    def _looks_like_bare_secret(value: str) -> bool:  # type: ignore[misc]
-        lowered = value.lower()
-        return any(token in lowered for token in ("password", "secret", "token"))
+def _looks_like_path(value: str) -> bool:
+    if not value or "\n" in value:
+        return False
+    normalized = value.replace("\\", "/")
+    lowered = normalized.casefold()
+    return (
+        normalized.startswith("/")
+        or value.startswith("\\\\")
+        or bool(re.match(r"^[A-Za-z]:[\\/]", value))
+        or any(lowered.endswith(extension) or f"{extension}/" in lowered for extension in _PATH_EXTENSIONS)
+    )
 
-    def _looks_like_path(value: str) -> bool:  # type: ignore[misc]
-        return value.startswith("/") or value.startswith("\\") or ":\\" in value or ":/" in value
 
-    def _looks_like_url(value: str) -> bool:  # type: ignore[misc]
-        return any(value.lower().startswith(scheme) for scheme in ("http://", "https://", "s3://", "gs://"))
-
-    def _redact_path(value: str) -> str:  # type: ignore[misc]
-        return "<local-path>/" + Path(value.replace("\\", "/")).name
-
-    def _redact_url(value: str) -> str:  # type: ignore[misc]
-        return value
+def _redact_path(value: str) -> str:
+    normalized = value.replace("\\", "/").rstrip("/")
+    basename = normalized.rsplit("/", maxsplit=1)[-1]
+    return f"<local-path>/{basename}" if basename else "<local-path>"
 
 
 _AUDIT_LOCK = threading.Lock()

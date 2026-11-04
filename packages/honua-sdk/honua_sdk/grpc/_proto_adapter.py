@@ -188,9 +188,9 @@ def _convert_attribute(attr: Any) -> Any:  # noqa: PLR0911 -- proto oneof dispat
 
 
 def _array_vertex(c: Any) -> list[Any]:
-    """Build an Esri-JSON coordinate array for a proto coordinate.
+    """Build an GeoServices REST-JSON coordinate array for a proto coordinate.
 
-    Esri JSON never uses ``null`` placeholders inside coordinate arrays. A
+    GeoServices REST JSON never uses ``null`` placeholders inside coordinate arrays. A
     vertex is ``[x, y]``; ``[x, y, z]`` when only Z is present; ``[x, y, m]``
     when only M is present; and ``[x, y, z, m]`` when both are present. The
     geometry-level ``hasZ``/``hasM`` flags (set by :func:`_with_zm_flags`)
@@ -217,7 +217,7 @@ def _with_zm_flags(result: dict[str, Any], *, has_z: bool, has_m: bool) -> dict[
 
 
 def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912 -- proto oneof + per-shape conversion
-    """Convert a proto Geometry to Esri JSON dict."""
+    """Convert a proto Geometry to GeoServices REST JSON dict."""
     which = geom.WhichOneof("shape")
     if which == "point":
         p = geom.point
@@ -277,7 +277,7 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912 -- p
 
 
 def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, common.SpatialReference | None]:
-    """Convert an Esri JSON geometry dict to a proto Geometry message."""
+    """Convert an GeoServices REST JSON geometry dict to a proto Geometry message."""
     from honua_sdk.grpc._generated.geospatial.v1 import (
         common_pb2 as common,
     )
@@ -298,8 +298,8 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, common.SpatialReferen
             point.m = geom["m"]
         msg.point.CopyFrom(point)
     elif "xmin" in geom and "ymin" in geom and "xmax" in geom and "ymax" in geom:
-        # Emit the envelope ring clockwise so an Esri-winding-aware engine
-        # reads it as an exterior, not a hole. Per the Esri convention used
+        # Emit the envelope ring clockwise so an GeoServices REST-winding-aware engine
+        # reads it as an exterior, not a hole. Per the GeoServices REST convention used
         # elsewhere in the SDK (see ``geopandas`` ring decoding), an exterior
         # ring is clockwise (negative shoelace area) and a CCW ring is a hole.
         # Walking the corners (xmin,ymin)->(xmin,ymax)->(xmax,ymax)->(xmax,ymin)

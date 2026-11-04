@@ -1,6 +1,6 @@
-"""Honua arcpy compatibility shim.
+"""Honua gp compatibility shim.
 
-Customers replace ``import arcpy`` with ``import honua_gp as arcpy`` and
+Customers replace ``import gp`` with ``import honua_gp as gp`` and
 point the shim at a Honua deployment via :func:`configure` or the
 ``HONUA_BASE_URL`` / ``HONUA_API_KEY`` environment variables. Every shim call
 dispatches through ``honua_sdk`` / ``honua_admin`` / OGC API Processes and
@@ -29,9 +29,9 @@ from ._resolve import ResolvedSource, resolve
 from ._session import HonuaSession, LayerAlias, get_session
 from .env import env
 
-# Re-export Describe / ListFields at the package level to mirror real arcpy,
+# Re-export Describe / ListFields at the package level to mirror real gp,
 # where both are top-level convenience functions rather than
-# ``arcpy.management.*``-only.
+# ``gp.management.*``-only.
 from .management import (
     Describe,
     DescribeResult,
@@ -99,13 +99,13 @@ def reset() -> None:
     get_session().reset()
 
 
-# Module-level shorthand mirroring real ``arcpy``:
-#   arcpy.GetCount_management(...) -> management.GetCount(...)
+# Module-level shorthand mirroring real ``gp``:
+#   gp.GetCount_management(...) -> management.GetCount(...)
 GetCount = management.GetCount
 
 
-# Legacy suffix-style aliases. Real arcpy exposes both ``arcpy.analysis.Buffer``
-# and ``arcpy.Buffer_analysis``; many production scripts use the suffix form,
+# Legacy suffix-style aliases. Real gp exposes both ``gp.analysis.Buffer``
+# and ``gp.Buffer_analysis``; many production scripts use the suffix form,
 # so the shim re-exports the top-of-corpus entries that way too. Adding a
 # new alias requires only listing it here and in ``__all__`` below.
 _SUFFIX_ALIASES: dict[str, Any] = {
@@ -159,7 +159,7 @@ __all__ = [
     "get_session",
     "resolve",
     "set_audit_writer",
-    # arcpy-compatible re-exports
+    # gp-compatible re-exports
     "Describe",
     "DescribeResult",
     "FieldDescribe",
@@ -170,6 +170,6 @@ __all__ = [
     "RasterResult",
     "Selection",
     "SpatialReferenceInfo",
-    # Legacy suffix-form aliases (real arcpy exposes both)
+    # Legacy suffix-form aliases (real gp exposes both)
     *_SUFFIX_ALIASES.keys(),
 ]

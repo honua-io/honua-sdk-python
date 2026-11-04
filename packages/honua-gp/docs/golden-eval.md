@@ -6,7 +6,7 @@ drop-in shim. `honua_gp` delegates every geoprocessing operation to a Honua
 server instead of reimplementing geometry/raster logic locally, so "is the
 shim correct?" reduces to two questions the harness answers directly:
 
-1. **Does the shim project each `arcpy` call onto the right Honua request?**
+1. **Does the shim project each `gp` call onto the right Honua request?**
    (dispatch / parameter translation)
 2. **Does the shim parse the real server's response back correctly?**
    (response handling / round-trip)
@@ -25,7 +25,7 @@ strongest:
 * **Stub mode** (`HONUA_GP_EVAL_USE_STUB=1`, the default) grades plumbing +
   request. The request fingerprint is transport-independent -- the projection
   runs identically against the stub and a live server -- so a
-  parameter-mapping / dispatch regression (an `arcpy` argument mapped to the
+  parameter-mapping / dispatch regression (an `gp` argument mapped to the
   wrong process input) is caught here even though the stub never validates the
   payload it receives. Stub mode does **not** exercise a real server, so it
   cannot verify response round-trip.

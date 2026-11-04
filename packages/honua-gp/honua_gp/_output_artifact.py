@@ -1,11 +1,11 @@
-"""Bind arcpy output names to the inline results of honua-server GP jobs.
+"""Bind gp output names to the inline results of honua-server GP jobs.
 
 honua-server's layer-aware processes (``analytics.buffer-aggregate``,
 ``analytics.spatial-join``, ``generalization.dissolve``,
 ``conversion.feature-project``) return their FeatureLayer result *by value*:
 the ``/jobs/{id}/results`` document carries ``outputFeatureLayer`` whose
 ``value`` is a GeoJSON FeatureCollection. Nothing is written to a server
-layer, so the only real artifact an arcpy output name can be bound to is that
+layer, so the only real artifact an gp output name can be bound to is that
 collection.
 
 :func:`read_output_artifact` validates the results document and returns the
@@ -178,7 +178,7 @@ class OutputArtifactSource:
     """Read-only ``Source`` facade over a bound :class:`OutputArtifact`.
 
     Rows carry the feature ``properties`` as ``attributes`` and the GeoJSON
-    geometry unchanged (``SHAPE@JSON`` is GeoJSON here, not Esri JSON).
+    geometry unchanged (``SHAPE@JSON`` is GeoJSON here, not GeoServices REST JSON).
     """
 
     def __init__(self, artifact: OutputArtifact, *, name: str) -> None:

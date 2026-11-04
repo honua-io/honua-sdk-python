@@ -9,7 +9,7 @@ emitted the bbox-envelope form of a spatial filter and exposed
 statistics/aggregation solely on the gRPC surface.
 
 This module is the SDK-side translation layer that turns a Pythonic
-spatial-filter mapping (accepting Esri JSON, GeoJSON, or any object exposing
+spatial-filter mapping (accepting GeoServices REST JSON, GeoJSON, or any object exposing
 ``__geo_interface__`` such as a ``shapely`` geometry) plus a chosen spatial
 relationship into the GeoServices query parameters, and turns a list of
 statistic definitions / group-by fields into their GeoServices equivalents.
@@ -29,7 +29,7 @@ from typing import Any
 #: Canonical spatial-relationship tokens accepted on a spatial filter, mapped to
 #: their GeoServices ``spatialRel`` values. Accepts the bare relationship name
 #: (``"intersects"``), the gRPC-style ``SCREAMING_SNAKE`` form
-#: (``"WITHIN_DISTANCE"``), and the raw Esri token (``"esriSpatialRelWithin"``).
+#: (``"WITHIN_DISTANCE"``), or one of the supported raw protocol tokens.
 _SPATIAL_REL: dict[str, str] = {
     "intersects": "esriSpatialRelIntersects",
     "envelope-intersects": "esriSpatialRelEnvelopeIntersects",
@@ -41,7 +41,7 @@ _SPATIAL_REL: dict[str, str] = {
     "overlaps": "esriSpatialRelOverlaps",
     "relation": "esriSpatialRelRelation",
     # Distance-based relationships have no dedicated ``spatialRel`` token in
-    # GeoServices; they are expressed as ``geometry`` + ``distance`` + ``units``
+    # GeoServices REST; they are expressed as ``geometry`` + ``distance`` + ``units``
     # against an intersects relation. Mapped here so callers can name the intent.
     "within-distance": "esriSpatialRelIntersects",
     "withindistance": "esriSpatialRelIntersects",
@@ -52,15 +52,15 @@ _DISTANCE_RELATIONSHIPS = frozenset({"within-distance", "withindistance"})
 
 
 def normalize_spatial_relationship(value: str) -> str:
-    """Map a relationship name to its GeoServices ``spatialRel`` token.
+    """Map a relationship name to its GeoServices REST ``spatialRel`` token.
 
     Accepts the canonical lower-case names (``"intersects"``, ``"within"``,
     ``"within-distance"``, ...), the gRPC ``SpatialRelationship`` enum member
-    name (``"WITHIN_DISTANCE"``), or a raw ``esriSpatialRel*`` token (returned
-    unchanged). Raises :class:`ValueError` on an unrecognised relationship.
+    name (``"WITHIN_DISTANCE"``), or one of the supported raw protocol tokens
+    (returned unchanged). Raises :class:`ValueError` on an unrecognised relationship.
     """
     text = str(value).strip()
-    if text.startswith("esriSpatialRel"):
+    if text in _SPATIAL_REL.values():
         return text
     key = text.lower().replace("_", "-")
     try:
@@ -77,13 +77,13 @@ def _is_distance_relationship(value: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Geometry coercion (Esri JSON / GeoJSON / __geo_interface__) → Esri JSON
+# Geometry coercion (GeoServices REST JSON / GeoJSON / __geo_interface__) → GeoServices REST JSON
 # ---------------------------------------------------------------------------
 
 #: Index of the first non-planar ordinate (z) in an ``[x, y, z]`` coordinate.
 _XY_LEN = 2
 
-_GEOJSON_TO_ESRI_TYPE = {
+_GEOJSON_TO_GEOMETRY_TYPE = {
     "Point": "esriGeometryPoint",
     "MultiPoint": "esriGeometryMultipoint",
     "LineString": "esriGeometryPolyline",
@@ -94,11 +94,11 @@ _GEOJSON_TO_ESRI_TYPE = {
 
 
 def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[dict[str, Any], str]:
-    """Coerce a geometry to ``(esri_json, esriGeometryType)``.
+    """Coerce a geometry to ``(geoservices_json, esriGeometryType)``.
 
     Accepts:
 
-    * Esri JSON mappings (``{"x", "y"}``, ``{"rings": ...}``, ``{"paths": ...}``,
+    * GeoServices REST JSON mappings (``{"x", "y"}``, ``{"rings": ...}``, ``{"paths": ...}``,
       ``{"points": ...}``, or an envelope ``{"xmin", "ymin", "xmax", "ymax"}``) —
       passed through with the geometry type inferred from its keys.
     * GeoJSON geometry mappings (``{"type", "coordinates"}``).
@@ -106,10 +106,10 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
       which yields a GeoJSON geometry.
 
     ``default_type`` is an explicit ``esriGeometryType`` override; when provided
-    it is used verbatim for an Esri-JSON mapping whose shape can't be inferred,
+    it is used verbatim for an GeoServices REST-JSON mapping whose shape can't be inferred,
     instead of raising.
 
-    Returns the Esri JSON geometry dict and its ``geometryType`` token.
+    Returns the GeoServices REST JSON geometry dict and its ``geometryType`` token.
     """
     if geometry is None:
         raise ValueError("spatial_filter requires a geometry.")
@@ -118,22 +118,22 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
         geometry = geometry.__geo_interface__
     if not isinstance(geometry, Mapping):
         raise TypeError(
-            "spatial_filter geometry must be an Esri JSON mapping, a GeoJSON "
+            "spatial_filter geometry must be an GeoServices REST JSON mapping, a GeoJSON "
             "geometry, or an object exposing __geo_interface__ (e.g. shapely)."
         )
 
     # GeoJSON geometry: has a "type" + "coordinates".
     if "type" in geometry and "coordinates" in geometry:
-        return _geojson_geometry_to_esri(geometry), _GEOJSON_TO_ESRI_TYPE.get(
+        return _geojson_geometry_to_geoservices(geometry), _GEOJSON_TO_GEOMETRY_TYPE.get(
             str(geometry.get("type")), "esriGeometryPolygon"
         )
 
     if default_type is not None:
         return dict(geometry), default_type
-    return dict(geometry), _esri_geometry_type(geometry)
+    return dict(geometry), _geoservices_geometry_type(geometry)
 
 
-def _esri_geometry_type(geometry: Mapping[str, Any]) -> str:
+def _geoservices_geometry_type(geometry: Mapping[str, Any]) -> str:
     if "x" in geometry and "y" in geometry:
         return "esriGeometryPoint"
     if "rings" in geometry:
@@ -145,7 +145,7 @@ def _esri_geometry_type(geometry: Mapping[str, Any]) -> str:
     if {"xmin", "ymin", "xmax", "ymax"} <= set(geometry):
         return "esriGeometryEnvelope"
     raise ValueError(
-        "Could not infer the Esri geometry type from the spatial_filter geometry; "
+        "Could not infer the GeoServices REST geometry type from the spatial_filter geometry; "
         "provide an explicit 'geometryType' in the spatial_filter mapping."
     )
 
@@ -161,18 +161,18 @@ def _ring_signed_area(ring: Sequence[Sequence[Any]]) -> float:
     return area / 2.0
 
 
-def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[Any]]:
-    """Copy a GeoJSON ring with Esri winding (CW exterior, CCW holes).
+def _geoservices_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[Any]]:
+    """Copy a GeoJSON ring with GeoServices REST winding (CW exterior, CCW holes).
 
     GeoJSON (RFC 7946) winds exterior rings counter-clockwise and holes
-    clockwise; Esri JSON uses the OPPOSITE convention and infers a ring's role
+    clockwise; GeoServices REST JSON uses the OPPOSITE convention and infers a ring's role
     (shell vs hole) from its winding. Emitting GeoJSON coordinates verbatim
-    therefore makes an Esri-conformant server read a CCW exterior as a hole,
+    therefore makes an GeoServices REST-conformant server read a CCW exterior as a hole,
     yielding an inverted/empty spatial filter and silently wrong query results.
 
     The ring's structural role is taken from its position (the first ring of a
     polygon part is the exterior), and the vertices are reversed when the
-    current winding does not match the Esri convention. This mirrors the
+    current winding does not match the GeoServices REST convention. This mirrors the
     orientation the geopandas/models export path applies via shapely
     ``orient(geom, sign=-1.0)``.
     """
@@ -181,13 +181,13 @@ def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[An
     if area == 0.0:
         return coords
     is_ccw = area > 0
-    want_ccw = not exterior  # Esri: exteriors clockwise, holes counter-clockwise
+    want_ccw = not exterior  # GeoServices REST: exteriors clockwise, holes counter-clockwise
     if is_ccw != want_ccw:
         coords.reverse()
     return coords
 
 
-def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
+def _geojson_geometry_to_geoservices(geometry: Mapping[str, Any]) -> dict[str, Any]:
     gtype = str(geometry.get("type"))
     coords = geometry.get("coordinates")
     if gtype == "Point":
@@ -205,7 +205,7 @@ def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
     if gtype == "Polygon":
         return {
             "rings": [
-                _esri_ring(ring, exterior=(idx == 0))
+                _geoservices_ring(ring, exterior=(idx == 0))
                 for idx, ring in enumerate(coords or [])
             ]
         }
@@ -213,7 +213,7 @@ def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
         rings: list[list[list[float]]] = []
         for polygon in coords or []:
             for idx, ring in enumerate(polygon):
-                rings.append(_esri_ring(ring, exterior=(idx == 0)))
+                rings.append(_geoservices_ring(ring, exterior=(idx == 0)))
         return {"rings": rings}
     raise ValueError(f"Unsupported GeoJSON geometry type: {gtype!r}.")
 
@@ -252,10 +252,10 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
 
     Recognised keys (case-insensitive aliases accepted):
 
-    * ``geometry`` — Esri JSON / GeoJSON / ``__geo_interface__`` geometry (required).
+    * ``geometry`` — GeoServices REST JSON / GeoJSON / ``__geo_interface__`` geometry (required).
     * ``relationship`` / ``spatial_relationship`` / ``relation`` — relationship
       token (default ``"intersects"``). See :data:`_SPATIAL_REL`.
-    * ``geometry_type`` / ``geometryType`` — explicit Esri geometry type
+    * ``geometry_type`` / ``geometryType`` — explicit GeoServices REST geometry type
       override (otherwise inferred from the geometry).
     * ``in_sr`` / ``sr`` / ``spatial_reference`` — input spatial reference
       (EPSG/wkid; defaults to the geometry's embedded ``spatialReference`` or 4326).
@@ -264,7 +264,7 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
     """
     geometry_value = _first(spatial_filter, "geometry", "geom", "shape")
     explicit_type = _first(spatial_filter, "geometry_type", "geometryType")
-    esri_geometry, inferred_type = coerce_geometry(geometry_value, default_type=explicit_type)
+    geoservices_geometry, inferred_type = coerce_geometry(geometry_value, default_type=explicit_type)
     geometry_type = explicit_type or inferred_type
 
     relationship = (
@@ -274,7 +274,7 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
     spatial_rel = normalize_spatial_relationship(str(relationship))
 
     params: dict[str, Any] = {
-        "geometry": json.dumps(esri_geometry, separators=(",", ":")),
+        "geometry": json.dumps(geoservices_geometry, separators=(",", ":")),
         "geometryType": geometry_type,
         "spatialRel": spatial_rel,
     }
@@ -283,7 +283,11 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
         _first(spatial_filter, "in_sr", "inSR", "sr", "spatial_reference", "spatialReference")
     )
     if in_sr is None:
-        in_sr = _sr_wkid(esri_geometry.get("spatialReference")) if isinstance(esri_geometry, Mapping) else None
+        in_sr = (
+            _sr_wkid(geoservices_geometry.get("spatialReference"))
+            if isinstance(geoservices_geometry, Mapping)
+            else None
+        )
     if in_sr is None:
         in_sr = 4326
     params["inSR"] = in_sr
@@ -318,7 +322,7 @@ _DISTANCE_UNITS = {
 
 def _distance_units(value: Any) -> str:
     text = str(value).strip()
-    if text.startswith("esriSRUnit"):
+    if text in _DISTANCE_UNITS.values():
         return text
     try:
         return _DISTANCE_UNITS[text.lower()]
@@ -367,7 +371,7 @@ def statistics_params(
 ) -> dict[str, Any]:
     """Translate statistics/aggregation inputs into GeoServices ``query`` params.
 
-    Mirrors the arcpy / ArcGIS-API summary-statistics surface:
+    Mirrors the desktop GIS API / GeoServices REST-API summary-statistics surface:
 
     * ``out_statistics`` → ``outStatistics`` (a JSON array of statistic defs).
     * ``group_by`` → ``groupByFieldsForStatistics`` (comma-joined).

@@ -35,11 +35,6 @@ and manage server state declaratively through manifests. Sync
 - **Manifests as declarative state**: `get_manifest()` exports the server's
   metadata state; `apply_manifest()` applies a manifest with dry-run and
   prune options and idempotency-key support.
-- **ArcGIS migration tooling**: `scan_migration_source()` drives the
-  server-side migration inventory scanner
-  (`POST /api/v1/admin/import/scan`), and the offline
-  `scan_arcpy_script()` / `scan_arcpy_source()` helpers inventory ArcPy
-  scripts without a server or an `arcpy` install.
 - Reuses `honua-sdk`'s retry transport, auth providers, and
   `HonuaHttpError` envelopes, so data-plane and control-plane code share one
   error-handling surface.

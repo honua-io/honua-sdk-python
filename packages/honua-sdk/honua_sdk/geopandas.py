@@ -41,7 +41,7 @@ def _ensure_deps() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Well-known Esri WKID -> EPSG mappings for spatial references that do not
+# Well-known GeoServices REST WKID -> EPSG mappings for spatial references that do not
 # map 1:1 to an EPSG code.
 # ---------------------------------------------------------------------------
 _WKID_TO_EPSG: dict[int, str] = {
@@ -53,15 +53,15 @@ _WKID_TO_EPSG: dict[int, str] = {
 _GEOJSON_DEFAULT_CRS = "EPSG:4326"
 #: EPSG code for WGS84 longitude/latitude (the GeoJSON default CRS).
 _WGS84_EPSG = 4326
-#: EPSG code for Web Mercator, and the legacy Esri ``wkid`` for the same CRS.
+#: EPSG code for Web Mercator, and the legacy GeoServices REST ``wkid`` for the same CRS.
 _WEB_MERCATOR_EPSG = 3857
-_WEB_MERCATOR_ESRI_WKID = 102100
+_WEB_MERCATOR_WKID = 102100
 
 
 def _crs_from_spatial_reference(
     spatial_ref: dict[str, Any] | None,
 ) -> str | None:
-    """Derive a CRS string from an Esri ``spatialReference`` dict.
+    """Derive a CRS string from an GeoServices REST ``spatialReference`` dict.
 
     Returns ``None`` when the spatial reference is absent or cannot be mapped.
     """
@@ -123,14 +123,14 @@ def _normalize_geojson_crs_identifier(identifier: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Esri JSON geometry -> Shapely
+# GeoServices REST JSON geometry -> Shapely
 # ---------------------------------------------------------------------------
 
 
 def _coord_is_missing(value: Any) -> bool:
-    """Whether an Esri point coordinate is absent/NaN and yields no geometry.
+    """Whether an GeoServices REST point coordinate is absent/NaN and yields no geometry.
 
-    Esri encodes "no geometry" points as ``None`` or ``NaN`` coordinates.
+    GeoServices REST encodes "no geometry" points as ``None`` or ``NaN`` coordinates.
     Building ``Point(nan, nan)`` would produce an invalid geometry that leaks
     NaN coordinates downstream, so such coordinates are treated as missing.
     """
@@ -144,8 +144,8 @@ def _coord_is_missing(value: Any) -> bool:
         return False
 
 
-def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0911, PLR0912 -- geometry type dispatch
-    """Convert a single Esri JSON geometry dict to a Shapely geometry.
+def _geoservices_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0911, PLR0912 -- geometry type dispatch
+    """Convert a single GeoServices REST JSON geometry dict to a Shapely geometry.
 
     Returns ``None`` when *geom* is ``None`` or empty.
     """
@@ -156,7 +156,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
     if "x" in geom and "y" in geom:
         x = geom["x"]
         y = geom["y"]
-        # Esri represents null-island-style "no geometry" as NaN coords.
+        # GeoServices REST represents null-island-style "no geometry" as NaN coords.
         if _coord_is_missing(x) or _coord_is_missing(y):
             return None
         return Point(x, y)
@@ -185,11 +185,11 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
         rings = geom["rings"]
         if not rings:
             return None
-        # Esri JSON encodes polygons as a flat list of rings.  By spec,
+        # GeoServices REST JSON encodes polygons as a flat list of rings.  By spec,
         # exterior rings are clockwise (not CCW) and holes are CCW, but
         # many real-world services emit rings with inconsistent winding.
         # We use a robust heuristic: a ring whose absolute area is large
-        # is exterior; a ring that is CCW (opposite of Esri's exterior
+        # is exterior; a ring that is CCW (opposite of GeoServices REST's exterior
         # convention) AND follows an exterior ring is a hole.  The first
         # ring is always treated as an exterior.
         exteriors: list[list[tuple[float, ...]]] = []
@@ -199,7 +199,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
             coords = [tuple(c) for c in ring_coords]
             lr = LinearRing(coords)
             # First ring is always exterior.  Subsequent rings:
-            # if CCW it's a hole (Esri convention), otherwise exterior.
+            # if CCW it's a hole (GeoServices REST convention), otherwise exterior.
             if idx == 0 or not lr.is_ccw:
                 exteriors.append(coords)
                 holes_for.append([])
@@ -226,12 +226,12 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
 
 
 # ---------------------------------------------------------------------------
-# Shapely -> Esri JSON geometry
+# Shapely -> GeoServices REST JSON geometry
 # ---------------------------------------------------------------------------
 
 
-def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
-    """Convert a Shapely geometry to an Esri JSON geometry dict.
+def _shapely_to_geoservices_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
+    """Convert a Shapely geometry to an GeoServices REST JSON geometry dict.
 
     Returns ``None`` when *geom* is ``None``.
     """
@@ -271,7 +271,7 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
         return {"paths": [[list(c) for c in line.coords] for line in geom.geoms]}
 
     if isinstance(geom, _Poly):
-        # Esri convention: exterior rings are clockwise, holes counter-clockwise.
+        # GeoServices REST convention: exterior rings are clockwise, holes counter-clockwise.
         # ``orient(..., sign=-1.0)`` yields a CW exterior and CCW interiors.
         oriented = _orient(geom, sign=-1.0)
         rings: list[list[list[float]]] = []
@@ -323,7 +323,7 @@ def typed_features_to_geodataframe(
     :class:`~honua_sdk.models.Feature`, ``properties`` for
     :class:`~honua_sdk.models.QueryFeature`) as a row and its geometry — via the
     feature's first-class ``__geo_interface__`` bridge — as the geometry column.
-    This is the typed-model equivalent of the Esri Spatially-Enabled DataFrame:
+    This is the typed-model equivalent of the GeoServices REST Spatially-Enabled DataFrame:
     one call turns a query result into geopandas without round-tripping through
     ``result.raw``.
 
@@ -390,7 +390,7 @@ def result_to_geodataframe(result: Any) -> gpd.GeoDataFrame:
 def features_to_geodataframe(
     response: dict[str, Any],
 ) -> gpd.GeoDataFrame:
-    """Convert an Esri JSON feature-query response to a GeoDataFrame.
+    """Convert an GeoServices REST JSON feature-query response to a GeoDataFrame.
 
     Parameters
     ----------
@@ -403,7 +403,7 @@ def features_to_geodataframe(
     -------
     geopandas.GeoDataFrame
         A GeoDataFrame with attributes as columns, a ``geometry`` column
-        built from the Esri JSON geometries, and the CRS set when a
+        built from the GeoServices REST JSON geometries, and the CRS set when a
         spatial reference is present.
     """
     _ensure_deps()
@@ -417,7 +417,7 @@ def features_to_geodataframe(
 
     for feat in features:
         attrs = dict(feat.get("attributes", {}))
-        geom = _esri_geometry_to_shapely(feat.get("geometry"))
+        geom = _geoservices_geometry_to_shapely(feat.get("geometry"))
         rows.append(attrs)
         geometries.append(geom)
 
@@ -538,13 +538,13 @@ def _reproject_to_wgs84(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf.to_crs(epsg=_WGS84_EPSG)
 
 
-def _esri_spatial_reference_from_crs(crs: Any) -> dict[str, int] | None:
-    """Build an Esri ``spatialReference`` dict from a GeoDataFrame CRS.
+def _geoservices_spatial_reference_from_crs(crs: Any) -> dict[str, int] | None:
+    """Build an GeoServices REST ``spatialReference`` dict from a GeoDataFrame CRS.
 
     Returns ``None`` when the CRS is absent or has no resolvable EPSG code, so
     callers omit the key rather than guessing. Web Mercator is emitted with the
-    Esri ``wkid`` (``102100``) alongside ``latestWkid`` (``3857``) for maximum
-    interoperability with Esri clients.
+    GeoServices REST ``wkid`` (``102100``) alongside ``latestWkid`` (``3857``) for maximum
+    interoperability with GeoServices REST clients.
     """
     if crs is None:
         return None
@@ -552,14 +552,14 @@ def _esri_spatial_reference_from_crs(crs: Any) -> dict[str, int] | None:
     if epsg is None:
         return None
     if epsg == _WEB_MERCATOR_EPSG:
-        return {"wkid": _WEB_MERCATOR_ESRI_WKID, "latestWkid": _WEB_MERCATOR_EPSG}
+        return {"wkid": _WEB_MERCATOR_WKID, "latestWkid": _WEB_MERCATOR_EPSG}
     return {"wkid": epsg}
 
 
 def geodataframe_to_features(
     gdf: gpd.GeoDataFrame,
 ) -> list[dict[str, Any]]:
-    """Convert a GeoDataFrame to a list of Esri JSON feature dicts.
+    """Convert a GeoDataFrame to a list of GeoServices REST JSON feature dicts.
 
     This is useful for preparing data for
     :pymeth:`HonuaClient.apply_edits`.
@@ -568,7 +568,7 @@ def geodataframe_to_features(
     ----------
     gdf:
         A GeoDataFrame whose non-geometry columns become ``attributes``
-        and whose geometry column becomes an Esri JSON ``geometry``.
+        and whose geometry column becomes an GeoServices REST JSON ``geometry``.
 
     Returns
     -------
@@ -576,12 +576,12 @@ def geodataframe_to_features(
         A list of ``{"attributes": {...}, "geometry": {...}}`` dicts
         ready for the ``adds`` or ``updates`` parameter of
         ``apply_edits``. The frame's CRS is preserved by stamping an explicit
-        Esri ``spatialReference`` onto each emitted geometry, so a non-WGS84
+        GeoServices REST ``spatialReference`` onto each emitted geometry, so a non-WGS84
         frame is no longer silently mislabelled as ``EPSG:4326``.
     """
     _ensure_deps()
 
-    spatial_reference = _esri_spatial_reference_from_crs(gdf.crs)
+    spatial_reference = _geoservices_spatial_reference_from_crs(gdf.crs)
     attr_columns = [col for col in gdf.columns if col != gdf.geometry.name]
     # Build attribute records columnar (one dict per row) instead of boxing a
     # pandas Series per row via ``.iloc`` — the per-row Series is a perf cliff
@@ -595,12 +595,12 @@ def geodataframe_to_features(
     features: list[dict[str, Any]] = []
     for raw_attrs, geom_obj in zip(attr_records, geometries, strict=True):
         attrs = {col: _json_safe_value(raw_attrs[col]) for col in attr_columns}
-        esri_geom = _shapely_to_esri_geometry(geom_obj)
+        geoservices_geom = _shapely_to_geoservices_geometry(geom_obj)
         feat: dict[str, Any] = {"attributes": attrs}
-        if esri_geom is not None:
+        if geoservices_geom is not None:
             if spatial_reference is not None:
-                esri_geom["spatialReference"] = spatial_reference
-            feat["geometry"] = esri_geom
+                geoservices_geom["spatialReference"] = spatial_reference
+            feat["geometry"] = geoservices_geom
         features.append(feat)
 
     return features

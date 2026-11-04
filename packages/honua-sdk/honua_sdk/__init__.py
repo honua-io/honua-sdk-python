@@ -129,7 +129,7 @@ __all__ = [  # noqa: RUF022 -- grouped by category for human discoverability
     "DegradedReason",
     "FeatureQuery",
     "FeatureQueryResult",
-    # Typed layer schema (arcpy.Describe / ListFields equivalent)
+    # Typed layer schema (desktop GIS API.Describe / ListFields equivalent)
     "LayerSchema",
     "Field",
     "Extent",

@@ -1,4 +1,4 @@
-"""Generate the 50 representative arcpy eval scripts.
+"""Generate the 50 representative gp eval scripts.
 
 Run once from the package root:
 
@@ -17,7 +17,7 @@ admin stubs).
 Audit pass 8 caught the analysis.* / management.* process-backed shims
 emitting a payload that did not match honua-server's
 ``BuiltInProcessCatalog`` contract. Those entries are now stubs until
-the arcpy-to-server projection adapter lands, and the eval distribution
+the gp-to-server projection adapter lands, and the eval distribution
 is rebalanced accordingly: every script that previously dispatched a
 mismatched process now lives in the ``expected_failure_*`` block so the
 suite tracks the migration surface honestly.
@@ -49,13 +49,13 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 {live_configure}
-arcpy.env.workspace = "honua://services/{workspace}"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/{workspace}"
+gp.env.overwriteOutput = True
 
 '''
 
@@ -63,10 +63,10 @@ arcpy.env.overwriteOutput = True
 LIVE_CONFIGURE_EXPLICIT = '''else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 '''
 
-# Live mode without a configure call: an arcpy script never calls one, so the
+# Live mode without a configure call: an gp script never calls one, so the
 # first tool invocation has to pick HONUA_BASE_URL / HONUA_API_KEY up itself.
 LIVE_CONFIGURE_IMPLICIT = '''# Live mode: deliberately NO configure call -- the first tool invocation must
 # pick up HONUA_BASE_URL / HONUA_API_KEY from the environment by itself.
@@ -139,7 +139,7 @@ def _supported(
 # NOTE: Buffer / Clip / Intersect / Union / Erase / SpatialJoin /
 # Dissolve / Copy / Delete / Project / CalculateField were previously
 # exercised as "supported" scripts here. Audit pass 8 found that the
-# shim emitted an arcpy-style ``input_features`` / ``result`` payload
+# shim emitted an gp-style ``input_features`` / ``result`` payload
 # while honua-server's process catalog expects ``wkb`` / ``srid`` (for
 # ``geometry.*``) or ``layerId`` (for ``analytics.*`` /
 # ``data-management.*`` / ``conversion.feature-project``). Those
@@ -154,8 +154,8 @@ _supported(
     "make_feature_layer_then_select",
     "transport",
     "Make a feature layer then SelectLayerByAttribute on STATUS = 'OPEN'.",
-    """arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
-selection = arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
+    """gp.management.MakeFeatureLayer("roads", "roads_lyr")
+selection = gp.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
 print(f"make_feature_layer_then_select ok count={selection.count}")
 """,
     2,
@@ -167,11 +167,11 @@ _supported(
     "make_table_view",
     "transport",
     "Make a filtered table view, then read the server rows through it.",
-    """arcpy.management.MakeTableView("segments_attrs", "segments_view", "status = 'active'")
+    """gp.management.MakeTableView("segments_attrs", "segments_view", "status = 'active'")
 # MakeTableView itself only registers a session alias; the observable result is
 # what the server returns when the view (and its where clause) is read.
-view_count = int(arcpy.management.GetCount("segments_view"))
-with arcpy.da.SearchCursor("segments_view", ["name", "status"]) as cursor:
+view_count = int(gp.management.GetCount("segments_view"))
+with gp.da.SearchCursor("segments_view", ["name", "status"]) as cursor:
     view_rows = sorted([row[0], row[1]] for row in cursor)
 print(f"make_table_view ok count={view_count}")
 """,
@@ -184,7 +184,7 @@ _supported(
     "get_count_roads",
     "transport",
     "Count rows in the roads feature class.",
-    """count = arcpy.management.GetCount("roads")
+    """count = gp.management.GetCount("roads")
 print(f"get_count_roads ok count={count}")
 """,
     1,
@@ -203,8 +203,8 @@ from honua_gp._resolve import descriptor_mapping, resolve
 base_url = os.environ.get("HONUA_BASE_URL") or "https://honua.example.com"
 full_url = base_url.rstrip("/") + "/rest/services/test_service/FeatureServer/0"
 relative_path = "rest/services/test_service/FeatureServer/0"
-full_count = arcpy.management.GetCount(full_url)
-relative_count = arcpy.management.GetCount(relative_path)
+full_count = gp.management.GetCount(full_url)
+relative_count = gp.management.GetCount(relative_path)
 locator = descriptor_mapping(resolve(full_url))["locator"]
 print(f"get_count_feature_server_url ok full={full_count} relative={relative_count} locator={locator}")
 """,
@@ -223,21 +223,21 @@ _supported(
     "Buffer, read the bound output with GetCount/SearchCursor, then Dissolve (#226).",
     """import json
 
-input_count = int(arcpy.management.GetCount("roads"))
-result = arcpy.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="NONE")
-buffer_count = int(arcpy.management.GetCount(result[0]))
-with arcpy.da.SearchCursor("roads_buffer", ["SHAPE@JSON"]) as cursor:
+input_count = int(gp.management.GetCount("roads"))
+result = gp.analysis.Buffer("roads", "roads_buffer", "25 Meters", dissolve_option="NONE")
+buffer_count = int(gp.management.GetCount(result[0]))
+with gp.da.SearchCursor("roads_buffer", ["SHAPE@JSON"]) as cursor:
     geometry_types = sorted({json.loads(row[0])["type"] for row in cursor})
 # The buffer output is an inline job result, not a server layer: Dissolve
 # sends its geometries to geometry.dissolve instead of reading layer 0.
-chained = arcpy.management.Dissolve(result[0], "roads_buffer_dissolved")
-chained_count = int(arcpy.management.GetCount(chained[0]))
-with arcpy.da.SearchCursor("roads_buffer_dissolved", ["SHAPE@JSON"]) as cursor:
+chained = gp.management.Dissolve(result[0], "roads_buffer_dissolved")
+chained_count = int(gp.management.GetCount(chained[0]))
+with gp.da.SearchCursor("roads_buffer_dissolved", ["SHAPE@JSON"]) as cursor:
     chained_shapes = [json.loads(row[0]) for row in cursor]
 chained_types = sorted({shape["type"] for shape in chained_shapes})
 chained_parts = sum(len(shape["coordinates"]) if shape["type"].startswith("Multi") else 1 for shape in chained_shapes)
-dissolved = arcpy.management.Dissolve("roads", "roads_dissolved")
-dissolve_count = int(arcpy.management.GetCount(dissolved[0]))
+dissolved = gp.management.Dissolve("roads", "roads_dissolved")
+dissolve_count = int(gp.management.GetCount(dissolved[0]))
 print(
     f"buffer_output_chain ok input={input_count} buffer={buffer_count} chained={chained_count} "
     f"parts={chained_parts} dissolve={dissolve_count}"
@@ -257,7 +257,7 @@ _supported(
     "search_cursor_iterate",
     "transport",
     "Iterate roads via a SearchCursor.",
-    """with arcpy.da.SearchCursor("roads", ["OID@", "STATUS"]) as cursor:
+    """with gp.da.SearchCursor("roads", ["OID@", "STATUS"]) as cursor:
     rows = [row for row in cursor]
 print(f"search_cursor_iterate ok rows={len(rows)}")
 """,
@@ -274,16 +274,16 @@ _supported(
 
 # The script owns its fixture row (scoped by name), so the oracle does not
 # depend on which other scripts ran first or on a previous run's leftovers.
-with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+with gp.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["CLOSED", "Close Status Rd"])
-with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Close Status Rd'") as cursor:
+with gp.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Close Status Rd'") as cursor:
     for row in cursor:
         if row[1] == "CLOSED":
             row[1] = "ARCHIVED"
             cursor.updateRow(row)
     edits = cursor.flush()
 updated = edited_object_ids(edits, "update")
-with arcpy.da.SearchCursor("roads", ["OID@", "STATUS", "name"], "name = 'Close Status Rd'") as cursor:
+with gp.da.SearchCursor("roads", ["OID@", "STATUS", "name"], "name = 'Close Status Rd'") as cursor:
     rows = list(cursor)
 updated_rows = sorted([row[1], row[2]] for row in rows if str(row[0]) in updated)
 closed_remaining = sum(1 for row in rows if row[1] == "CLOSED")
@@ -305,16 +305,16 @@ _supported(
 
 # The script owns its fixture row (scoped by name), so there is always a CLOSED
 # row to delete -- a zero-delete run is a failure, not a vacuous pass.
-with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+with gp.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["CLOSED", "Delete Closed Rd"])
     inserted = edited_object_ids(cursor.flush(), "add")
-with arcpy.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Delete Closed Rd'") as cursor:
+with gp.da.UpdateCursor("roads", ["OID@", "STATUS"], "name = 'Delete Closed Rd'") as cursor:
     for row in cursor:
         if row[1] == "CLOSED":
             cursor.deleteRow()
     edits = cursor.flush()
 deleted = edited_object_ids(edits, "delete")
-with arcpy.da.SearchCursor("roads", ["OID@", "STATUS"], "name = 'Delete Closed Rd'") as cursor:
+with gp.da.SearchCursor("roads", ["OID@", "STATUS"], "name = 'Delete Closed Rd'") as cursor:
     rows = list(cursor)
 print("update_cursor_delete_closed ok")
 """,
@@ -333,13 +333,13 @@ _supported(
     "InsertCursor: append three rows, then read the persisted rows back.",
     """from eval._emit import apply_edits_fingerprint, edited_object_ids
 
-with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+with gp.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["OPEN", "Main St"])
     cursor.insertRow(["OPEN", "Elm Ave"])
     cursor.insertRow(["CLOSED", "Side Rd"])
     edits = cursor.flush()
 added = edited_object_ids(edits, "add")
-with arcpy.da.SearchCursor("roads", ["OID@", "STATUS", "name"]) as cursor:
+with gp.da.SearchCursor("roads", ["OID@", "STATUS", "name"]) as cursor:
     persisted_rows = sorted([row[1], row[2]] for row in cursor if str(row[0]) in added)
 print("insert_cursor_append_rows ok")
 """,
@@ -355,9 +355,9 @@ _supported(
     "get_count_after_select",
     "transport",
     "GetCount on a selection layer.",
-    """arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
-arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
-count = arcpy.management.GetCount("roads_lyr")
+    """gp.management.MakeFeatureLayer("roads", "roads_lyr")
+gp.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
+count = gp.management.GetCount("roads_lyr")
 print(f"get_count_after_select ok count={count}")
 """,
     3,
@@ -369,10 +369,10 @@ _supported(
     "make_feature_layer_clear_then_count",
     "transport",
     "Make layer, set selection, clear, recount.",
-    """arcpy.management.MakeFeatureLayer("roads", "roads_lyr")
-arcpy.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
-arcpy.management.SelectLayerByAttribute("roads_lyr", "CLEAR_SELECTION")
-count = arcpy.management.GetCount("roads_lyr")
+    """gp.management.MakeFeatureLayer("roads", "roads_lyr")
+gp.management.SelectLayerByAttribute("roads_lyr", "NEW_SELECTION", "STATUS = 'OPEN'")
+gp.management.SelectLayerByAttribute("roads_lyr", "CLEAR_SELECTION")
+count = gp.management.GetCount("roads_lyr")
 print(f"make_feature_layer_clear_then_count ok count={count}")
 """,
     4,
@@ -384,7 +384,7 @@ _supported(
     "search_cursor_filter",
     "transport",
     "SearchCursor with a where clause.",
-    """with arcpy.da.SearchCursor("roads", ["OID@", "STATUS"], where_clause="STATUS = 'OPEN'") as cursor:
+    """with gp.da.SearchCursor("roads", ["OID@", "STATUS"], where_clause="STATUS = 'OPEN'") as cursor:
     rows = list(cursor)
 print(f"search_cursor_filter ok rows={len(rows)}")
 """,
@@ -397,9 +397,9 @@ _supported(
     "insert_cursor_then_search",
     "transport",
     "InsertCursor then SearchCursor to confirm.",
-    """with arcpy.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
+    """with gp.da.InsertCursor("roads", ["STATUS", "name"]) as cursor:
     cursor.insertRow(["OPEN", "Loop Rd"])
-with arcpy.da.SearchCursor("roads", ["OID@", "name"]) as cursor:
+with gp.da.SearchCursor("roads", ["OID@", "name"]) as cursor:
     rows = list(cursor)
 print(f"insert_cursor_then_search ok rows={len(rows)}")
 """,
@@ -426,7 +426,7 @@ def _expected_failure(
         docstring=docstring if docstring is not None else f"Expected-failure script exercising {marker}.",
         body=f"""try:
 {body}
-except arcpy.HonuaGpUnsupportedError as exc:
+except gp.HonuaGpUnsupportedError as exc:
     print(f"expected_failure_{slug} caught {{exc.function}}")
     raise SystemExit(0) from exc
 raise SystemExit("expected_failure_{slug} did not raise")
@@ -442,7 +442,7 @@ raise SystemExit("expected_failure_{slug} did not raise")
 # ---------------------------------------------------------------------------
 # Process-backed tools re-promoted via the layer-aware projection adapter.
 # Each submits an async OGC API Processes job (the stub transport models the
-# accepted -> successful lifecycle) and returns an arcpy-style Result. They use
+# accepted -> successful lifecycle) and returns an gp-style Result. They use
 # honua://services/<svc>/<layerId> inputs so the shim can project a numeric
 # layerId for honua-server's layer-aware processes.
 # ---------------------------------------------------------------------------
@@ -450,7 +450,7 @@ _supported(
     "buffer_roads",
     "transport",
     "Buffer roads via the layer-aware analytics.buffer-aggregate projection.",
-    """result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "25 Meters", dissolve_option="ALL")
+    """result = gp.analysis.Buffer("honua://services/transport/0", "roads_buffer", "25 Meters", dissolve_option="ALL")
 print(f"buffer_roads ok output={result[0]}")
 """,
     1,
@@ -461,7 +461,7 @@ _supported(
     "buffer_legacy_suffix",
     "transport",
     "Buffer via the Buffer_analysis legacy suffix alias.",
-    """result = arcpy.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
+    """result = gp.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
 print(f"buffer_legacy_suffix ok output={result[0]}")
 """,
     1,
@@ -477,7 +477,7 @@ _supported(
     "spatial_join_addresses_parcels",
     "transport",
     "Spatial join addresses to parcels via analytics.spatial-join.",
-    """result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
+    """result = gp.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
 print(f"spatial_join_addresses_parcels ok output={result[0]}")
 """,
     1,
@@ -488,7 +488,7 @@ _supported(
     "spatial_join_with_radius",
     "transport",
     "Spatial join within a distance via the dwithin predicate.",
-    """result = arcpy.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/1", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
+    """result = gp.analysis.SpatialJoin("honua://services/facilities/0", "honua://services/parcels/1", "out", match_option="WITHIN_A_DISTANCE", search_radius="100 Meters")
 print(f"spatial_join_with_radius ok output={result[0]}")
 """,
     1,
@@ -499,7 +499,7 @@ _supported(
     "dissolve_parcels_by_zoning",
     "transport",
     "Dissolve parcels by zoning via generalization.dissolve.",
-    """result = arcpy.management.Dissolve("honua://services/parcels/0", "parcels_by_zoning", dissolve_field=["zoning_code"])
+    """result = gp.management.Dissolve("honua://services/parcels/0", "parcels_by_zoning", dissolve_field=["zoning_code"])
 print(f"dissolve_parcels_by_zoning ok output={result[0]}")
 """,
     1,
@@ -513,7 +513,7 @@ print(f"dissolve_parcels_by_zoning ok output={result[0]}")
 # are expected-unsupported, not supported (honua-sdk-python#159).
 _expected_failure(
     "copy_pavement_to_backup",
-    """    arcpy.management.Copy("honua://services/pavement/0", "pavement_backup")""",
+    """    gp.management.Copy("honua://services/pavement/0", "pavement_backup")""",
     "management.Copy",
     docstring="""Expected-failure: Copy has no standalone honua-server process.
 
@@ -526,7 +526,7 @@ is only reachable inside a honua-geoprocessing analysis plan, so a one-shot Copy
 )
 _expected_failure(
     "copy_features_alias",
-    """    arcpy.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")""",
+    """    gp.management.CopyFeatures("honua://services/parcels_stage/0", "parcels_published")""",
     "management.CopyFeatures",
     docstring="""Expected-failure: CopyFeatures has no standalone honua-server process.
 
@@ -541,7 +541,7 @@ _supported(
     "project_roads_to_wgs84",
     "transport",
     "Reproject a layer to WGS84 via conversion.feature-project.",
-    """result = arcpy.management.Project("honua://services/roads/0", "roads_wgs84", 4326)
+    """result = gp.management.Project("honua://services/roads/0", "roads_wgs84", 4326)
 print(f"project_roads_to_wgs84 ok output={result[0]}")
 """,
     1,
@@ -550,7 +550,7 @@ print(f"project_roads_to_wgs84 ok output={result[0]}")
 )
 _expected_failure(
     "calculate_field_constant",
-    """    arcpy.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")""",
+    """    gp.management.CalculateField("honua://services/segments/0", "active", "1", where_clause="status = 'OPEN'")""",
     "management.CalculateField",
     docstring="""Expected-failure: CalculateField has no standalone honua-server process.
 
@@ -565,8 +565,8 @@ _supported(
     "buffer_then_dissolve",
     "transport",
     "Buffer then Dissolve, both via the layer-aware projection.",
-    """arcpy.analysis.Buffer("honua://services/transport/0", "roads_buffer", "5 Meters", dissolve_option="ALL")
-result = arcpy.management.Dissolve("honua://services/transport/0", "roads_dissolved", dissolve_field=["class"])
+    """gp.analysis.Buffer("honua://services/transport/0", "roads_buffer", "5 Meters", dissolve_option="ALL")
+result = gp.management.Dissolve("honua://services/transport/0", "roads_dissolved", dissolve_field=["class"])
 print(f"buffer_then_dissolve ok output={result[0]}")
 """,
     2,
@@ -577,7 +577,7 @@ _supported(
     "buffer_numeric_distance",
     "transport",
     "Buffer with a bare numeric distance (meters default).",
-    """result = arcpy.analysis.Buffer("honua://services/transport/0", "roads_buf_num", 50)
+    """result = gp.analysis.Buffer("honua://services/transport/0", "roads_buf_num", 50)
 print(f"buffer_numeric_distance ok output={result[0]}")
 """,
     1,
@@ -588,8 +588,8 @@ _supported(
     "project_kilometers_buffer",
     "transport",
     "Project a layer then buffer the projected output.",
-    """arcpy.management.Project("honua://services/parcels/0", "parcels_wgs", 4326)
-result = arcpy.analysis.Buffer("honua://services/parcels/0", "parcels_buf", "1 Kilometers")
+    """gp.management.Project("honua://services/parcels/0", "parcels_wgs", 4326)
+result = gp.analysis.Buffer("honua://services/parcels/0", "parcels_buf", "1 Kilometers")
 print(f"project_kilometers_buffer ok output={result[0]}")
 """,
     2,
@@ -598,8 +598,8 @@ print(f"project_kilometers_buffer ok output={result[0]}")
 )
 _expected_failure(
     "copy_then_calculate_field",
-    """    arcpy.management.Copy("honua://services/stage/0", "published")
-    arcpy.management.CalculateField("honua://services/stage/0", "reviewed", "1")""",
+    """    gp.management.Copy("honua://services/stage/0", "published")
+    gp.management.CalculateField("honua://services/stage/0", "reviewed", "1")""",
     "management.Copy",
     docstring="""Expected-failure: a Copy-then-CalculateField chain raises on the first step.
 
@@ -612,60 +612,60 @@ client-side ``HonuaGpUnsupportedError`` before CalculateField is reached.
 )
 
 # ---------------------------------------------------------------------------
-# Honest stubs: arcpy overlay tools (Clip/Intersect/Union/Erase) have only
+# Honest stubs: gp overlay tools (Clip/Intersect/Union/Erase) have only
 # single-WKB geometry.* counterparts, Delete has different semantics from
 # delete-features, and the rest have no catalog op. These exercise the
 # raise_unsupported / audit-write contract.
 # ---------------------------------------------------------------------------
 _expected_failure(
     "clip_roads_in_study",
-    "    arcpy.analysis.Clip('roads_buffer', 'study_area', 'roads_clip')",
+    "    gp.analysis.Clip('roads_buffer', 'study_area', 'roads_clip')",
     "analysis.Clip",
 )
 _expected_failure(
     "intersect_roads_parcels",
-    "    arcpy.analysis.Intersect(['roads', 'parcels'], 'roads_x_parcels', 'ALL')",
+    "    gp.analysis.Intersect(['roads', 'parcels'], 'roads_x_parcels', 'ALL')",
     "analysis.Intersect",
 )
 _expected_failure(
     "union_zoning_layers",
-    "    arcpy.analysis.Union(['zoning_2020', 'zoning_2024'], 'zoning_union', 'ALL')",
+    "    gp.analysis.Union(['zoning_2020', 'zoning_2024'], 'zoning_union', 'ALL')",
     "analysis.Union",
 )
 _expected_failure(
     "erase_water_from_parcels",
-    "    arcpy.analysis.Erase('parcels', 'water', 'parcels_dry')",
+    "    gp.analysis.Erase('parcels', 'water', 'parcels_dry')",
     "analysis.Erase",
 )
 _expected_failure(
     "delete_obsolete_layer",
-    "    arcpy.management.Delete('scratch_layer')",
+    "    gp.management.Delete('scratch_layer')",
     "management.Delete",
 )
 
 # Existing admin / analytics stubs (pre-existing, unchanged).
-_expected_failure("sort", "    arcpy.management.Sort('roads', 'roads_sorted', [['name', 'ASCENDING']])", "management.Sort")
-_expected_failure("append", "    arcpy.management.Append(['updates'], 'roads', 'NO_TEST')", "management.Append")
-_expected_failure("merge", "    arcpy.management.Merge(['a', 'b'], 'merged')", "management.Merge")
-_expected_failure("create_fc", "    arcpy.management.CreateFeatureclass('honua://services/transport', 'new_fc', 'POLYGON')", "management.CreateFeatureclass")
-_expected_failure("create_table", "    arcpy.management.CreateTable('honua://services/transport', 'new_table')", "management.CreateTable")
-_expected_failure("select_by_location", "    arcpy.management.SelectLayerByLocation('roads', 'INTERSECT', 'study_area')", "management.SelectLayerByLocation")
-_expected_failure("near", "    arcpy.analysis.Near('points', 'roads')", "analysis.Near")
-_expected_failure("nearest_neighbor", "    arcpy.analysis.NearestNeighbor('points')", "analysis.NearestNeighbor")
-_expected_failure("tabulate_intersection", "    arcpy.analysis.TabulateIntersection('a', 'a_id', 'b', 'out')", "analysis.TabulateIntersection")
-_expected_failure("walk", "    list(arcpy.da.Walk('honua://services/transport'))", "da.Walk")
+_expected_failure("sort", "    gp.management.Sort('roads', 'roads_sorted', [['name', 'ASCENDING']])", "management.Sort")
+_expected_failure("append", "    gp.management.Append(['updates'], 'roads', 'NO_TEST')", "management.Append")
+_expected_failure("merge", "    gp.management.Merge(['a', 'b'], 'merged')", "management.Merge")
+_expected_failure("create_fc", "    gp.management.CreateFeatureclass('honua://services/transport', 'new_fc', 'POLYGON')", "management.CreateFeatureclass")
+_expected_failure("create_table", "    gp.management.CreateTable('honua://services/transport', 'new_table')", "management.CreateTable")
+_expected_failure("select_by_location", "    gp.management.SelectLayerByLocation('roads', 'INTERSECT', 'study_area')", "management.SelectLayerByLocation")
+_expected_failure("near", "    gp.analysis.Near('points', 'roads')", "analysis.Near")
+_expected_failure("nearest_neighbor", "    gp.analysis.NearestNeighbor('points')", "analysis.NearestNeighbor")
+_expected_failure("tabulate_intersection", "    gp.analysis.TabulateIntersection('a', 'a_id', 'b', 'out')", "analysis.TabulateIntersection")
+_expected_failure("walk", "    list(gp.da.Walk('honua://services/transport'))", "da.Walk")
 # Admin-targeted stubs (no per-layer schema mutation / reading in HonuaAdminClient yet).
-_expected_failure("add_field", "    arcpy.management.AddField('segments', 'route_id', field_type='LONG')", "management.AddField")
-_expected_failure("delete_field", "    arcpy.management.DeleteField('segments', 'legacy_code')", "management.DeleteField")
-_expected_failure("rename", "    arcpy.management.Rename('parcels_stage', 'parcels_published', 'FeatureClass')", "management.Rename")
-_expected_failure("describe", "    arcpy.Describe('segments')", "management.Describe")
-_expected_failure("list_fields", "    arcpy.management.ListFields('segments')", "management.ListFields")
-_expected_failure("list_fields_filtered", "    arcpy.management.ListFields('segments', field_type='String')", "management.ListFields")
-_expected_failure("list_fields_wildcard", "    arcpy.management.ListFields('segments', wild_card='STAT*')", "management.ListFields")
-_expected_failure("add_field_calculate_field", "    arcpy.management.AddField('segments', 'scaled_speed', field_type='DOUBLE')", "management.AddField")
-_expected_failure("delete_field_after_calc", "    arcpy.management.DeleteField('segments', 'tmp')", "management.DeleteField")
-_expected_failure("describe_then_iterate", "    arcpy.Describe('segments')", "management.Describe")
-_expected_failure("rename_then_describe", "    arcpy.management.Rename('legacy_parcels', 'parcels', 'FeatureClass')", "management.Rename")
+_expected_failure("add_field", "    gp.management.AddField('segments', 'route_id', field_type='LONG')", "management.AddField")
+_expected_failure("delete_field", "    gp.management.DeleteField('segments', 'legacy_code')", "management.DeleteField")
+_expected_failure("rename", "    gp.management.Rename('parcels_stage', 'parcels_published', 'FeatureClass')", "management.Rename")
+_expected_failure("describe", "    gp.Describe('segments')", "management.Describe")
+_expected_failure("list_fields", "    gp.management.ListFields('segments')", "management.ListFields")
+_expected_failure("list_fields_filtered", "    gp.management.ListFields('segments', field_type='String')", "management.ListFields")
+_expected_failure("list_fields_wildcard", "    gp.management.ListFields('segments', wild_card='STAT*')", "management.ListFields")
+_expected_failure("add_field_calculate_field", "    gp.management.AddField('segments', 'scaled_speed', field_type='DOUBLE')", "management.AddField")
+_expected_failure("delete_field_after_calc", "    gp.management.DeleteField('segments', 'tmp')", "management.DeleteField")
+_expected_failure("describe_then_iterate", "    gp.Describe('segments')", "management.Describe")
+_expected_failure("rename_then_describe", "    gp.management.Rename('legacy_parcels', 'parcels', 'FeatureClass')", "management.Rename")
 
 
 def _render(spec: ScriptSpec) -> str:

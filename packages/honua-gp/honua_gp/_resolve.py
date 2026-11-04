@@ -1,8 +1,8 @@
-"""Resolve arcpy paths into Honua-friendly source identifiers.
+"""Resolve gp paths into Honua-friendly source identifiers.
 
 Real customer scripts pass paths like ``r"C:\\GIS\\parcels.gdb\\Parcels"``,
-``"in_memory\\layer1"``, ArcSDE connection strings, or
-``arcpy.env.workspace``-relative names. The shim cannot magically know what
+``"in_memory\\layer1"``, enterprise geodatabase connection strings, or
+``gp.env.workspace``-relative names. The shim cannot magically know what
 the corresponding Honua resource ID is, so we provide:
 
 * A documented ``HONUA_GP_PATH_MAP`` env-var override (JSON object).
@@ -40,7 +40,7 @@ _IN_MEMORY_PREFIXES = ("in_memory", "memory", "in_memory\\", "in_memory/")
 
 @dataclass(frozen=True)
 class ResolvedSource:
-    """Resolved arcpy path."""
+    """Resolved gp path."""
 
     source: str
     kind: str  # "honua-uri" | "in-memory" | "workspace-relative" | "absolute" | "alias"
@@ -76,7 +76,7 @@ def _path_map() -> dict[str, str]:
 
 
 def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource:
-    """Resolve an arcpy path / layer-name into a Honua source string."""
+    """Resolve an gp path / layer-name into a Honua source string."""
 
     if path is None:
         raise HonuaGpResolveError("None", hint="Path / layer name must not be None.")
@@ -114,8 +114,8 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
     if path in overrides:
         return ResolvedSource(source=overrides[path], kind="honua-uri", raw=raw)
 
-    # 4. ArcGIS REST FeatureServer layer URL/path. ArcPy callers commonly pass
-    # the same live URL they use with the real arcpy module; canonicalize it to
+    # 4. desktop GIS platform REST FeatureServer layer URL/path. GIS Python API callers commonly pass
+    # the same live URL they use with the real gp module; canonicalize it to
     # the shim's existing source URI instead of treating the URL as a workspace
     # name and sending it as a service id.
     feature_layer = _FEATURE_SERVER_LAYER_RE.search(path)
@@ -127,7 +127,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
             raise HonuaGpResolveError(
                 raw,
                 hint=(
-                    "Foldered ArcGIS services (rest/services/<folder>/<service>/FeatureServer) "
+                    "Foldered desktop GIS platform services (rest/services/<folder>/<service>/FeatureServer) "
                     "are not addressable through honua_gp; map this URL to "
                     "honua://services/<service>/<layer> with HONUA_GP_PATH_MAP."
                 ),
@@ -180,7 +180,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
 def resolve_or_register_output(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource:
     """Resolve an output path and, if it's a string, register an alias.
 
-    Output paths from arcpy calls are typically created by the call itself.
+    Output paths from gp calls are typically created by the call itself.
     The shim mirrors that by registering a layer alias so subsequent calls
     can reuse the same name without re-resolving against the workspace.
 
@@ -318,12 +318,12 @@ def descriptor_mapping(
 
 
 def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
-    """Project an arcpy path / layer alias onto a honua-server ``layerId``.
+    """Project an gp path / layer alias onto a honua-server ``layerId``.
 
     honua-server's layer-aware geoprocessing operations
     (``analytics.spatial-join``, ``generalization.dissolve``,
     ``conversion.feature-project``, ``data-management.*``) address their input
-    by a numeric ``layerId``, not by an arcpy feature-class path. This helper
+    by a numeric ``layerId``, not by an gp feature-class path. This helper
     reuses :func:`resolve` + :func:`descriptor_mapping` so a single source of
     truth (alias map, ``honua://`` URIs, ``HONUA_GP_PATH_MAP``) drives both
     the source-facade descriptor and the process ``layerId``.
@@ -332,7 +332,7 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     ``descriptor_mapping`` defaults unrecognized paths to ``layerId=0``; a
     ``honua://services/<svc>/<n>`` URI yields ``<n>``. A non-integer or negative
     layer id raises :class:`HonuaGpResolveError` so the caller surfaces the
-    gap arcpy-style instead of POSTing an invalid process payload.
+    gap gp-style instead of POSTing an invalid process payload.
     """
 
     session = session or get_session()

@@ -498,7 +498,7 @@ def _to_http_error(response: httpx.Response) -> HonuaHttpError:
 def raise_for_geoservices_error(response: httpx.Response, payload: Mapping[str, Any]) -> None:
     """Raise if a successful (2xx) GeoServices JSON body carries an error envelope.
 
-    The Esri GeoServices REST protocol (FeatureServer / MapServer / ImageServer
+    The GeoServices REST GeoServices REST protocol (FeatureServer / MapServer / ImageServer
     / GeometryServer / GeocodeServer) reports failures as HTTP 200 with a body
     of the form ``{"error": {"code": <int>, "message": <str>, "details": [...]}}``
     rather than a non-success HTTP status. Without this check those errors flow
@@ -538,7 +538,7 @@ def raise_for_geoservices_error(response: httpx.Response, payload: Mapping[str, 
     )
 
 
-# Esri GeoServices auth/token error codes. These are an application code space,
+# GeoServices REST GeoServices auth/token error codes. These are an application code space,
 # NOT HTTP statuses: 498 = Invalid Token, 499 = Token Required, 403 = permission
 # denied. They must map to HonuaAuthError so ``except HonuaAuthError`` catches a
 # token-required rejection (which previously surfaced as a generic HonuaHttpError).
@@ -569,11 +569,11 @@ def _build_geoservices_error(
     body: Any | None,
     response: httpx.Response,
 ) -> HonuaHttpError:
-    """Construct a Honua exception from an Esri GeoServices error envelope.
+    """Construct a Honua exception from an GeoServices REST GeoServices error envelope.
 
     Chooses the exception subtype from a GeoServices-aware mapping (auth/token
     codes -> :class:`HonuaAuthError`) rather than reinterpreting the envelope
-    code as an HTTP status, and records the original Esri code on ``error_code``.
+    code as an HTTP status, and records the original GeoServices REST code on ``error_code``.
     """
     request_id = (
         response.headers.get("x-request-id")

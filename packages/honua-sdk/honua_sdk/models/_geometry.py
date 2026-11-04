@@ -2,10 +2,10 @@
 
 The typed feature models (:class:`~honua_sdk.models.Feature`,
 :class:`~honua_sdk.models.QueryFeature`) carry geometry as a raw mapping in
-either the Esri-JSON shape (GeoServices FeatureServer) or the GeoJSON shape
+either the GeoServices REST-JSON shape (GeoServices FeatureServer) or the GeoJSON shape
 (OGC API Features / STAC). This module converts either shape to a Shapely
 geometry and to a GeoJSON-mapping ``__geo_interface__``, giving GP tooling the
-``feature.SHAPE`` / ArcGIS-API geometry-object ergonomic without forcing the
+``feature.SHAPE`` / GeoServices REST-API geometry-object ergonomic without forcing the
 caller down to ``result.raw`` and the standalone ``geopandas`` bridge.
 
 Shapely stays an **optional** dependency: importing this module never requires
@@ -13,9 +13,9 @@ it, and only :func:`geometry_to_shapely` raises a clear :class:`ImportError`
 when Shapely is absent. The pure-dict ``__geo_interface__`` path
 (:func:`geometry_to_geo_interface`) has no third-party dependency at all.
 
-Both encodings preserve Z (and, for Esri, drop the trailing M ordinate so the
+Both encodings preserve Z (and, for GeoServices REST, drop the trailing M ordinate so the
 coordinate tuples stay 2-D/3-D rather than leaking an M value into the Z slot).
-Esri polygon ring orientation follows the Esri convention — clockwise exterior
+GeoServices REST polygon ring orientation follows the GeoServices REST convention — clockwise exterior
 rings, counter-clockwise holes — and is mapped onto Shapely's exterior/interior
 ring model robustly even when a service emits inconsistent winding.
 """
@@ -45,22 +45,22 @@ def _require_shapely() -> Any:
     return shapely_geometry
 
 
-def _is_esri_geometry(geom: Mapping[str, Any]) -> bool:
-    """Heuristic: Esri-JSON geometries key on x/y, points, paths, or rings."""
+def _is_geoservices_geometry(geom: Mapping[str, Any]) -> bool:
+    """Heuristic: GeoServices REST-JSON geometries key on x/y, points, paths, or rings."""
     return any(key in geom for key in ("x", "rings", "paths", "points")) or (
         "y" in geom and "type" not in geom
     )
 
 
 # ---------------------------------------------------------------------------
-# Esri-JSON -> GeoJSON-mapping (``__geo_interface__``)
+# GeoServices REST-JSON -> GeoJSON-mapping (``__geo_interface__``)
 # ---------------------------------------------------------------------------
 
 
 def _coords(point: Sequence[Any], *, has_z: bool) -> tuple[float, ...]:
-    """Project an Esri vertex onto a 2-D or 3-D coordinate tuple.
+    """Project an GeoServices REST vertex onto a 2-D or 3-D coordinate tuple.
 
-    Esri vertices are ``[x, y]``, ``[x, y, z]``, ``[x, y, z, m]``, or
+    GeoServices REST vertices are ``[x, y]``, ``[x, y, z]``, ``[x, y, z, m]``, or
     ``[x, y, m]`` (with ``hasM`` but not ``hasZ``). The M ordinate is always
     dropped — GeoJSON has no M — and Z is kept only when the geometry header
     advertises ``hasZ``.
@@ -72,7 +72,7 @@ def _coords(point: Sequence[Any], *, has_z: bool) -> tuple[float, ...]:
     return (x, y)
 
 
-def _esri_to_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:  # noqa: PLR0911 - geometry dispatch
+def _geoservices_to_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:  # noqa: PLR0911 - geometry dispatch
     has_z = bool(geom.get("hasZ"))
 
     if "x" in geom and "y" in geom:
@@ -105,7 +105,7 @@ def _esri_to_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:  #
         rings = geom.get("rings") or []
         if not rings:
             return None
-        return _esri_rings_to_geo_interface(rings, has_z=has_z)
+        return _geoservices_rings_to_geo_interface(rings, has_z=has_z)
 
     return None
 
@@ -121,14 +121,14 @@ def _ring_signed_area(ring: Sequence[Sequence[Any]]) -> float:
     return area / 2.0
 
 
-def _esri_rings_to_geo_interface(
+def _geoservices_rings_to_geo_interface(
     rings: Sequence[Sequence[Sequence[Any]]],
     *,
     has_z: bool,
 ) -> dict[str, Any]:
-    """Group flat Esri rings into Polygon/MultiPolygon GeoJSON coordinates.
+    """Group flat GeoServices REST rings into Polygon/MultiPolygon GeoJSON coordinates.
 
-    Esri encodes every ring of every polygon part in one flat list. By
+    GeoServices REST encodes every ring of every polygon part in one flat list. By
     convention an exterior ring is clockwise (signed area < 0) and a hole is
     counter-clockwise (signed area > 0). The first ring is always treated as an
     exterior; each subsequent clockwise ring opens a new polygon part, and each
@@ -173,7 +173,7 @@ def _geojson_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """Normalize an Esri-JSON or GeoJSON geometry mapping to a GeoJSON mapping.
+    """Normalize an GeoServices REST-JSON or GeoJSON geometry mapping to a GeoJSON mapping.
 
     Returns ``None`` for an absent or empty geometry. This is the pure-dict
     path behind ``Feature.__geo_interface__`` / ``QueryFeature.__geo_interface__``
@@ -183,8 +183,8 @@ def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] 
         return None
     if ("type" in geom and "coordinates" in geom) or geom.get("type") == "GeometryCollection":
         return _geojson_geo_interface(geom)
-    if _is_esri_geometry(geom):
-        return _esri_to_geo_interface(geom)
+    if _is_geoservices_geometry(geom):
+        return _geoservices_to_geo_interface(geom)
     # Fall back to GeoJSON interpretation when a ``type`` is present.
     if "type" in geom:
         return _geojson_geo_interface(geom)
@@ -192,7 +192,7 @@ def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] 
 
 
 def geometry_to_shapely(geom: Mapping[str, Any] | None) -> BaseGeometry | None:
-    """Convert an Esri-JSON or GeoJSON geometry mapping to a Shapely geometry.
+    """Convert an GeoServices REST-JSON or GeoJSON geometry mapping to a Shapely geometry.
 
     Returns ``None`` for an absent or empty geometry. Raises :class:`ImportError`
     with an install hint when Shapely is not available.

@@ -610,7 +610,8 @@ def _run_feature_query_layer_fields(
     _require(len(fields) > 0, "layer metadata has no fields[]")
 
     def field_family(value: str) -> str:
-        token = value.upper().replace("ESRIFIELDTYPE", "").replace("FIELD_TYPE_", "")
+        upper_value = value.upper()
+        token = upper_value.rsplit("FIELDTYPE", 1)[-1].replace("FIELD_TYPE_", "")
         if token in {
             "OID",
             "BIG_INTEGER",

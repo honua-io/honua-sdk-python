@@ -2,7 +2,7 @@
 
 Covers ``Feature``/``QueryFeature`` ``__geo_interface__`` (pure-dict, no
 third-party dependency) and ``to_shapely()`` / ``geometry_shape`` (optional
-shapely dep, gated with ``importorskip``) for the Esri-JSON (FeatureServer) and
+shapely dep, gated with ``importorskip``) for the GeoServices REST-JSON (FeatureServer) and
 GeoJSON (OGC/STAC) encodings — point/line/polygon, Z/M, and ring orientation.
 """
 
@@ -18,23 +18,23 @@ from honua_sdk.models._geometry import geometry_to_geo_interface
 # ---------------------------------------------------------------------------
 
 
-def test_esri_point_geo_interface() -> None:
+def test_geoservices_point_geo_interface() -> None:
     feature = Feature(attributes={"objectid": 1}, geometry={"x": -157.8, "y": 21.3})
     assert feature.__geo_interface__ == {"type": "Point", "coordinates": [-157.8, 21.3]}
 
 
-def test_esri_point_with_z_keeps_z() -> None:
+def test_geoservices_point_with_z_keeps_z() -> None:
     geom = {"hasZ": True, "x": 1.0, "y": 2.0, "z": 3.0}
     assert geometry_to_geo_interface(geom) == {"type": "Point", "coordinates": [1.0, 2.0, 3.0]}
 
 
-def test_esri_point_m_only_dropped() -> None:
+def test_geoservices_point_m_only_dropped() -> None:
     """An M ordinate (no Z) must be dropped — GeoJSON has no M dimension."""
     geom = {"hasM": True, "x": 1.0, "y": 2.0, "m": 99.0}
     assert geometry_to_geo_interface(geom) == {"type": "Point", "coordinates": [1.0, 2.0]}
 
 
-def test_esri_polyline_single_path_is_linestring() -> None:
+def test_geoservices_polyline_single_path_is_linestring() -> None:
     geom = {"paths": [[[0.0, 0.0], [1.0, 1.0]]]}
     assert geometry_to_geo_interface(geom) == {
         "type": "LineString",
@@ -42,7 +42,7 @@ def test_esri_polyline_single_path_is_linestring() -> None:
     }
 
 
-def test_esri_polyline_multi_path_is_multilinestring() -> None:
+def test_geoservices_polyline_multi_path_is_multilinestring() -> None:
     geom = {"paths": [[[0.0, 0.0], [1.0, 1.0]], [[5.0, 5.0], [6.0, 6.0]]]}
     out = geometry_to_geo_interface(geom)
     assert out is not None
@@ -50,7 +50,7 @@ def test_esri_polyline_multi_path_is_multilinestring() -> None:
     assert len(out["coordinates"]) == 2
 
 
-def test_esri_polyline_with_z() -> None:
+def test_geoservices_polyline_with_z() -> None:
     geom = {"hasZ": True, "paths": [[[0.0, 0.0, 5.0], [1.0, 1.0, 6.0]]]}
     assert geometry_to_geo_interface(geom) == {
         "type": "LineString",
@@ -58,8 +58,8 @@ def test_esri_polyline_with_z() -> None:
     }
 
 
-def test_esri_polygon_with_hole_orientation() -> None:
-    """Esri exterior ring (CW) + hole (CCW) -> Polygon with one interior ring."""
+def test_geoservices_polygon_with_hole_orientation() -> None:
+    """GeoServices REST exterior ring (CW) + hole (CCW) -> Polygon with one interior ring."""
     geom = {
         "rings": [
             [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]],  # CW exterior
@@ -72,7 +72,7 @@ def test_esri_polygon_with_hole_orientation() -> None:
     assert len(out["coordinates"]) == 2  # exterior + 1 hole
 
 
-def test_esri_multipolygon_two_exteriors() -> None:
+def test_geoservices_multipolygon_two_exteriors() -> None:
     geom = {
         "rings": [
             [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]],
@@ -85,7 +85,7 @@ def test_esri_multipolygon_two_exteriors() -> None:
     assert len(out["coordinates"]) == 2
 
 
-def test_esri_multipoint() -> None:
+def test_geoservices_multipoint() -> None:
     geom = {"points": [[0.0, 0.0], [1.0, 1.0]]}
     assert geometry_to_geo_interface(geom) == {
         "type": "MultiPoint",
@@ -113,7 +113,7 @@ def test_geojson_geometry_collection() -> None:
     assert len(out["geometries"]) == 2
 
 
-def test_empty_esri_collections_yield_none() -> None:
+def test_empty_geoservices_collections_yield_none() -> None:
     assert geometry_to_geo_interface({"rings": []}) is None
     assert geometry_to_geo_interface({"paths": []}) is None
     assert geometry_to_geo_interface({"points": []}) is None

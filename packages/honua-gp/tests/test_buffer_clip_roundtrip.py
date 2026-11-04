@@ -1,7 +1,7 @@
 """End-to-end exercise of the example script against the stub transport.
 
 This proves the AC line item: "At least one end-to-end script demo in
-``examples/`` showing arcpy -> honua_gp parity."
+``examples/`` showing gp -> honua_gp parity."
 
 Audit pass 8 caught the original Buffer / Clip demo emitting a payload
 that did not match honua-server's contract; the example now focuses on

@@ -4,7 +4,7 @@ Every shim function reads its dispatch metadata from ``COMPAT``. The same
 dictionary backs:
 
 * ``scripts/render_compat_matrix.py`` (documents the compatibility surface).
-* ``honua-gp assess`` (pivots scanner inventories against this table).
+* the compatibility matrix generator.
 * ``_dispatch.py`` (chooses the backend per call).
 
 Adding or moving a function therefore requires a single source edit; doc and
@@ -35,15 +35,15 @@ class FunctionEntry:
     replacement_hint: str | None = None
     tracking: str | None = None
     param_map: dict[str, str] = field(default_factory=dict)
-    arcpy_params: tuple[str, ...] = ()
-    """Full ordered arcpy positional signature for a process-backed tool.
+    source_params: tuple[str, ...] = ()
+    """Full ordered gp positional signature for a process-backed tool.
 
-    ``param_map`` only carries the arcpy keyword -> honua-server process-input
+    ``param_map`` only carries the gp keyword -> honua-server process-input
     mappings (validated as a subset of the server catalog by
     ``test_process_backed_entries_match_honua_server_catalog``). Output and
     other non-input parameters (e.g. ``out_feature_class``) are *not* server
     inputs, so they cannot live in ``param_map`` without breaking that
-    contract. ``arcpy_params`` therefore declares the complete positional
+    contract. ``source_params`` therefore declares the complete positional
     order the projection adapter binds against, so a call like
     ``Buffer("roads", "out", "25 Meters")`` binds ``out`` to
     ``out_feature_class`` rather than to the distance slot.
@@ -51,7 +51,7 @@ class FunctionEntry:
 
     output_params: tuple[str, ...] = ()
     source_params: tuple[str, ...] = ()
-    """Arcpy parameter names that carry source/feature paths.
+    """Operation parameter names that carry source or feature paths.
 
     Elements of these parameters are passed through
     :func:`honua_gp._resolve.resolve` (including ``HONUA_GP_PATH_MAP``
@@ -78,7 +78,7 @@ one, so we anchor against that copy.
 
 
 def anchor_for(qualified_name: str) -> str:
-    """Return the in-repo anchor for a given ``arcpy`` qualified name."""
+    """Return the in-repo anchor for a given ``gp`` qualified name."""
 
     fragment = qualified_name.replace(".", "").lower()
     return f"{COMPAT_REPO_DOC}#{fragment}"
@@ -108,10 +108,10 @@ def anchor_for(qualified_name: str) -> str:
 #   :class:`~honua_gp._errors.HonuaGpUnsupportedError`. The replacement
 #   hint is the recommended honua-sdk-python call.
 #
-# ``param_map`` maps the arcpy keyword to either:
+# ``param_map`` maps the gp keyword to either:
 #   * a process-input name (process backend), or
 #   * a session/source attribute name (source/session/admin backend).
-# ``output_params`` lists arcpy positional/keyword names that carry the
+# ``output_params`` lists gp positional/keyword names that carry the
 # output feature class -- the dispatcher caches the resolved source under
 # those names so the next call can use the same workspace-relative path.
 
@@ -125,7 +125,7 @@ _OUTPUT_BINDING_NOTE = (
     "persisted server-side. A missing or unreadable output raises ExecuteError; "
     "a failed or cancelled job keeps any prior alias and otherwise leaves the name "
     "unresolvable. A selection on an input the process cannot filter and "
-    "arcpy.env outputCoordinateSystem / extent / XYTolerance / XYResolution are "
+    "gp.env outputCoordinateSystem / extent / XYTolerance / XYResolution are "
     "rejected before submission."
 )
 
@@ -136,12 +136,12 @@ COMPAT: dict[str, FunctionEntry] = {
     # NOTE on the analysis.* and management.* process-backed stubs below:
     # honua-server's ``geometry.*`` processes (``buffer``, ``clip``,
     # ``intersect``, ``union``, ``difference``, ``dissolve``) take raw WKB
-    # geometries with an explicit ``srid``, not arcpy-style feature class
+    # geometries with an explicit ``srid``, not gp-style feature class
     # paths -- they buffer / clip / etc. a *single* geometry, not every
     # feature in a layer. honua-server's ``analytics.*`` and
     # ``data-management.*`` and ``conversion.feature-project`` processes
-    # take ``layerId``-shaped references, not arcpy paths. Either family
-    # requires a projection adapter (feature -> WKB; arcpy path -> layer
+    # take ``layerId``-shaped references, not gp paths. Either family
+    # requires a projection adapter (feature -> WKB; gp path -> layer
     # id) to be invoked end-to-end. Until that adapter exists, every
     # process-backed shim is a stub so the migration tool surfaces them
     # accurately instead of the previous Supported-but-broken claim.
@@ -150,14 +150,14 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="analytics.buffer-aggregate",
         notes=(
-            "Projects arcpy.analysis.Buffer onto honua-server's layer-aware "
+            "Projects gp.analysis.Buffer onto honua-server's layer-aware "
             "analytics.buffer-aggregate process: in_features -> layerId, the "
             "linear distance is split into distance+unit, and dissolve_option "
             "NONE/ALL maps to dissolve=false/true. Runs as an async OGC API "
-            "Processes job (submit + poll). Deviation: arcpy's per-feature "
+            "Processes job (submit + poll). Deviation: gp's per-feature "
             "FULL/LIST buffer side table is not modelled; dissolve is "
             "all-or-nothing plus optional groupByFields. line_side, "
-            "line_end_type, and method are validated against their arcpy "
+            "line_end_type, and method are validated against their gp "
             "defaults (FULL/ROUND/PLANAR) and rejected with "
             "HonuaGpConfigurationError otherwise -- never silently ignored. "
             + _OUTPUT_BINDING_NOTE
@@ -169,7 +169,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "dissolve_field": "groupByFields",
             "where_clause": "where",
         },
-        arcpy_params=(
+        source_params=(
             "in_features",
             "out_feature_class",
             "buffer_distance_or_field",
@@ -181,7 +181,6 @@ COMPAT: dict[str, FunctionEntry] = {
             "where_clause",
         ),
         output_params=("out_feature_class",),
-        source_params=("in_features",),
     ),
     "analysis.Clip": FunctionEntry(
         backend="not_implemented",
@@ -241,12 +240,12 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="analytics.spatial-join",
         notes=(
-            "Projects arcpy.analysis.SpatialJoin onto honua-server's "
+            "Projects gp.analysis.SpatialJoin onto honua-server's "
             "analytics.spatial-join: target_features -> layerId, join_features "
             "-> joinLayerId, and match_option -> predicate "
             "(INTERSECT/CONTAINS/WITHIN/WITHIN_A_DISTANCE+search_radius -> "
             "intersects/contains/within/dwithin). Runs as an async job. "
-            "Partial: arcpy's join_operation (ONE_TO_ONE vs ONE_TO_MANY), "
+            "Partial: gp's join_operation (ONE_TO_ONE vs ONE_TO_MANY), "
             "join_type (KEEP_ALL/KEEP_COMMON), field_mapping, and "
             "distance_field_name are not modelled; the process emits the "
             "server's carry-field join shape. A nondefault value for any of "
@@ -262,7 +261,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "search_radius": "distance",
             "where_clause": "where",
         },
-        arcpy_params=(
+        source_params=(
             "target_features",
             "join_features",
             "out_feature_class",
@@ -275,7 +274,6 @@ COMPAT: dict[str, FunctionEntry] = {
             "where_clause",
         ),
         output_params=("out_feature_class",),
-        source_params=("target_features", "join_features"),
     ),
     "analysis.NearestNeighbor": FunctionEntry(
         backend="not_implemented",
@@ -471,10 +469,10 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="generalization.dissolve",
         notes=(
-            "Projects arcpy.management.Dissolve onto honua-server's layer-aware "
+            "Projects gp.management.Dissolve onto honua-server's layer-aware "
             "generalization.dissolve: in_features -> layerId and the "
             "dissolve_field list -> comma-separated groupByFields. Runs as an "
-            "async job. Partial: arcpy's statistics_fields (per-group SUM/MEAN/"
+            "async job. Partial: gp's statistics_fields (per-group SUM/MEAN/"
             "etc.) and multi_part / unsplit_lines flags are not modelled; the "
             "process emits one feature per group via the server's outStatistics "
             "shape only when configured server-side. A nondefault "
@@ -494,7 +492,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "dissolve_field": "groupByFields",
             "where_clause": "where",
         },
-        arcpy_params=(
+        source_params=(
             "in_features",
             "out_feature_class",
             "dissolve_field",
@@ -504,7 +502,6 @@ COMPAT: dict[str, FunctionEntry] = {
             "where_clause",
         ),
         output_params=("out_feature_class",),
-        source_params=("in_features",),
     ),
     "management.Copy": FunctionEntry(
         backend="not_implemented",
@@ -533,7 +530,7 @@ COMPAT: dict[str, FunctionEntry] = {
         notes=(
             "honua-server's data-management.delete-features removes features that "
             "match where/objectIds inside a layer; it does NOT drop the dataset "
-            "itself. arcpy's Delete deletes the whole feature class -- semantically "
+            "itself. gp's Delete deletes the whole feature class -- semantically "
             "different from the server process."
         ),
         replacement_hint=(
@@ -541,7 +538,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "delete-resource manifest entry. To delete features inside a layer, call "
             "honua_sdk.protocols.OgcProcessesClient.execute('data-management.delete-features')."
         ),
-        tracking="honua-server#arcpy-delete-resource-adapter",
+        tracking="honua-server#gp-delete-resource-adapter",
     ),
     "management.Rename": FunctionEntry(
         backend="not_implemented",
@@ -569,24 +566,24 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="conversion.feature-project",
         notes=(
-            "Projects arcpy.management.Project onto honua-server's "
+            "Projects gp.management.Project onto honua-server's "
             "conversion.feature-project: in_dataset -> layerId and the "
             "out_coor_system EPSG/WKID code -> targetSrid. Runs as an async job "
             "and registers the named out_dataset as a session alias. Deviation: "
             "out_coor_system must be an EPSG/WKID code (int or numeric string); "
-            "arcpy.SpatialReference objects and named transformations are not "
+            "gp.SpatialReference objects and named transformations are not "
             "resolvable by the shim. transform_method, in_coor_system, "
             "preserve_shape, max_deviation, and vertical are not modelled; a "
             "nondefault value for any of them raises HonuaGpConfigurationError "
             "before submission instead of being silently dropped. A selection on "
-            "in_dataset and arcpy.env.geographicTransformations are rejected. "
+            "in_dataset and gp.env.geographicTransformations are rejected. "
             + _OUTPUT_BINDING_NOTE
         ),
         param_map={
             "in_dataset": "layerId",
             "out_coor_system": "targetSrid",
         },
-        arcpy_params=(
+        source_params=(
             "in_dataset",
             "out_dataset",
             "out_coor_system",
@@ -597,7 +594,6 @@ COMPAT: dict[str, FunctionEntry] = {
             "vertical",
         ),
         output_params=("out_dataset",),
-        source_params=("in_dataset",),
     ),
     "management.Sort": FunctionEntry(
         backend="not_implemented",
@@ -633,12 +629,12 @@ COMPAT: dict[str, FunctionEntry] = {
             "wild_card ('*'-glob, case-insensitive) and field_type (single value, "
             "semicolon-delimited list, or Python sequence; 'All' / omitted disables the "
             "filter) are both applied client-side against the fetched field list. Field "
-            "type tokens are normalized from honua-server's esriFieldType* vocabulary to "
-            "arcpy's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/"
+            "field type tokens from the GeoServices REST response are normalized to "
+            "gp's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/"
             "Single/Date/OID/Geometry/GUID/GlobalID/Blob/Raster/XML/DateOnly/TimeOnly/"
             "TimestampOffset). Partial: honua-server's field JSON does not carry "
             "precision/scale, so FieldDescribe.precision/.scale are always None (real "
-            "arcpy populates them for numeric fields); required/isVersioned/domain-code "
+            "gp populates them for numeric fields); required/isVersioned/domain-code "
             "nuances are also not modelled beyond passing the raw domain mapping through."
         ),
         param_map={"dataset": "layer_name"},
@@ -652,12 +648,12 @@ COMPAT: dict[str, FunctionEntry] = {
             "(a minimal read-only SpatialReferenceInfo exposing .factoryCode / .wkid and, "
             "when the server literally advertises one, .name), and .OIDFieldName are all "
             "populated from the FeatureServer layer-metadata response. Partial / explicitly "
-            "out of scope: the optional arcpy data_type filter argument is accepted and "
+            "out of scope: the optional gp data_type filter argument is accepted and "
             "recorded in the audit trail but not honored -- it never filters or "
             "disambiguates, every call describes the resolved dataset as-is; .catalogPath is the shim's "
             "resolved source string, not a verified on-disk/catalog path; .dataType is a "
             "heuristic ('FeatureClass' when a geometry type is present, else 'Table') -- "
-            "arcpy's full dataType vocabulary (ShapeFile, RasterDataset, Table, ...) is not "
+            "gp's full dataType vocabulary (ShapeFile, RasterDataset, Table, ...) is not "
             "modelled; raster-specific Describe properties (bandCount, meanCellHeight, "
             "noDataValue, ...) are not covered since honua-server's FeatureServer metadata "
             "has no raster surface today; .spatialReference.name is only populated when the "
@@ -688,7 +684,7 @@ COMPAT: dict[str, FunctionEntry] = {
     "da.UpdateCursor": FunctionEntry(
         backend="source",
         status="supported",
-        notes="Buffered updates; flush on __exit__ or explicit cursor.flush(). Deviates from arcpy's per-row commit.",
+        notes="Buffered updates; flush on __exit__ or explicit cursor.flush(). Deviates from gp's per-row commit.",
         param_map={
             "in_table": "layer_name",
             "field_names": "fields",
@@ -698,7 +694,7 @@ COMPAT: dict[str, FunctionEntry] = {
     "da.InsertCursor": FunctionEntry(
         backend="source",
         status="supported",
-        notes="Buffered inserts; flush on __exit__. Deviates from arcpy's per-row commit.",
+        notes="Buffered inserts; flush on __exit__. Deviates from gp's per-row commit.",
         param_map={
             "in_table": "layer_name",
             "field_names": "fields",
@@ -762,20 +758,20 @@ COMPAT: dict[str, FunctionEntry] = {
     # (raster ids 404 on direct execution) by :mod:`honua_gp._raster_tools`,
     # which builds the flat process-input bag from honua_sdk's public
     # ``RasterReference`` / ``LayerReference`` model. ``param_map`` records the
-    # arcpy-keyword -> honua-server raster-process-input mapping and is
+    # gp-keyword -> honua-server raster-process-input mapping and is
     # validated as a subset of the server catalog by
     # ``test_raster_backed_entries_match_honua_server_catalog``. Raster-output
     # tools return a :class:`honua_gp.RasterResult` handle (lazy xarray /
     # GeoDataFrame conversion via the ``raster`` / ``geopandas`` extras);
     # ZonalStatisticsAsTable returns the Table-kind JSON (a list of per-zone
-    # dicts) directly. Esri task names mirror honua-server's
-    # ``GPServerEsriTaskAliases`` where a mapping exists.
+    # dicts) directly. GeoServices REST task names mirror honua-server's
+    # ``GeoServicesTaskAliases`` where a mapping exists.
     "sa.Slope": FunctionEntry(
         backend="raster",
         status="supported",
         process_id="surface.slope",
         notes=(
-            "Projects arcpy.sa.Slope onto honua-server's surface.slope GDAL-worker "
+            "Projects gp.sa.Slope onto honua-server's surface.slope GDAL-worker "
             "process (DEM 'source' in, slope raster out). units maps to the server "
             "units enum (degrees/percent; radians rejected server-side) and "
             "z_factor -> zFactor. Returns a honua_gp.RasterResult handle."
@@ -787,7 +783,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="surface.aspect",
         notes=(
-            "Projects arcpy.sa.Aspect onto honua-server's surface.aspect GDAL-worker "
+            "Projects gp.sa.Aspect onto honua-server's surface.aspect GDAL-worker "
             "process (DEM 'source' in, compass-bearing aspect raster out). Returns a "
             "honua_gp.RasterResult handle."
         ),
@@ -797,7 +793,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="surface.hillshade",
         notes=(
-            "Projects arcpy.sa.Hillshade onto honua-server's surface.hillshade "
+            "Projects gp.sa.Hillshade onto honua-server's surface.hillshade "
             "GDAL-worker process. azimuth/altitude/z_factor -> azimuth/altitude/"
             "zFactor. Returns a honua_gp.RasterResult handle."
         ),
@@ -808,7 +804,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="surface.contour",
         notes=(
-            "Projects arcpy.sa.Contour onto honua-server's surface.contour GDAL-worker "
+            "Projects gp.sa.Contour onto honua-server's surface.contour GDAL-worker "
             "process. interval (required) -> interval, base -> base. Unlike the other "
             "surface tools, the output is a FeatureLayer (GeoJSON contour lines with an "
             "ELEV attribute); the returned RasterResult exposes it via .to_geodataframe()."
@@ -820,7 +816,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="surface.viewshed",
         notes=(
-            "Projects arcpy.sa.Viewshed onto honua-server's surface.viewshed GDAL-worker "
+            "Projects gp.sa.Viewshed onto honua-server's surface.viewshed GDAL-worker "
             "process. observer_x/observer_y (required) -> observerX/observerY; "
             "observer_height/target_height/max_distance -> observerHeight/targetHeight/"
             "maxDistance. Returns a binary-visibility RasterResult handle."
@@ -838,7 +834,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="surface.roughness",
         notes=(
-            "Projects arcpy Roughness onto honua-server's surface.roughness GDAL-worker "
+            "Projects gp Roughness onto honua-server's surface.roughness GDAL-worker "
             "process. Partial: the server's canonical implementation supports only a "
             "3x3 neighborhood (windowRadius=1); larger neighborhoods are rejected at "
             "submit time, so window_radius is exposed but must currently be 1."
@@ -850,7 +846,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="surface.rugosity-tpi",
         notes=(
-            "Projects arcpy TPI (topographic position index) onto honua-server's "
+            "Projects gp TPI (topographic position index) onto honua-server's "
             "surface.rugosity-tpi GDAL-worker process. Partial: the server supports "
             "only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but "
             "must currently be 1."
@@ -862,7 +858,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="surface.rugosity-tri",
         notes=(
-            "Projects arcpy TRI (terrain ruggedness index) onto honua-server's "
+            "Projects gp TRI (terrain ruggedness index) onto honua-server's "
             "surface.rugosity-tri GDAL-worker process. Partial: the server supports "
             "only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but "
             "must currently be 1."
@@ -874,7 +870,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="raster.clip",
         notes=(
-            "Projects arcpy raster Clip onto honua-server's raster.clip GDAL-worker "
+            "Projects gp raster Clip onto honua-server's raster.clip GDAL-worker "
             "process (gdalwarp -cutline). boundary (WKB, required) -> boundary; "
             "boundary_srid -> boundarySrid. Distinct from the vector analysis.Clip "
             "stub. Returns a clipped RasterResult handle."
@@ -886,7 +882,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="raster.mosaic",
         notes=(
-            "Projects arcpy Mosaic onto honua-server's raster.mosaic GDAL-worker "
+            "Projects gp Mosaic onto honua-server's raster.mosaic GDAL-worker "
             "process. Takes two or more input rasters (encoded to the '|'-separated "
             "'sources' input); operator -> operator, resampling -> resampling. Partial: "
             "the native worker offers only first/last overlap operators (no statistical "
@@ -901,7 +897,7 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="raster.reclassify",
         notes=(
-            "Projects arcpy.sa.Reclassify onto honua-server's raster.reclassify "
+            "Projects gp.sa.Reclassify onto honua-server's raster.reclassify "
             "GDAL-worker process. remap (required) -> remap (';'-separated "
             "'value:newValue' / 'lo..hi:newValue' entries); default_value/data_type/"
             "no_data -> defaultValue/dataType/noData. Returns a RasterResult handle."
@@ -918,10 +914,10 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="raster.reproject",
         notes=(
-            "Projects arcpy.management.ProjectRaster onto honua-server's raster.reproject "
+            "Projects gp.management.ProjectRaster onto honua-server's raster.reproject "
             "GDAL-worker process (gdalwarp -t_srs). target_srid (required) -> targetSrid; "
             "resampling -> resampling (nearestneighbor/bilinear/cubic/lanczos). Matches "
-            "the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle."
+            "the GPServer 'ProjectRaster' GeoServices REST task alias. Returns a RasterResult handle."
         ),
         param_map={"target_srid": "targetSrid", "resampling": "resampling"},
     ),
@@ -930,10 +926,10 @@ COMPAT: dict[str, FunctionEntry] = {
         status="supported",
         process_id="raster.resample",
         notes=(
-            "Projects arcpy.management.Resample onto honua-server's raster.resample "
+            "Projects gp.management.Resample onto honua-server's raster.resample "
             "GDAL-worker process (gdalwarp -tr). cell_size (required) -> cellSize; "
             "cell_size_y -> cellSizeY; resampling -> resampling. Matches the GPServer "
-            "'Resample' Esri task alias. Returns a RasterResult handle."
+            "'Resample' GeoServices REST task alias. Returns a RasterResult handle."
         ),
         param_map={
             "cell_size": "cellSize",
@@ -946,13 +942,13 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="raster.map-algebra",
         notes=(
-            "Projects arcpy.sa.RasterCalculator onto honua-server's raster.map-algebra "
+            "Projects gp.sa.RasterCalculator onto honua-server's raster.map-algebra "
             "GDAL-worker process (gdal_calc.py). Takes one or more input rasters bound "
             "to band variables A, B, C, ... (encoded to the '|'-separated 'sources' "
             "input) and an expression -> expression; data_type/no_data -> dataType/noData. "
             "Partial: the expression is restricted to single-letter band variables, "
             "numeric literals, a fixed operator set, and a small NumPy allow-list "
-            "(arbitrary arcpy Map Algebra / Con()/nested-function syntax is not "
+            "(arbitrary gp Map Algebra / Con()/nested-function syntax is not "
             "evaluated), and inputs must be inline GeoTIFF bytes."
         ),
         param_map={"expression": "expression", "data_type": "dataType", "no_data": "noData"},
@@ -962,12 +958,12 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="raster.interpolate-idw",
         notes=(
-            "Projects arcpy.sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker "
+            "Projects gp.sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker "
             "process (gdal_grid -a invdist). Takes a scattered point FeatureCollection "
             "(encoded to the base64 'points' input); z_field -> zField, power -> power, "
-            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' Esri "
+            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' GeoServices REST "
             "task alias. Partial: the native worker sizes the output via width/height "
-            "(passthrough) rather than an arcpy cell_size, and arcpy barrier/variable "
+            "(passthrough) rather than an gp cell_size, and gp barrier/variable "
             "search options are not modelled. Returns a RasterResult handle."
         ),
         param_map={
@@ -988,7 +984,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "gdal_grid bundles no kriging backend. The tool fails for every possible "
             "input, so the shim refuses it client-side (raising HonuaGpUnsupportedError "
             "before any server call) rather than overclaiming it as a working migration "
-            "target -- exactly the failure mode a codemod reading manifest status must "
+            "target -- exactly the failure mode a migration assessment must "
             "not be told is supported."
         ),
         replacement_hint=(
@@ -1004,23 +1000,23 @@ COMPAT: dict[str, FunctionEntry] = {
         status="partial",
         process_id="raster.zonal-statistics",
         notes=(
-            "Projects arcpy.sa.ZonalStatisticsAsTable onto honua-server's "
+            "Projects gp.sa.ZonalStatisticsAsTable onto honua-server's "
             "raster.zonal-statistics GDAL-worker process. Takes a value raster ('source') "
             "plus polygonal zones and returns the Table-kind JSON (a list of per-zone "
             "aggregate dicts) directly rather than a raster. band -> band, statistics -> "
             "statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer "
-            "'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones "
+            "'ZonalStatisticsAsTable' GeoServices REST task alias. Partial: only inline-GeoJSON zones "
             "are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved "
             "zones are deferred server-side."
         ),
         param_map={"band": "band", "statistics": "statistics"},
     ),
     # Honest stubs: raster.histogram and raster.spectral-index have no clean,
-    # unambiguous single arcpy Spatial Analyst tool-name analog (histograms are
-    # reached in arcpy through RasterObject/segmentation, and spectral indices
+    # unambiguous single gp Spatial Analyst tool-name analog (histograms are
+    # reached in gp through RasterObject/segmentation, and spectral indices
     # through per-index raster functions / the multidimensional toolset), and
-    # honua-server's GPServerEsriTaskAliases assigns them no Esri task name
-    # either. Rather than invent a fake arcpy name, they are surfaced as
+    # honua-server's GeoServicesTaskAliases assigns them no GeoServices REST task name
+    # either. Rather than invent a fake gp name, they are surfaced as
     # explicit stubs so the migration tool reports the gap honestly.
     "sa.Histogram": FunctionEntry(
         backend="not_implemented",
@@ -1028,9 +1024,9 @@ COMPAT: dict[str, FunctionEntry] = {
         process_id="raster.histogram",
         notes=(
             "honua-server's raster.histogram (per-band 256-bin histograms) has no clean "
-            "single arcpy Spatial Analyst GP tool name -- arcpy exposes raster histograms "
+            "single gp Spatial Analyst GP tool name -- gp exposes raster histograms "
             "through RasterObject / interactive symbology rather than a standalone tool. "
-            "Left as an explicit stub instead of guessing a fake arcpy tool name."
+            "Left as an explicit stub instead of guessing a fake gp tool name."
         ),
         replacement_hint=(
             "Submit the raster.histogram process directly via "
@@ -1038,7 +1034,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "'raster.histogram', RasterReference.from_...(...)) and read the Scalar "
             "JSON output with consume_result(...)."
         ),
-        tracking="honua-server#arcpy-raster-histogram-name",
+        tracking="honua-server#gp-raster-histogram-name",
     ),
     "sa.SpectralIndex": FunctionEntry(
         backend="not_implemented",
@@ -1046,10 +1042,10 @@ COMPAT: dict[str, FunctionEntry] = {
         process_id="raster.spectral-index",
         notes=(
             "honua-server's raster.spectral-index (NDVI/NDWI/NDBI/SAVI/EVI from band-role "
-            "rasters) has no clean single arcpy Spatial Analyst GP tool name -- arcpy "
+            "rasters) has no clean single gp Spatial Analyst GP tool name -- gp "
             "computes these through per-index raster functions / the multidimensional "
             "toolset, not one standalone tool. Left as an explicit stub instead of "
-            "guessing a fake arcpy tool name."
+            "guessing a fake gp tool name."
         ),
         replacement_hint=(
             "Submit the raster.spectral-index process directly via "
@@ -1057,7 +1053,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "'raster.spectral-index', RasterReference.from_...(band), parameters={"
             "'index': 'NDVI', ...}), or compose the band math with sa.RasterCalculator."
         ),
-        tracking="honua-server#arcpy-spectral-index-name",
+        tracking="honua-server#gp-spectral-index-name",
     ),
 }
 

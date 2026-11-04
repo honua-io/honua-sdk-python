@@ -7,7 +7,7 @@ or builds its own audit-wrapped call against the session. The dispatcher:
 2. Routes to the configured backend.
 3. Records an audit JSONL line (success and failure).
 4. Wraps internal exceptions into the ``ExecuteError`` hierarchy so
-   ``except arcpy.ExecuteError:`` keeps working.
+   ``except gp.ExecuteError:`` keeps working.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def bind_arguments(
     *,
     entry: FunctionEntry | None = None,
 ) -> dict[str, Any]:
-    """Bind positional + keyword args to arcpy parameter names from the manifest."""
+    """Bind positional + keyword args to gp parameter names from the manifest."""
 
     entry = entry or _entry_or_raise(qualified_name)
     ordered_params = list(entry.param_map.keys())
@@ -128,7 +128,7 @@ def _project_to_process_inputs(
     session: HonuaSession,
     rollback_log: list[tuple[str, LayerAlias | None]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Project bound arcpy args into process inputs / outputs / metadata.
+    """Project bound gp args into process inputs / outputs / metadata.
 
     If ``rollback_log`` is supplied, each output-param registration appends
     a ``(name, prior_alias)`` pair to it *before* mutating the session.
@@ -142,17 +142,17 @@ def _project_to_process_inputs(
     outputs: dict[str, Any] = {}
     metadata: dict[str, Any] = {}
 
-    for arcpy_name, value in bound.items():
+    for source_name, value in bound.items():
         if value is None:
             continue
-        process_name = entry.param_map.get(arcpy_name, arcpy_name)
-        if arcpy_name in entry.output_params:
+        process_name = entry.param_map.get(source_name, source_name)
+        if source_name in entry.output_params:
             if rollback_log is not None and isinstance(value, str):
                 rollback_log.append((value, session.get_layer(value)))
             resolved = resolve_or_register_output(value, session=session)
             outputs[process_name] = resolved.source
             continue
-        if arcpy_name in entry.source_params:
+        if source_name in entry.source_params:
             inputs[process_name] = _resolve_source_value(value, session=session)
             continue
         # Non-source parameters (dissolve_option, expression, CRS strings,
@@ -246,7 +246,7 @@ def dispatch_process(
             if outputs:
                 payload["outputs"] = outputs
             if metadata:
-                payload["metadata"] = {"honuaArcpy": metadata}
+                payload["metadata"] = {"honuaGeoprocessing": metadata}
             processes = session.processes_client()
             result = processes.execute(entry.process_id, payload)
         except ExecuteError:

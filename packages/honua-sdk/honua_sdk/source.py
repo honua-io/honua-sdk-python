@@ -436,8 +436,7 @@ class Source:
     def schema(self, layer_id: int | None = None) -> LayerSchema:
         """Return a typed :class:`LayerSchema` for this source's layer.
 
-        The ``arcpy.Describe`` / ``ListFields`` analogue: fetches the
-        FeatureServer layer metadata and parses it into typed fields, geometry
+        Fetches FeatureServer layer metadata and parses it into typed fields, geometry
         type, spatial-reference WKID, and extent. ``layer_id`` defaults to the
         source descriptor's layer.
         """
@@ -454,8 +453,7 @@ class Source:
     ) -> "SearchCursor":
         """Open a lazy :class:`~honua_sdk.cursors.SearchCursor` over this source.
 
-        The ``arcpy.da.SearchCursor`` analogue — iterate ``(geometry, attrs)``
-        rows lazily without materializing the whole result.
+        Iterate ``(geometry, attrs)`` rows lazily without materializing the whole result.
         """
         from .cursors import SearchCursor
 
@@ -757,8 +755,8 @@ class AsyncSource:
         """Return a typed :class:`LayerSchema` for this source's layer.
 
         Asynchronous counterpart to :meth:`Source.schema`. The
-        ``arcpy.Describe`` / ``ListFields`` analogue: fetches the FeatureServer
-        layer metadata and parses it into typed fields, geometry type,
+        Fetches FeatureServer layer metadata and parses it into typed fields,
+        geometry type,
         spatial-reference WKID, and extent.
         """
         resolved = _layer_id(self.descriptor) if layer_id is None else layer_id

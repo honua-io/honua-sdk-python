@@ -1,6 +1,6 @@
 """GP query-parity tests: spatial filters, statistics/aggregation, pagination, gRPC binding.
 
-Covers the GeoServices REST request-construction parity gaps closed for Esri-SDK
+Covers the GeoServices REST request-construction parity gaps closed for GeoServices REST-SDK
 "select by location" + analytics:
 
 * ``Query.spatial_filter`` / ``FeatureQuery.spatial_filter`` translated to the
@@ -47,7 +47,7 @@ from honua_sdk._geoservices_query import (
         ("overlaps", "esriSpatialRelOverlaps"),
         ("envelope-intersects", "esriSpatialRelEnvelopeIntersects"),
         ("within-distance", "esriSpatialRelIntersects"),
-        # gRPC-style SCREAMING_SNAKE and raw Esri tokens both accepted.
+        # gRPC-style SCREAMING_SNAKE and raw GeoServices REST tokens both accepted.
         ("WITHIN", "esriSpatialRelWithin"),
         ("esriSpatialRelOverlaps", "esriSpatialRelOverlaps"),
     ],
@@ -61,11 +61,11 @@ def test_normalize_spatial_relationship_rejects_unknown() -> None:
         normalize_spatial_relationship("near-ish")
 
 
-def test_coerce_geometry_esri_polygon_passthrough() -> None:
-    esri = {"rings": [[[0, 0], [0, 1], [1, 1], [0, 0]]]}
-    geometry, gtype = coerce_geometry(esri)
+def test_coerce_geometry_protocol_polygon_passthrough() -> None:
+    geoservices_geometry = {"rings": [[[0, 0], [0, 1], [1, 1], [0, 0]]]}
+    geometry, gtype = coerce_geometry(geoservices_geometry)
     assert gtype == "esriGeometryPolygon"
-    assert geometry == esri
+    assert geometry == geoservices_geometry
 
 
 def test_coerce_geometry_geojson_polygon() -> None:
@@ -75,10 +75,10 @@ def test_coerce_geometry_geojson_polygon() -> None:
     assert geometry == {"rings": [[[0, 0], [0, 1], [1, 1], [0, 0]]]}
 
 
-def test_geojson_polygon_spatial_filter_orients_rings_to_esri_winding() -> None:
+def test_geojson_polygon_spatial_filter_orients_rings_to_geoservices_winding() -> None:
     """An RFC 7946 GeoJSON polygon (CCW exterior, CW hole) must be re-wound to
-    the Esri convention (CW exterior, CCW hole). Emitting it verbatim would make
-    an Esri-conformant server read the exterior as a hole -> inverted/empty
+    the GeoServices REST convention (CW exterior, CCW hole). Emitting it verbatim would make
+    an GeoServices REST-conformant server read the exterior as a hole -> inverted/empty
     filter and silently wrong results."""
     geojson = {
         "type": "Polygon",
@@ -228,7 +228,7 @@ def test_coerce_geometry_rejects_unknown_geojson_type() -> None:
 
 
 def test_coerce_geometry_rejects_non_geometry() -> None:
-    with pytest.raises(TypeError, match="Esri JSON mapping"):
+    with pytest.raises(TypeError, match="GeoServices REST JSON mapping"):
         coerce_geometry("not-a-geometry")
 
 
@@ -238,7 +238,7 @@ def test_coerce_geometry_requires_value() -> None:
 
 
 @pytest.mark.parametrize(
-    ("esri", "expected_type"),
+    ("geoservices", "expected_type"),
     [
         ({"x": 1, "y": 2}, "esriGeometryPoint"),
         ({"paths": [[[0, 0], [1, 1]]]}, "esriGeometryPolyline"),
@@ -246,13 +246,13 @@ def test_coerce_geometry_requires_value() -> None:
         ({"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}, "esriGeometryEnvelope"),
     ],
 )
-def test_coerce_geometry_infers_esri_type(esri: dict[str, Any], expected_type: str) -> None:
-    _, gtype = coerce_geometry(esri)
+def test_coerce_geometry_infers_geoservices_type(geoservices: dict[str, Any], expected_type: str) -> None:
+    _, gtype = coerce_geometry(geoservices)
     assert gtype == expected_type
 
 
-def test_coerce_geometry_unknown_esri_shape_raises() -> None:
-    with pytest.raises(ValueError, match="Could not infer the Esri geometry type"):
+def test_coerce_geometry_unknown_protocol_shape_raises() -> None:
+    with pytest.raises(ValueError, match="Could not infer the GeoServices REST geometry type"):
         coerce_geometry({"unknown": 1})
 
 

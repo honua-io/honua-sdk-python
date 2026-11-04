@@ -1,4 +1,4 @@
-"""``arcpy.management`` shim -- 20 functions.
+"""``gp.management`` shim -- 20 functions.
 
 Mapped functions split across backends:
 
@@ -17,7 +17,7 @@ Mapped functions split across backends:
 
 The remaining stubs:
 
-* ``Delete`` -- arcpy deletes a whole dataset; honua-server's
+* ``Delete`` -- gp deletes a whole dataset; honua-server's
   ``data-management.delete-features`` only deletes features matching a filter
   inside a layer, so the semantics differ and faking it would do the wrong
   thing.
@@ -134,7 +134,7 @@ class Selection:
         return self.layer_name
 
     def __getitem__(self, index: int) -> Any:
-        # arcpy returns (layer, count) -- preserve that idiom.
+        # gp returns (layer, count) -- preserve that idiom.
         return (self.layer_name, self.count)[index]
 
 
@@ -331,19 +331,19 @@ def GetCount(in_rows: Any) -> int:
 # ---------------------------------------------------------------------------
 # Process-backed tools (layer-aware projection adapter)
 # ---------------------------------------------------------------------------
-# Dissolve / Project project their arcpy signatures onto honua-server's
+# Dissolve / Project project their gp signatures onto honua-server's
 # layer-aware processes (generalization.dissolve, conversion.feature-project)
 # via ``honua_gp._process_tools.run_layer_process``: the input feature class /
-# layer alias resolves to a numeric ``layerId``, the remaining arcpy params map
+# layer alias resolves to a numeric ``layerId``, the remaining gp params map
 # onto the process's typed inputs, and the call submits + polls an async OGC
-# API Processes job before returning an arcpy-style ``Result``.
+# API Processes job before returning an gp-style ``Result``.
 #
 # ``CalculateField`` / ``Copy`` / ``CopyFeatures`` are stubs: their honua-server
 # targets (data-management.calculate-field / data-management.copy-features) are
 # classified CanServe=false and are never projected as standalone OGC API
 # processes -- they are only reachable as steps inside a honua-geoprocessing
 # analysis plan, so a one-shot POST .../execution 404s on every server version.
-# ``Delete`` likewise stays a stub: arcpy.Delete removes an entire dataset,
+# ``Delete`` likewise stays a stub: gp.Delete removes an entire dataset,
 # while honua-server's data-management.delete-features only deletes features
 # matching a filter *inside* a layer. The semantics differ, so faking any of
 # these would silently do the wrong thing.
@@ -361,7 +361,7 @@ def Copy(*args: Any, **kwargs: Any) -> Any:
     raise_unsupported("management.Copy", args=args, kwargs=kwargs)
 
 
-# Alias for `arcpy.management.CopyFeatures`, which the scanner also calls "Copy".
+# Alias for the alternate `management.CopyFeatures` operation name.
 CopyFeatures = Copy
 
 
@@ -374,13 +374,13 @@ def Project(*args: Any, **kwargs: Any) -> Result:
 
 
 # ---------------------------------------------------------------------------
-# Raster tools that live in the arcpy *management* toolbox in real arcpy
+# Raster tools that live in the gp *management* toolbox in real gp
 # ---------------------------------------------------------------------------
 # ``ProjectRaster`` / ``Resample`` / ``Clip`` (raster) / ``Mosaic`` are Data
-# Management tools in real arcpy (``arcpy.management.ProjectRaster`` etc.), but
+# Management tools in real gp (``gp.management.ProjectRaster`` etc.), but
 # their honua-server targets are raster/surface processes, so the
 # implementation + COMPAT manifest rows live under ``honua_gp.sa`` (single
-# source of truth). These thin re-exports make ``arcpy.management.ProjectRaster``
+# source of truth). These thin re-exports make ``gp.management.ProjectRaster``
 # resolve for drop-in scripts, mirroring the ``CopyFeatures = Copy`` alias
 # pattern. ``honua-gp assess`` canonicalizes the scanned ``management.*`` names
 # onto the ``sa.*`` manifest rows via ``_cli._ALIAS_TO_CANONICAL``.
@@ -389,7 +389,7 @@ from ..sa import Mosaic as Mosaic  # noqa: E402
 from ..sa import ProjectRaster as ProjectRaster  # noqa: E402
 from ..sa import Resample as Resample  # noqa: E402
 
-# arcpy also exposes the new-raster variant name; both map to raster.mosaic.
+# gp also exposes the new-raster variant name; both map to raster.mosaic.
 MosaicToNewRaster = Mosaic
 
 
@@ -400,12 +400,12 @@ MosaicToNewRaster = Mosaic
 
 @dataclass(frozen=True)
 class FieldDescribe:
-    """``arcpy.Field``-shaped lightweight record returned by ``ListFields`` /
+    """``gp.Field``-shaped lightweight record returned by ``ListFields`` /
     ``Describe(...).fields``.
 
-    ``type`` is normalized from honua-server's raw ``esriFieldType*`` token
-    (see ``honua_sdk.models.Field.type``) to arcpy's ``Field.type``
-    vocabulary via ``_ARCPY_FIELD_TYPES`` -- e.g. ``esriFieldTypeString`` ->
+    ``type`` is normalized from the raw field type token
+    (see ``honua_sdk.models.Field.type``) to gp's ``Field.type``
+    vocabulary via ``_GEOSERVICES_FIELD_TYPES`` -- e.g. the GeoServices REST string field token ->
     ``"String"``. ``raw`` keeps the untranslated server token for callers
     that need it. ``precision`` / ``scale`` are always ``None``: honua-server's
     FeatureServer field JSON does not carry them today (see the
@@ -425,15 +425,15 @@ class FieldDescribe:
 
 @dataclass(frozen=True)
 class SpatialReferenceInfo:
-    """Minimal read-only stand-in for ``arcpy.SpatialReference``.
+    """Minimal read-only stand-in for ``gp.SpatialReference``.
 
     honua-server's FeatureServer layer metadata advertises a spatial
-    reference as an Esri ``{"wkid": ..., "latestWkid": ...}`` mapping (see
+    reference as an GeoServices REST ``{"wkid": ..., "latestWkid": ...}`` mapping (see
     ``honua_sdk.models.LayerSchema.srid`` / ``.spatial_reference``). Real
-    ``arcpy.SpatialReference`` supports dozens of properties (``PCSCode``,
+    ``gp.SpatialReference`` supports dozens of properties (``PCSCode``,
     ``GCSCode``, projection parameters, ``exportToString()``, ...); this
     wrapper only covers what a schema-introspection script actually reads:
-    the resolved EPSG/WKID code (``factoryCode`` -- matches arcpy's property
+    the resolved EPSG/WKID code (``factoryCode`` -- matches gp's property
     name) and a display ``name`` when the server happens to advertise one
     (most only advertise a WKID, so ``name`` is commonly ``None``).
 
@@ -453,12 +453,12 @@ class SpatialReferenceInfo:
 
 @dataclass(frozen=True)
 class DescribeResult:
-    """arcpy.Describe-shaped lightweight record.
+    """gp.Describe-shaped lightweight record.
 
     Populated by ``management.Describe`` from honua-server's FeatureServer
     layer-metadata endpoint via a typed ``honua_sdk.models.LayerSchema``.
     See the ``management.Describe`` manifest entry in ``_compat.py`` for what
-    is deliberately out of scope (raster Describe properties, the arcpy
+    is deliberately out of scope (raster Describe properties, the gp
     ``data_type`` filter argument, a verified ``catalogPath``, ...).
     """
 
@@ -485,11 +485,11 @@ class DescribeResult:
 # ``honua://services/<svc>/<layer>`` URI, or a plain workspace-relative name
 # all work identically.
 
-# esriFieldType* (honua_sdk.models.Field.type, verbatim from the server) ->
-# arcpy's Field.type vocabulary. Unknown / unmapped tokens pass through
+# GeoServices REST field type tokens (honua_sdk.models.Field.type, verbatim from the server) ->
+# gp's Field.type vocabulary. Unknown / unmapped tokens pass through
 # unchanged so a caller always sees a value even for a server type this
 # table has not been taught yet.
-_ARCPY_FIELD_TYPES: dict[str, str] = {
+_GEOSERVICES_FIELD_TYPES: dict[str, str] = {
     "esriFieldTypeSmallInteger": "SmallInteger",
     "esriFieldTypeInteger": "Integer",
     "esriFieldTypeBigInteger": "BigInteger",
@@ -511,7 +511,7 @@ _ARCPY_FIELD_TYPES: dict[str, str] = {
 
 
 def _resolve_layer_locator(dataset: Any) -> tuple[str, int]:
-    """Resolve an arcpy dataset argument to a honua-server ``(serviceId, layerId)``."""
+    """Resolve an gp dataset argument to a honua-server ``(serviceId, layerId)``."""
 
     session = get_session()
     alias = session.get_layer(dataset) if isinstance(dataset, str) else None
@@ -525,7 +525,7 @@ def _resolve_layer_locator(dataset: Any) -> tuple[str, int]:
             str(dataset),
             hint=(
                 "Describe/ListFields could not resolve a Honua serviceId for this "
-                "dataset. Set arcpy.env.workspace to a honua://services/<service> "
+                "dataset. Set gp.env.workspace to a honua://services/<service> "
                 "URI, register the dataset via MakeFeatureLayer, or add a "
                 "HONUA_GP_PATH_MAP entry."
             ),
@@ -556,12 +556,12 @@ def _field_describe_from_schema_field(entry: Any) -> FieldDescribe:
     raw_type = getattr(entry, "type", None)
     return FieldDescribe(
         name=getattr(entry, "name", "") or "",
-        type=_ARCPY_FIELD_TYPES.get(raw_type, raw_type) if raw_type else None,
+        type=_GEOSERVICES_FIELD_TYPES.get(raw_type, raw_type) if raw_type else None,
         aliasName=getattr(entry, "alias", None),
         length=getattr(entry, "length", None),
         nullable=getattr(entry, "nullable", None),
         domain=getattr(entry, "domain", None),
-        raw={"esriFieldType": raw_type} if raw_type else None,
+        raw={"geoServicesFieldType": raw_type} if raw_type else None,
     )
 
 
@@ -597,7 +597,7 @@ def _describe_result_from_schema(dataset: Any, schema: Any) -> DescribeResult:
 def _matches_wild_card(name: str, pattern: str | None) -> bool:
     if not pattern:
         return True
-    # arcpy's wild_card only documents ``*`` as a wildcard and matches
+    # gp's wild_card only documents ``*`` as a wildcard and matches
     # case-insensitively; normalize both sides to upper-case and use
     # fnmatchcase so behaviour does not depend on the host OS's path
     # case-folding rules (plain fnmatch.fnmatch varies by platform).
@@ -635,15 +635,15 @@ def _filter_fields(
 
 
 def Describe(dataset: Any, data_type: Any = None) -> DescribeResult:
-    """``arcpy.Describe(value, {datatype})`` -- feature-class/table schema
+    """``gp.Describe(value, {datatype})`` -- feature-class/table schema
     introspection.
 
     Fetches the dataset's typed ``LayerSchema`` from honua-server's
     FeatureServer layer-metadata endpoint and projects it onto an
-    arcpy-shaped ``DescribeResult``. See the ``management.Describe``
+    gp-shaped ``DescribeResult``. See the ``management.Describe``
     manifest entry for the properties this does not populate.
 
-    ``data_type`` is arcpy's optional second positional argument (a hint that
+    ``data_type`` is gp's optional second positional argument (a hint that
     disambiguates which child element to describe when a name is ambiguous).
     honua-server always describes the resolved dataset as-is, so this shim
     does NOT honor ``data_type`` as a filter. It is accepted (so a migrated
@@ -681,10 +681,10 @@ def ListFields(
     wild_card: str | None = None,
     field_type: Any = None,
 ) -> list[FieldDescribe]:
-    """``arcpy.ListFields(dataset, wild_card, field_type)``.
+    """``gp.ListFields(dataset, wild_card, field_type)``.
 
     ``wild_card`` supports the ``*`` glob character (case-insensitive).
-    ``field_type`` accepts ``None``/``"All"`` (no filter), a single arcpy
+    ``field_type`` accepts ``None``/``"All"`` (no filter), a single gp
     field-type string (e.g. ``"String"``), a semicolon-delimited string
     (``"String;Double"``), or a Python sequence of strings; matching is
     case-insensitive against the normalized ``FieldDescribe.type`` values.

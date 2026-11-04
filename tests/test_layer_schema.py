@@ -2,7 +2,7 @@
 
 Covers parsing a real FeatureServer ``layer_metadata`` JSON shape into typed
 fields, normalized geometry type, resolved SRID, and a typed extent — the
-``arcpy.Describe`` / ``ListFields`` analogue — plus the OGC ``properties`` shape
+``desktop GIS API.Describe`` / ``ListFields`` analogue — plus the OGC ``properties`` shape
 and the ``Source.schema`` / ``feature_server.schema`` facade methods.
 """
 
@@ -13,7 +13,7 @@ import httpx
 from honua_sdk import Extent, Field, HonuaClient, LayerSchema
 from honua_sdk.models import SourceDescriptor, SourceLocator
 
-# A representative Esri FeatureServer layer-metadata response.
+# A representative GeoServices REST FeatureServer layer-metadata response.
 _LAYER_METADATA = {
     "id": 0,
     "name": "Parcels",
@@ -86,8 +86,8 @@ def test_layer_schema_non_spatial_table() -> None:
 
 
 def test_layer_schema_unknown_geometry_type_passes_through() -> None:
-    schema = LayerSchema.from_metadata({"name": "X", "geometryType": "esriGeometryWeird"})
-    assert schema.geometry_type == "esriGeometryWeird"
+    schema = LayerSchema.from_metadata({"name": "X", "geometryType": "unknownGeometry"})
+    assert schema.geometry_type == "unknownGeometry"
 
 
 def test_layer_schema_ogc_properties_shape() -> None:

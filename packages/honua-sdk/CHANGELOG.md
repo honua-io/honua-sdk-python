@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- Removed the offline Python source scanner, local toolbox parsers, translation CLI, and their public exports. Source-code classification and automatic conversion are no longer provided. Consumers of the migration package, its command-line entry point, or local scan functions must remove or replace those integrations. This is an intentional breaking change for a coordinated major release. Generic admin toolbox-manifest submission and server validation remain available independently of local parsing.
+
 ## [0.1.19](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.18...python-sdk-v0.1.19) (2026-10-26)
 
 
@@ -157,7 +163,7 @@
 
 ### Features
 
-* **migration:** expand arcpy codemod coverage + .atbx ModelBuilder + GP-service translation ([#100](https://github.com/honua-io/honua-sdk-python/issues/100)) ([ed84a72](https://github.com/honua-io/honua-sdk-python/commit/ed84a72e35e4349289392dd072d3e1a8dd43c1cb))
+* **migration:** expand desktop GIS API codemod coverage + additional toolbox archive format + GP-service translation ([#100](https://github.com/honua-io/honua-sdk-python/issues/100)) ([ed84a72](https://github.com/honua-io/honua-sdk-python/commit/ed84a72e35e4349289392dd072d3e1a8dd43c1cb))
 
 
 ### Bug Fixes
@@ -179,7 +185,7 @@
 
 ### Features
 
-* **migration:** expand arcpy tool coverage slice ([#82](https://github.com/honua-io/honua-sdk-python/issues/82)) ([#86](https://github.com/honua-io/honua-sdk-python/issues/86)) ([41d4270](https://github.com/honua-io/honua-sdk-python/commit/41d427088969350f731f89e296955cd83e5ea403))
+* **migration:** expand desktop GIS API tool coverage slice ([#82](https://github.com/honua-io/honua-sdk-python/issues/82)) ([#86](https://github.com/honua-io/honua-sdk-python/issues/86)) ([41d4270](https://github.com/honua-io/honua-sdk-python/commit/41d427088969350f731f89e296955cd83e5ea403))
 
 ## [0.1.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.1...python-sdk-v0.1.2) (2026-05-31)
 
@@ -190,7 +196,7 @@
 * Demo: geospatial ETL pipeline and analyst notebook for Python SDK ([#14](https://github.com/honua-io/honua-sdk-python/issues/14)) ([ec132a2](https://github.com/honua-io/honua-sdk-python/commit/ec132a286cd136f869873f300c57c219eaf4ee22))
 * Python SDK notebooks/examples and staging integration tests (#honua-sdk-python-3) ([e1fdd84](https://github.com/honua-io/honua-sdk-python/commit/e1fdd84cf5001c79780a412b20fb7a6eef8dd5d0))
 * **scenes:** Python scene + elevation + offline-package clients (honua-server[#1198](https://github.com/honua-io/honua-sdk-python/issues/1198)) ([#71](https://github.com/honua-io/honua-sdk-python/issues/71)) ([6a518c1](https://github.com/honua-io/honua-sdk-python/commit/6a518c1f703623283d7c08349917b67f343054f4))
-* **sdk:** reconcile ArcPy codemod hardening + GP/workflow clients onto trunk + reconciled server ([#75](https://github.com/honua-io/honua-sdk-python/issues/75)) ([934dada](https://github.com/honua-io/honua-sdk-python/commit/934dadad2b143dc8d66d3637c441b96cf3f1fc43))
+* **sdk:** reconcile desktop GIS Python API codemod hardening + GP/workflow clients onto trunk + reconciled server ([#75](https://github.com/honua-io/honua-sdk-python/issues/75)) ([934dada](https://github.com/honua-io/honua-sdk-python/commit/934dadad2b143dc8d66d3637c441b96cf3f1fc43))
 
 ## [0.1.1](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.0...python-sdk-v0.1.1) (2026-04-28)
 

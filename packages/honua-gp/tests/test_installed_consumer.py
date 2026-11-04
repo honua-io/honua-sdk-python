@@ -29,7 +29,7 @@ _API_KEY = "installed-consumer-key"
 # honua-server's default Limits:Query:MaxRecordCount.
 _MAX_RECORD_COUNT = 10000
 _LAYER_OIDS = list(range(1, 10))
-# Nine features, the count real ArcPy returned for the licensed probe layer.
+# Nine features, the count real GIS Python API returned for the licensed probe layer.
 _EXPECTED_COUNT = 9
 
 _CONSUMER = """
@@ -37,13 +37,15 @@ import json
 import os
 import sys
 
-import honua_gp as arcpy
+import honua_gp as gp
+import honua_admin
+import honua_sdk
 
 base = os.environ["HONUA_BASE_URL"]
 full = base + "/rest/services/test/FeatureServer/0"
 relative = "rest/services/test/FeatureServer/0"
-full_count = arcpy.management.GetCount(full)
-relative_count = arcpy.management.GetCount(relative)
+full_count = gp.management.GetCount(full)
+relative_count = gp.management.GetCount(relative)
 
 from honua_gp._resolve import resolve
 

@@ -2,11 +2,11 @@
 
 Exercises a realistic analyst loop end to end:
 
-1. Start from an Esri JSON feature-query response (as ``query_features`` returns).
+1. Start from an GeoServices REST JSON feature-query response (as ``query_features`` returns).
 2. Convert to a GeoDataFrame with ``features_to_geodataframe``.
 3. Run a real spatial workflow: buffer the points and spatial-join them against
    zone polygons.
-4. Convert the derived layer back to Esri JSON features with
+4. Convert the derived layer back to GeoServices REST JSON features with
    ``geodataframe_to_features`` (the ``apply_edits`` payload shape).
 5. Re-ingest the payload and assert geometric + attribute integrity survived the
    full round trip.
@@ -66,7 +66,7 @@ def test_buffer_and_spatial_join_roundtrip_preserves_integrity() -> None:
     zones = features_to_geodataframe(ZONES_RESPONSE)
 
     assert len(stations) == 3
-    # CRS survived the Esri JSON -> GeoDataFrame conversion.
+    # CRS survived the GeoServices REST JSON -> GeoDataFrame conversion.
     assert stations.crs is not None
     assert stations.crs.to_epsg() == 3857
 
@@ -83,7 +83,7 @@ def test_buffer_and_spatial_join_roundtrip_preserves_integrity() -> None:
     by_name = {row["name"]: row["zone_id"] for _, row in joined.iterrows()}
     assert by_name == {"alpha": "A", "bravo": "A", "charlie": "B"}
 
-    # --- Round trip: derived layer -> Esri JSON -> GeoDataFrame again. ---
+    # --- Round trip: derived layer -> GeoServices REST JSON -> GeoDataFrame again. ---
     # Drop the join bookkeeping column so the payload mirrors a real write set.
     out = joined.drop(columns=[c for c in joined.columns if c.startswith("index_")])
     features = geodataframe_to_features(out)

@@ -231,7 +231,7 @@ class _StubFeatureServer:
 class _StubAdminClient:
     """Lightweight admin stub.
 
-    The supported ``arcpy.management`` admin entries are now stubbed (see
+    The supported ``gp.management`` admin entries are now stubbed (see
     ``honua_gp._compat``) because :class:`honua_admin.HonuaAdminClient`
     does not expose per-layer schema mutation. This stub keeps a tiny event
     log so tests that exercise unrelated admin flows can still observe calls.

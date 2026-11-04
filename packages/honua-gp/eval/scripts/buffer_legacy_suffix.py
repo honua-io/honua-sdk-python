@@ -11,19 +11,19 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 
-arcpy.env.workspace = "honua://services/transport"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/transport"
+gp.env.overwriteOutput = True
 
-result = arcpy.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
+result = gp.Buffer_analysis("honua://services/transport/0", "trails_buffer", "15 Meters")
 print(f"buffer_legacy_suffix ok output={result[0]}")
 from eval._emit import emit_response, feature_layer_fingerprint
 emit_response('buffer_legacy_suffix', feature_layer_fingerprint(result))

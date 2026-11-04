@@ -1,7 +1,7 @@
 """Typed layer schema models.
 
-A GP tool authored against ``arcpy`` reaches for ``arcpy.Describe`` /
-``arcpy.ListFields`` to discover a layer's fields, geometry type, spatial
+A GP tool authored against ``desktop GIS API`` reaches for ``desktop GIS API.Describe`` /
+``desktop GIS API.ListFields`` to discover a layer's fields, geometry type, spatial
 reference, and extent before mapping outputs. The Honua SDK previously only
 returned the raw ``FeatureServer`` ``layer_metadata`` JSON, forcing every tool
 to hand-parse ``fields[]`` / ``geometryType`` / ``extent`` / ``spatialReference``.
@@ -9,7 +9,7 @@ to hand-parse ``fields[]`` / ``geometryType`` / ``extent`` / ``spatialReference`
 :class:`LayerSchema` (built from that JSON via :meth:`LayerSchema.from_metadata`)
 gives the same information as a typed model: typed :class:`Field` entries,
 a normalized :attr:`LayerSchema.geometry_type`, a resolved :attr:`srid`, and a
-typed :class:`Extent`. It parses the Esri FeatureServer/MapServer layer shape
+typed :class:`Extent`. It parses the GeoServices REST FeatureServer/MapServer layer shape
 and tolerates the OGC-style ``queryables``/``properties`` shape too.
 """
 
@@ -21,10 +21,10 @@ from typing import Any
 
 from ._helpers import _optional_int, _optional_str
 
-# Esri geometry-type token -> short, OGC-ish geometry name. Unknown tokens pass
+# GeoServices REST geometry-type token -> short, OGC-ish geometry name. Unknown tokens pass
 # through unchanged so a caller always sees the server's value when we cannot
 # normalize it.
-_ESRI_GEOMETRY_TYPES: dict[str, str] = {
+_GEOSERVICES_GEOMETRY_TYPES: dict[str, str] = {
     "esriGeometryPoint": "Point",
     "esriGeometryMultipoint": "MultiPoint",
     "esriGeometryPolyline": "Polyline",
@@ -37,11 +37,11 @@ def _normalize_geometry_type(value: Any) -> str | None:
     text = _optional_str(value)
     if text is None:
         return None
-    return _ESRI_GEOMETRY_TYPES.get(text, text)
+    return _GEOSERVICES_GEOMETRY_TYPES.get(text, text)
 
 
 def _srid_from_spatial_reference(spatial_reference: Mapping[str, Any] | None) -> int | None:
-    """Resolve an EPSG/WKID integer from an Esri ``spatialReference`` mapping."""
+    """Resolve an EPSG/WKID integer from an GeoServices REST ``spatialReference`` mapping."""
     if not spatial_reference:
         return None
     for key in ("latestWkid", "wkid"):
@@ -57,9 +57,9 @@ def _srid_from_spatial_reference(spatial_reference: Mapping[str, Any] | None) ->
 class Field:
     """A single typed attribute field on a layer.
 
-    Mirrors the fields surfaced by ``arcpy.ListFields`` / the ArcGIS-API layer
+    Mirrors the fields surfaced by ``desktop GIS API.ListFields`` / the GeoServices REST-API layer
     ``fields`` property. ``type`` retains the server's native type token (the
-    Esri ``esriFieldType*`` family or an OGC/JSON-schema type) verbatim.
+    GeoServices REST field type or an OGC/JSON-schema type) verbatim.
     """
 
     name: str
@@ -132,7 +132,7 @@ class LayerSchema:
 
     Built from a FeatureServer/MapServer ``layer_metadata`` JSON response (or
     the OGC-style ``properties``/``queryables`` shape) via
-    :meth:`from_metadata`. The :class:`arcpy.Describe` analogue for Honua GP
+    :meth:`from_metadata`. The :class:`desktop GIS API.Describe` analogue for Honua GP
     authoring: ``fields``, ``geometry_type``, ``srid``, and ``extent`` are all
     typed so a tool never hand-parses the raw JSON.
 
@@ -161,7 +161,7 @@ class LayerSchema:
 
     @property
     def field_names(self) -> tuple[str, ...]:
-        """Field names in server order (the ``arcpy.ListFields`` name list)."""
+        """Field names in server order (the ``desktop GIS API.ListFields`` name list)."""
         return tuple(f.name for f in self.fields)
 
     def field(self, name: str) -> "Field | None":
@@ -200,7 +200,7 @@ class LayerSchema:
 
 
 def _parse_fields(raw_fields: Any) -> tuple[Field, ...]:
-    """Parse either an Esri ``fields`` list or an OGC ``properties`` mapping."""
+    """Parse either an GeoServices REST ``fields`` list or an OGC ``properties`` mapping."""
     if isinstance(raw_fields, Sequence) and not isinstance(raw_fields, (str, bytes)):
         return tuple(Field.from_dict(entry) for entry in raw_fields if isinstance(entry, Mapping))
     if isinstance(raw_fields, Mapping):

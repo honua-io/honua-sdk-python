@@ -1850,8 +1850,6 @@ class ToolboxTranslationReport:
     The genuine endpoint always stamps both, so their absence is evidence that
     the payload is not a translation report — and stamping a plausible identity
     here would erase exactly the evidence a caller needs to refuse the response.
-    :func:`honua_sdk.migration.attest_translation` requires both fields before it
-    will call a verdict attested, and this round-trips their absence to it.
     """
 
     toolbox_name: str
@@ -1902,7 +1900,7 @@ class ToolboxParameterMapping:
 
 @dataclass
 class ToolboxToolDescriptor:
-    """One toolbox tool as translated by the SDK scanner.
+    """One tool mapping proposed for server validation.
 
     ``target_process_id`` is the canonical Honua process the scanner proposes as
     the native executor (for example ``geometry.buffer``). Leave it ``None`` when
@@ -1922,11 +1920,11 @@ class ToolboxToolDescriptor:
 
 @dataclass
 class ToolboxTranslationManifest:
-    """SDK-emitted translation manifest for one ArcGIS toolbox.
+    """Caller-provided translation manifest for a toolbox.
 
-    ``source_format`` is the source toolbox format: ``pyt``, ``atbx``, or
-    ``tbx``. Redact local paths and credentials out of ``source_label`` before
-    submitting — the server echoes it into operator-visible output.
+    ``source_format`` is a caller-defined format label. Remove local paths and
+    credentials from ``source_label`` before submission; the server echoes it
+    into operator-visible output.
     """
 
     toolbox_name: str

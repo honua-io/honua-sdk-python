@@ -11,19 +11,19 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 
-arcpy.env.workspace = "honua://services/transport"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/transport"
+gp.env.overwriteOutput = True
 
-result = arcpy.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
+result = gp.analysis.SpatialJoin("honua://services/addresses/0", "honua://services/parcels/1", "addresses_with_parcel", match_option="INTERSECT")
 print(f"spatial_join_addresses_parcels ok output={result[0]}")
 from eval._emit import emit_response, feature_layer_fingerprint
 emit_response('spatial_join_addresses_parcels', feature_layer_fingerprint(result))

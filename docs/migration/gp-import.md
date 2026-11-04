@@ -1,46 +1,19 @@
 ---
 type: guide
 title: "Import the geoprocessing package"
-description: "How to import honua-gp, and the unpublished re-export distribution that was removed."
+description: "Install and import the Honua geoprocessing package."
 ---
-# Geoprocessing import
+# Geoprocessing package import
 
-`honua-gp` is the geoprocessing distribution. Import it as `honua_gp`:
+`honua-gp` is a separately licensed geoprocessing package. Use its
+`honua_gp` namespace:
 
 ```python
-import honua_gp as arcpy
+import honua_gp
 
-arcpy.configure(base_url="https://honua.example.com", api_key="...")
+honua_gp.configure(base_url="https://honua.example.com", api_key="...")
 ```
 
 Point the session at a Honua base URL, then call the supported tools. The
-behaviour reference is `packages/honua-gp/README.md` and
+behavior reference is `packages/honua-gp/README.md` and
 `packages/honua-gp/docs/compatibility-matrix.md`.
-
-## Previous distribution
-
-This repository used to contain a second distribution, `honua-arcpy`, next to
-`honua-gp`. Importing `honua_arcpy` re-exported `honua_gp` and emitted a
-`DeprecationWarning`. That distribution was never published to a package index.
-It has been removed.
-
-Replace:
-
-```python
-import honua_arcpy as arcpy
-```
-
-with:
-
-```python
-import honua_gp as arcpy
-```
-
-Calls, configuration, and results are the `honua_gp` implementation. There is
-no compatibility module left under the old name.
-
-## Source scanner
-
-`honua_sdk.migration.arcpy` is a different module. It reads Python source text
-and describes calls for translation onto Honua processes. It does not import
-`honua_gp`, and removing the unpublished distribution does not change it.

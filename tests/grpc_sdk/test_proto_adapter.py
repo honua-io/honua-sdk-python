@@ -196,9 +196,9 @@ class TestToProtoRequest:
         assert point.m == pytest.approx(99.0)
 
     def test_envelope_spatial_filter_emits_clockwise_ring(self) -> None:
-        """An Esri envelope must convert to a clockwise (exterior) ring.
+        """An GeoServices REST envelope must convert to a clockwise (exterior) ring.
 
-        Per the Esri winding convention used elsewhere in the SDK an exterior
+        Per the GeoServices REST winding convention used elsewhere in the SDK an exterior
         ring is clockwise (negative shoelace area); a CCW ring is read as a
         hole, which would make a bbox spatial filter inverted/empty over gRPC.
         """
@@ -216,7 +216,7 @@ class TestToProtoRequest:
             x1 * y2 - x2 * y1
             for (x1, y1), (x2, y2) in pairwise(coords)
         )
-        assert signed_area < 0, "envelope ring must be clockwise (Esri exterior)"
+        assert signed_area < 0, "envelope ring must be clockwise (GeoServices REST exterior)"
 
 
 # ---------------------------------------------------------------------------
@@ -437,7 +437,7 @@ class TestConvertAttribute:
 
 
 class TestConvertGeometry:
-    """Tests for geometry proto -> Esri JSON conversion."""
+    """Tests for geometry proto -> GeoServices REST JSON conversion."""
 
     def test_point(self) -> None:
         geom = spatial.Geometry()

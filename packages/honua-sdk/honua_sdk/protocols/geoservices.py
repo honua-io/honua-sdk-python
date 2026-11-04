@@ -51,7 +51,7 @@ class AttachmentInfo:
     """One attachment's metadata, as returned by the FeatureServer.
 
     Mirrors a GeoServices ``attachmentInfo`` entry (the same shape
-    ``arcpy``'s attachment tools and the ArcGIS API for Python's
+    ``desktop GIS API``'s attachment tools and the GeoServices REST API for Python's
     ``FeatureLayer.attachments`` surface). ``object_id`` is the attachment's
     own id (used to download/delete it), distinct from the parent feature's
     object id (``parent_object_id``).
@@ -146,7 +146,7 @@ class AttachmentOperationResult:
 class AddAttachmentResult(AttachmentOperationResult):
     """Parsed ``addAttachment`` response.
 
-    ``object_id`` is the id of the newly created attachment (Esri returns the
+    ``object_id`` is the id of the newly created attachment (GeoServices REST returns the
     attachment id in ``addAttachmentResult.objectId``), usable directly with
     :meth:`download_attachment` / :meth:`delete_attachment`.
     """
@@ -236,7 +236,7 @@ def _attachment_multipart_file(file: AttachmentFile, *, content_type: "str | Non
 
     The Honua server reads the first uploaded file regardless of field name
     (``form.Files[0]``), so the multipart part is always named ``attachment``
-    (the Esri-conventional field name).
+    (the GeoServices REST-conventional field name).
     """
     if isinstance(file, bytes):
         return ("upload", file, content_type)
@@ -279,7 +279,7 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         return self._json("GET", f"{self.path}/{layer_id}", params=_params({"f": response_format}, extra_params))
 
     def schema(self, layer_id: int, *, extra_params: Params = None) -> LayerSchema:
-        """Return a typed :class:`LayerSchema` for a layer (arcpy.Describe analogue).
+        """Return a typed :class:`LayerSchema` for a layer (desktop GIS API.Describe analogue).
 
         Fetches ``layer_metadata`` and parses the raw JSON into typed fields,
         a normalized geometry type, the resolved spatial-reference WKID, and a
@@ -963,7 +963,7 @@ class GeoServicesImageServerClient(_SyncProtocol):
     ) -> JsonObject:
         """Find raster catalog images whose footprint contains ``to_geometry`` (GeoServices ``find``).
 
-        ``to_geometry`` (an Esri point) is required by honua's ImageServer
+        ``to_geometry`` (an GeoServices REST point) is required by honua's ImageServer
         ``find`` implementation; ``from_geometry`` is the optional viewpoint
         used for orientation-ranked ordering. ``where``/``object_ids`` filter
         the catalog the same way they do on :meth:`query`.
@@ -1100,7 +1100,7 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         return await self._json("GET", f"{self.path}/{layer_id}", params=_params({"f": response_format}, extra_params))
 
     async def schema(self, layer_id: int, *, extra_params: Params = None) -> LayerSchema:
-        """Return a typed :class:`LayerSchema` for a layer (arcpy.Describe analogue).
+        """Return a typed :class:`LayerSchema` for a layer (desktop GIS API.Describe analogue).
 
         Fetches ``layer_metadata`` and parses the raw JSON into typed fields,
         a normalized geometry type, the resolved spatial-reference WKID, and a
@@ -1785,7 +1785,7 @@ class AsyncGeoServicesImageServerClient(_AsyncProtocol):
     ) -> JsonObject:
         """Find raster catalog images whose footprint contains ``to_geometry`` (GeoServices ``find``).
 
-        ``to_geometry`` (an Esri point) is required by honua's ImageServer
+        ``to_geometry`` (an GeoServices REST point) is required by honua's ImageServer
         ``find`` implementation; ``from_geometry`` is the optional viewpoint
         used for orientation-ranked ordering. ``where``/``object_ids`` filter
         the catalog the same way they do on :meth:`query`.

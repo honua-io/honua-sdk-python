@@ -9,7 +9,7 @@ This test walks the ``honua_sdk`` package AST and fails if anyone introduces a
 public API (function/class name, or a function parameter) that would submit
 custom code or let a caller pick a local/on-host execution backend. It scans
 *identifiers*, not docstrings/comments, so prose that merely describes the policy
-(e.g. the ``honua_sdk.migration`` module docstring) does not trip it.
+(e.g. this test module's policy explanation) does not trip it.
 
 If this test fails, you are (re)introducing a local-execution path the policy
 forbids — do not weaken the test; remove the surface, or, if the policy itself is

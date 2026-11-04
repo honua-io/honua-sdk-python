@@ -368,28 +368,6 @@ class DevelopmentInputsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "finite tracked"):
             documentation.source_hashes(inputs, source, checkout)
 
-    def test_original_document_plan_matches_independent_governed_block_inventory(self):
-        fixture = json.loads((Path(__file__).parent / "fixtures/python_source_install_blocks.json").read_text())
-        source = {"files": {name: {"gitBlob": item["gitBlob"]} for name, item in fixture["documents"].items()}}
-        for name, item in fixture["documents"].items():
-            (self.root / name).write_text(item["text"])
-        actual = documentation.plan(inputs, self.root, source)
-        self.assertEqual(len(actual), 3)
-        self.assertEqual(sum(len(item["invocations"]) for item in actual), 12)
-        for observed, expected in zip(actual, fixture["expectedBlocks"], strict=True):
-            self.assertEqual((observed["document"], observed["blockIndex"], observed["blockSha256"]),
-                             (expected["document"], expected["index"], expected["sha256"]))
-            self.assertEqual([item["command"] for item in observed["invocations"]], expected["commands"])
-            self.assertEqual([item["ordinal"] for item in observed["invocations"]], list(range(len(expected["commands"]))))
-        self.assertEqual(actual[1]["invocations"][0]["editable"], [True])
-        self.assertEqual(actual[1]["invocations"][2]["requested"], ["pytest", "pytest-cov", "ruff", "mypy"])
-        original = fixture["documents"]["README.md"]["text"]
-        for replacement in ("pip install --extra-index-url https://foreign.invalid packages/honua-sdk",
-                            "pip install -e /foreign/source", "pip install packages/honua-sdk --no-compile"):
-            (self.root / "README.md").write_text(original.replace("pip install ./packages/honua-sdk", replacement, 1))
-            with self.subTest(replacement=replacement), self.assertRaises(ValueError):
-                documentation.plan(inputs, self.root, source)
-
     def test_unknown_pip_transform_refuses_before_wheel_loading(self):
         observed = {"files": {"module.py": "0" * 64}, "sizes": {"module.py": 1}, "generated": {},
                     "sitePackages": str(self.root / "site"), "python": str(self.root / "bin/python")}

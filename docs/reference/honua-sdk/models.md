@@ -39,26 +39,25 @@ signals and how `Query.page_size` / `Query.max_pages` drive the pagination loop.
 
 ## Geometry, schema, and GeoDataFrame ergonomics
 
-For ArcGIS-style geoprocessing authoring, the typed feature models carry a
-first-class geometry bridge and the source facade exposes typed layer schema and
-`arcpy.da`-style cursors:
+For geoprocessing workflows, the typed feature models carry a first-class
+geometry bridge and the source facade exposes typed layer schema and cursors:
 
 * [`Feature`][honua_sdk.Feature] / [`QueryFeature`][honua_sdk.QueryFeature]
   expose `.to_shapely()`, a cached `.geometry_shape`, and the
   `__geo_interface__` protocol — Shapely geometry directly off the typed
-  feature (the `arcpy` `feature.SHAPE` analogue), for both Esri-JSON and GeoJSON
+  feature, for both GeoServices REST JSON and GeoJSON
   sources. Shapely stays an optional dependency.
 * [`LayerSchema`][honua_sdk.LayerSchema] (with typed
   [`Field`][honua_sdk.Field] / [`Extent`][honua_sdk.Extent]) is the
-  `arcpy.Describe` / `ListFields` analogue — `Source.schema()` /
+  `Source.schema()` /
   `feature_server.schema()` parse FeatureServer layer metadata into typed
   fields, normalized geometry type, resolved SRID, and a typed extent.
 * `Result.to_geodataframe()` / `Source.to_geodataframe(...)` are the
   Spatially-Enabled-DataFrame equivalent: one call from a query result to a
   GeoPandas `GeoDataFrame` (requires the `geopandas` extra).
 * `Source.search_cursor` / `update_cursor` / `insert_cursor` (see the
-  [Source facade](source-facade.md)) provide the `arcpy.da` cursor idioms over
-  streaming query + batched `apply_edits`.
+  [Source facade](source-facade.md)) provide cursor helpers over streaming
+  queries and batched `apply_edits`.
 
 ::: honua_sdk.Query
 ::: honua_sdk.Result

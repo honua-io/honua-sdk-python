@@ -6,9 +6,8 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ### Unpublished re-export distribution removed
 
-`packages/honua-arcpy` re-exported `honua_gp` as `honua_arcpy` and warned on
-import. That distribution was never published. It has been removed. Import
-`honua_gp`. See `docs/migration/gp-import.md`.
+The unpublished legacy import alias has been removed. Use the canonical
+`honua_gp` package. See `docs/migration/gp-import.md`.
 
 ### Results gone after a successful job are a typed failure (#226)
 
@@ -73,7 +72,7 @@ honua-server, `GetCount` on a 25 m dissolved Buffer output returned the input's
   `multi_part` / `unsplit_lines`, and `transform_method` / `in_coor_system` /
   `preserve_shape` / `max_deviation` / `vertical` raise before submission.
 - A selection on an input layer is sent as the process `where`; a selection on
-  an input the process cannot filter and unapplied `arcpy.env` settings
+  an input the process cannot filter and unapplied `gp.env` settings
   (`outputCoordinateSystem`, `extent`, `XYTolerance`, `XYResolution`,
   `geographicTransformations`) raise before submission.
 - `analysis.Buffer` and `management.Project` are reclassified from supported to
@@ -100,8 +99,8 @@ server: `import honua_gp` with `HONUA_BASE_URL` set still raised
   `HonuaGpResolveError` before any request, instead of answering from the
   configured server. Foldered services (`rest/services/<folder>/<service>`)
   raise too, because the SDK would send the folder as one escaped path segment.
-- `resolve_layer_id` raised `NameError` (an undefined `HonuaArcpyResolveError`)
-  on an invalid layer id; it now raises `HonuaGpResolveError`.
+- `resolve_layer_id` raised `NameError` for an invalid layer id; it now raises
+  `HonuaGpResolveError`.
 - New tests: an installed-package consumer (non-editable installs, a separate
   interpreter, env-only configuration, a real HTTP layer server), the GetCount
   wire path over `httpx.MockTransport`, and the live eval script
@@ -111,11 +110,11 @@ server: `import honua_gp` with `HONUA_BASE_URL` set still raised
 ### `management.Describe` / `management.ListFields` promoted from stub to partial
 
 The highest-frequency real-world blocker across migrated scripts was schema
-introspection: almost every arcpy script calls `arcpy.Describe(...)` or
-`arcpy.ListFields(...)`, and both were previously stubs. Both now fetch a
+introspection: almost every gp script calls `gp.Describe(...)` or
+`gp.ListFields(...)`, and both were previously stubs. Both now fetch a
 dataset's typed `LayerSchema` via
 `honua_sdk.HonuaClient.feature_server(service_id).schema(layer_id)` (the
-FeatureServer layer-metadata endpoint) and project it onto arcpy-shaped
+FeatureServer layer-metadata endpoint) and project it onto gp-shaped
 return values:
 
 - `Describe(dataset)` returns a `DescribeResult` with `.shapeType`, `.fields`,
@@ -123,38 +122,33 @@ return values:
   `.factoryCode` / `.wkid` and, when advertised, `.name`), `.OIDFieldName`,
   `.dataType`, and `.catalogPath`.
 - `ListFields(dataset, wild_card=None, field_type=None)` returns a
-  `list[FieldDescribe]`, filtered client-side by name glob and/or arcpy
+  `list[FieldDescribe]`, filtered client-side by name glob and/or gp
   field-type vocabulary (`String` / `Integer` / `Double` / `Geometry` / `OID`
   / ...). `FieldDescribe.type` is normalized from honua-server's raw
-  `esriFieldType*` tokens via a new mapping table.
+  server field-type tokens via a new mapping table.
 
 Both are `status="partial"`: precision/scale, raster Describe properties, the
 `data_type` filter argument, and a verified `catalogPath` are not modelled --
 see the `management.Describe` / `management.ListFields` manifest notes in
 `_compat.py` for the complete list of documented deviations.
 
-- **Renamed** the distribution and import namespace from `honua-arcpy` /
-  `honua_arcpy` to `honua-gp` / `honua_gp` to remove an Esri trademark from a
-  package and import-namespace name (honua-io/honua-sdk-python#123). "ArcPy"
-  and "ArcGIS" now appear only as descriptive references to the migration
-  target. Branded public symbols and env vars were renamed accordingly
-  (`HonuaArcpy*Error` -> `HonuaGp*Error`, `HONUA_ARCPY_*` -> `HONUA_GP_*`),
-  and the console entry point is now `honua-gp`. The rename left an unpublished
-  `honua-arcpy` re-export that warned on `import honua_arcpy`. That re-export
-  has been removed; import `honua_gp`.
+- **Renamed** the distribution and import namespace from `honua-gp` /
+  `honua_gp`; first-party symbols and environment variables now use the
+  canonical package prefix. The console entry point is `honua-gp`. The old
+  alias was never published and has been removed.
 
 ## Unreleased
 
 ### Spatial Analyst (`honua_gp.sa`) -- 16 raster/surface tools wrapped
 
-Adds an `arcpy.sa`-style surface (`honua_gp.sa`) covering 16 of honua-server's
+Adds an `gp.sa`-style surface (`honua_gp.sa`) covering 16 of honua-server's
 20 raster/surface GDAL-worker processes: `Slope`, `Aspect`, `Hillshade`,
 `Contour`, `Viewshed`, `Roughness`, `TPI`, `TRI`, `Clip` (raster), `Mosaic`,
 `Reclassify`, `ProjectRaster`, `Resample`, `RasterCalculator`, `Idw`, and
-`ZonalStatisticsAsTable`. Esri tool names mirror honua-server's GPServer
-`GPServerEsriTaskAliases` where a mapping exists.
+`ZonalStatisticsAsTable`. GeoServices REST tool names mirror honua-server's GPServer
+`GeoServicesTaskAliases` where a mapping exists.
 
-Each tool projects its arcpy signature onto the target raster/surface process
+Each tool projects its gp signature onto the target raster/surface process
 and runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
 `geoprocess` step inside the canonical `honua-geoprocessing` plan (raster
 process ids 404 on direct execution). Dispatch reuses the existing
@@ -170,8 +164,8 @@ so the optional `raster` / `geopandas` extras load only on demand);
 
 Three tools are honest `stub` manifest entries that raise
 `HonuaGpUnsupportedError`. `sa.Histogram` (`raster.histogram`) and
-`sa.SpectralIndex` (`raster.spectral-index`) have no clean single arcpy Spatial
-Analyst tool-name analog and no GPServer Esri alias, so a name is not guessed.
+`sa.SpectralIndex` (`raster.spectral-index`) have no clean single gp Spatial
+Analyst tool-name analog and no GPServer GeoServices REST alias, so a name is not guessed.
 `sa.Kriging` (`raster.interpolate-kriging`) never produces output server-side:
 the job executor fails before any raster work because stock GDAL bundles no
 kriging backend, so it fails for every possible input. It is refused
@@ -188,13 +182,13 @@ execute to completion; submission-accepted is the honestly verified ceiling.
 ### Layer-aware projection adapter -- 6 GP tools promoted from stub to working
 
 Audit pass 8 downgraded every process-backed analysis/management entry to a
-stub because the shim emitted an arcpy-style ``input_features`` / ``result``
+stub because the shim emitted an gp-style ``input_features`` / ``result``
 payload that honua-server's ``BuiltInProcessCatalog`` rejects. This change
 lands the projection adapter that resolves the mismatch for the **layer-aware**
 process families and re-promotes the six high-frequency GP tools that map
 cleanly onto them.
 
-- **New ``honua_arcpy._process_tools`` projection adapter + ``_process_jobs``
+- **New ``honua_gp._process_tools`` projection adapter + ``_process_jobs``
   submit-and-poll loop.** honua-server runs every built-in geoprocessing
   operation as an asynchronous OGC API Processes job (``POST .../execution``
   returns a ``201`` ``OgcStatusInfo`` with a ``jobID`` + ``accepted`` status).
@@ -202,11 +196,11 @@ cleanly onto them.
   ``/jobs/{id}`` until a terminal state (``successful`` / ``failed`` /
   ``dismissed``), fetches ``/jobs/{id}/results`` on success, and raises
   ``ExecuteError`` on failure / dismissal / timeout. ``_process_tools`` owns the
-  per-tool arcpy-signature -> typed-process-input projection and returns an
-  arcpy-style ``Result`` (``result[0]`` / ``str(result)`` is the output, and a
+  per-tool gp-signature -> typed-process-input projection and returns an
+  gp-style ``Result`` (``result[0]`` / ``str(result)`` is the output, and a
   later GP call resolves the registered output alias).
 - **Six tools promoted.** Each input feature class / layer alias is projected to
-  a numeric ``layerId`` via the new ``honua_arcpy._resolve.resolve_layer_id``
+  a numeric ``layerId`` via the new ``honua_gp._resolve.resolve_layer_id``
   (reusing the existing alias map / ``honua://`` URI / ``HONUA_GP_PATH_MAP``
   resolution):
   - ``analysis.Buffer`` -> ``analytics.buffer-aggregate`` (``in_features`` ->
@@ -223,7 +217,7 @@ cleanly onto them.
   - ``management.CalculateField`` -> ``data-management.calculate-field``
     (``in_table`` -> ``layerId``, ``field`` -> ``fieldName``, ``expression`` ->
     ``expression``). **partial** (expression must pass the FeatureServer.Edits
-    allow-list; arcpy PYTHON3 ``!field!`` syntax is rejected server-side).
+    allow-list; gp PYTHON3 ``!field!`` syntax is rejected server-side).
   - ``management.Copy`` / ``CopyFeatures`` -> ``data-management.copy-features``
     (``in_features`` -> ``sourceLayerId``, ``out_feature_class`` ->
     ``targetLayerName``). **supported.**
@@ -234,7 +228,7 @@ cleanly onto them.
   the single-WKB ``geometry.*`` family (``geometry.clip`` / ``geometry.intersect``
   / ``geometry.union`` / ``geometry.difference``), which operates on one
   base64-WKB geometry at a time, not on feature classes. ``management.Delete``
-  stays a stub because arcpy.Delete removes a whole dataset while
+  stays a stub because gp.Delete removes a whole dataset while
   ``data-management.delete-features`` only deletes filtered features inside a
   layer. The schema-shaped admin entries (AddField/DeleteField/Rename/
   ListFields/Describe) and the no-op-mapping entries (Append/Merge/Create*/Sort/
@@ -256,19 +250,19 @@ cleanly onto them.
 ## 0.1.0 (2026-05-22)
 
 Initial drop. Adds the proprietary `honua_gp` shim package covering 45
-top-of-corpus arcpy functions (15 analysis, 20 management, 10 data-access).
+top-of-corpus gp functions (15 analysis, 20 management, 10 data-access).
 Dispatches through `honua_sdk`, `honua_admin`, and
 `honua_sdk.protocols.OgcProcessesClient` -- no direct REST/gRPC plumbing.
 
 - Dispatch core, audit JSONL logger, path resolver, env/session shim.
 - Compatibility matrix generated from in-code manifest.
-- `honua-gp assess` CLI consuming the `honua_admin._arcpy_scanner` output.
+- `honua-gp assess` CLI producing a source-analysis report.
 - 50-script eval suite + `eval/run_eval.py` harness writing JUnit + JSON.
 - End-to-end Buffer / Clip / ApplyEdits example.
 - CI lane `honua-gp-eval.yml` reusing the staging-integration container
   pattern.
 - Legacy suffix aliases (`Buffer_analysis`, `Clip_analysis`,
-  `GetCount_management`, ...) so unmodified arcpy scripts continue to
+  `GetCount_management`, ...) so unmodified gp scripts continue to
   import.
 
 ### Known limitations
@@ -295,7 +289,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   dropped, so a selected layer could iterate, update, or delete rows
   outside the selection.
 - `SelectLayerByAttribute` honours `invert_where_clause=True` and rejects
-  `selection_type="SWITCH_SELECTION"` (arcpy's OID-set toggle that cannot
+  `selection_type="SWITCH_SELECTION"` (gp's OID-set toggle that cannot
   be modelled as a SQL where clause) with `HonuaGpUnsupportedError`.
   Unknown selection types now raise `HonuaGpConfigurationError`.
 - `_layer_count` no longer swallows backend exceptions and silently
@@ -303,7 +297,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   `SelectLayerByAttribute` and `GetCount` are wrapped in `ExecuteError`
   (with the original cause attached) and surface in the audit JSONL with
   the real `error_kind`.
-- The process dispatcher honours `arcpy.env.overwriteOutput`. With it
+- The process dispatcher honours `gp.env.overwriteOutput`. With it
   unset (the default), a second process call that targets the same output
   name raises `HonuaGpConfigurationError` instead of silently
   re-running over the prior output. Audit projection moved inside
@@ -320,7 +314,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   now surface as `ExecuteError` with `function`, `error_kind`,
   `compat_anchor`, and `cause` attached. Previously a `RuntimeError`
   raised from `iter_features` leaked past the cursor and the
-  `except arcpy.ExecuteError:` idiom missed it.
+  `except gp.ExecuteError:` idiom missed it.
 - Cursor close-time failures (a flush raised during `__exit__` after the
   user block exited cleanly) now route the close-time exception into the
   audit context, so the JSONL record reflects `status="error"` /
@@ -331,7 +325,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   `FunctionEntry.source_params` / `output_params`. Other strings
   (`dissolve_option`, `expression`, CRS strings, distances, etc.) pass
   through unchanged so a path-map entry that happens to collide with an
-  arcpy literal like `"ALL"` cannot silently corrupt the process payload.
+  gp literal like `"ALL"` cannot silently corrupt the process payload.
 - `SelectLayerByAttribute` now commits `alias.where` / `alias.selection`
   only after the backend count succeeds. A failed selection leaves the
   alias in its prior state, so subsequent cursors do not iterate against
@@ -342,12 +336,6 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   and whose `replacement_hint` points at `invert_where_clause=True`. The
   prior code claimed the whole `SelectLayerByAttribute` function was
   unimplemented, contradicting the compatibility matrix.
-- `honua-gp assess` now reads the
-  `honua_sdk.migration.scan_arcpy_source(...).to_dict()` shape (entries
-  under the top-level `calls` key) in addition to the
-  `honua_admin.scan_arcpy_script` shape (`toolCalls` / `tool_calls`).
-  Both scanners are documented inputs; previously the SDK shape
-  silently produced an empty assessment.
 - `da.SearchCursor` / `da.UpdateCursor` now preserve a zero-valued
   `OBJECTID` (or `FID`) when resolving `OID@`. The previous
   `attrs.get('OBJECTID') or ...` falsy chain collapsed `0` to `None`,
@@ -357,7 +345,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
 ### Fixes (review pass 4)
 
 - `honua-gp assess` now canonicalizes
-  `arcpy.management.CopyFeatures` to the canonical `management.Copy`
+  `gp.management.CopyFeatures` to the canonical `management.Copy`
   manifest entry. The shim already exposed
   `management.CopyFeatures = Copy`, but `assess` keyed straight off the
   scanner's qualified name, so SDK / admin inventories of
@@ -466,7 +454,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   ``HonuaGpUnsupportedError`` with a per-function
   ``honua-server#...`` tracking ticket pointing at the projection
   adapter that needs to land before they can be re-promoted. The
-  prior arcpy-style payloads would have been rejected by live OGC
+  prior gp-style payloads would have been rejected by live OGC
   Processes validation despite passing the in-tree stub eval; the
   downgrade makes the migration tool surface the real coverage and
   unblocks future adapter work.
@@ -493,9 +481,9 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   contract. Local eval pass rate: **50/50 (100%)** against the stub
   transport, with all 39 expected-failure scripts producing the
   documented refusal audit line.
-- **Unknown ``arcpy.env.*`` attributes no longer crash client
-  construction.** Writes such as ``arcpy.env.extent``,
-  ``arcpy.env.MTolerance``, or ``arcpy.env.geographicTransformations``
+- **Unknown ``gp.env.*`` attributes no longer crash client
+  construction.** Writes such as ``gp.env.extent``,
+  ``gp.env.MTolerance``, or ``gp.env.geographicTransformations``
   previously landed in ``HonuaSession.extra_client_options``, which
   ``_build_client`` forwarded into ``honua_sdk.HonuaClient(**kwargs)``.
   ``HonuaClient`` has a closed keyword signature, so the next backend
@@ -592,7 +580,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   to a stub; the docs now explain that canonicalization preserves
   the aggregation invariant but the row's status follows the
   manifest, so `CopyFeatures` calls report under **Stubs** (tracking
-  `honua-server#arcpy-copy-features-adapter`) until the projection
+  `honua-server#gp-copy-features-adapter`) until the projection
   adapter lands.
 
 ### Fixes (review pass 10)
@@ -603,7 +591,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   when the buffer is non-empty, an `insertRow(...); reset(); <context
   exit>` sequence committed nothing to the backend, raised nothing,
   and emitted an `audit JSONL line with `status="ok"`. Real
-  `arcpy.da.InsertCursor` does not expose `reset()`. The shim now
+  `gp.da.InsertCursor` does not expose `reset()`. The shim now
   overrides `InsertCursor.reset` to call `_ensure_open()` (so a
   pre-context use surfaces the standard configuration error first)
   then raises `HonuaGpConfigurationError` with a message
@@ -617,7 +605,7 @@ Dispatches through `honua_sdk`, `honua_admin`, and
   `_payload_for_row` used `zip(row, fields, strict=True)`, so a
   short or long row argument to `UpdateCursor.updateRow` /
   `InsertCursor.insertRow` raised a bare `ValueError` that the
-  documented `except arcpy.ExecuteError:` idiom did not catch.
+  documented `except gp.ExecuteError:` idiom did not catch.
   `_payload_for_row` now compares `len(row)` against `len(fields)`
   before the zip and raises `HonuaGpConfigurationError` (an
   `ExecuteError` subclass) with the expected / got counts in the

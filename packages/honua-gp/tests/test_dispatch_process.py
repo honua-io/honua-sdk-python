@@ -1,6 +1,6 @@
 """Process-backed dispatch: stub routing, audit JSONL, exception surface.
 
-The shim does NOT yet implement the arcpy -> honua-server projection
+The shim does NOT yet implement the gp -> honua-server projection
 adapter (see ``test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``),
 so every analysis.* and management.* entry that previously dispatched
 through ``dispatch_process`` now routes through ``raise_unsupported``
@@ -48,7 +48,7 @@ def _audit_lines(audit_root: Path) -> list[dict]:
 
 # Overlay tools (Clip/Intersect/Union/Erase) only have single-WKB
 # geometry.* counterparts, not layer-aware ones, so they stay stubs. Delete
-# stays a stub because arcpy.Delete removes a dataset while honua-server's
+# stays a stub because gp.Delete removes a dataset while honua-server's
 # delete-features only deletes filtered features inside a layer.
 _DOWNGRADED = [
     ("analysis.Clip", lambda: honua_gp.analysis.Clip("roads", "study", "clip")),
@@ -307,7 +307,7 @@ def test_dispatch_process_path_map_does_not_rewrite_non_source_params(
     _registered_test_entry: str,
 ) -> None:
     """HONUA_GP_PATH_MAP entries must NOT rewrite non-source string
-    params -- a path-map alias that collides with an arcpy literal must
+    params -- a path-map alias that collides with an gp literal must
     not silently corrupt the process payload."""
 
     monkeypatch.setenv(

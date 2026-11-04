@@ -40,7 +40,6 @@ EXPECTED_CONTENTS: dict[str, tuple[str, ...]] = {
         "honua_sdk/_retry_core.py",
         # Optional but first-party subpackages that must ship whole.
         "honua_sdk/grpc/",
-        "honua_sdk/migration/",
         # The generated gRPC type stub is the type signal for the streaming
         # client; a wheel that drops it ships an untyped grpc surface.
         "honua_sdk/grpc/_generated/geospatial/v1/feature_service_pb2.pyi",
@@ -55,8 +54,6 @@ EXPECTED_CONTENTS: dict[str, tuple[str, ...]] = {
         "honua_admin/_async_client.py",
         # Shared request/parse helpers for the admin client facades.
         "honua_admin/_endpoints.py",
-        # AST-walking arcpy inventory scanner.
-        "honua_admin/_arcpy_scanner.py",
         # Operator command line behind the ``honua-admin`` console script.
         "honua_admin/cli.py",
     ),
@@ -64,7 +61,7 @@ EXPECTED_CONTENTS: dict[str, tuple[str, ...]] = {
 
 # Console scripts each wheel must declare in ``entry_points.txt``.
 EXPECTED_CONSOLE_SCRIPTS: dict[str, tuple[str, ...]] = {
-    "honua-sdk": ("honua = honua_sdk.cli:main", "honua-migrate = honua_sdk.migration._cli:main"),
+    "honua-sdk": ("honua = honua_sdk.cli:main",),
     "honua-admin": ("honua-admin = honua_admin.cli:main",),
 }
 

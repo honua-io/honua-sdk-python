@@ -56,7 +56,7 @@ class Feature:
 
         Implements the de-facto ``__geo_interface__`` protocol so the feature
         plugs directly into Shapely (``shapely.geometry.shape(feature)``) and
-        the wider Python geospatial ecosystem. Handles both the Esri-JSON
+        the wider Python geospatial ecosystem. Handles both the GeoServices REST-JSON
         (FeatureServer) and GeoJSON (OGC/STAC) geometry encodings.
         """
         return geometry_to_geo_interface(self.geometry)
@@ -64,7 +64,7 @@ class Feature:
     def to_shapely(self) -> "BaseGeometry | None":
         """Return this feature's geometry as a Shapely geometry.
 
-        The typed analogue of ``arcpy`` ``feature.SHAPE`` / the ArcGIS-API
+        The typed analogue of ``desktop GIS API`` ``feature.SHAPE`` / the GeoServices REST-API
         geometry object: a GP tool gets Shapely geometry directly from the
         feature without dropping to ``result.raw``. Returns ``None`` when the
         feature has no geometry. Raises :class:`ImportError` with an install
@@ -192,14 +192,14 @@ class QueryFeature:
 
         Implements the de-facto ``__geo_interface__`` protocol so the feature
         plugs directly into Shapely and the wider Python geospatial ecosystem.
-        Handles both Esri-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.
+        Handles both GeoServices REST-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.
         """
         return geometry_to_geo_interface(self.geometry)
 
     def to_shapely(self) -> "BaseGeometry | None":
         """Return this feature's geometry as a Shapely geometry.
 
-        The typed analogue of ``arcpy`` ``feature.SHAPE`` / the ArcGIS-API
+        The typed analogue of ``desktop GIS API`` ``feature.SHAPE`` / the GeoServices REST-API
         geometry object. Returns ``None`` when the feature carries no geometry.
         Raises :class:`ImportError` with an install hint when the optional
         ``shapely`` dependency is absent.

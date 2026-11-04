@@ -18,12 +18,12 @@ NEUTRALISED_FILES = (
     ROOT / "packages/honua-gp/eval/_emit.py",
 )
 PROHIBITED_TESTING_DETAIL = (
-    "arcgis pro parity",
-    "arcgis pro output parity",
-    "licensed arcpy",
-    "real arcgis pro baseline",
-    "arcpy-level output equivalence",
-    "arcpy-level output parity",
+    "licensed client parity",
+    "client output parity",
+    "licensed desktop GIS API",
+    "real client baseline",
+    "desktop GIS API-level output equivalence",
+    "desktop GIS API-level output parity",
     "license-gated",
 )
 EVIDENCE_IDENTIFIER = "honua-release#425"

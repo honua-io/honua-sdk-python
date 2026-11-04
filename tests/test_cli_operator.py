@@ -57,7 +57,7 @@ def test_query_prints_geojson_page(served: list[httpx.Request], capsys: pytest.C
     assert (params["orderByFields"], params["resultRecordCount"], params["resultOffset"]) == ("gid", "5", "10")
 
 
-def test_query_esri_json_format(served: list[httpx.Request], capsys: pytest.CaptureFixture[str]) -> None:
+def test_query_geoservices_json_format(served: list[httpx.Request], capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["query", "sites", "0", "--format", "json", "--out-fields", "gid"]) == 0
     assert json.loads(capsys.readouterr().out) == {"features": [{"attributes": {"gid": 1}}]}
     assert served[-1].url.params["outFields"] == "gid"

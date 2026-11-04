@@ -622,10 +622,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#appendix-manual-esri-json-conversion-without-the-geopandas-extra" class="md-nav__link">
+  <a href="#appendix-manual-geoservices-rest-json-conversion-without-the-geopandas-extra" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Appendix: Manual Esri JSON conversion (without the geopandas extra)
+        Appendix: Manual GeoServices REST JSON conversion (without the geopandas extra)
       
     </span>
   </a>
@@ -1748,10 +1748,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#appendix-manual-esri-json-conversion-without-the-geopandas-extra" class="md-nav__link">
+  <a href="#appendix-manual-geoservices-rest-json-conversion-without-the-geopandas-extra" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Appendix: Manual Esri JSON conversion (without the geopandas extra)
+        Appendix: Manual GeoServices REST JSON conversion (without the geopandas extra)
       
     </span>
   </a>
@@ -1929,7 +1929,7 @@ normalized features and resolves the CRS from the query's spatial reference.</p>
 <p>For raw FeatureServer payloads (the GeoServices dict returned directly by
 <code>query_features</code>), the typed <code>FeatureSet</code> returned by <code>query_feature_set</code>, or
 a list of feature dicts, use <code>features_to_geodataframe</code>, which also accepts
-Esri JSON geometries and the layer's <code>spatialReference</code>:</p>
+GeoServices REST JSON geometries and the layer's <code>spatialReference</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.geopandas</span><span class="w"> </span><span class="kn">import</span> <span class="n">features_to_geodataframe</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
@@ -1941,7 +1941,7 @@ Esri JSON geometries and the layer's <code>spatialReference</code>:</p>
 <p>The reverse helper, <code>geodataframe_to_features</code>, turns an edited GeoDataFrame
 back into payloads ready for <code>apply_edits</code>.</p>
 <p>If you prefer to skip the <code>geopandas</code> extra and stay on raw dicts, see the
-appendix at the bottom of this file for the manual Esri JSON conversion.</p>
+appendix at the bottom of this file for the manual GeoServices REST JSON conversion.</p>
 <h2 id="step-4-plot-the-data-60-seconds">Step 4: Plot the data (60 seconds)<a class="headerlink" href="#step-4-plot-the-data-60-seconds" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 
@@ -2119,10 +2119,10 @@ for high-throughput streaming queries. Install the gRPC extras first:</p>
 <li><a href="../packages/honua-sdk/honua_sdk/grpc/">gRPC client</a> -- streaming feature queries via <code>HonuaGrpcClient</code></li>
 <li><a href="../packages/honua-admin/honua_admin/">Admin client</a> -- server administration with <code>HonuaAdminClient</code></li>
 </ul>
-<h2 id="appendix-manual-esri-json-conversion-without-the-geopandas-extra">Appendix: Manual Esri JSON conversion (without the <code>geopandas</code> extra)<a class="headerlink" href="#appendix-manual-esri-json-conversion-without-the-geopandas-extra" title="Permanent link">&para;</a></h2>
+<h2 id="appendix-manual-geoservices-rest-json-conversion-without-the-geopandas-extra">Appendix: Manual GeoServices REST JSON conversion (without the <code>geopandas</code> extra)<a class="headerlink" href="#appendix-manual-geoservices-rest-json-conversion-without-the-geopandas-extra" title="Permanent link">&para;</a></h2>
 <p>If you cannot install the <code>geopandas</code> extra and need to handle the FeatureServer
 response yourself, the JSON shape is straightforward. Each feature has
-<code>"attributes"</code> and <code>"geometry"</code> keys; the geometry uses Esri JSON
+<code>"attributes"</code> and <code>"geometry"</code> keys; the geometry uses GeoServices REST JSON
 (<code>rings</code>, <code>paths</code>, or <code>x</code>/<code>y</code>) rather than GeoJSON. Use the legacy
 <code>query_features</code> call, which returns that raw GeoServices dict directly:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
@@ -2139,7 +2139,7 @@ response yourself, the JSON shape is straightforward. Each feature has
     <span class="n">attrs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"attributes"</span><span class="p">,</span> <span class="p">{}))</span>
     <span class="n">geom</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"geometry"</span><span class="p">)</span>
 
-    <span class="c1"># Esri JSON rings/paths -&gt; GeoJSON-style dict for shapely</span>
+    <span class="c1"># GeoServices REST JSON rings/paths -&gt; GeoJSON-style dict for shapely</span>
     <span class="k">if</span> <span class="n">geom</span> <span class="ow">and</span> <span class="s2">"rings"</span> <span class="ow">in</span> <span class="n">geom</span><span class="p">:</span>
         <span class="n">geom</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"Polygon"</span><span class="p">,</span> <span class="s2">"coordinates"</span><span class="p">:</span> <span class="n">geom</span><span class="p">[</span><span class="s2">"rings"</span><span class="p">]}</span>
     <span class="k">elif</span> <span class="n">geom</span> <span class="ow">and</span> <span class="s2">"paths"</span> <span class="ow">in</span> <span class="n">geom</span><span class="p">:</span>

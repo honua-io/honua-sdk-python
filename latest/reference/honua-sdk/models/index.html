@@ -2159,9 +2159,8 @@ failure, and <a href="../../../pagination/">Pagination</a> for how <code>Result.
 <code>Result.total_count</code> map to FeatureServer, OGC Features, STAC, and OData
 signals and how <code>Query.page_size</code> / <code>Query.max_pages</code> drive the pagination loop.</p>
 <h2 id="geometry-schema-and-geodataframe-ergonomics">Geometry, schema, and GeoDataFrame ergonomics<a class="headerlink" href="#geometry-schema-and-geodataframe-ergonomics" title="Permanent link">&para;</a></h2>
-<p>For ArcGIS-style geoprocessing authoring, the typed feature models carry a
-first-class geometry bridge and the source facade exposes typed layer schema and
-<code>arcpy.da</code>-style cursors:</p>
+<p>For geoprocessing workflows, the typed feature models carry a first-class
+geometry bridge and the source facade exposes typed layer schema and cursors:</p>
 <ul>
 <li><a class="autorefs autorefs-internal" title="honua_sdk.Feature
 
@@ -2176,7 +2175,7 @@ first-class geometry bridge and the source facade exposes typed layer schema and
   " href="#honua_sdk.QueryFeature"><code>QueryFeature</code></a>
   expose <code>.to_shapely()</code>, a cached <code>.geometry_shape</code>, and the
   <code>__geo_interface__</code> protocol — Shapely geometry directly off the typed
-  feature (the <code>arcpy</code> <code>feature.SHAPE</code> analogue), for both Esri-JSON and GeoJSON
+  feature, for both GeoServices REST JSON and GeoJSON
   sources. Shapely stays an optional dependency.</li>
 <li><a class="autorefs autorefs-internal" title="honua_sdk.LayerSchema
 
@@ -2195,15 +2194,15 @@ first-class geometry bridge and the source facade exposes typed layer schema and
   
       dataclass
   " href="#honua_sdk.Extent"><code>Extent</code></a>) is the
-  <code>arcpy.Describe</code> / <code>ListFields</code> analogue — <code>Source.schema()</code> /
+  <code>Source.schema()</code> /
   <code>feature_server.schema()</code> parse FeatureServer layer metadata into typed
   fields, normalized geometry type, resolved SRID, and a typed extent.</li>
 <li><code>Result.to_geodataframe()</code> / <code>Source.to_geodataframe(...)</code> are the
   Spatially-Enabled-DataFrame equivalent: one call from a query result to a
   GeoPandas <code>GeoDataFrame</code> (requires the <code>geopandas</code> extra).</li>
 <li><code>Source.search_cursor</code> / <code>update_cursor</code> / <code>insert_cursor</code> (see the
-  <a href="../source-facade/">Source facade</a>) provide the <code>arcpy.da</code> cursor idioms over
-  streaming query + batched <code>apply_edits</code>.</li>
+  <a href="../source-facade/">Source facade</a>) provide cursor helpers over streaming
+  queries and batched <code>apply_edits</code>.</li>
 </ul>
 
 

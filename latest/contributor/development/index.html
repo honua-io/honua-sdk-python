@@ -1537,7 +1537,7 @@ the policies behind the gates.</p>
 <td><code>packages/honua-gp</code></td>
 <td><code>honua-gp</code></td>
 <td>Proprietary (do-not-upload)</td>
-<td>Closed-source geoprocessing compatibility layer for teams migrating from ArcGIS <code>arcpy</code>. Import <code>honua_gp</code>. It has its own lenient lint/test gate, not the workspace-root strict rules.</td>
+<td>Closed-source geoprocessing compatibility layer for teams migrating from GeoServices REST <code>desktop GIS API</code>. Import <code>honua_gp</code>. It has its own lenient lint/test gate, not the workspace-root strict rules.</td>
 </tr>
 </tbody>
 </table>
@@ -1663,10 +1663,8 @@ New drift in a required case must fail the lane; never add a blanket
 <p>The SDK exposes no way to submit custom (operator-authored) geoprocessing code
 and no way to select an execution backend; backend selection is server
 configuration. Per honua-server ADR-0063, untrusted custom GP code runs only
-in an isolated AWS Batch container, never on-host. The ArcPy/ModelBuilder
-codemod (<code>honua_sdk.migration</code>) translates recognized tools only to built-in
-server processes (<code>EXECUTABLE_PROCESS_IDS</code>) and emits anything else as
-<code>manual-review</code>. <code>honua gp inspect</code> and <code>honua gp logs</code> read the canonical job
+in an isolated AWS Batch container, never on-host. <code>honua gp inspect</code> and
+<code>honua gp logs</code> read the canonical job
 diagnostics projection in this SDK; every other <code>honua gp</code> command delegates
 to a separately installed trusted local devkit and never changes server
 submission or workload routing. <code>tests/test_custom_code_batch_only_policy.py</code>

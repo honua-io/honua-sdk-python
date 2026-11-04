@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to import honua-gp, and the unpublished re-export distribution that was removed.">
+        <meta name="description" content="Install and import the Honua geoprocessing package.">
       
       
       
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#geoprocessing-import" class="md-skip">
+        <a href="#geoprocessing-package-import" class="md-skip">
           Skip to content
         </a>
       
@@ -1384,36 +1384,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#previous-distribution" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Previous distribution
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#source-scanner" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Source scanner
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1432,32 +1402,16 @@
   
 
 
-<h1 id="geoprocessing-import">Geoprocessing import<a class="headerlink" href="#geoprocessing-import" title="Permanent link">&para;</a></h1>
-<p><code>honua-gp</code> is the geoprocessing distribution. Import it as <code>honua_gp</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">honua_gp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">arcpy</span>
+<h1 id="geoprocessing-package-import">Geoprocessing package import<a class="headerlink" href="#geoprocessing-package-import" title="Permanent link">&para;</a></h1>
+<p><code>honua-gp</code> is a separately licensed geoprocessing package. Use its
+<code>honua_gp</code> namespace:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">honua_gp</span>
 
-<span class="n">arcpy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">"https://honua.example.com"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">)</span>
+<span class="n">honua_gp</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">"https://honua.example.com"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"..."</span><span class="p">)</span>
 </code></pre></div>
 <p>Point the session at a Honua base URL, then call the supported tools. The
-behaviour reference is <code>packages/honua-gp/README.md</code> and
+behavior reference is <code>packages/honua-gp/README.md</code> and
 <code>packages/honua-gp/docs/compatibility-matrix.md</code>.</p>
-<h2 id="previous-distribution">Previous distribution<a class="headerlink" href="#previous-distribution" title="Permanent link">&para;</a></h2>
-<p>This repository used to contain a second distribution, <code>honua-arcpy</code>, next to
-<code>honua-gp</code>. Importing <code>honua_arcpy</code> re-exported <code>honua_gp</code> and emitted a
-<code>DeprecationWarning</code>. That distribution was never published to a package index.
-It has been removed.</p>
-<p>Replace:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">honua_arcpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">arcpy</span>
-</code></pre></div>
-<p>with:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">honua_gp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">arcpy</span>
-</code></pre></div>
-<p>Calls, configuration, and results are the <code>honua_gp</code> implementation. There is
-no compatibility module left under the old name.</p>
-<h2 id="source-scanner">Source scanner<a class="headerlink" href="#source-scanner" title="Permanent link">&para;</a></h2>
-<p><code>honua_sdk.migration.arcpy</code> is a different module. It reads Python source text
-and describes calls for translation onto Honua processes. It does not import
-<code>honua_gp</code>, and removing the unpublished distribution does not change it.</p>
 
 
 

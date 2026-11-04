@@ -1595,7 +1595,7 @@ from command output and are not written to logs.</p>
 failed candidate job is not claimed here. That journey remains outstanding.</p>
 <p>This developer tool does not add a local backend selector to SDK server
 submissions. Server-side untrusted custom code retains its AWS Batch isolation
-policy. The existing proprietary <code>honua-gp</code> ArcPy compatibility executable is
+policy. The existing proprietary <code>honua-gp</code> desktop GIS Python API compatibility executable is
 a different tool; it is not used as the devkit engine.</p>
 <h2 id="connection-options">Connection options<a class="headerlink" href="#connection-options" title="Permanent link">&para;</a></h2>
 <p>Every control-plane command accepts:</p>
@@ -1650,7 +1650,7 @@ default to <code>HONUA_BASE_URL</code> and <code>HONUA_API_KEY</code>.</p>
 <tr>
 <td><code>honua query SERVICE_ID LAYER_ID</code></td>
 <td><code>HonuaClient.query_features</code></td>
-<td>The server's GeoJSON <code>FeatureCollection</code> (<code>--format geojson</code>, default) or Esri JSON page (<code>--format json</code>)</td>
+<td>The server's GeoJSON <code>FeatureCollection</code> (<code>--format geojson</code>, default) or GeoServices REST JSON page (<code>--format json</code>)</td>
 </tr>
 <tr>
 <td><code>honua query SERVICE_ID LAYER_ID --count [--json]</code></td>

@@ -1826,9 +1826,9 @@ feature in source.stream(...)</code>.</p>
 <h2 id="server-side-spatial-filters-and-statistics-featureserver">Server-side spatial filters and statistics (FeatureServer)<a class="headerlink" href="#server-side-spatial-filters-and-statistics-featureserver" title="Permanent link">&para;</a></h2>
 <p><code>client.query</code> / <code>Source.query</code> accept an arbitrary-geometry spatial
 filter and server-side statistics on the GeoServices FeatureServer path,
-mirroring Esri's <code>query(geometry=..., spatial_relationship=...)</code> and
-arcpy summary-statistics queries.</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># "Select by location": features WITHIN a polygon (Esri JSON, GeoJSON, or</span>
+mirroring GeoServices REST's <code>query(geometry=..., spatial_relationship=...)</code> and
+desktop GIS API summary-statistics queries.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># "Select by location": features WITHIN a polygon (GeoServices REST JSON, GeoJSON, or</span>
 <span class="c1"># any shapely/`__geo_interface__` geometry are accepted).</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
     <span class="s2">"parcels"</span><span class="p">,</span>

@@ -43,7 +43,7 @@ SHAPE_TOKEN = "SHAPE@"  # noqa: S105 -- a geometry field token, not a credential
 class Row:
     """A single cursor row: a feature's geometry plus its attribute mapping.
 
-    Mirrors an ``da`` cursor row. :meth:`values` projects the row onto a
+    Mirrors a ``da`` cursor row. :meth:`values` projects the row onto a
     requested field tuple (with the ``"SHAPE@"`` token selecting geometry),
     giving the positional-tuple ergonomic GP tools expect.
     """

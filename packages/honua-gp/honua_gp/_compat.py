@@ -130,7 +130,8 @@ COMPAT: dict[str, FunctionEntry] = {
     # -----------------------------------------------------------------
     # analysis.* (15)
     # -----------------------------------------------------------------
-    # NOTE on the analysis.* and management.* process-backed stubs below:
+    # NOTE on the analysis.* and management.* entries below, which mix
+    # process-backed implementations with unsupported-tool stubs:
     # honua-server's ``geometry.*`` processes take one raw WKB geometry with an
     # explicit ``srid``; the ``analytics.*``, ``data-management.*`` and
     # ``conversion.feature-project`` processes take ``layerId`` references. The
@@ -197,7 +198,7 @@ COMPAT: dict[str, FunctionEntry] = {
         replacement_hint=(
             "Use the layer-aware analytics.spatial-join process via "
             "honua_sdk.protocols.OgcProcessesClient with the predicate=intersects "
-            "branch once the projection adapter lands."
+            "branch."
         ),
         tracking="honua-server#feature-class-geometry-ops",
     ),
@@ -396,8 +397,9 @@ COMPAT: dict[str, FunctionEntry] = {
             "Spatial selection by relationship to another layer. honua-server "
             "has no native spatial-select process today, and the natural "
             "compose path (analysis.Buffer + analysis.Intersect, then "
-            "SelectLayerByAttribute) is blocked because Buffer and Intersect "
-            "are themselves stubs pending the projection adapter."
+            "SelectLayerByAttribute) is blocked because analysis.Intersect is "
+            "a stub: honua-server's geometry.intersect works on single "
+            "geometries, not feature classes."
         ),
         replacement_hint=(
             "Query the candidate features via honua_sdk.Source.query(...) with "
@@ -628,8 +630,8 @@ COMPAT: dict[str, FunctionEntry] = {
             "the scripting API's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/"
             "Single/Date/OID/Geometry/GUID/GlobalID/Blob/Raster/XML/DateOnly/TimeOnly/"
             "TimestampOffset). Partial: honua-server's field JSON does not carry "
-            "precision/scale, so FieldDescribe.precision/.scale are always None (real "
-            "the scripting API populates them for numeric fields); required/isVersioned/domain-code "
+            "precision/scale, so FieldDescribe.precision/.scale are always None (the "
+            "desktop scripting API populates them for numeric fields); required/isVersioned/domain-code "
             "nuances are also not modelled beyond passing the raw domain mapping through."
         ),
         param_map={"dataset": "layer_name"},

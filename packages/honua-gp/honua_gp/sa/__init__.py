@@ -1,9 +1,9 @@
-"""``sa`` (Spatial Analyst) shim -- 16 raster/surface tools + 2 stubs.
+"""``sa`` (Spatial Analyst) shim for honua-server's raster/surface processes.
 
 Import the namespace with ``from honua_gp import sa`` and call tools as
 ``sa.Slope(...)``; a script written with a wildcard import needs its call sites
-prefixed with ``sa.``. Each tool projects its scripting-API signature onto one of honua-server's raster/surface GDAL-worker processes and
-runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
+prefixed with ``sa.``. Each tool projects its scripting-API signature onto one
+of honua-server's raster/surface GDAL-worker processes and runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
 ``geoprocess`` step inside the canonical ``honua-geoprocessing`` plan (raster
 process ids 404 on direct execution). See :mod:`honua_gp._raster_tools` for the
 dispatch lifecycle and :mod:`honua_gp._compat` for the per-tool status.

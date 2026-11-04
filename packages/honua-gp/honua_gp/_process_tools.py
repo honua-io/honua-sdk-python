@@ -106,7 +106,7 @@ def _bound(entry: FunctionEntry, args: Sequence[Any], kwargs: Mapping[str, Any])
 def _parse_linear_distance(value: Any) -> tuple[float, str]:
     """Coerce a scripting-API linear-distance argument into a (value, unit) pair.
 
-    the scripting API accepts both a number (``25``) and a ``"25 Meters"`` linear-unit
+    The scripting API accepts both a number (``25``) and a ``"25 Meters"`` linear-unit
     string. honua-server's ``analytics.buffer-aggregate`` takes a numeric
     ``distance`` plus a ``unit`` enum, so the shim splits the string form into
     a value + unit. Only the unit families honua-server accepts
@@ -695,7 +695,7 @@ def _project_project(bound: Mapping[str, Any], *, session: HonuaSession, project
 def _coerce_srid(value: Any) -> int:
     """Coerce a scripting-API spatial-reference argument into an integer SRID.
 
-    the scripting API's ``out_coor_system`` is usually an EPSG/WKID int (``4326``) or a
+    The scripting API's ``out_coor_system`` is usually an EPSG/WKID int (``4326``) or a
     numeric string. honua-server's ``conversion.feature-project`` takes a
     plain ``targetSrid`` integer, so the shim accepts the int / numeric-string
     forms and rejects opaque ``SpatialReference`` objects with a clear

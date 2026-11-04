@@ -638,7 +638,7 @@ def Describe(dataset: Any, data_type: Any = None) -> DescribeResult:
     introspection.
 
     Fetches the dataset's typed ``LayerSchema`` from honua-server's
-    FeatureServer layer-metadata endpoint and projects it onto an
+    FeatureServer layer-metadata endpoint and projects it onto a
     scripting-API-shaped ``DescribeResult``. See the ``management.Describe``
     manifest entry for the properties this does not populate.
 

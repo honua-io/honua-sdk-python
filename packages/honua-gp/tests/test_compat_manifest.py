@@ -16,8 +16,6 @@ def test_manifest_covers_all_functions_across_families() -> None:
         family = name.split(".", 1)[0]
         assert family in families, f"Unexpected family {family!r}"
         families[family] += 1
-    # sa.* wraps 17 raster/surface tools (8 surface + 9 raster) plus 2 honest
-    # stubs (raster.histogram / raster.spectral-index) with no clean scripting-API name.
     assert families == {"analysis": 15, "management": 20, "da": 10, "sa": 19}
     assert len(COMPAT) == 64
 
@@ -99,8 +97,8 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
 
     # Snapshot of honua-server's BuiltInProcessCatalog inputs (process_id
     # -> accepted input names). Keep this in sync when honua-server adds /
-    # renames process inputs. The list intentionally omits raster / surface
-    # / generalization processes the scripting-API shim does not target.
+    # renames process inputs. Raster and surface processes have their own
+    # snapshot in the raster input-name test below.
     server_inputs: dict[str, set[str]] = {
         "geometry.buffer": {"wkb", "srid", "distance", "geodesic"},
         "geometry.clip": {"targetWkb", "clipEnvelopeWkb", "srid"},

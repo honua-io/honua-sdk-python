@@ -155,6 +155,17 @@ Related: [honua-admin](https://github.com/honua-io/honua-sdk-python/tree/trunk/p
 [honua-sdk-js](https://github.com/honua-io/honua-sdk-js) (JS/TS SDKs + MCP server),
 [honua-sdk-dotnet](https://github.com/honua-io/honua-sdk-dotnet) (.NET SDKs).
 
+## Verify a release
+
+From 0.2.1, each PyPI release is built by this repository's publication workflow, which attaches
+the same wheel and sdist to the matching GitHub release and records a build-provenance attestation
+for them. 0.2.0 was published without an attestation; use 0.2.1 or later when you need to verify
+provenance. To check a downloaded file:
+
+```bash
+gh attestation verify honua_sdk-<version>-py3-none-any.whl --repo honua-io/honua-sdk-python
+```
+
 ## License
 
 Apache-2.0

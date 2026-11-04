@@ -7,8 +7,7 @@ counterpart. Each test mocks the transport and asserts the constructed URL
 path and query parameters against the wire format confirmed by honua-server's
 own ImageServer handlers (see
 ``src/Honua.Protocols.GeoServices/ImageServer/Handlers/*.cs`` and
-``ImageServerEndpoints.cs`` in the honua-server repo) and the
-honua-esri-compat certification harness.
+``ImageServerEndpoints.cs`` in the honua-server repo).
 
 Two corrections were made after an initial round of live-Docker
 verification against a real seeded server surfaced them:

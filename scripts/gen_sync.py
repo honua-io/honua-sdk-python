@@ -142,7 +142,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     _rule(r"\bcoroutine is a no-op\b", "method is a no-op"),
     # "awaiting :meth:`x`" → "calling :meth:`x`" (the sync verb).
     _rule(r"\bawaiting (?=:meth:`)", "calling "),
-    #
     _rule(r"\basync def\b", "def"),
     _rule(r"\basync with\b", "with"),
     _rule(r"\basync for\b", "for"),
@@ -155,7 +154,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # leaves the awaited expression intact. ``await`` only ever appears as a
     # prefix operator in these modules.
     _rule(r"\bawait\s+", ""),
-    #
     _rule(r"__aenter__", "__enter__"),
     _rule(r"__aexit__", "__exit__"),
     _rule(r"__aiter__", "__iter__"),
@@ -171,7 +169,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # rather than a silently-awaited coroutine. (No occurrences today.)
     _rule(r"\banext\(", "next("),
     _rule(r"\baiter\(", "iter("),
-    #
     _rule(r"\bAsyncIterator\b", "Iterator"),
     _rule(r"\bAsyncIterable\b", "Iterable"),
     _rule(r"\bAsyncGenerator\b", "Generator"),

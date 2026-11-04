@@ -6,6 +6,24 @@
 
 - Removed the offline Python source scanner, local toolbox parsers, translation CLI, and their public exports. Source-code classification and automatic conversion are no longer provided. Consumers of the migration package, its command-line entry point, or local scan functions must remove or replace those integrations. This is an intentional breaking change for a coordinated major release. Generic admin toolbox-manifest submission and server validation remain available independently of local parsing.
 
+## [0.2.0](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.19...python-sdk-v0.2.0) (2026-11-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* the honua_sdk.migration module, the honua-migrate console script and the scanner exports of honua_admin are removed.
+* **sdk:** constructing a client with credentials and a plain http:// base URL on a non-loopback host now raises ValueError (HonuaGpConfigurationError in honua_gp). Use an https:// base URL, a loopback host, or opt in with allow_insecure_http=True / HONUA_ALLOW_INSECURE_HTTP=1. The `honua` CLI no longer forwards arbitrary unknown commands, and forwards JS-only commands only to HONUA_JS_CLI or an installed @honua/sdk-js launcher.
+
+### refactor
+
+* remove local source conversion tooling ([#345](https://github.com/honua-io/honua-sdk-python/issues/345)) ([623cc86](https://github.com/honua-io/honua-sdk-python/commit/623cc86ca0ea7ed98a51638889e19ef39db4913a))
+
+
+### Bug Fixes
+
+* **gp:** refuse foreign result hrefs ([#336](https://github.com/honua-io/honua-sdk-python/issues/336)) ([58b798e](https://github.com/honua-io/honua-sdk-python/commit/58b798e32896e793257b610ea82ff5c64885e797))
+* **sdk:** refuse credentials over plain HTTP to non-loopback hosts and delegate CLI to @honua/sdk-js ([#328](https://github.com/honua-io/honua-sdk-python/issues/328)) ([ea8a119](https://github.com/honua-io/honua-sdk-python/commit/ea8a1195a4bf4c4a266fcf1a2fd4077810996c85))
+
 ## [0.1.19](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.18...python-sdk-v0.1.19) (2026-10-26)
 
 

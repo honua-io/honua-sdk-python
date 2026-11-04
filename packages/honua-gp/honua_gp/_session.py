@@ -1,9 +1,9 @@
-"""Module-global session shared by the shim functions and ``arcpy.env``.
+"""Module-global session shared by the shim functions and ``env``.
 
 The session carries:
 
 * The configured Honua / Admin / OGC Processes clients.
-* The mirrored ``arcpy.env`` attributes (``workspace``, ``outputCoordinateSystem``,
+* The mirrored ``env`` attributes (``workspace``, ``outputCoordinateSystem``,
   ``overwriteOutput``, ``parallelProcessingFactor``, ``scratchWorkspace``).
 * A cache of ``MakeFeatureLayer`` / ``MakeTableView`` aliases.
 * The active ``AuditWriter`` instance.
@@ -53,12 +53,12 @@ class HonuaSession:
     """Extra ``**kwargs`` to forward into the underlying ``HonuaClient`` /
     ``HonuaAdminClient`` constructors. Populated only by
     ``configure(..., **client_kwargs)``; the env proxy stashes unknown
-    ``arcpy.env`` attributes in :attr:`extra_env_options` so they never
+    ``env`` attributes in :attr:`extra_env_options` so they never
     reach the SDK constructor."""
 
     extra_env_options: dict[str, Any] = field(default_factory=dict)
-    """Spillover bag for unknown ``arcpy.env.*`` writes (e.g.
-    ``arcpy.env.extent``). These are accepted to keep legacy scripts
+    """Spillover bag for unknown ``env.*`` writes (e.g.
+    ``env.extent``). These are accepted to keep legacy scripts
     importing without ``AttributeError`` but never forwarded to
     ``HonuaClient`` / ``HonuaAdminClient`` -- those constructors have a
     closed keyword signature and would raise ``TypeError`` on unknown
@@ -149,7 +149,7 @@ class HonuaSession:
         """Apply the documented environment to a session that has no ``base_url``.
 
         Runs on the first lazy client build so ``import honua_gp`` followed
-        directly by a tool call honours ``HONUA_BASE_URL`` (arcpy scripts do
+        directly by a tool call honours ``HONUA_BASE_URL`` (geoprocessing scripts do
         not call a configure step). Unlike :meth:`configure_from_env`, it only
         fills settings the caller left unset: an explicit ``api_key`` /
         ``bearer_token`` wins over the environment, and injected clients are
@@ -208,7 +208,7 @@ class HonuaSession:
         with self._lock:
             if not self.overwrite_output and alias.name in self._layers:
                 raise HonuaGpConfigurationError(
-                    f"Layer alias {alias.name!r} already exists; set arcpy.env.overwriteOutput = True to replace."
+                    f"Layer alias {alias.name!r} already exists; set env.overwriteOutput = True to replace."
                 )
             self._layers[alias.name] = alias
             self._unbound_outputs.pop(alias.name, None)

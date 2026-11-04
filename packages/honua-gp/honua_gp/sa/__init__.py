@@ -1,7 +1,7 @@
-"""``arcpy.sa`` (Spatial Analyst) shim -- 16 raster/surface tools + 2 stubs.
+"""``sa`` (Spatial Analyst) shim -- 16 raster/surface tools + 2 stubs.
 
-Customers replace ``from arcpy.sa import *`` (and the raster-oriented Data
-Management tools) with ``from honua_gp import sa``. Each tool projects its arcpy
+Customers replace ``from sa import *`` (and the raster-oriented Data
+Management tools) with ``from honua_gp import sa``. Each tool projects its scripting-API
 signature onto one of honua-server's raster/surface GDAL-worker processes and
 runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
 ``geoprocess`` step inside the canonical ``honua-geoprocessing`` plan (raster
@@ -42,9 +42,9 @@ from .._raster_tools import (
 
 
 def _server_params(qualified: str, named: Mapping[str, Any], parameters: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Map named arcpy kwargs (via the manifest ``param_map``) + generic passthrough.
+    """Map named scripting-API kwargs (via the manifest ``param_map``) + generic passthrough.
 
-    ``named`` is keyed by arcpy keyword and translated through the entry's
+    ``named`` is keyed by the scripting API keyword and translated through the entry's
     ``param_map`` into honua-server input names; ``parameters`` (already keyed by
     server input name) is layered on top so a caller can reach any input the
     named kwargs do not surface.
@@ -77,14 +77,14 @@ def _run_single_source(
 
 
 def Slope(in_raster: Any, *, units: Any = None, z_factor: Any = None, parameters: Mapping[str, Any] | None = None) -> RasterResult:
-    """arcpy.sa.Slope -> honua-server ``surface.slope`` (units: degrees/percent)."""
+    """sa.Slope -> honua-server ``surface.slope`` (units: degrees/percent)."""
     return _run_single_source(
         "sa.Slope", in_raster, named={"units": units, "z_factor": z_factor}, parameters=parameters
     )
 
 
 def Aspect(in_raster: Any, *, parameters: Mapping[str, Any] | None = None) -> RasterResult:
-    """arcpy.sa.Aspect -> honua-server ``surface.aspect`` (compass-bearing aspect)."""
+    """sa.Aspect -> honua-server ``surface.aspect`` (compass-bearing aspect)."""
     return _run_single_source("sa.Aspect", in_raster, parameters=parameters)
 
 
@@ -96,7 +96,7 @@ def Hillshade(
     z_factor: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> RasterResult:
-    """arcpy.sa.Hillshade -> honua-server ``surface.hillshade``."""
+    """sa.Hillshade -> honua-server ``surface.hillshade``."""
     return _run_single_source(
         "sa.Hillshade",
         in_raster,
@@ -112,7 +112,7 @@ def Contour(
     base: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> RasterResult:
-    """arcpy.sa.Contour -> honua-server ``surface.contour`` (FeatureLayer output).
+    """sa.Contour -> honua-server ``surface.contour`` (FeatureLayer output).
 
     Returns a :class:`honua_gp.RasterResult`; the contour lines are a GeoJSON
     FeatureLayer reachable via ``.to_geodataframe()`` / ``.consume()``.
@@ -132,7 +132,7 @@ def Viewshed(
     max_distance: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> RasterResult:
-    """arcpy.sa.Viewshed -> honua-server ``surface.viewshed`` (binary visibility)."""
+    """sa.Viewshed -> honua-server ``surface.viewshed`` (binary visibility)."""
     return _run_single_source(
         "sa.Viewshed",
         in_raster,
@@ -195,7 +195,7 @@ def Reclassify(
     no_data: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> RasterResult:
-    """arcpy.sa.Reclassify -> honua-server ``raster.reclassify`` (';'-separated remap)."""
+    """sa.Reclassify -> honua-server ``raster.reclassify`` (';'-separated remap)."""
     return _run_single_source(
         "sa.Reclassify",
         in_raster,
@@ -245,7 +245,7 @@ def ZonalStatisticsAsTable(
     statistics: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> Any:
-    """arcpy.sa.ZonalStatisticsAsTable -> honua-server ``raster.zonal-statistics``.
+    """sa.ZonalStatisticsAsTable -> honua-server ``raster.zonal-statistics``.
 
     ``zones`` is an inline GeoJSON ``FeatureCollection`` (or an inline-GeoJSON
     :class:`honua_sdk.geoprocessing.LayerReference`) of zone polygons. Returns
@@ -292,7 +292,7 @@ def RasterCalculator(
     no_data: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> RasterResult:
-    """arcpy.sa.RasterCalculator -> honua-server ``raster.map-algebra`` (gdal_calc.py).
+    """sa.RasterCalculator -> honua-server ``raster.map-algebra`` (gdal_calc.py).
 
     ``in_rasters`` is a list of input rasters bound to band variables A, B, C,
     ... (raw GeoTIFF bytes or ``RasterReference.from_geotiff_bytes``);
@@ -314,12 +314,12 @@ def Idw(
     smoothing: Any = None,
     parameters: Mapping[str, Any] | None = None,
 ) -> RasterResult:
-    """arcpy.sa.Idw -> honua-server ``raster.interpolate-idw`` (gdal_grid -a invdist).
+    """sa.Idw -> honua-server ``raster.interpolate-idw`` (gdal_grid -a invdist).
 
     ``in_point_features`` is an inline GeoJSON point ``FeatureCollection`` (or an
     inline-GeoJSON ``LayerReference``). The output raster size is controlled via
     the server's ``width``/``height`` inputs (pass through ``parameters=``); the
-    server has no arcpy ``cell_size`` input.
+    server has no scripting-API ``cell_size`` input.
     """
     inputs: dict[str, Any] = {"points": encode_feature_collection(in_point_features)}
     merge_parameters(
@@ -339,7 +339,7 @@ def Idw(
 
 
 def Kriging(*args: Any, **kwargs: Any) -> Any:
-    """arcpy.sa.Kriging -> honua-server ``raster.interpolate-kriging`` (stub).
+    """sa.Kriging -> honua-server ``raster.interpolate-kriging`` (stub).
 
     honua-server NEVER produces output for kriging: the job executor fails before
     any raster work because stock GDAL bundles no kriging backend. Rather than
@@ -351,12 +351,12 @@ def Kriging(*args: Any, **kwargs: Any) -> Any:
 
 
 def Histogram(*args: Any, **kwargs: Any) -> Any:
-    """honua-server ``raster.histogram`` -- no faithful single arcpy tool name (stub)."""
+    """honua-server ``raster.histogram`` -- no faithful single scripting-API tool name (stub)."""
     raise_unsupported("sa.Histogram", args=args, kwargs=kwargs)
 
 
 def SpectralIndex(*args: Any, **kwargs: Any) -> Any:
-    """honua-server ``raster.spectral-index`` -- no faithful single arcpy tool name (stub)."""
+    """honua-server ``raster.spectral-index`` -- no faithful single scripting-API tool name (stub)."""
     raise_unsupported("sa.SpectralIndex", args=args, kwargs=kwargs)
 
 

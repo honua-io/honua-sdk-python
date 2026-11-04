@@ -87,7 +87,7 @@ def test_select_layer_by_attribute_applies_invert_where_clause(stub_clients) -> 
 
 
 def test_select_layer_by_attribute_switch_is_unsupported(stub_clients) -> None:
-    # arcpy SWITCH_SELECTION inverts the prior selection set (OIDs), which we
+    # the scripting API SWITCH_SELECTION inverts the prior selection set (OIDs), which we
     # cannot model as a SQL where clause; the previous behaviour silently
     # cleared the selection. Surface it as unsupported instead.
     honua_gp.management.MakeFeatureLayer("roads", "roads_lyr")
@@ -289,7 +289,7 @@ def test_get_count_resolve_failure_is_audited(stub_clients) -> None:
 
 def test_describe_returns_schema_shaped_result(stub_clients) -> None:
     """Describe fetches the FeatureServer layer schema and projects it onto
-    an arcpy-shaped DescribeResult: shapeType, fields, spatialReference,
+    a scripting-API-shaped DescribeResult: shapeType, fields, spatialReference,
     OIDFieldName all come from the stub's canned ``segments`` layer."""
 
     honua_gp.env.workspace = "honua://services/legacy"
@@ -313,8 +313,8 @@ def test_describe_returns_schema_shaped_result(stub_clients) -> None:
     assert by_name["SHAPE"].type == "Geometry"
 
     # Top-level ``honua_gp.Describe`` and ``honua_gp.management.Describe``
-    # must be the same callable, mirroring real arcpy's module-level
-    # ``arcpy.Describe``.
+    # must be the same callable, mirroring the real scripting API's module-level
+    # ``Describe``.
     assert honua_gp.Describe is honua_gp.management.Describe
 
 
@@ -337,7 +337,7 @@ def test_describe_is_audited_as_supported(stub_clients) -> None:
 
 
 def test_describe_accepts_and_audits_data_type_argument(stub_clients) -> None:
-    """arcpy's documented ``Describe(value, {datatype})`` form must not crash
+    """the scripting API's documented ``Describe(value, {datatype})`` form must not crash
     at the wrapper boundary. honua-gp does not honor the ``data_type`` filter
     (the manifest marks it unsupported), so the call is accepted, produces the
     same result as the one-arg form, and the supplied ``data_type`` is recorded
@@ -349,7 +349,7 @@ def test_describe_accepts_and_audits_data_type_argument(stub_clients) -> None:
 
     honua_gp.env.workspace = "honua://services/legacy"
 
-    # Passing data_type as a second positional (arcpy's documented form) must
+    # Passing data_type as a second positional (the scripting API's documented form) must
     # NOT raise, and must yield the same Describe result as the one-arg call.
     plain = honua_gp.Describe("segments")
     with_type = honua_gp.Describe("segments", "FeatureClass")
@@ -390,7 +390,7 @@ def test_list_fields_wild_card_filters_by_name(stub_clients) -> None:
     fields = honua_gp.management.ListFields("segments", wild_card="STAT*")
     assert [f.name for f in fields] == ["STATUS"]
 
-    # Case-insensitive, per real arcpy.
+    # Case-insensitive, per the real scripting API.
     fields_lower = honua_gp.management.ListFields("segments", wild_card="stat*")
     assert [f.name for f in fields_lower] == ["STATUS"]
 
@@ -400,7 +400,7 @@ def test_list_fields_field_type_filters_by_type(stub_clients) -> None:
     fields = honua_gp.management.ListFields("segments", field_type="String")
     assert [f.name for f in fields] == ["STATUS"]
 
-    # Semicolon-delimited multi-type filter, arcpy ValueTable style.
+    # Semicolon-delimited multi-type filter, the scripting API ValueTable style.
     fields = honua_gp.management.ListFields("segments", field_type="String;Double")
     assert {f.name for f in fields} == {"STATUS", "LENGTH_KM"}
 
@@ -408,7 +408,7 @@ def test_list_fields_field_type_filters_by_type(stub_clients) -> None:
     fields = honua_gp.management.ListFields("segments", field_type=["OID"])
     assert [f.name for f in fields] == ["OBJECTID"]
 
-    # "All" (arcpy's own sentinel) disables filtering entirely.
+    # "All" (the scripting API's own sentinel) disables filtering entirely.
     fields = honua_gp.management.ListFields("segments", field_type="All")
     assert len(fields) == 4
 
@@ -455,8 +455,8 @@ def test_describe_unconfigured_client_raises_configuration_error() -> None:
 
 
 def test_field_describe_dataclass_supports_alias_name(stub_clients) -> None:
-    # FieldDescribe uses arcpy's own property name (``aliasName``, not
-    # ``alias``) so a script written against real ``arcpy.Field`` objects
+    # FieldDescribe uses the scripting API's own property name (``aliasName``, not
+    # ``alias``) so a script written against real ``Field`` objects
     # keeps working unmodified.
     field = honua_gp.FieldDescribe(name="STATUS", type="String", aliasName="Status")
     assert field.aliasName == "Status"

@@ -367,7 +367,7 @@ def statistics_params(
 ) -> dict[str, Any]:
     """Translate statistics/aggregation inputs into GeoServices ``query`` params.
 
-    Mirrors the arcpy / ArcGIS-API summary-statistics surface:
+    Mirrors the scripting-API / ArcGIS-API summary-statistics surface:
 
     * ``out_statistics`` → ``outStatistics`` (a JSON array of statistic defs).
     * ``group_by`` → ``groupByFieldsForStatistics`` (comma-joined).

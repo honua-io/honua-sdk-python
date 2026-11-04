@@ -1,4 +1,4 @@
-"""``arcpy.analysis`` shim -- 15 functions.
+"""``analysis`` shim -- 15 functions.
 
 Two analysis tools are now process-backed via the layer-aware projection
 adapter (:mod:`honua_gp._process_tools`):
@@ -8,7 +8,7 @@ adapter (:mod:`honua_gp._process_tools`):
 * ``SpatialJoin`` -> honua-server ``analytics.spatial-join`` (layerId +
   joinLayerId + predicate).
 
-The four overlay tools that arcpy expresses over feature classes -- ``Clip``,
+The four overlay tools that scripting-API expresses over feature classes -- ``Clip``,
 ``Intersect``, ``Union``, ``Erase`` -- have **no** layer-aware catalog
 counterpart. honua-server only exposes the single-geometry ``geometry.*``
 family (``geometry.clip`` / ``geometry.intersect`` / ``geometry.union`` /

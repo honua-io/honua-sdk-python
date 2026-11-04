@@ -1,6 +1,6 @@
-"""arcpy.da-style cursor ergonomics over the canonical Source facade.
+"""da-style cursor ergonomics over the canonical Source facade.
 
-Esri's core geoprocessing data-access idiom is the ``arcpy.da`` cursor family —
+Esri's core geoprocessing data-access idiom is the ``da`` cursor family —
 ``SearchCursor`` to iterate rows lazily, ``InsertCursor`` / ``UpdateCursor`` to
 write rows back. The Honua SDK already exposes a streaming query and a batched
 ``apply_edits`` helper; this module wraps them into the familiar cursor shape so
@@ -11,7 +11,7 @@ The cursors are thin: :class:`SearchCursor` defers entirely to
 :class:`UpdateCursor` / :class:`InsertCursor` accumulate edits and flush them
 through ``Source.apply_edits`` in batches. Geometry on a row is exposed as a
 Shapely geometry via the feature's first-class ``__geo_interface__`` bridge,
-matching the ``arcpy`` ``row[0] is SHAPE`` convention.
+matching the scripting-API ``row[0] is SHAPE`` convention.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
     from .source import AsyncSource, Source
 
-#: Pseudo-field name selecting a row's geometry, mirroring ``arcpy``'s
+#: Pseudo-field name selecting a row's geometry, mirroring the scripting API's
 #: ``"SHAPE@"`` token. When present in a cursor's ``fields`` it maps to the
 #: row's Shapely geometry rather than an attribute.
 SHAPE_TOKEN = "SHAPE@"  # noqa: S105 -- a geometry field token, not a credential
@@ -43,7 +43,7 @@ SHAPE_TOKEN = "SHAPE@"  # noqa: S105 -- a geometry field token, not a credential
 class Row:
     """A single cursor row: a feature's geometry plus its attribute mapping.
 
-    Mirrors an ``arcpy.da`` cursor row. :meth:`values` projects the row onto a
+    Mirrors an ``da`` cursor row. :meth:`values` projects the row onto a
     requested field tuple (with the ``"SHAPE@"`` token selecting geometry),
     giving the positional-tuple ergonomic GP tools expect.
     """
@@ -139,7 +139,7 @@ def _chunk_overrides(stream_kwargs: Mapping[str, Any], object_ids: Sequence[int]
 
 
 class SearchCursor:
-    """Lazy row iterator over a source query (``arcpy.da.SearchCursor`` analogue).
+    """Lazy row iterator over a source query (``da.SearchCursor`` analogue).
 
     Wraps :meth:`Source.stream`, yielding :class:`Row` objects one at a time so
     a tool never materializes the whole result. Pass ``fields`` to iterate
@@ -225,7 +225,7 @@ class _BaseWriteCursor:
 
 
 class InsertCursor(_BaseWriteCursor):
-    """Batched feature inserts (``arcpy.da.InsertCursor`` analogue).
+    """Batched feature inserts (``da.InsertCursor`` analogue).
 
     Accumulate rows with :meth:`insert_row`; they are flushed to the source via
     ``Source.apply_edits(adds=...)`` once ``batch_size`` is reached, on
@@ -272,7 +272,7 @@ class InsertCursor(_BaseWriteCursor):
 
 
 class UpdateCursor(_BaseWriteCursor):
-    """Iterate rows and write edits back (``arcpy.da.UpdateCursor`` analogue).
+    """Iterate rows and write edits back (``da.UpdateCursor`` analogue).
 
     Iterating yields :class:`Row` objects (lazily, via a search cursor). Call
     :meth:`update_row` with new attributes/geometry to queue an update keyed by

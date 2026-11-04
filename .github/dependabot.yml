@@ -27,3 +27,7 @@ updates:
     labels:
       - dependencies
       - CI
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -5,6 +5,8 @@ import re
 import tomllib
 from pathlib import Path
 
+import pytest
+
 from scripts.resolve_publish_targets import PACKAGE_SPECS
 
 
@@ -256,3 +258,48 @@ def test_attestation_jobs_bind_verified_bytes_to_the_release_commit() -> None:
         assert "subject-path: artifact/dist/*" in attest
         assert "actions/checkout@" not in attest
         assert "pypa/gh-action-pypi-publish@" not in attest
+
+
+DIST_ARTIFACT = "{package}-dist-${{{{ github.run_id }}}}"
+DIST_CONSUMER_JOBS = (
+    "preflight-{package}-pypi",
+    "publish-{package}",
+    "verify-{package}-pypi",
+    "attach-{package}-release",
+    "attest-{package}",
+)
+
+
+def _artifact_names(job_block: str, action: str) -> list[str]:
+    return re.findall(rf"uses: actions/{action}@\S+[^\n]*\n\s+with:\n(?:\s+\S.*\n)*?\s+name: (.+)", job_block)
+
+
+def _job_names(workflow: str) -> list[str]:
+    return re.findall(r"(?m)^  ([a-z][a-z0-9-]*):\n", workflow)
+
+
+@pytest.mark.parametrize("package", ["honua-sdk", "honua-admin"])
+def test_only_the_package_build_uploads_its_distribution(package: str) -> None:
+    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+    name = DIST_ARTIFACT.format(package=package)
+
+    producers = [
+        job for job in _job_names(workflow) if name in _artifact_names(_job_block(workflow, job), "upload-artifact")
+    ]
+
+    assert producers == [f"build-{package}"]
+    assert "overwrite: true" in _job_block(workflow, f"build-{package}")
+
+
+@pytest.mark.parametrize("package", ["honua-sdk", "honua-admin"])
+@pytest.mark.parametrize("consumer", DIST_CONSUMER_JOBS)
+def test_each_consumer_downloads_its_own_package_distribution(package: str, consumer: str) -> None:
+    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+
+    downloads = _artifact_names(_job_block(workflow, consumer.format(package=package)), "download-artifact")
+
+    assert downloads == [DIST_ARTIFACT.format(package=package)]
+
+
+def test_distribution_artifacts_are_rerun_safe() -> None:
+    assert "dist-${{ github.run_id }}-${{ github.run_attempt }}" not in PUBLISH_WORKFLOW.read_text(encoding="utf-8")

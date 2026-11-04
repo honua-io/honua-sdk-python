@@ -15,9 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-# ---------------------------------------------------------------------------
 # Types
-# ---------------------------------------------------------------------------
 
 Backend = Literal["process", "raster", "source", "admin", "session", "not_implemented"]
 Status = Literal["supported", "partial", "stub"]
@@ -81,9 +79,7 @@ def anchor_for(qualified_name: str) -> str:
     return f"{COMPAT_REPO_DOC}#{fragment}"
 
 
-# ---------------------------------------------------------------------------
 # Manifest
-# ---------------------------------------------------------------------------
 
 # Notes on the manifest:
 #
@@ -127,9 +123,7 @@ _OUTPUT_BINDING_NOTE = (
 )
 
 COMPAT: dict[str, FunctionEntry] = {
-    # -----------------------------------------------------------------
     # analysis.* (15)
-    # -----------------------------------------------------------------
     # NOTE on the analysis.* and management.* entries below, which mix
     # process-backed implementations with unsupported-tool stubs:
     # honua-server's ``geometry.*`` processes take one raw WKB geometry with an
@@ -360,9 +354,7 @@ COMPAT: dict[str, FunctionEntry] = {
         ),
         tracking="honua-server#identity",
     ),
-    # -----------------------------------------------------------------
     # management.* (20)
-    # -----------------------------------------------------------------
     "management.MakeFeatureLayer": FunctionEntry(
         backend="session",
         status="supported",
@@ -659,9 +651,7 @@ COMPAT: dict[str, FunctionEntry] = {
         ),
         param_map={"dataset": "layer_name"},
     ),
-    # -----------------------------------------------------------------
     # da.* (10)
-    # -----------------------------------------------------------------
     "da.SearchCursor": FunctionEntry(
         backend="source",
         status="partial",
@@ -746,9 +736,7 @@ COMPAT: dict[str, FunctionEntry] = {
         replacement_hint="Use admin apply_manifest with a field-add + apply_edits update sequence.",
         tracking="honua-server#extend-table",
     ),
-    # -----------------------------------------------------------------
     # sa.* -- Spatial Analyst / raster-surface tools (18)
-    # -----------------------------------------------------------------
     # These wrap honua-server's raster/surface (GDAL-worker) processes. Each
     # ``backend="raster"`` entry is auto-wrapped as a single ``geoprocess``
     # step inside the canonical ``honua-geoprocessing`` plan before submit

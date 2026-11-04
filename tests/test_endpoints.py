@@ -15,9 +15,7 @@ import pytest
 from honua_sdk import _endpoints
 
 
-# ---------------------------------------------------------------------------
 # Catalog / capabilities
-# ---------------------------------------------------------------------------
 
 
 def test_build_readiness_request_targets_healthz() -> None:
@@ -58,9 +56,7 @@ def test_parse_service_summaries_returns_typed_objects() -> None:
     assert [s.name for s in summaries] == ["svc-a", "svc-b"]
 
 
-# ---------------------------------------------------------------------------
 # FeatureServer query / applyEdits
-# ---------------------------------------------------------------------------
 
 
 def test_build_query_features_encodes_service_id_and_defaults() -> None:
@@ -120,9 +116,7 @@ def test_build_apply_edits_passes_deletes_string_verbatim() -> None:
     assert prep.json is not None and prep.json["deletes"] == "1,2,3"
 
 
-# ---------------------------------------------------------------------------
 # Paging helpers (pure)
-# ---------------------------------------------------------------------------
 
 
 def test_validate_paging_rejects_non_positive_values() -> None:
@@ -155,9 +149,7 @@ def test_page_extra_params_overrides_paging_fields() -> None:
     assert merged["extra"] == "value"
 
 
-# ---------------------------------------------------------------------------
 # Idempotency / JSON parsing
-# ---------------------------------------------------------------------------
 
 
 def test_build_idempotency_headers_explicit_key_wins() -> None:

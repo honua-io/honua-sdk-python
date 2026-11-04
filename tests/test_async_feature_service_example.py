@@ -23,9 +23,7 @@ def anyio_backend() -> str:
 pytestmark = pytest.mark.anyio
 
 
-# ---------------------------------------------------------------------------
 # Fakes shared across the helper and route tests.
-# ---------------------------------------------------------------------------
 
 
 class FakeFeature:
@@ -75,9 +73,7 @@ class FakeClient:
         ]
 
 
-# ---------------------------------------------------------------------------
 # Helper-level tests (framework-free).
-# ---------------------------------------------------------------------------
 
 
 async def test_fetch_features_drives_typed_source_query() -> None:
@@ -129,9 +125,7 @@ def test_bbox_parser_validates_shape() -> None:
         service._parse_bbox("0,0,0,0")
 
 
-# ---------------------------------------------------------------------------
 # ASGI route tests via httpx.ASGITransport (no live server, no real client).
-# ---------------------------------------------------------------------------
 
 
 async def test_routes_serve_features_and_services_via_asgi() -> None:

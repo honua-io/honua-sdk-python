@@ -87,9 +87,7 @@ def _record_handler(seen: list[dict[str, Any]]):
     return handler
 
 
-# --------------------------------------------------------------------------
 # Attachments — sync
-# --------------------------------------------------------------------------
 
 
 def test_query_attachments_builds_request_and_parses_groups() -> None:
@@ -211,9 +209,7 @@ def test_download_attachment_returns_content_and_type() -> None:
     assert seen[0]["raw_path"] == "/rest/services/parcels/FeatureServer/2/7/attachments/11"
 
 
-# --------------------------------------------------------------------------
 # Attachments — async parity
-# --------------------------------------------------------------------------
 
 
 @pytest.mark.anyio
@@ -239,9 +235,7 @@ async def test_async_attachments_roundtrip() -> None:
     ]
 
 
-# --------------------------------------------------------------------------
 # Windowed raster reads
-# --------------------------------------------------------------------------
 
 
 def test_coverage_windowed_read_builds_subset_params() -> None:
@@ -321,9 +315,7 @@ async def test_async_coverage_windowed_read() -> None:
     assert seen[0]["query"]["scale-size"] == "x(64),y(64)"
 
 
-# --------------------------------------------------------------------------
 # Raster write stance
-# --------------------------------------------------------------------------
 
 
 def test_raster_write_documented_stance() -> None:

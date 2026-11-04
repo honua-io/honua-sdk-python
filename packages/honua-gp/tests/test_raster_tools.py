@@ -121,9 +121,7 @@ def _audit_lines(audit_root: Path) -> list[dict]:
     return out
 
 
-# ---------------------------------------------------------------------------
 # Surface tools -- single 'source' raster
-# ---------------------------------------------------------------------------
 
 
 def test_slope_wraps_single_step_plan_with_layer_ref(_isolated_audit_dir: Path) -> None:
@@ -227,9 +225,7 @@ def test_rugosity_window_radius(func, process_id, _isolated_audit_dir: Path) -> 
     assert step["inputs"] == {"layerId": "dem", "windowRadius": "1"}
 
 
-# ---------------------------------------------------------------------------
 # Raster tools -- single 'source'
-# ---------------------------------------------------------------------------
 
 
 def test_clip_boundary_wkb(_isolated_audit_dir: Path) -> None:
@@ -276,9 +272,7 @@ def test_resample_cell_size(_isolated_audit_dir: Path) -> None:
     assert step["inputs"] == {"layerId": "img", "cellSize": "30.0", "cellSizeY": "30.0"}
 
 
-# ---------------------------------------------------------------------------
 # ZonalStatisticsAsTable -- secondary vector input + Table-kind JSON output
-# ---------------------------------------------------------------------------
 
 
 def test_zonal_statistics_encodes_zones_and_returns_table_json(_isolated_audit_dir: Path) -> None:
@@ -348,9 +342,7 @@ def test_zonal_statistics_accepts_layer_reference_zones(_isolated_audit_dir: Pat
     assert json.loads(base64.b64decode(step["inputs"]["zones"])) == _ZONES_FC
 
 
-# ---------------------------------------------------------------------------
 # Multi-source / point-input tools
-# ---------------------------------------------------------------------------
 
 
 def test_mosaic_joins_base64_sources(_isolated_audit_dir: Path) -> None:
@@ -404,9 +396,7 @@ def test_idw_encodes_points_and_power(_isolated_audit_dir: Path) -> None:
     assert json.loads(base64.b64decode(step["inputs"]["points"])) == _POINTS_FC
 
 
-# ---------------------------------------------------------------------------
 # Generic passthrough, errors, stubs, audit
-# ---------------------------------------------------------------------------
 
 
 def test_generic_parameters_passthrough_uses_server_names(_isolated_audit_dir: Path) -> None:

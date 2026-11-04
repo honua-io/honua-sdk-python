@@ -61,9 +61,7 @@ def _edit_transport(edits: list[dict[str, Any]]) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
-# ---------------------------------------------------------------------------
 # SearchCursor
-# ---------------------------------------------------------------------------
 
 
 def test_search_cursor_yields_rows() -> None:
@@ -143,9 +141,7 @@ def test_search_cursor_context_manager() -> None:
     assert len(rows) == 2
 
 
-# ---------------------------------------------------------------------------
 # InsertCursor
-# ---------------------------------------------------------------------------
 
 
 def test_insert_cursor_batches_and_flushes_on_exit() -> None:
@@ -180,9 +176,7 @@ def test_cursor_rejects_non_positive_batch_size() -> None:
             source.insert_cursor(batch_size=0)
 
 
-# ---------------------------------------------------------------------------
 # UpdateCursor (iterate rows, edit, write back)
-# ---------------------------------------------------------------------------
 
 
 def test_update_cursor_iterates_and_writes_back() -> None:
@@ -331,9 +325,7 @@ def test_update_row_adds_canonical_objectid_only_when_absent() -> None:
     assert attrs["OBJECTID"] == 7
 
 
-# ---------------------------------------------------------------------------
 # to_geodataframe (SEDF equivalent)
-# ---------------------------------------------------------------------------
 
 
 def test_result_to_geodataframe() -> None:

@@ -34,9 +34,7 @@ def _status(job_id: str, status: str) -> dict[str, Any]:
     return {"jobID": job_id, "status": status, "processID": "raster.kernel-density", "type": "process"}
 
 
-# ---------------------------------------------------------------------------
 # Pure output selection (no optional deps)
-# ---------------------------------------------------------------------------
 
 
 def test_find_raster_output_by_href_suffix() -> None:
@@ -92,9 +90,7 @@ def test_raster_href() -> None:
     assert raster_href({"value": "Zm9v"}) is None
 
 
-# ---------------------------------------------------------------------------
 # Conversions + client integration (require the ``raster`` extra)
-# ---------------------------------------------------------------------------
 
 
 def _tiny_geotiff() -> bytes:

@@ -13,9 +13,7 @@ import pytest
 from honua_sdk import Feature, QueryFeature
 from honua_sdk.models._geometry import geometry_to_geo_interface
 
-# ---------------------------------------------------------------------------
 # Pure ``__geo_interface__`` path (no shapely required)
-# ---------------------------------------------------------------------------
 
 
 def test_esri_point_geo_interface() -> None:
@@ -126,9 +124,7 @@ def test_none_geometry_yields_none() -> None:
     assert geometry_to_geo_interface({}) is None
 
 
-# ---------------------------------------------------------------------------
 # shapely-backed path (optional dependency)
-# ---------------------------------------------------------------------------
 
 
 def test_to_shapely_point() -> None:

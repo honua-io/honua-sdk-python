@@ -22,9 +22,7 @@ from honua_sdk.async_client import AsyncHonuaClient
 from honua_sdk.errors import HonuaHttpError
 
 
-# ---------------------------------------------------------------------------
 # Sync HonuaClient.with_options
-# ---------------------------------------------------------------------------
 
 
 def test_sync_with_options_reuses_parent_transport_and_pool() -> None:
@@ -151,9 +149,7 @@ def test_sync_with_options_timeout_lower_than_parent_builds_independent_client()
         clone.close()
 
 
-# ---------------------------------------------------------------------------
 # Async AsyncHonuaClient.with_options
-# ---------------------------------------------------------------------------
 
 
 def test_async_with_options_reuses_parent_transport_and_pool() -> None:
@@ -179,9 +175,7 @@ def test_async_with_options_reuses_parent_transport_and_pool() -> None:
     assert len(seen_requests) == 2
 
 
-# ---------------------------------------------------------------------------
 # Admin clients
-# ---------------------------------------------------------------------------
 
 
 def test_admin_with_options_reuses_parent_transport() -> None:
@@ -220,9 +214,7 @@ def test_async_admin_with_options_reuses_parent_transport() -> None:
     asyncio.run(_run())
 
 
-# ---------------------------------------------------------------------------
 # with_options(base_url=...) creates an independent client
-# ---------------------------------------------------------------------------
 
 
 def test_sync_with_options_base_url_returns_independent_client() -> None:
@@ -309,9 +301,7 @@ def test_async_admin_with_options_base_url_returns_independent_client() -> None:
     asyncio.run(_run())
 
 
-# ---------------------------------------------------------------------------
 # RetryTransport.retry_methods public property
-# ---------------------------------------------------------------------------
 
 
 def test_retry_transport_exposes_public_retry_methods_property() -> None:
@@ -330,10 +320,8 @@ def test_retry_transport_exposes_public_retry_methods_property() -> None:
     assert "POST" not in sync_transport.retry_methods
 
 
-# ---------------------------------------------------------------------------
-# issue #105: with_options(max_retries=N) on a client built with max_retries=0
+# with_options(max_retries=N) on a client built with max_retries=0
 # must actually take effect (RetryTransport is always installed).
-# ---------------------------------------------------------------------------
 
 
 def test_with_options_enables_retries_on_zero_built_sync_client() -> None:
@@ -447,13 +435,10 @@ def test_with_options_enables_retries_on_zero_built_async_admin_client() -> None
     assert call_count["n"] == 3
 
 
-# ---------------------------------------------------------------------------
-# AUD-162 (issue #129): protocol ``_text`` requests must route through the
-# client's normal request path so per-call options carried by ``with_options``
-# (``timeout`` / ``max_retries``) apply to text protocols — every WFS operation
-# and OData ``$metadata`` — exactly like the JSON path. These previously
-# bypassed ``_request`` and silently ignored the overrides.
-# ---------------------------------------------------------------------------
+# Protocol ``_text`` requests must route through the client's normal request
+# path so per-call options carried by ``with_options`` (``timeout`` /
+# ``max_retries``) apply to text protocols — every WFS operation and OData
+# ``$metadata`` — exactly like the JSON path.
 
 
 def test_with_options_timeout_applies_to_wfs_text_path() -> None:

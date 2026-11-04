@@ -51,9 +51,7 @@ def _ensure_deps() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # Output selection (pure -- no optional deps required).
-# ---------------------------------------------------------------------------
 #: Substrings that mark a media/content type as a (Cloud-Optimized) GeoTIFF.
 _RASTER_MEDIA_HINTS = ("tiff", "geotiff", "cog")
 _RASTER_SUFFIXES = (".tif", ".tiff")
@@ -133,9 +131,7 @@ def raster_href(member: Mapping[str, Any]) -> str | None:
     return href if isinstance(href, str) else None
 
 
-# ---------------------------------------------------------------------------
 # Conversions (require the ``raster`` extra).
-# ---------------------------------------------------------------------------
 def open_geotiff(data: bytes) -> rasterio.io.DatasetReader:
     """Open in-memory GeoTIFF ``data`` as a :mod:`rasterio` dataset.
 
@@ -179,9 +175,7 @@ def xarray_to_geotiff(data_array: xarray.DataArray) -> bytes:
         return bytes(memfile.read())
 
 
-# ---------------------------------------------------------------------------
 # Multidimensional coverage metadata (pure -- no optional deps required).
-# ---------------------------------------------------------------------------
 def _coerce_dimension_value(value: Any) -> float | tuple[float, ...]:
     """Coerce one ``values[]`` entry: a scalar coordinate or a ranged pair.
 

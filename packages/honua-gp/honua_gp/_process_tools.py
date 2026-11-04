@@ -295,7 +295,6 @@ def _bind_output(
     )
 
 
-# ---------------------------------------------------------------------------
 # Parameter-semantics validation
 #
 # Every ``positional_params`` entry the projector does not translate into a
@@ -304,7 +303,6 @@ def _bind_output(
 # with different semantics than requested without telling anyone. These
 # helpers reject any such value up front (before layer resolution / job
 # submission) unless it is the scripting-API default the shim already implements.
-# ---------------------------------------------------------------------------
 
 
 def _reject_nondefault_token(tool: str, param: str, value: Any, *default_tokens: str, reason: str) -> None:
@@ -432,14 +430,12 @@ def _validate_project_options(bound: Mapping[str, Any]) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # Selection and environment semantics
 #
 # A MakeFeatureLayer / SelectLayerByAttribute selection on an input layer and
 # env settings that change the output are semantics the caller expects
 # the tool to honour. Forward a selection where the process can filter that
 # input; reject everything else before submission.
-# ---------------------------------------------------------------------------
 
 _UNAPPLIED_ENVIRONMENT = ("extent", "XYTolerance", "XYResolution")
 
@@ -497,9 +493,7 @@ def _combine_where(*clauses: Any) -> str | None:
     return " AND ".join(f"({part})" for part in parts)
 
 
-# ---------------------------------------------------------------------------
 # Per-tool projections (scripting-API signature -> process inputs)
-# ---------------------------------------------------------------------------
 
 
 def _project_buffer(bound: Mapping[str, Any], *, session: HonuaSession, projected: _ProjectedCall) -> None:

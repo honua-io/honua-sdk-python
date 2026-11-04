@@ -41,7 +41,6 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-# --- _coerce_descriptor ---------------------------------------------------
 
 
 def test_coerce_descriptor_passes_through_descriptor_instance() -> None:
@@ -67,7 +66,6 @@ def test_coerce_descriptor_rejects_invalid_type() -> None:
         _coerce_descriptor(42)  # type: ignore[arg-type]
 
 
-# --- _coerce_query --------------------------------------------------------
 
 
 def test_coerce_query_none_returns_default_query() -> None:
@@ -116,7 +114,6 @@ def test_coerce_query_accepts_pagination_via_mapping() -> None:
     assert query.pagination.limit == 9
 
 
-# --- _unsupported_facade_reason ------------------------------------------
 
 
 def test_unsupported_facade_reason_none_when_capability_not_advertised() -> None:
@@ -135,7 +132,6 @@ def test_unsupported_facade_reason_messages_when_capability_advertised() -> None
     assert "applyEdits" in msg
 
 
-# --- _query_source / _layer_id / _extra_params_for_query / _csv ----------
 
 
 def test_query_source_for_stac_collection() -> None:
@@ -230,7 +226,6 @@ def test_feature_query_for_unsupported_protocol_raises() -> None:
         _feature_query_for_source(descriptor, Query())
 
 
-# --- _protocol_client dispatch -------------------------------------------
 
 
 def _client() -> HonuaClient:
@@ -361,7 +356,6 @@ def test_protocol_client_kind_override_respected() -> None:
         assert hasattr(native, "path")
 
 
-# --- Source / AsyncSource façade ------------------------------------------
 
 
 def _ogc_descriptor() -> SourceDescriptor:
@@ -497,7 +491,6 @@ def test_source_supports_returns_false_for_unsupported_protocol() -> None:
         assert source.supports("stream") is False
 
 
-# --- AsyncSource ---------------------------------------------------------
 
 
 @pytest.mark.anyio
@@ -582,7 +575,6 @@ async def test_async_source_unsupported_capability_raises() -> None:
             await source.query()
 
 
-# --- Source via OGC: exercise stream() on non-FeatureServer protocol ----
 
 
 def test_source_query_populates_raw_legacy_with_underlying_result() -> None:

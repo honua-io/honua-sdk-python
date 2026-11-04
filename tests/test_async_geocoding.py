@@ -36,9 +36,7 @@ def _async_client_with_transport(
     return AsyncHonuaGeocodingClient(base_url, locator_name=locator_name, client=external)
 
 
-# ---------------------------------------------------------------------------
 # Forward geocode
-# ---------------------------------------------------------------------------
 
 
 async def test_forward_geocode_returns_candidates() -> None:
@@ -126,9 +124,7 @@ async def test_forward_geocode_error_payload() -> None:
     assert err.message == "Internal geocode failure"
 
 
-# ---------------------------------------------------------------------------
 # Reverse geocode
-# ---------------------------------------------------------------------------
 
 
 async def test_reverse_geocode_success() -> None:
@@ -190,9 +186,7 @@ async def test_reverse_geocode_error_handling() -> None:
     assert err.message == "Invalid location"
 
 
-# ---------------------------------------------------------------------------
 # Suggest
-# ---------------------------------------------------------------------------
 
 
 async def test_suggest_success() -> None:
@@ -238,9 +232,7 @@ async def test_suggest_empty_results() -> None:
     assert results == []
 
 
-# ---------------------------------------------------------------------------
 # Init paths and auth headers
-# ---------------------------------------------------------------------------
 
 
 async def test_init_with_api_key_sets_x_api_key_header() -> None:
@@ -347,9 +339,7 @@ async def test_init_rejects_bearer_token_and_auth_provider() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # Close() semantics for externally owned clients
-# ---------------------------------------------------------------------------
 
 
 async def test_close_is_noop_for_external_client() -> None:
@@ -365,9 +355,7 @@ async def test_close_is_noop_for_external_client() -> None:
         await external.aclose()
 
 
-# ---------------------------------------------------------------------------
 # HTTP errors
-# ---------------------------------------------------------------------------
 
 
 async def test_http_error_404_on_suggest() -> None:

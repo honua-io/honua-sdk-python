@@ -104,11 +104,10 @@ async def test_reported_ga_server_contract_at_client_boundary(
 
 # Expectations below are computed from the server's versioning contract, not from
 # evaluator output: honua-server versions are <year>.<release>.<patch> SemVer
-# triples (Directory.Build.props, honua-server#4693), and the floor is the least
-# identity of the first release line, 2026.1.0-0 (honua-release#233), the value the
-# JS and .NET SDKs also use. Builds from before #4693 reported 1.0.0+<sha>; they are
-# not release identities and fall below it. There is no separate CalVer cutoff;
-# release channel and control-plane API gate the rest.
+# triples, and the floor is the least identity of the first release line,
+# 2026.1.0-0, the value the JS and .NET SDKs also use. Builds that report
+# 1.0.0+<sha> are not release identities and fall below it. There is no separate
+# CalVer cutoff; release channel and control-plane API gate the rest.
 VERSION_POLICY_CASES = [
     (REPORTED_SERVER_VERSION, False),
     ("1.0.0", False),

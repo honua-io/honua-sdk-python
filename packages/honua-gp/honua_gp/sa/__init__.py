@@ -71,9 +71,7 @@ def _run_single_source(
     return run_raster_process(qualified, inputs)
 
 
-# ---------------------------------------------------------------------------
 # Surface (DEM-derived) tools -- single 'source' raster in, raster out
-# ---------------------------------------------------------------------------
 
 
 def Slope(in_raster: Any, *, units: Any = None, z_factor: Any = None, parameters: Mapping[str, Any] | None = None) -> RasterResult:
@@ -168,9 +166,7 @@ def TRI(in_raster: Any, *, window_radius: Any = None, parameters: Mapping[str, A
     )
 
 
-# ---------------------------------------------------------------------------
 # Raster tools -- single 'source' raster in, raster out
-# ---------------------------------------------------------------------------
 
 
 def Clip(
@@ -261,9 +257,7 @@ def ZonalStatisticsAsTable(
     )
 
 
-# ---------------------------------------------------------------------------
 # Multi-source / point-input tools (custom input assembly)
-# ---------------------------------------------------------------------------
 
 
 def Mosaic(
@@ -333,9 +327,7 @@ def Idw(
     return run_raster_process("sa.Idw", inputs)
 
 
-# ---------------------------------------------------------------------------
 # Honest stubs
-# ---------------------------------------------------------------------------
 
 
 def Kriging(*args: Any, **kwargs: Any) -> Any:

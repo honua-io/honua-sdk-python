@@ -121,9 +121,7 @@ class EvalSummary:
         }
 
 
-# ---------------------------------------------------------------------------
 # Mode detection
-# ---------------------------------------------------------------------------
 
 
 def live_values_available() -> bool:
@@ -139,9 +137,7 @@ def live_values_available() -> bool:
     return bool(os.environ.get("HONUA_BASE_URL"))
 
 
-# ---------------------------------------------------------------------------
 # Golden schema (v2 with v1 back-compat)
-# ---------------------------------------------------------------------------
 
 
 def _golden_for(script: Path, golden_dir: Path) -> dict[str, Any] | None:
@@ -176,9 +172,7 @@ def _golden_is_expected_failure(script: Path, golden: dict[str, Any] | None) -> 
     return "expected_failure" in script.stem
 
 
-# ---------------------------------------------------------------------------
 # Captured value oracles
-# ---------------------------------------------------------------------------
 
 
 def _capture_request(audit_root: Path, script: Path) -> list[dict[str, Any]]:
@@ -231,9 +225,7 @@ def _normalize(value: Any) -> Any:
     return json.loads(json.dumps(value, sort_keys=True))
 
 
-# ---------------------------------------------------------------------------
 # Script execution
-# ---------------------------------------------------------------------------
 
 
 def _run_script(
@@ -296,9 +288,7 @@ def _count_audit_lines(audit_root: Path, script: Path) -> int:
     return total
 
 
-# ---------------------------------------------------------------------------
 # Grading
-# ---------------------------------------------------------------------------
 
 
 def _grade(
@@ -319,14 +309,12 @@ def _grade(
     plumbing = _plumbing(golden)
     checks: dict[str, str] = {}
 
-    # --- Layer 0: exit code -------------------------------------------------
     if exit_code != 0:
         tail = stderr.strip().splitlines()[-1] if stderr.strip() else f"exit {exit_code}"
         checks["exit"] = "fail"
         return "fail", expected_failure, f"exited {exit_code}: {tail}", checks
     checks["exit"] = "pass"
 
-    # --- Layer 1: plumbing (marker + audit line count) ----------------------
     marker = plumbing.get("stdout_contains")
     if isinstance(marker, str) and marker and marker not in stdout:
         checks["plumbing"] = "fail"
@@ -349,7 +337,6 @@ def _grade(
         # they have no request/response oracle to diff.
         return "pass", True, "caught expected unsupported error", checks
 
-    # --- Layer 2: request fingerprint (both modes) --------------------------
     golden_request = golden.get("request") if golden else None
     if golden_request is not None:
         if _normalize(request_actual) != _normalize(golden_request):
@@ -364,7 +351,6 @@ def _grade(
             )
         checks["request"] = "pass"
 
-    # --- Layer 3: response fingerprint (live mode only) ---------------------
     golden_response = golden.get("response") if golden else None
     if golden_response is not None:
         if not live_mode:
@@ -391,7 +377,7 @@ def _grade(
             checks["response"] = "pass"
     elif live_mode and not expected_failure:
         # Live run, supported script, but no response oracle recorded. An
-        # unblessed pass is not evidence (issue #202): a supported script
+        # An unblessed pass is not evidence: a supported script
         # must record what the server actually returned, so it fails.
         checks["response"] = "fail"
         return (

@@ -478,7 +478,6 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
         )
         return self._json("GET", f"{self.path}/{layer_id}/queryRelatedRecords", params=params)
 
-    # --- attachments ------------------------------------------------------
 
     def query_attachments(
         self,
@@ -1299,7 +1298,6 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
         )
         return await self._json("GET", f"{self.path}/{layer_id}/queryRelatedRecords", params=params)
 
-    # --- attachments ------------------------------------------------------
 
     async def query_attachments(
         self,

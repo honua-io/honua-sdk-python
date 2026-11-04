@@ -541,7 +541,7 @@ def raise_for_geoservices_error(response: httpx.Response, payload: Mapping[str, 
 # Esri GeoServices auth/token error codes. These are an application code space,
 # NOT HTTP statuses: 498 = Invalid Token, 499 = Token Required, 403 = permission
 # denied. They must map to HonuaAuthError so ``except HonuaAuthError`` catches a
-# token-required rejection (which previously surfaced as a generic HonuaHttpError).
+# token-required rejection.
 _GEOSERVICES_AUTH_CODES = frozenset({401, 403, 498, 499})
 
 

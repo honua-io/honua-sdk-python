@@ -72,9 +72,7 @@ class HonuaSession:
     _audit_writer: AuditWriter | None = field(default=None, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
-    # ------------------------------------------------------------------
     # Bootstrap
-    # ------------------------------------------------------------------
 
     def configure(
         self,
@@ -167,9 +165,7 @@ class HonuaSession:
                 self.api_key = os.environ.get("HONUA_API_KEY") or None
                 self.bearer_token = os.environ.get("HONUA_BEARER_TOKEN") or None
 
-    # ------------------------------------------------------------------
     # Client accessors (lazy)
-    # ------------------------------------------------------------------
 
     def client(self) -> Any:
         with self._lock:
@@ -200,9 +196,7 @@ class HonuaSession:
     def set_audit_writer(self, writer: AuditWriter | None) -> None:
         self._audit_writer = writer
 
-    # ------------------------------------------------------------------
     # Layer aliases
-    # ------------------------------------------------------------------
 
     def register_layer(self, alias: LayerAlias) -> LayerAlias:
         with self._lock:
@@ -268,9 +262,7 @@ class HonuaSession:
             self._unbound_outputs = {}
             self._audit_writer = None
 
-    # ------------------------------------------------------------------
     # Internal builders
-    # ------------------------------------------------------------------
 
     def _build_client(self) -> Any:
         self._bootstrap_from_env()

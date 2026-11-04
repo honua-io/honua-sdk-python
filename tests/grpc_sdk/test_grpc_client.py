@@ -21,9 +21,7 @@ from honua_sdk.grpc._models import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Construction
-# ---------------------------------------------------------------------------
 
 
 class TestClientConstruction:
@@ -111,9 +109,7 @@ class TestClientConstruction:
         mock_channel.close.assert_called_once()
 
 
-# ---------------------------------------------------------------------------
 # query_features
-# ---------------------------------------------------------------------------
 
 
 class TestQueryFeatures:
@@ -232,9 +228,7 @@ class TestQueryFeatures:
         client.close()
 
 
-# ---------------------------------------------------------------------------
 # query_features_stream
-# ---------------------------------------------------------------------------
 
 
 class TestQueryFeaturesStream:
@@ -326,9 +320,7 @@ class TestQueryFeaturesStream:
         client.close()
 
 
-# ---------------------------------------------------------------------------
 # Async client
-# ---------------------------------------------------------------------------
 
 
 class _FakeAioRpcError(Exception):
@@ -492,9 +484,7 @@ class TestAsyncClient:
         assert call_kwargs["timeout"] == pytest.approx(4.0)
 
 
-# ---------------------------------------------------------------------------
 # Per-call auth metadata resolution
-# ---------------------------------------------------------------------------
 
 
 class _RotatingAuthProvider:
@@ -604,9 +594,7 @@ class TestPerCallAuthMetadata:
         assert provider.calls == 2
 
 
-# ---------------------------------------------------------------------------
 # HonuaGrpcError
-# ---------------------------------------------------------------------------
 
 
 class TestHonuaGrpcError:

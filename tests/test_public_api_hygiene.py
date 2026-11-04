@@ -23,12 +23,10 @@ from honua_sdk import (
 from honua_sdk.source import _feature_query_for_source
 
 
-# ---------------------------------------------------------------------------
 # Trimmed __all__ / submodule namespacing
-# ---------------------------------------------------------------------------
 
-# Names that used to live at the top of ``honua_sdk`` but must now be imported
-# from ``honua_sdk.protocols`` or ``honua_sdk.ogc``.
+# These names are imported from ``honua_sdk.protocols`` or ``honua_sdk.ogc``,
+# not from the package root.
 _PROTOCOL_HANDLER_NAMES = (
     "GeoServicesFeatureServerClient",
     "GeoServicesMapServerClient",
@@ -128,9 +126,7 @@ def test_top_level_all_keeps_task_oriented_names() -> None:
     assert not missing, f"top-level __all__ is missing required names: {missing}"
 
 
-# ---------------------------------------------------------------------------
 # Error hierarchy
-# ---------------------------------------------------------------------------
 
 
 def test_auth_and_rate_limit_errors_subclass_http_error() -> None:
@@ -164,9 +160,7 @@ def test_auth_error_is_drop_in_http_error() -> None:
     assert err.status_code == 401
 
 
-# ---------------------------------------------------------------------------
 # Strict Literal protocol/capability types + explicit normalization helper
-# ---------------------------------------------------------------------------
 
 
 def test_normalize_protocol_accepts_aliases_and_rejects_unknown() -> None:
@@ -183,9 +177,7 @@ def test_normalize_capability_rejects_unknown_strings() -> None:
         normalize_capability("definitely-not-a-capability")
 
 
-# ---------------------------------------------------------------------------
 # _feature_query_for_source: where vs. filter routing
-# ---------------------------------------------------------------------------
 
 
 def _descriptor(protocol: str) -> SourceDescriptor:

@@ -136,19 +136,15 @@ def _supported(
     return spec
 
 
-# NOTE: Buffer / Clip / Intersect / Union / Erase / SpatialJoin /
-# Dissolve / Copy / Delete / Project / CalculateField were previously
-# exercised as "supported" scripts here. Audit pass 8 found that the
-# shim emitted an gp-style ``input_features`` / ``result`` payload
-# while honua-server's process catalog expects ``wkb`` / ``srid`` (for
-# ``geometry.*``) or ``layerId`` (for ``analytics.*`` /
-# ``data-management.*`` / ``conversion.feature-project``). Those
-# entries are stubs until the projection adapter lands, so their
-# eval scripts moved to the ``expected_failure_*`` block below.
+# Buffer / Clip / Intersect / Union / Erase / SpatialJoin / Dissolve / Copy /
+# Delete / Project / CalculateField are stubs: the shim sends an gp-style
+# ``input_features`` / ``result`` payload while the process catalog expects
+# ``wkb`` / ``srid`` (for ``geometry.*``) or ``layerId`` (for ``analytics.*`` /
+# ``data-management.*`` / ``conversion.feature-project``). Their eval scripts
+# live in the ``expected_failure_*`` block.
 #
-# NOTE: AddField / DeleteField / Rename / ListFields / Describe are
-# also stubs because HonuaAdminClient does not yet expose per-layer
-# schema mutation or reading.
+# AddField / DeleteField / Rename / ListFields / Describe are stubs because
+# HonuaAdminClient does not expose per-layer schema mutation or reading.
 
 _supported(
     "make_feature_layer_then_select",
@@ -439,13 +435,11 @@ raise SystemExit("expected_failure_{slug} did not raise")
     return spec
 
 
-# ---------------------------------------------------------------------------
 # Process-backed tools re-promoted via the layer-aware projection adapter.
 # Each submits an async OGC API Processes job (the stub transport models the
 # accepted -> successful lifecycle) and returns an gp-style Result. They use
 # honua://services/<svc>/<layerId> inputs so the shim can project a numeric
 # layerId for honua-server's layer-aware processes.
-# ---------------------------------------------------------------------------
 _supported(
     "buffer_roads",
     "transport",
@@ -506,11 +500,11 @@ print(f"dissolve_parcels_by_zoning ok output={result[0]}")
     "dissolve_parcels_by_zoning ok",
     response_emit=_fl_emit("dissolve_parcels_by_zoning"),
 )
-# data-management.copy-features / .calculate-field are CanServe=false by design
-# (honua-server#1382): never projected as standalone OGC API processes, only
-# reachable inside a honua-geoprocessing analysis plan. A one-shot execute 404s
-# on every server version, so the shim raises HonuaGpUnsupportedError and these
-# are expected-unsupported, not supported (honua-sdk-python#159).
+# data-management.copy-features / .calculate-field are CanServe=false by design:
+# never projected as standalone OGC API processes, only reachable inside a
+# honua-geoprocessing analysis plan. A one-shot execute 404s on every server
+# version, so the shim raises HonuaGpUnsupportedError and these are
+# expected-unsupported, not supported.
 _expected_failure(
     "copy_pavement_to_backup",
     """    gp.management.Copy("honua://services/pavement/0", "pavement_backup")""",
@@ -611,12 +605,10 @@ client-side ``HonuaGpUnsupportedError`` before CalculateField is reached.
     workspace="transport",
 )
 
-# ---------------------------------------------------------------------------
 # Honest stubs: gp overlay tools (Clip/Intersect/Union/Erase) have only
 # single-WKB geometry.* counterparts, Delete has different semantics from
 # delete-features, and the rest have no catalog op. These exercise the
 # raise_unsupported / audit-write contract.
-# ---------------------------------------------------------------------------
 _expected_failure(
     "clip_roads_in_study",
     "    gp.analysis.Clip('roads_buffer', 'study_area', 'roads_clip')",

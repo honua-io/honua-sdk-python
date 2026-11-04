@@ -53,9 +53,7 @@ def _async_admin_client(handler: Any) -> AsyncHonuaAdminClient:
     return AsyncHonuaAdminClient("http://test.honua.io", transport=transport)
 
 
-# ---------------------------------------------------------------------------
 # list_services
-# ---------------------------------------------------------------------------
 
 
 async def test_async_list_services_returns_typed_summaries() -> None:
@@ -126,9 +124,7 @@ async def test_async_list_services_transport_error() -> None:
             await client.list_services()
 
 
-# ---------------------------------------------------------------------------
 # get_capability_flags
-# ---------------------------------------------------------------------------
 
 
 async def test_async_get_capability_flags_with_compat_block() -> None:
@@ -187,9 +183,7 @@ async def test_async_get_capability_flags_without_compat_block() -> None:
     assert flags.manifest_prune is False
 
 
-# ---------------------------------------------------------------------------
 # close() semantics
-# ---------------------------------------------------------------------------
 
 
 async def test_async_close_releases_owned_client() -> None:
@@ -217,9 +211,7 @@ async def test_async_close_is_noop_for_external_client() -> None:
         await external.aclose()
 
 
-# ---------------------------------------------------------------------------
 # with_options
-# ---------------------------------------------------------------------------
 
 
 async def test_async_with_options_overrides_timeout_and_retries() -> None:
@@ -265,9 +257,7 @@ async def test_async_with_options_overrides_base_url() -> None:
         await client.close()
 
 
-# ---------------------------------------------------------------------------
 # Init paths
-# ---------------------------------------------------------------------------
 
 
 async def test_async_init_rejects_client_and_transport_together() -> None:
@@ -362,9 +352,7 @@ async def test_async_init_auth_provider_is_invoked_per_request() -> None:
     assert seen == ["Bearer call-1", "Bearer call-2"]
 
 
-# ---------------------------------------------------------------------------
 # get_version / get_capabilities passthrough
-# ---------------------------------------------------------------------------
 
 
 async def test_async_get_version_returns_typed_response() -> None:
@@ -419,9 +407,7 @@ async def test_async_check_compatibility_runs_through() -> None:
     assert result is not None
 
 
-# ---------------------------------------------------------------------------
 # Service settings + protocols
-# ---------------------------------------------------------------------------
 
 
 async def test_async_get_service_settings_returns_typed_response() -> None:
@@ -504,9 +490,7 @@ async def test_async_update_protocols_sends_list_body() -> None:
     assert isinstance(result, ServiceSettingsResponse)
 
 
-# ---------------------------------------------------------------------------
 # Connections
-# ---------------------------------------------------------------------------
 
 
 _CONN_SUMMARY: dict[str, Any] = {
@@ -715,9 +699,7 @@ async def test_async_rotate_encryption_key() -> None:
     assert result.new_key_version == 4
 
 
-# ---------------------------------------------------------------------------
 # Layers
-# ---------------------------------------------------------------------------
 
 
 _LAYER_SUMMARY: dict[str, Any] = {
@@ -816,9 +798,7 @@ async def test_async_set_service_layers_enabled_empty_payload() -> None:
     assert result == []
 
 
-# ---------------------------------------------------------------------------
 # Discovery
-# ---------------------------------------------------------------------------
 
 
 async def test_async_discover_tables() -> None:
@@ -849,9 +829,7 @@ async def test_async_discover_tables() -> None:
     assert len(result.tables) == 1
 
 
-# ---------------------------------------------------------------------------
 # Styles
-# ---------------------------------------------------------------------------
 
 
 async def test_async_get_layer_style() -> None:
@@ -900,9 +878,7 @@ async def test_async_update_layer_style() -> None:
     assert isinstance(result, LayerStyleResponse)
 
 
-# ---------------------------------------------------------------------------
 # Config
-# ---------------------------------------------------------------------------
 
 
 async def test_async_get_config_returns_dict() -> None:
@@ -925,9 +901,7 @@ async def test_async_get_config_returns_empty_dict_for_non_mapping() -> None:
     assert result == {}
 
 
-# ---------------------------------------------------------------------------
 # Manifest
-# ---------------------------------------------------------------------------
 
 
 async def test_async_get_manifest_with_namespace_filter() -> None:
@@ -984,9 +958,7 @@ async def test_async_apply_manifest_includes_idempotency_key() -> None:
     assert isinstance(result, ManifestApplyResult)
 
 
-# ---------------------------------------------------------------------------
 # Metadata resources
-# ---------------------------------------------------------------------------
 
 
 async def test_async_list_metadata_resources_with_filters() -> None:
@@ -1095,7 +1067,6 @@ async def test_async_delete_metadata_resource_with_if_match() -> None:
     assert seen["if_match"] == "prev-etag"
 
 
-# ---------------------------------------------------------------------------
 # Async auth providers on the admin client.
 #
 # The admin async client must apply request-time auth headers through the
@@ -1103,7 +1074,6 @@ async def test_async_delete_metadata_resource_with_if_match() -> None:
 # ``auth_headers_async`` work without raising ``AttributeError`` and (2) a
 # synchronous provider's blocking refresh is offloaded off the event loop.
 # This mirrors the data-plane ``AsyncHonuaClient`` behaviour.
-# ---------------------------------------------------------------------------
 
 
 async def test_async_admin_client_awaits_async_auth_provider() -> None:
@@ -1127,8 +1097,8 @@ async def test_async_admin_client_awaits_async_auth_provider() -> None:
     ) as client:
         await client.list_services()
 
-    # An async-only provider previously raised AttributeError because the admin
-    # client called the synchronous ``auth_headers``; it must now be awaited.
+    # An async-only provider is awaited. The admin client must not call the
+    # synchronous ``auth_headers``.
     assert refreshed == ["called"]
     assert seen == ["Bearer async-token"]
 
@@ -1159,7 +1129,6 @@ async def test_async_admin_client_offloads_sync_auth_provider_off_the_loop() -> 
     assert call_threads and all(tid != loop_thread for tid in call_threads)
 
 
-# ---------------------------------------------------------------------------
 # Async auth providers on the admin client.
 #
 # The admin async client must apply request-time auth headers through the

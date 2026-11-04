@@ -527,9 +527,7 @@ def test_client_integration_with_retry() -> None:
     assert call_count["n"] == 2
 
 
-# ---------------------------------------------------------------------------
-# parse_retry_after robustness (issue #103): non-finite values rejected
-# ---------------------------------------------------------------------------
+# Non-finite Retry-After values are rejected.
 
 
 @pytest.mark.parametrize("bad", ["inf", "Infinity", "-inf", "nan", "1e400"])

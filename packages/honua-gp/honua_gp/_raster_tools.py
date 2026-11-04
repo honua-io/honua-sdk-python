@@ -60,9 +60,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray
 
 
-# ---------------------------------------------------------------------------
 # Input coercion helpers (build the flat raster-process ``inputs`` bag)
-# ---------------------------------------------------------------------------
 
 
 def as_raster_reference(value: Any) -> RasterReference:
@@ -208,9 +206,7 @@ def named_parameters(param_map: Mapping[str, str], **kwargs: Any) -> dict[str, A
     return out
 
 
-# ---------------------------------------------------------------------------
 # Plan wrapping (single ``geoprocess`` step in the canonical plan)
-# ---------------------------------------------------------------------------
 
 
 def _default_plan_id(process_id: str) -> str:
@@ -237,9 +233,7 @@ def wrap_raster_plan(process_id: str, inputs: Mapping[str, Any], plan_id: str) -
     }
 
 
-# ---------------------------------------------------------------------------
 # Result handle (lazy, extra-gated conversion)
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -288,9 +282,7 @@ class RasterResult:
         return self._consumer().result_raster_bytes(self.results)
 
 
-# ---------------------------------------------------------------------------
 # Dispatch
-# ---------------------------------------------------------------------------
 
 # Output kinds returned as parsed JSON (list/dict) rather than a RasterResult.
 _JSON_RESULT_KINDS = frozenset({"Table", "Scalar"})

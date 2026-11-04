@@ -31,9 +31,7 @@ from honua_sdk._geoservices_query import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Pure translation helpers
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -315,9 +313,7 @@ def test_spatial_filter_params_rejects_unknown_units() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # End-to-end through client.query (FeatureServer REST path)
-# ---------------------------------------------------------------------------
 
 
 def _capture_client(captured: dict[str, Any], *, exceeded: bool = False) -> HonuaClient:
@@ -403,9 +399,7 @@ def test_query_return_distinct_and_count_only() -> None:
     assert params["returnCountOnly"] == "true"
 
 
-# ---------------------------------------------------------------------------
 # Pagination: unbounded walk + truncation warning
-# ---------------------------------------------------------------------------
 
 
 def _paginating_client(page_count: int, *, always_exceeded: bool = False) -> HonuaClient:
@@ -461,9 +455,7 @@ def test_query_does_not_warn_when_limit_set() -> None:
     assert len(result.features) == 2
 
 
-# ---------------------------------------------------------------------------
 # Source facade: spatial filter + aggregation routing
-# ---------------------------------------------------------------------------
 
 
 def _feature_server_descriptor() -> SourceDescriptor:
@@ -519,9 +511,7 @@ def test_source_query_rejects_spatial_filter_on_non_feature_server() -> None:
             source.query(spatial_filter={"geometry": {"x": 1, "y": 2}})
 
 
-# ---------------------------------------------------------------------------
 # gRPC binding
-# ---------------------------------------------------------------------------
 
 
 def test_grpc_factory_builds_client_from_base_config() -> None:

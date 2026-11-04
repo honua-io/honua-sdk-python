@@ -47,9 +47,7 @@ from ._base import (
     _SyncProtocol,
 )
 
-# ---------------------------------------------------------------------------
 # Well-known constants (mirrors HonuaSceneCapabilities / *Modes / *AssetTypes)
-# ---------------------------------------------------------------------------
 
 
 class HonuaSceneCapabilities:
@@ -118,10 +116,8 @@ class HonuaScenePackageEditionGates:
         return edition_gate is not None and edition_gate.lower() in cls._SUPPORTED
 
 
-# ---------------------------------------------------------------------------
 # Errors (mirror HonuaSceneException; kept module-local to avoid widening the
 # top-level honua_sdk.errors surface)
-# ---------------------------------------------------------------------------
 
 
 class HonuaSceneError(HonuaError):
@@ -132,9 +128,7 @@ class HonuaScenePackageError(HonuaError):
     """Raised when an offline scene-package manifest cannot be parsed."""
 
 
-# ---------------------------------------------------------------------------
 # Scene metadata / resolution models
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -284,9 +278,7 @@ class HonuaSceneResolution:
     raw_response: JsonObject = field(default_factory=dict)
 
 
-# ---------------------------------------------------------------------------
 # Elevation models (mirror server /elevation/{datasetId}/value + /profile)
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -348,9 +340,7 @@ class ElevationProfile:
     raw_response: JsonObject = field(default_factory=dict)
 
 
-# ---------------------------------------------------------------------------
 # Offline scene-package manifest models
-# ---------------------------------------------------------------------------
 
 CURRENT_PACKAGE_SCHEMA_VERSION = "honua.scene-package.v1"
 
@@ -499,9 +489,7 @@ class HonuaScenePackageValidationResult:
         )
 
 
-# ---------------------------------------------------------------------------
 # JSON extraction helpers (case-insensitive, multi-key, mirroring the .NET parser)
-# ---------------------------------------------------------------------------
 
 
 def _get_value(element: Any, *names: str) -> Any:
@@ -600,9 +588,7 @@ def _add_capability(capabilities: set[str], capability: str | None) -> None:
         capabilities.add(capability.strip())
 
 
-# ---------------------------------------------------------------------------
 # Scene JSON parsing
-# ---------------------------------------------------------------------------
 
 
 def _parse_auth(root: Any) -> HonuaSceneAuthRequirements:
@@ -1021,9 +1007,7 @@ def _scene_resolve_params(
     return _params(params, extra_params)
 
 
-# ---------------------------------------------------------------------------
 # Elevation JSON parsing
-# ---------------------------------------------------------------------------
 
 
 def _parse_elevation_source(root: Any) -> ElevationSourceMetadata:
@@ -1139,9 +1123,7 @@ def _elevation_profile_params(
     return _params(params, extra_params)
 
 
-# ---------------------------------------------------------------------------
 # Offline scene-package manifest parsing + validation
-# ---------------------------------------------------------------------------
 
 
 def _parse_package_bounds(root: Any) -> HonuaSceneBounds | None:
@@ -1507,9 +1489,7 @@ def validate_scene_package_manifest(
     return HonuaScenePackageValidationResult(state=state, issues=tuple(sink.issues))
 
 
-# ---------------------------------------------------------------------------
 # 3D Tiles tileset traversal + tile content models
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -1613,9 +1593,7 @@ def enumerate_tileset_contents(
     return tuple(results)
 
 
-# ---------------------------------------------------------------------------
 # Offline scene-package build models
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -1849,9 +1827,7 @@ def _resolve_package_context(
     )
 
 
-# ---------------------------------------------------------------------------
 # Clients
-# ---------------------------------------------------------------------------
 
 _DEFAULT_SCENE_ROOT = "/api/scenes"
 _DEFAULT_TILESET_ROOT = "/scenes"

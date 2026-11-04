@@ -32,9 +32,7 @@ def _query(**overrides: object) -> FeatureQuery:
     return FeatureQuery(**defaults)  # type: ignore[arg-type]
 
 
-# ---------------------------------------------------------------------------
 # validate_filter_routing
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("protocol", ["ogc-features", "stac"])
@@ -60,9 +58,7 @@ def test_validate_filter_routing_passes_through_feature_server() -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # header merge helpers
-# ---------------------------------------------------------------------------
 
 
 def test_merge_idempotency_passes_extra_through_when_no_key() -> None:
@@ -101,9 +97,7 @@ def test_merge_request_headers_returns_none_when_unset() -> None:
     assert merge_request_headers(None, None, None) is None
 
 
-# ---------------------------------------------------------------------------
 # per-protocol kwarg builders
-# ---------------------------------------------------------------------------
 
 
 def test_feature_server_pages_kwargs_defaults() -> None:

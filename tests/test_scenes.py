@@ -28,9 +28,7 @@ from honua_sdk.protocols import (
     parse_scene_package_manifest,
 )
 
-# ---------------------------------------------------------------------------
 # Fixtures (mirroring the .NET reference fixtures)
-# ---------------------------------------------------------------------------
 
 SCENE_METADATA = {
     "id": "downtown-honolulu",
@@ -234,9 +232,7 @@ def _make_client(handler: Any, seen: list[dict[str, Any]]) -> HonuaClient:
     return HonuaClient("http://example.test", transport=transport)
 
 
-# ---------------------------------------------------------------------------
 # Scene metadata + capability + 3D extent parse
-# ---------------------------------------------------------------------------
 
 
 def test_get_scene_parses_metadata_extent_and_capabilities() -> None:
@@ -297,9 +293,7 @@ def test_list_scenes_parses_bbox_attribution_and_auth() -> None:
     assert summary.updated_at == datetime(2026, 4, 28, tzinfo=UTC)
 
 
-# ---------------------------------------------------------------------------
 # Scene resolution: tileset/terrain URLs, capabilities, access envelope
-# ---------------------------------------------------------------------------
 
 
 def test_resolve_scene_resolves_urls_endpoints_and_expiry() -> None:
@@ -392,9 +386,7 @@ def test_malformed_scene_metadata_raises() -> None:
             client.scenes().get_scene("nope")
 
 
-# ---------------------------------------------------------------------------
 # Elevation value + profile request/response
-# ---------------------------------------------------------------------------
 
 
 def test_elevation_value_request_and_parse() -> None:
@@ -448,9 +440,7 @@ def test_elevation_profile_request_and_parse() -> None:
     assert profile.source.raster_ids == (101,)
 
 
-# ---------------------------------------------------------------------------
 # Offline scene-package manifest parse + SHA256 validation
-# ---------------------------------------------------------------------------
 
 
 def test_parse_package_manifest_typed_fields() -> None:
@@ -623,9 +613,7 @@ async def test_async_resolve_scene_round_trips() -> None:
     assert resolution.tileset_url is not None
 
 
-# ---------------------------------------------------------------------------
 # 3D Tiles tileset traversal + tile fetch + offline package build
-# ---------------------------------------------------------------------------
 
 # A small 3D Tiles 1.1 tileset: root content + two children, one of which is a
 # nested external tileset that itself references another tile.

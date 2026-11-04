@@ -31,9 +31,7 @@ from honua_sdk.geoprocessing import (
     LayerReference,
 )
 
-# ---------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
 
 PROCESS_LIST = {
     "processes": [
@@ -77,9 +75,7 @@ def _status(job_id: str, status: str, *, process_id: str = "geometry.buffer") ->
     return {"jobID": job_id, "status": status, "processID": process_id, "type": "process"}
 
 
-# ---------------------------------------------------------------------------
 # Discovery
-# ---------------------------------------------------------------------------
 
 
 def test_feature_href_same_origin_is_fetched() -> None:
@@ -158,9 +154,7 @@ def test_processes_and_describe() -> None:
     assert ("GET", "/ogc/processes/processes/geometry.buffer") in seen
 
 
-# ---------------------------------------------------------------------------
 # Layer-scope execute: submit -> poll -> results
-# ---------------------------------------------------------------------------
 
 
 def test_execute_layer_submit_poll_results() -> None:
@@ -231,9 +225,7 @@ def test_query_result_reference_requires_id() -> None:
         LayerReference(kind="queryResult").to_inputs()
 
 
-# ---------------------------------------------------------------------------
 # Single-geometry primitive
-# ---------------------------------------------------------------------------
 
 
 def test_execute_geometry_primitive() -> None:
@@ -259,9 +251,7 @@ def test_execute_geometry_primitive() -> None:
     assert captured["inputs"] == {"geometry": "AAAA", "srid": "4326"}
 
 
-# ---------------------------------------------------------------------------
 # Canonical multi-step plan
-# ---------------------------------------------------------------------------
 
 
 def test_execute_plan_targets_canonical_process() -> None:
@@ -292,9 +282,7 @@ def test_execute_plan_targets_canonical_process() -> None:
     assert captured["inputs"]["plan"] == plan
 
 
-# ---------------------------------------------------------------------------
 # Error / lifecycle paths
-# ---------------------------------------------------------------------------
 
 
 def test_execute_raises_on_failed_job() -> None:
@@ -504,9 +492,7 @@ def test_layer_scope_ids_constant() -> None:
     assert "conversion.feature-project" in LAYER_SCOPE_PROCESS_IDS
 
 
-# ---------------------------------------------------------------------------
 # GeoPandas integration
-# ---------------------------------------------------------------------------
 
 
 def test_execute_dataframe_roundtrip() -> None:
@@ -659,9 +645,7 @@ def test_execute_dataframe_reprojects_input_and_reapplies_source_crs() -> None:
     assert out.crs.to_epsg() == 3857
 
 
-# ---------------------------------------------------------------------------
 # Async parity
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

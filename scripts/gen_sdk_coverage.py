@@ -106,7 +106,6 @@ class CoverageEntry:
     note: str | None = None
 
 
-# ---------------------------------------------------------------------------
 # Hand-curated coverage inventory.
 #
 # Each entry maps a canonical honua-server capability key to what this
@@ -118,11 +117,9 @@ class CoverageEntry:
 # never padded) -- e.g. every ``identity.*``, ``alerts.*``, ``channels.*``,
 # ``dr.*``, ``analytics.*``, ``fieldops.*``, ``printing.*``, ``staticmap.*``,
 # ``ai.*``, ``routing.*``, ``caching.*``, and ``import.*`` key, because this
-# SDK has no client surface for any of them (verified by source grep during
-# #182 triage -- those are either server-admin-only config surfaces this
-# SDK's control-plane client doesn't expose, or protocols this SDK's data
-# plane never implemented).
-# ---------------------------------------------------------------------------
+# SDK has no client surface for any of them. Those are either
+# server-admin-only config surfaces this SDK's control-plane client does not
+# expose, or protocols this SDK's data plane does not implement.
 COVERAGE: tuple[CoverageEntry, ...] = (
     CoverageEntry(
         key="serve.geoservices-root",

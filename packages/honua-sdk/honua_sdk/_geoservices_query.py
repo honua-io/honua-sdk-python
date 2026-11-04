@@ -22,9 +22,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-# ---------------------------------------------------------------------------
 # Spatial relationships
-# ---------------------------------------------------------------------------
 
 #: Canonical spatial-relationship tokens accepted on a spatial filter, mapped to
 #: their GeoServices ``spatialRel`` values. Accepts the bare relationship name
@@ -76,9 +74,7 @@ def _is_distance_relationship(value: str) -> bool:
     return str(value).strip().lower().replace("_", "-") in _DISTANCE_RELATIONSHIPS
 
 
-# ---------------------------------------------------------------------------
 # Geometry coercion (Esri JSON / GeoJSON / __geo_interface__) → Esri JSON
-# ---------------------------------------------------------------------------
 
 #: Index of the first non-planar ordinate (z) in an ``[x, y, z]`` coordinate.
 _XY_LEN = 2
@@ -218,9 +214,7 @@ def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
     raise ValueError(f"Unsupported GeoJSON geometry type: {gtype!r}.")
 
 
-# ---------------------------------------------------------------------------
 # Spatial-filter mapping → GeoServices params
-# ---------------------------------------------------------------------------
 
 
 def _first(mapping: Mapping[str, Any], *keys: str) -> Any:
@@ -329,9 +323,7 @@ def _distance_units(value: Any) -> str:
         ) from exc
 
 
-# ---------------------------------------------------------------------------
 # Statistics / aggregation → GeoServices params
-# ---------------------------------------------------------------------------
 
 _STATISTIC_TYPES = frozenset({"count", "sum", "min", "max", "avg", "stddev", "var"})
 

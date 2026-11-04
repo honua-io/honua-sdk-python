@@ -10,9 +10,7 @@ from honua_sdk.errors import HonuaTransportError
 from honua_sdk.geocoding import GeocodeResult, GeocodeSuggestion, ReverseGeocodeResult
 
 
-# ---------------------------------------------------------------------------
 # Forward geocode
-# ---------------------------------------------------------------------------
 
 
 def test_forward_geocode_returns_candidates() -> None:
@@ -119,9 +117,7 @@ def test_forward_geocode_country_code_option() -> None:
     assert seen["query"]["countryCode"] == "US,CA"
 
 
-# ---------------------------------------------------------------------------
 # Reverse geocode
-# ---------------------------------------------------------------------------
 
 
 def test_reverse_geocode_success() -> None:
@@ -186,9 +182,7 @@ def test_reverse_geocode_error_handling() -> None:
     assert err.message == "Invalid location"
 
 
-# ---------------------------------------------------------------------------
 # Suggest
-# ---------------------------------------------------------------------------
 
 
 def test_suggest_success() -> None:
@@ -235,9 +229,7 @@ def test_suggest_empty_results() -> None:
     assert results == []
 
 
-# ---------------------------------------------------------------------------
 # Auth headers
-# ---------------------------------------------------------------------------
 
 
 def test_auth_headers_api_key() -> None:
@@ -292,9 +284,7 @@ def test_custom_http_client_rejects_sdk_auth_options() -> None:
         client.close()
 
 
-# ---------------------------------------------------------------------------
 # HTTP errors
-# ---------------------------------------------------------------------------
 
 
 def test_http_error_404() -> None:
@@ -363,9 +353,7 @@ def test_custom_locator_name_in_path() -> None:
     assert "/rest/services/MyLocator/GeocodeServer/findAddressCandidates" in seen["path"]
 
 
-# ---------------------------------------------------------------------------
-# Null-island guard (issue #106): missing location must not become (0, 0)
-# ---------------------------------------------------------------------------
+# Missing location must not become (0, 0).
 
 
 def _geocode_client(handler: Any) -> HonuaGeocodingClient:

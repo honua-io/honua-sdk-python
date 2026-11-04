@@ -85,9 +85,7 @@ def test_bearer_token_accepts_epoch_and_iso_expiration_metadata() -> None:
     assert iso_token.expires_at.tzinfo is not None
 
 
-# ---------------------------------------------------------------------------
-# issue #107: auth parsing robustness
-# ---------------------------------------------------------------------------
+
 
 
 def test_coerce_token_preserves_zero_epoch_expiry() -> None:
@@ -112,7 +110,7 @@ def test_parse_expires_at_unparseable_iso_returns_none() -> None:
     from honua_sdk.auth import _parse_expires_at
 
     # A malformed ISO timestamp must degrade to "no known expiry" rather than
-    # raising ValueError and crashing token coercion (issue #107.1). On Python
+    # raising ValueError and crashing token coercion. On Python
     # 3.11 some valid RFC-3339 forms (e.g. >6-digit fractional seconds) also
     # hit this path.
     assert _parse_expires_at("2026-13-99T99:99:99Z") is None

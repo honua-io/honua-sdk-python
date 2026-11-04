@@ -52,9 +52,7 @@ from .._process_tools import Result, run_layer_process
 from .._resolve import descriptor_mapping, resolve
 from .._session import LayerAlias, get_session
 
-# ---------------------------------------------------------------------------
 # Session-backed (alias) functions
-# ---------------------------------------------------------------------------
 
 
 def _make_layer_handler(session, bound: dict[str, Any]) -> LayerAlias:
@@ -114,9 +112,7 @@ def MakeTableView(
     )
 
 
-# ---------------------------------------------------------------------------
 # Source-backed functions
-# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class Selection:
@@ -328,9 +324,7 @@ def GetCount(in_rows: Any) -> int:
         return count
 
 
-# ---------------------------------------------------------------------------
 # Process-backed tools (layer-aware projection adapter)
-# ---------------------------------------------------------------------------
 # Dissolve / Project project their scripting-API signatures onto honua-server's
 # layer-aware processes (generalization.dissolve, conversion.feature-project)
 # via ``honua_gp._process_tools.run_layer_process``: the input feature class /
@@ -373,9 +367,7 @@ def Project(*args: Any, **kwargs: Any) -> Result:
     return run_layer_process("management.Project", *args, **kwargs)
 
 
-# ---------------------------------------------------------------------------
 # Raster tools that live in the *management* toolbox of the real scripting API
-# ---------------------------------------------------------------------------
 # ``ProjectRaster`` / ``Resample`` / ``Clip`` (raster) / ``Mosaic`` are Data
 # Management tools in the real scripting API (``management.ProjectRaster`` etc.), but
 # their honua-server targets are raster/surface processes, so the
@@ -392,9 +384,7 @@ from ..sa import Resample as Resample  # noqa: E402
 MosaicToNewRaster = Mosaic
 
 
-# ---------------------------------------------------------------------------
 # Schema-shaped value objects (kept for typed return shapes)
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -472,9 +462,7 @@ class DescribeResult:
     raw: dict[str, Any] | None = None
 
 
-# ---------------------------------------------------------------------------
 # Schema introspection (source-backed: FeatureServer layer metadata)
-# ---------------------------------------------------------------------------
 # Describe / ListFields fetch a typed LayerSchema via
 # honua_sdk.HonuaClient.feature_server(service_id).schema(layer_id) -- the
 # same FeatureServer layer-metadata endpoint honua_admin/honua_sdk already
@@ -712,9 +700,7 @@ def ListFields(
         return fields
 
 
-# ---------------------------------------------------------------------------
 # Stubs
-# ---------------------------------------------------------------------------
 
 
 def AddField(*args: Any, **kwargs: Any) -> Any:

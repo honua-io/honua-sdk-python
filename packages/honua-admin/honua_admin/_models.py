@@ -14,7 +14,7 @@ from typing import Any, Literal, TypeAlias
 # release line. Honua Server versions are ``<year>.<release>.<patch>`` SemVer triples
 # (2026.1.1); the major tracks the year, not compatibility, so the control-plane API
 # major carries the breaking-change signal. Builds that predate the server's version
-# identity (honua-server#4693) report ``1.0.0+<sha>`` and fall below the floor.
+# identity report ``1.0.0+<sha>`` and fall below the floor.
 # tests/admin/test_server_floor_baseline.py fails when this and the baseline disagree;
 # the JS and .NET SDKs carry the same value.
 MINIMUM_SUPPORTED_SERVER_VERSION = "2026.1.0-0"
@@ -102,9 +102,7 @@ def _parse_version_components(version: str | None) -> tuple[int, int, int] | Non
     return (parts[0], parts[1], parts[2])
 
 
-# ---------------------------------------------------------------------------
 # Response models (frozen)
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -845,9 +843,7 @@ class LayerStyleResponse:
         return cls(**_extract_fields(cls, d))
 
 
-# ---------------------------------------------------------------------------
 # OGC API - Styles (styleId-keyed; ADR-0048)
-# ---------------------------------------------------------------------------
 
 # Stylesheet encoding identifiers accepted by the styleId-keyed client. These
 # map to the ``Accept`` media types the OGC API - Styles surface negotiates on
@@ -977,9 +973,7 @@ class OgcStylesheet:
         return parsed
 
 
-# ---------------------------------------------------------------------------
 # Request models (mutable)
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -1081,9 +1075,7 @@ class LayerStyleUpdateRequest:
         return d
 
 
-# ---------------------------------------------------------------------------
 # Migration toolkit artifact models
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -1881,9 +1873,7 @@ class ToolboxTranslationReport:
         return {**identity, **d}
 
 
-# ---------------------------------------------------------------------------
 # Request models (mutable)
-# ---------------------------------------------------------------------------
 
 
 @dataclass

@@ -57,6 +57,9 @@ jobs:
       - name: Enforce maintained documentation command policy
         run: python scripts/check_docs_command_policy.py
 
+      - name: Require the same pip pin in every dependency lock
+        run: python scripts/check_lock_pip_pins.py
+
       - name: Verify generated sync clients are not stale
         # The synchronous clients (honua_sdk/client.py, honua_admin/_client.py)
         # are generated from their async source-of-truth by scripts/gen_sync.py

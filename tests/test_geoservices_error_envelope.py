@@ -1,6 +1,6 @@
 """GeoServices error-envelope handling (HTTP 200 + ``{"error": {...}}``).
 
-The GeoServices REST GeoServices REST protocol reports failures as an HTTP 200 response
+The Esri GeoServices REST protocol reports failures as an HTTP 200 response
 whose body is ``{"error": {"code": <int>, "message": <str>, ...}}``. These
 tests pin that such envelopes raise :class:`HonuaHttpError` instead of being
 returned to callers as success data (audit AUD-091, issue #122).
@@ -31,9 +31,9 @@ def test_query_features_raises_on_error_envelope() -> None:
 
 
 def test_apply_edits_raises_auth_on_token_required_envelope() -> None:
-    # GeoServices REST code 499 (Token Required) is an application code, not an HTTP status:
+    # Esri code 499 (Token Required) is an application code, not an HTTP status:
     # it must surface as HonuaAuthError (catchable via ``except HonuaAuthError``)
-    # while preserving the original GeoServices REST code on ``error_code`` and normalizing
+    # while preserving the original Esri code on ``error_code`` and normalizing
     # the HTTP ``status_code`` surface to 403.
     with HonuaClient(
         "http://example.test", transport=_envelope_handler(code=499, message="Token Required")
@@ -45,7 +45,7 @@ def test_apply_edits_raises_auth_on_token_required_envelope() -> None:
 
 
 def test_invalid_token_envelope_maps_to_auth_error() -> None:
-    # GeoServices REST code 498 (Invalid Token) likewise maps to HonuaAuthError.
+    # Esri code 498 (Invalid Token) likewise maps to HonuaAuthError.
     with HonuaClient(
         "http://example.test", transport=_envelope_handler(code=498, message="Invalid Token")
     ) as client:

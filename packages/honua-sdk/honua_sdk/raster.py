@@ -185,7 +185,7 @@ def xarray_to_geotiff(data_array: xarray.DataArray) -> bytes:
 def _coerce_dimension_value(value: Any) -> float | tuple[float, ...]:
     """Coerce one ``values[]`` entry: a scalar coordinate or a ranged pair.
 
-    The GeoServices REST contract allows ``hasRanges: true`` axes whose entries are
+    The Esri contract allows ``hasRanges: true`` axes whose entries are
     ``[lower, upper]`` arrays; those are preserved as tuples rather than
     scalar-coerced (which would raise ``TypeError``).
     """
@@ -198,7 +198,7 @@ def _coerce_dimension_value(value: Any) -> float | tuple[float, ...]:
 class MultidimensionalDimension:
     """One dimensional axis (e.g. ``StdTime``, ``StdZ``) of a coverage variable.
 
-    Mirrors a single entry of the GeoServices REST ``multidimensionalInfo`` dimension
+    Mirrors a single entry of the Esri ``multidimensionalInfo`` dimension
     contract (``ImageServerMultidimensionalDimension`` in honua-server). This
     describes the *shape* of the axis only -- how many coordinates it has and,
     when enumerable, what they are -- not pixel data (see
@@ -215,7 +215,7 @@ class MultidimensionalDimension:
 
     .. note::
 
-       The GeoServices REST ``multidimensionalInfo`` contract also defines
+       The Esri ``multidimensionalInfo`` contract also defines
        ``hasRanges: true`` axes whose ``values`` entries are ``[lower, upper]``
        pairs rather than scalars (e.g. ``"values": [[18000, 0], [25500, 0]]``
        for a pressure/depth axis). honua-server's own builder never emits
@@ -270,7 +270,7 @@ class MultidimensionalDimension:
 class MultidimensionalVariable:
     """One data variable (e.g. ``temperature``) of a multidimensional coverage.
 
-    Mirrors a single entry of the GeoServices REST ``multidimensionalInfo`` ``variables``
+    Mirrors a single entry of the Esri ``multidimensionalInfo`` ``variables``
     array (``ImageServerMultidimensionalVariable`` in honua-server), each
     carrying its own dimensional axes.
     """
@@ -310,7 +310,7 @@ def parse_multidimensional_info(payload: Mapping[str, Any]) -> tuple[Multidimens
     ``{"multidimensionalInfo": {"variables": [...]}}`` or as the unwrapped
     ``{"variables": [...]}`` document, so this composes with whichever client
     method eventually surfaces the raw wire call. Each variable's dimensions
-    follow the GeoServices REST contract confirmed against honua-server's
+    follow the Esri contract confirmed against honua-server's
     ``ImageServerMultidimensionalInfoBuilder``/``ImageServerModels.cs``:
     ``name``, optional ``description``/``unit``, and a ``dimensions`` array of
     ``{name, unit?, extent?: [min, max], values?: [...], hasRegularIntervals,

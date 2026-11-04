@@ -34,7 +34,7 @@ _COMPATIBLE = {
 
 _PARTIAL = {
     "level": "partial",
-    "code": "GEOSERVICES_ATTACHMENTS",
+    "code": "ARCGIS_ATTACHMENTS",
     "reason": "Attachments need a separate plan.",
     "warnings": ["attachments-present"],
     "manualSteps": ["Plan attachment migration."],
@@ -42,8 +42,8 @@ _PARTIAL = {
 
 _SOURCE = {
     "displayName": "County Parcels",
-    "baseUrl": "https://example.com/gis/rest/services/Parcels/FeatureServer",
-    "product": "GeoServices REST Server",
+    "baseUrl": "https://example.com/arcgis/rest/services/Parcels/FeatureServer",
+    "product": "ArcGIS Server",
     "version": "11.2",
     "build": "12345",
     "serviceType": "FeatureServer",
@@ -52,7 +52,7 @@ _SOURCE = {
 _INVENTORY_ARTIFACT = {
     "artifactKind": "honua.migration.source-inventory",
     "artifactVersion": "1.0",
-    "sourceKind": "geoservices-rest",
+    "sourceKind": "arcgis-geoservices-rest",
     "source": _SOURCE,
     "authPosture": {
         "mode": "anonymous",
@@ -132,7 +132,7 @@ _INVENTORY_ARTIFACT = {
             "containerId": "service:parcels",
             "kind": "renderer",
             "name": "default",
-            "format": "GeoServices REST-json",
+            "format": "esri-json",
             "resourceIds": ["resource:parcels:0"],
             "externalDependencyIds": [],
             "metadata": {"rendererType": "simple"},
@@ -146,8 +146,8 @@ _INVENTORY_ARTIFACT = {
             "resourceId": "resource:parcels:0",
             "kind": "attachments",
             "name": "Parcels attachments",
-            "dependencyType": "geoservices-attachments",
-            "address": "https://example.com/gis/rest/services/Parcels/FeatureServer/0",
+            "dependencyType": "arcgis-attachments",
+            "address": "https://example.com/arcgis/rest/services/Parcels/FeatureServer/0",
             "metadata": {"relationship": "attachments"},
             "spatialReferences": [],
             "compatibility": _PARTIAL,
@@ -211,8 +211,8 @@ def test_scan_migration_source_export_json_sets_query() -> None:
 
     transport = httpx.MockTransport(handler)
     request = MigrationInventoryScanRequest(
-        source_kind="geoservices-rest",
-        source_url="https://example.com/gis/rest/services/Parcels/FeatureServer",
+        source_kind="arcgis-geoservices-rest",
+        source_url="https://example.com/arcgis/rest/services/Parcels/FeatureServer",
     )
 
     with HonuaAdminClient("http://test.honua.io", transport=transport) as client:
@@ -233,7 +233,7 @@ def test_scan_migration_source_accepts_per_call_options() -> None:
     transport = httpx.MockTransport(handler)
     request = MigrationInventoryScanRequest(
         source_kind="geoservices",
-        source_url="https://example.com/gis/rest/services/Parcels/FeatureServer",
+        source_url="https://example.com/arcgis/rest/services/Parcels/FeatureServer",
     )
 
     with HonuaAdminClient("http://test.honua.io", transport=transport) as client:
@@ -244,7 +244,7 @@ def test_scan_migration_source_accepts_per_call_options() -> None:
             idempotency_key="scan-key",
         )
 
-    assert result.source_kind == "geoservices-rest"
+    assert result.source_kind == "arcgis-geoservices-rest"
     assert seen["headers"]["x-trace-id"] == "trace-1"
     assert seen["headers"]["idempotency-key"] == "scan-key"
     assert seen["timeout"]["connect"] == 1.25
@@ -262,7 +262,7 @@ async def test_async_scan_migration_source() -> None:
     transport = httpx.MockTransport(handler)
     request = MigrationInventoryScanRequest(
         source_kind="geoservices",
-        source_url="https://example.com/gis/rest/services/Parcels/FeatureServer",
+        source_url="https://example.com/arcgis/rest/services/Parcels/FeatureServer",
     )
 
     async with AsyncHonuaAdminClient("http://test.honua.io", transport=transport) as client:
@@ -271,9 +271,9 @@ async def test_async_scan_migration_source() -> None:
     assert seen["path"] == "/api/v1/admin/import/scan"
     assert seen["body"] == {
         "sourceKind": "geoservices",
-        "sourceUrl": "https://example.com/gis/rest/services/Parcels/FeatureServer",
+        "sourceUrl": "https://example.com/arcgis/rest/services/Parcels/FeatureServer",
     }
-    assert result.source_kind == "geoservices-rest"
+    assert result.source_kind == "arcgis-geoservices-rest"
 
 
 @pytest.mark.anyio
@@ -288,7 +288,7 @@ async def test_async_scan_migration_source_accepts_per_call_options() -> None:
     transport = httpx.MockTransport(handler)
     request = MigrationInventoryScanRequest(
         source_kind="geoservices",
-        source_url="https://example.com/gis/rest/services/Parcels/FeatureServer",
+        source_url="https://example.com/arcgis/rest/services/Parcels/FeatureServer",
     )
 
     async with AsyncHonuaAdminClient("http://test.honua.io", transport=transport) as client:
@@ -299,7 +299,7 @@ async def test_async_scan_migration_source_accepts_per_call_options() -> None:
             idempotency_key="scan-key",
         )
 
-    assert result.source_kind == "geoservices-rest"
+    assert result.source_kind == "arcgis-geoservices-rest"
     assert seen["headers"]["x-trace-id"] == "trace-1"
     assert seen["headers"]["idempotency-key"] == "scan-key"
     assert seen["timeout"]["connect"] == 1.25
@@ -340,7 +340,7 @@ def test_migration_manifest_artifact_models_preserve_nested_fields() -> None:
             "artifactVersion": "1.0",
             "sourceArtifactKind": "honua.migration.source-inventory",
             "sourceArtifactVersion": "1.0",
-            "sourceKind": "geoservices-rest",
+            "sourceKind": "arcgis-geoservices-rest",
             "source": _SOURCE,
             "summary": {
                 "sourceResourceCount": 1,
@@ -374,7 +374,7 @@ def test_migration_manifest_artifact_models_preserve_nested_fields() -> None:
                 {
                     "sourceStyleId": "renderer:parcels:0",
                     "action": "manual-review",
-                    "format": "GeoServices REST-json",
+                    "format": "esri-json",
                     "resourceIds": ["resource:parcels:0"],
                     "externalDependencyIds": [],
                     "compatibility": _PARTIAL,
@@ -384,7 +384,7 @@ def test_migration_manifest_artifact_models_preserve_nested_fields() -> None:
                 {
                     "sourceId": "resource:parcels:0",
                     "kind": "feature-layer",
-                    "code": "GEOSERVICES_ATTACHMENTS",
+                    "code": "ARCGIS_ATTACHMENTS",
                     "severity": "manual-review",
                     "reason": "Attachments require review.",
                     "manualSteps": ["Plan attachment migration."],
@@ -400,7 +400,7 @@ def test_migration_manifest_artifact_models_preserve_nested_fields() -> None:
     assert payload["artifactKind"] == "honua.migration.manifest"
     assert payload["sourceArtifactKind"] == "honua.migration.source-inventory"
     assert payload["summary"]["manualReviewCount"] == 1
-    assert payload["targetResources"][0]["compatibility"]["code"] == "GEOSERVICES_ATTACHMENTS"
+    assert payload["targetResources"][0]["compatibility"]["code"] == "ARCGIS_ATTACHMENTS"
     assert payload["manualReviewItems"][0]["manualSteps"] == ["Plan attachment migration."]
 
 
@@ -409,7 +409,7 @@ def test_parity_evidence_and_readiness_models_preserve_state_values() -> None:
         {
             "artifactKind": "honua.migration.parity-evidence-pack",
             "artifactVersion": "1.0",
-            "sourceKind": "geoservices-rest",
+            "sourceKind": "arcgis-geoservices-rest",
             "source": _SOURCE,
             "overallState": "unknown",
             "summary": "Readiness evidence is incomplete.",

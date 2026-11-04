@@ -1900,9 +1900,9 @@ class ToolboxParameterMapping:
 
 @dataclass
 class ToolboxToolDescriptor:
-    """One tool mapping proposed for server validation.
+    """One toolbox tool as proposed by a translation client.
 
-    ``target_process_id`` is the canonical Honua process the scanner proposes as
+    ``target_process_id`` is the canonical Honua process the client proposes as
     the native executor (for example ``geometry.buffer``). Leave it ``None`` when
     no native mapping was found — the server then reports the tool unsupported
     rather than stubbing it as executable.
@@ -1920,11 +1920,11 @@ class ToolboxToolDescriptor:
 
 @dataclass
 class ToolboxTranslationManifest:
-    """Caller-provided translation manifest for a toolbox.
+    """Client-proposed translation manifest for one ArcGIS toolbox.
 
-    ``source_format`` is a caller-defined format label. Remove local paths and
-    credentials from ``source_label`` before submission; the server echoes it
-    into operator-visible output.
+    ``source_format`` is the source toolbox format: ``pyt``, ``atbx``, or
+    ``tbx``. Redact local paths and credentials out of ``source_label`` before
+    submitting — the server echoes it into operator-visible output.
     """
 
     toolbox_name: str

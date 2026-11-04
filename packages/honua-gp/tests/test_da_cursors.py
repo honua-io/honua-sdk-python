@@ -1,4 +1,4 @@
-"""gp.da cursor classes."""
+"""arcpy.da cursor classes."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def test_search_cursor_uses_alias_workspace_after_env_workspace_changes() -> Non
 
     ``SearchCursor`` used to resolve ``alias.source`` instead of the alias
     name, so descriptor projection fell back to the *current* session
-    workspace. A later ``gp.env.workspace`` change could therefore retarget
+    workspace. A later ``arcpy.env.workspace`` change could therefore retarget
     an existing layer alias at a different service.
     """
 
@@ -576,7 +576,7 @@ def test_update_cursor_next_after_exit_raises_configuration_error(stub_clients) 
 
 def test_insert_cursor_reset_refuses_to_drop_buffered_inserts() -> None:
     """``InsertCursor.reset`` must refuse rather than silently discard
-    buffered rows. Real ``gp.da.InsertCursor`` has no reset method; the
+    buffered rows. Real ``arcpy.da.InsertCursor`` has no reset method; the
     inherited ``BaseCursor.reset`` would otherwise clear ``_inserts`` /
     ``_inserted`` and the subsequent ``_close`` would skip ``flush`` because
     the buffer is empty -- a silent data loss the audit JSONL never sees.
@@ -660,7 +660,7 @@ def test_update_cursor_update_row_length_mismatch_raises_configuration_error(
 ) -> None:
     """A ``updateRow`` call whose row length disagrees with ``field_names`` must
     surface as ``HonuaGpConfigurationError`` (an ``ExecuteError``
-    subclass) so ``except gp.ExecuteError`` keeps catching it. Before the
+    subclass) so ``except arcpy.ExecuteError`` keeps catching it. Before the
     fix, ``zip(..., strict=True)`` raised a bare ``ValueError`` that escaped
     the documented shim error surface.
     """
@@ -698,7 +698,7 @@ def test_insert_cursor_insert_row_length_mismatch_raises_configuration_error(
 
 
 def test_row_length_mismatch_caught_by_execute_error(stub_clients) -> None:
-    """The legacy ``except gp.ExecuteError:`` idiom must still catch the
+    """The legacy ``except arcpy.ExecuteError:`` idiom must still catch the
     row-length error. ``HonuaGpConfigurationError`` subclasses
     ``ExecuteError`` (== top-level ``honua_gp.ExecuteError``), so this is
     the regression that ``ValueError`` would have broken.

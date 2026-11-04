@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "honua-gp"
 version = "0.1.0"
-description = "Honua geoprocessing compatibility layer -- a drop-in-style API for teams migrating scripts from desktop GIS platform gp to Honua services"
+description = "Honua geoprocessing compatibility layer -- a drop-in-style API for teams moving Python geoprocessing scripts to Honua services"
 readme = "README.md"
 license = { text = "Proprietary -- see LICENSE" }
 requires-python = ">=3.11"

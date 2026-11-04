@@ -193,7 +193,7 @@ def merge_parameters(inputs: dict[str, Any], parameters: Mapping[str, Any] | Non
 
 
 def named_parameters(param_map: Mapping[str, str], **kwargs: Any) -> dict[str, Any]:
-    """Translate gp-keyword kwargs into server-input keys via ``param_map``.
+    """Translate arcpy-keyword kwargs into server-input keys via ``param_map``.
 
     Drops ``None`` values (unset optional kwargs). Used by :mod:`honua_gp.sa` to
     map its confident named kwargs (``z_factor`` -> ``zFactor``, ...) onto the
@@ -201,8 +201,8 @@ def named_parameters(param_map: Mapping[str, str], **kwargs: Any) -> dict[str, A
     passthrough.
     """
     out: dict[str, Any] = {}
-    for source_key, server_key in param_map.items():
-        value = kwargs.get(source_key)
+    for arcpy_key, server_key in param_map.items():
+        value = kwargs.get(arcpy_key)
         if value is not None:
             out[server_key] = value
     return out

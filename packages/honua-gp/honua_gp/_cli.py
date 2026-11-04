@@ -1,4 +1,8 @@
-"""``honua-gp`` compatibility-matrix command line tool."""
+"""``honua-gp`` console entry point.
+
+``matrix`` regenerates the compatibility matrix markdown from the in-code
+manifest, offline; CI uses ``--check`` as a doc gate.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +12,6 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from ._compat import COMPAT, FunctionEntry
-
-
-# ---------------------------------------------------------------------------
-# Matrix
-# ---------------------------------------------------------------------------
-
 
 def render_compat_matrix() -> str:
     """Render the compatibility manifest as a Markdown document."""
@@ -29,7 +27,7 @@ def render_compat_matrix() -> str:
     lines.append("type: reference")
     lines.append('title: "honua-gp compatibility matrix"')
     lines.append(
-        'description: "Which gp surfaces the shim supports, which run with '
+        'description: "Which arcpy surfaces the shim supports, which run with '
         'documented deviations, and which raise rather than fail silently. Check '
         'this before committing to a migration."'
     )
@@ -38,7 +36,7 @@ def render_compat_matrix() -> str:
     lines.append(
         'resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"'
     )
-    lines.append("tags: [honua-gp, gp, compatibility, generated]")
+    lines.append("tags: [honua-gp, arcpy, compatibility, generated]")
     lines.append("---")
     lines.append("# honua-gp compatibility matrix")
     lines.append("")
@@ -51,7 +49,7 @@ def render_compat_matrix() -> str:
     lines.append("")
 
     for family in families:
-        lines.append(f"## gp.{family}.*")
+        lines.append(f"## arcpy.{family}.*")
         lines.append("")
         lines.append("| Function | Status | Backend | Replacement / notes |")
         lines.append("| --- | --- | --- | --- |")
@@ -65,7 +63,7 @@ def render_compat_matrix() -> str:
             if entry.tracking:
                 cell = f"{cell}<br>**tracking:** `{entry.tracking}`"
             lines.append(
-                f"| <a id=\"{anchor_id}\"></a>`gp.{name}` | {status} | `{backend}` | {cell} |"
+                f"| <a id=\"{anchor_id}\"></a>`arcpy.{name}` | {status} | `{backend}` | {cell} |"
             )
         lines.append("")
 
@@ -78,8 +76,8 @@ def render_compat_matrix() -> str:
     lines.append(f"* Stubbed (raise ``HonuaGpUnsupportedError``): {stubs}")
     lines.append("")
     lines.append(
-        "Stubs intentionally raise rather than silently fail so callers can identify unsupported "
-        "operations before runtime."
+        "Stubs intentionally raise rather than silently fail so customer scripts surface gaps "
+        "before the migration tool ingests the audit JSONL."
     )
     return "\n".join(lines).rstrip() + "\n"
 
@@ -115,11 +113,6 @@ def _matrix(args: argparse.Namespace) -> int:
     else:
         sys.stdout.write(text)
     return 0
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 
 def build_parser() -> argparse.ArgumentParser:

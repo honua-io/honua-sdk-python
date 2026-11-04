@@ -1,4 +1,4 @@
-"""``gp.da`` shim -- 10 functions (3 cursor classes mapped, 7 stubbed).
+"""``arcpy.da`` shim -- 10 functions (3 cursor classes mapped, 7 stubbed).
 
 The cursor classes implement context-manager semantics on top of the
 :class:`honua_sdk.source.Source` facade:
@@ -11,8 +11,8 @@ The cursor classes implement context-manager semantics on top of the
 
 The remaining 7 entries (Editor, Walk, the NumPy bridges, ExtendTable) raise
 :class:`~honua_gp._errors.HonuaGpUnsupportedError` with a tracking
-ticket. They are listed in the compatibility manifest so the matrix and
-``honua-gp assess`` show them.
+ticket. They are listed in the compatibility manifest so the matrix shows
+them.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _wrap_source_error(qualified: str, exc: BaseException) -> ExecuteError:
     ``dispatch_source`` so cursor callers see the same ``ExecuteError``
     surface (with ``function``, ``error_kind``, ``compat_anchor``, and
     ``cause`` attached) as the rest of the shim. ``except
-    gp.ExecuteError:`` keeps catching every backend failure regardless of
+    arcpy.ExecuteError:`` keeps catching every backend failure regardless of
     which entry point raised it.
     """
 
@@ -172,7 +172,7 @@ def _payload_for_row(row: Sequence[Any], fields: Sequence[str]) -> dict[str, Any
     # Explicit length check so a short / long row surfaces as
     # HonuaGpConfigurationError (which subclasses ExecuteError) instead of
     # the bare ValueError that ``zip(..., strict=True)`` would otherwise raise
-    # past the documented ``except gp.ExecuteError:`` catch surface.
+    # past the documented ``except arcpy.ExecuteError:`` catch surface.
     if len(row) != len(fields):
         raise HonuaGpConfigurationError(
             f"cursor edit row has {len(row)} value(s) but field_names declares "
@@ -350,7 +350,7 @@ class _BaseCursor:
         raise NotImplementedError
 
     def reset(self) -> None:
-        """Re-iterate from the start; mirrors gp cursor semantics."""
+        """Re-iterate from the start; mirrors arcpy cursor semantics."""
 
         self._ensure_open()
         self._reset()
@@ -367,7 +367,7 @@ class _BaseCursor:
     def _ensure_open(self) -> None:
         if not self._entered:
             raise HonuaGpConfigurationError(
-                f"{self.qualified_name} must be used as a context manager: with gp.da.{self.qualified_name.split('.')[-1]}(...) as cursor:"
+                f"{self.qualified_name} must be used as a context manager: with arcpy.da.{self.qualified_name.split('.')[-1]}(...) as cursor:"
             )
 
 
@@ -606,7 +606,7 @@ class InsertCursor(_BaseCursor):
             raise self._source.refusal(self.qualified_name, OUTPUT_READ_ONLY_REASON)
 
     def reset(self) -> None:
-        # Real ``gp.da.InsertCursor`` does not expose ``reset()``: there is
+        # Real ``arcpy.da.InsertCursor`` does not expose ``reset()``: there is
         # nothing to iterate, and the inherited ``BaseCursor.reset`` would
         # discard the buffered inserts via ``_reset`` without ever calling
         # ``apply_edits`` -- a silent data loss. Refuse the call explicitly so
@@ -622,7 +622,7 @@ class InsertCursor(_BaseCursor):
         payload = _payload_for_row(row, self.fields)
         self._inserts.append(payload)
         self._inserted += 1
-        return self._inserted  # gp returns the new OID; we return a 1-based index pre-flush.
+        return self._inserted  # arcpy returns the new OID; we return a 1-based index pre-flush.
 
     def flush(self) -> dict[str, Any] | None:
         if not self._inserts:

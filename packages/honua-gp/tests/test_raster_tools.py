@@ -456,10 +456,10 @@ def test_failed_job_raises_execute_error(_isolated_audit_dir: Path) -> None:
 
 
 def test_management_toolbox_raster_aliases_resolve() -> None:
-    """gp.management raster tools re-export the sa implementations.
+    """arcpy.management raster tools re-export the sa implementations.
 
-    ProjectRaster / Resample / Clip (raster) / Mosaic live in the gp
-    management toolbox in real gp, so ``honua_gp.management.ProjectRaster``
+    ProjectRaster / Resample / Clip (raster) / Mosaic live in the arcpy
+    management toolbox in real arcpy, so ``honua_gp.management.ProjectRaster``
     must resolve for drop-in scripts even though the manifest keys them under
     ``sa.*``.
     """

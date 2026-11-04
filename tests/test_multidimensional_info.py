@@ -162,9 +162,9 @@ def test_irregular_or_oversized_dimension_has_extent_but_no_values() -> None:
 
 
 def test_ranged_values_dimension_preserves_pairs() -> None:
-    # The GeoServices REST multidimensionalInfo contract allows hasRanges: true axes whose
+    # The Esri multidimensionalInfo contract allows hasRanges: true axes whose
     # "values" entries are [lower, upper] PAIRS, e.g. a pressure axis
-    # "values": [[18000, 0], [25500, 0]] (see the GeoServices REST multidimensional-info
+    # "values": [[18000, 0], [25500, 0]] (see the ArcGIS multidimensional-info
     # REST reference). honua-server's builder never emits ranged values today
     # (ImageServerMultidimensionalDimension.Values is a flat double[] with no
     # HasRanges property), but the parser must not crash on the documented

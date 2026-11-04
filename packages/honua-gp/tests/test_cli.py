@@ -11,9 +11,9 @@ def test_matrix_renders_and_check_detects_drift(tmp_path: Path) -> None:
     matrix_path = tmp_path / "matrix.md"
     assert main(["matrix", "--output", str(matrix_path)]) == 0
     content = matrix_path.read_text(encoding="utf-8")
-    assert "## gp.analysis.*" in content
-    assert "## gp.management.*" in content
-    assert "## gp.da.*" in content
+    assert "## arcpy.analysis.*" in content
+    assert "## arcpy.management.*" in content
+    assert "## arcpy.da.*" in content
     assert main(["matrix", "--output", str(matrix_path), "--check", str(matrix_path)]) == 0
     matrix_path.write_text(content + "\n# drift", encoding="utf-8")
     assert main(["matrix", "--check", str(matrix_path)]) == 1

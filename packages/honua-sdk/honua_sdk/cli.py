@@ -25,7 +25,7 @@ Commands
 ``honua query SERVICE_ID LAYER_ID``
     Query one FeatureServer layer (``--where``, ``--out-fields``,
     ``--order-by``, ``--limit``, ``--offset``) and print the server's GeoJSON
-    (default) or GeoServices REST JSON page, or only the matching count with ``--count``.
+    (default) or Esri JSON page, or only the matching count with ``--count``.
     It relies on :meth:`HonuaClient.query_features`. One request is made; a
     page cut short by the server carries ``exceededTransferLimit``.
 
@@ -510,10 +510,7 @@ def _add_query_parser(subparsers: Any) -> None:
     query = subparsers.add_parser(
         "query",
         help="Query a FeatureServer layer's features, or count them.",
-        description=(
-            "Query one FeatureServer layer. Prints the server's GeoJSON (default) "
-            "or GeoServices REST JSON page."
-        ),
+        description="Query one FeatureServer layer. Prints the server's GeoJSON (default) or Esri JSON page.",
     )
     _add_common_connection_args(query)
     query.add_argument("service_id", help="Catalog service identifier.")

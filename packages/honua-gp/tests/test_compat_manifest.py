@@ -17,7 +17,7 @@ def test_manifest_covers_all_functions_across_families() -> None:
         assert family in families, f"Unexpected family {family!r}"
         families[family] += 1
     # sa.* wraps 17 raster/surface tools (8 surface + 9 raster) plus 2 honest
-    # stubs (raster.histogram / raster.spectral-index) with no clean gp name.
+    # stubs (raster.histogram / raster.spectral-index) with no clean arcpy name.
     assert families == {"analysis": 15, "management": 20, "da": 10, "sa": 19}
     assert len(COMPAT) == 64
 
@@ -66,8 +66,8 @@ def test_public_top_level_reexports_exist() -> None:
 
 
 def test_legacy_suffix_aliases_are_exported() -> None:
-    # Real gp exposes both ``gp.analysis.Buffer`` and
-    # ``gp.Buffer_analysis``. The shim mirrors the suffix form for the
+    # Real arcpy exposes both ``arcpy.analysis.Buffer`` and
+    # ``arcpy.Buffer_analysis``. The shim mirrors the suffix form for the
     # top-of-corpus entries so unmodified scripts keep importing -- the
     # underlying shim may currently raise ``HonuaGpUnsupportedError``
     # for process-backed entries until the projection adapter lands, but
@@ -87,7 +87,7 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
     ``packages/honua-gp/tests/test_compat_manifest.py::_SERVER_INPUTS``).
 
     This test was added after audit pass 8 caught the original shim emitting
-    gp-style ``input_features`` / ``result`` payloads against the
+    arcpy-style ``input_features`` / ``result`` payloads against the
     server's ``wkb`` / ``srid`` / ``layerId`` contract. The layer-aware
     projection adapter re-promoted Buffer / SpatialJoin / Dissolve / Project
     to ``backend="process"`` (CalculateField / Copy stay stubs because their
@@ -100,7 +100,7 @@ def test_process_backed_entries_match_honua_server_catalog() -> None:
     # Snapshot of honua-server's BuiltInProcessCatalog inputs (process_id
     # -> accepted input names). Keep this in sync when honua-server adds /
     # renames process inputs. The list intentionally omits raster / surface
-    # / generalization processes the gp shim does not target.
+    # / generalization processes the arcpy shim does not target.
     server_inputs: dict[str, set[str]] = {
         "geometry.buffer": {"wkb", "srid", "distance", "geodesic"},
         "geometry.clip": {"targetWkb", "clipEnvelopeWkb", "srid"},

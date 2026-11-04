@@ -22,7 +22,7 @@ from honua_sdk.geopandas import (
 
 
 # ---------------------------------------------------------------------------
-# Fixtures: sample GeoServices REST JSON responses
+# Fixtures: sample Esri JSON responses
 # ---------------------------------------------------------------------------
 
 POINT_RESPONSE: dict = {
@@ -503,8 +503,8 @@ class TestExportReprojection:
         assert lon == pytest.approx(-157.8583)
         assert lat == pytest.approx(21.3069)
 
-    def test_geoservices_features_export_stamps_spatial_reference(self) -> None:
-        # GeoServices REST JSON carries its own spatialReference, so the non-WGS84 frame is
+    def test_esri_features_export_stamps_spatial_reference(self) -> None:
+        # Esri JSON carries its own spatialReference, so the non-WGS84 frame is
         # preserved verbatim with an explicit CRS rather than reprojected.
         src = gpd.GeoDataFrame(
             {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"
@@ -522,7 +522,7 @@ class TestExportReprojection:
         assert geom["y"] == pytest.approx(projected_y)
         assert geom["spatialReference"] == {"wkid": 102100, "latestWkid": 3857}
 
-    def test_geoservices_features_export_stamps_wgs84_spatial_reference(self) -> None:
+    def test_esri_features_export_stamps_wgs84_spatial_reference(self) -> None:
         gdf = gpd.GeoDataFrame(
             {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"
         )
@@ -531,7 +531,7 @@ class TestExportReprojection:
 
         assert features[0]["geometry"]["spatialReference"] == {"wkid": 4326}
 
-    def test_geoservices_features_export_without_crs_omits_spatial_reference(self) -> None:
+    def test_esri_features_export_without_crs_omits_spatial_reference(self) -> None:
         gdf = gpd.GeoDataFrame({"id": [1]}, geometry=[Point(1.0, 2.0)])
 
         features = geodataframe_to_features(gdf)
@@ -540,15 +540,15 @@ class TestExportReprojection:
 
 
 # ---------------------------------------------------------------------------
-# GeoServices REST ring winding on export (issue #137)
+# Esri ring winding on export (issue #137)
 # ---------------------------------------------------------------------------
 
 
-class TestGeoServicesRestRingWinding:
-    def test_features_export_orients_rings_geoservices_convention(self) -> None:
+class TestEsriRingWinding:
+    def test_features_export_orients_rings_esri_convention(self) -> None:
         from shapely.geometry import LinearRing
 
-        # Shapely default: CCW exterior, CW hole. GeoServices REST requires the opposite:
+        # Shapely default: CCW exterior, CW hole. Esri requires the opposite:
         # CW exterior, CCW holes.
         exterior = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]
         hole = [(2.0, 2.0), (2.0, 4.0), (4.0, 4.0), (4.0, 2.0), (2.0, 2.0)]
@@ -562,8 +562,8 @@ class TestGeoServicesRestRingWinding:
         assert not LinearRing(rings[0]).is_ccw  # exterior is clockwise
         assert LinearRing(rings[1]).is_ccw  # hole is counter-clockwise
 
-    def test_geojson_export_does_not_force_geoservices_winding(self) -> None:
-        # GeoJSON export must not borrow GeoServices REST orientation; shapely mapping keeps
+    def test_geojson_export_does_not_force_esri_winding(self) -> None:
+        # GeoJSON export must not borrow Esri orientation; shapely mapping keeps
         # the polygon's own ring order.
         from shapely.geometry import mapping
 
@@ -576,7 +576,7 @@ class TestGeoServicesRestRingWinding:
 
 
 # ---------------------------------------------------------------------------
-# NaN GeoServices REST point coordinates (issue #137)
+# NaN Esri point coordinates (issue #137)
 # ---------------------------------------------------------------------------
 
 

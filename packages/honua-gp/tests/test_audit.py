@@ -54,6 +54,15 @@ def test_redact_value_redacts_paths_and_urls() -> None:
     assert _redact_value("super-secret-token", context="api_key") == "<redacted>"
 
 
+def test_audit_uses_the_shared_admin_redaction_rules() -> None:
+    from honua_admin import _redaction
+
+    from honua_gp import _audit
+
+    assert _audit._redact_url is _redaction._redact_url
+    assert _audit._is_sensitive_context is _redaction._is_sensitive_context
+
+
 def test_shape_of_summarizes_without_leaking_values() -> None:
     shape = _shape_of({"a": 1, "b": 2})
     assert shape == {"type": "object", "keys": ["a", "b"]}

@@ -1234,17 +1234,20 @@ class AsyncHonuaAdminClient:
     ) -> ToolboxTranslationReport:
         """POST /api/v1/admin/import/toolbox/translation/validate
 
-        Validate a proposed toolbox manifest against the server's canonical
-        geoprocessing process catalog, and return the server-authoritative
-        per-tool classification.
+        Validate an SDK-translated ArcGIS toolbox manifest against the server's
+        canonical geoprocessing process catalog, and return the
+        server-authoritative per-tool classification.
 
-        The server owns the classification. The caller proposes a mapping; the
-        catalog decides whether that mapping is ``translated``,
+        The server owns the round-trip proof: it never parses toolbox sources
+        and never emulates ``arcpy``. The SDK proposes a mapping; the catalog
+        decides whether that mapping is ``translated``,
         ``partially-translated``, or ``unsupported``, and returns the specific
         reasons a tool cannot be fully translated.
 
+        A verdict derived from this call may be presented as *server-attested*.
+
         Args:
-            manifest: The caller-provided toolbox manifest to validate.
+            manifest: The translated toolbox manifest to validate.
 
         Returns:
             The server's :class:`ToolboxTranslationReport`.

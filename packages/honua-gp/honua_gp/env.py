@@ -1,4 +1,4 @@
-"""gp.env shim -- module-level attributes mirrored to the session."""
+"""arcpy.env shim -- module-level attributes mirrored to the session."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class _EnvProxy:
             return getattr(session, self._ALIASES[name])
         if name in session.extra_env_options:
             return session.extra_env_options[name]
-        return None  # gp.env returns None for unset attributes.
+        return None  # arcpy.env returns None for unset attributes.
 
     def __setattr__(self, name: str, value: Any) -> None:
         session = get_session()
@@ -35,7 +35,7 @@ class _EnvProxy:
             return
         # Unknown env attributes are accepted to keep customer scripts running;
         # they are stored on ``extra_env_options`` (NOT ``extra_client_options``)
-        # so common legacy writes like ``gp.env.extent`` cannot leak into
+        # so common legacy writes like ``arcpy.env.extent`` cannot leak into
         # the ``HonuaClient(**kwargs)`` constructor and trip its closed
         # keyword signature with ``TypeError``.
         session.extra_env_options[name] = value
@@ -51,7 +51,7 @@ overwriteOutput = False  # type: ignore[assignment]
 parallelProcessingFactor: str | None = None  # type: ignore[assignment]
 
 
-# Real gp exposes ``gp.env`` as a module-like attribute that supports
+# Real arcpy exposes ``arcpy.env`` as a module-like attribute that supports
 # attribute set/get. The proxy instance mirrors that semantics.
 env = _EnvProxy()
 

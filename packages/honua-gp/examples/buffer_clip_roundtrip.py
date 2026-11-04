@@ -1,12 +1,12 @@
-"""End-to-end ``gp -> honua_gp`` parity demo.
+"""End-to-end ``arcpy -> honua_gp`` parity demo.
 
 ``analysis.Buffer`` is now end-to-end supported: the layer-aware projection
-adapter (``honua_gp._process_tools``) maps its gp signature onto
+adapter (``honua_gp._process_tools``) maps its arcpy signature onto
 honua-server's ``analytics.buffer-aggregate`` process, submits an async OGC
-API Processes job, polls it to completion, and returns an gp-style
+API Processes job, polls it to completion, and returns an arcpy-style
 ``Result``. ``analysis.Clip`` stays a stub -- honua-server only exposes the
-single-WKB ``geometry.clip`` op, with no layer-aware counterpart -- so the
-migration tool still surfaces it via ``honua-gp assess``.
+single-WKB ``geometry.clip`` op, with no layer-aware counterpart -- so it
+raises ``HonuaGpUnsupportedError`` and the compatibility matrix lists it.
 
 The demo exercises the supported surface end-to-end: layer aliases, attribute
 selection, row counts, update cursors, and a layer-aware Buffer job.
@@ -26,17 +26,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import honua_gp as gp
+import honua_gp as arcpy
 
 # --------------------------------------------------------------------------
-# Equivalent gp script (kept here for parity reviews):
+# Equivalent arcpy script (kept here for parity reviews):
 #
-#   import gp
-#   gp.env.workspace = r"C:\\GIS\\transport.gdb"
-#   gp.env.overwriteOutput = True
-#   gp.management.MakeFeatureLayer("roads", "roads_lyr", "STATUS = 'OPEN'")
-#   open_count = int(gp.management.GetCount("roads_lyr"))
-#   with gp.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+#   import arcpy
+#   arcpy.env.workspace = r"C:\\GIS\\transport.gdb"
+#   arcpy.env.overwriteOutput = True
+#   arcpy.management.MakeFeatureLayer("roads", "roads_lyr", "STATUS = 'OPEN'")
+#   open_count = int(arcpy.management.GetCount("roads_lyr"))
+#   with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
 #       for row in cursor:
 #           if row[1] == "CLOSED":
 #               cursor.deleteRow()
@@ -48,27 +48,27 @@ def main() -> int:
     # ``install_stub`` or a unit test), trust that wiring and skip
     # ``configure_from_env`` -- otherwise the env-driven reconfigure would
     # invalidate the cached stub client and force a real network call.
-    session = gp.get_session()
+    session = arcpy.get_session()
     has_client = session._client is not None  # noqa: SLF001 -- intentional white-box check
     if not has_client:
         base_url = os.environ.get("HONUA_BASE_URL")
         if not base_url:
             print("Set HONUA_BASE_URL (and HONUA_API_KEY if required) before running this example.")
             return 0
-        gp.configure_from_env()
-    gp.env.workspace = os.environ.get("HONUA_GP_WORKSPACE") or "honua://services/transport"
-    gp.env.overwriteOutput = True
+        arcpy.configure_from_env()
+    arcpy.env.workspace = os.environ.get("HONUA_GP_WORKSPACE") or "honua://services/transport"
+    arcpy.env.overwriteOutput = True
 
-    gp.management.MakeFeatureLayer(
+    arcpy.management.MakeFeatureLayer(
         in_features="roads",
         out_layer="roads_lyr",
         where_clause="STATUS = 'OPEN'",
     )
 
-    open_count = int(gp.management.GetCount("roads_lyr"))
+    open_count = int(arcpy.management.GetCount("roads_lyr"))
 
     closed_count = 0
-    with gp.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+    with arcpy.da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
         for row in cursor:
             if row[1] == "CLOSED":
                 cursor.deleteRow()

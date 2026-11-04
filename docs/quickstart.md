@@ -115,7 +115,7 @@ normalized features and resolves the CRS from the query's spatial reference.
 For raw FeatureServer payloads (the GeoServices dict returned directly by
 `query_features`), the typed `FeatureSet` returned by `query_feature_set`, or
 a list of feature dicts, use `features_to_geodataframe`, which also accepts
-Esri JSON geometries and the layer's `spatialReference`:
+GeoServices REST JSON geometries and the layer's `spatialReference`:
 
 ```python
 from honua_sdk.geopandas import features_to_geodataframe
@@ -131,7 +131,7 @@ The reverse helper, `geodataframe_to_features`, turns an edited GeoDataFrame
 back into payloads ready for `apply_edits`.
 
 If you prefer to skip the `geopandas` extra and stay on raw dicts, see the
-appendix at the bottom of this file for the manual Esri JSON conversion.
+appendix at the bottom of this file for the manual GeoServices REST JSON conversion.
 
 ## Step 4: Plot the data (60 seconds)
 
@@ -332,11 +332,11 @@ plt.show()
 - [gRPC client](../packages/honua-sdk/honua_sdk/grpc/) -- streaming feature queries via `HonuaGrpcClient`
 - [Admin client](../packages/honua-admin/honua_admin/) -- server administration with `HonuaAdminClient`
 
-## Appendix: Manual Esri JSON conversion (without the `geopandas` extra)
+## Appendix: Manual GeoServices REST JSON conversion (without the `geopandas` extra)
 
 If you cannot install the `geopandas` extra and need to handle the FeatureServer
 response yourself, the JSON shape is straightforward. Each feature has
-`"attributes"` and `"geometry"` keys; the geometry uses Esri JSON
+`"attributes"` and `"geometry"` keys; the geometry uses GeoServices REST JSON
 (`rings`, `paths`, or `x`/`y`) rather than GeoJSON. Use the legacy
 `query_features` call, which returns that raw GeoServices dict directly:
 
@@ -355,7 +355,7 @@ for f in features:
     attrs = dict(f.get("attributes", {}))
     geom = f.get("geometry")
 
-    # Esri JSON rings/paths -> GeoJSON-style dict for shapely
+    # GeoServices REST JSON rings/paths -> GeoJSON-style dict for shapely
     if geom and "rings" in geom:
         geom = {"type": "Polygon", "coordinates": geom["rings"]}
     elif geom and "paths" in geom:

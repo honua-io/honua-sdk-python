@@ -78,7 +78,7 @@ def _manifest() -> ToolboxTranslationManifest:
     return ToolboxTranslationManifest(
         toolbox_name="VectorAnalysisToolbox",
         source_format="pyt",
-        source_label="vector_analysis.pyt",
+        source_label="vector-analysis-toolbox",
         tools=[
             ToolboxToolDescriptor(
                 tool_name="BufferGeometry",
@@ -102,7 +102,7 @@ def test_manifest_serialises_to_the_server_wire_shape() -> None:
     assert list(payload)[:2] == ["artifactKind", "artifactVersion"]
     assert payload["toolboxName"] == "VectorAnalysisToolbox"
     assert payload["sourceFormat"] == "pyt"
-    assert payload["sourceLabel"] == "vector_analysis.pyt"
+    assert payload["sourceLabel"] == "vector-analysis-toolbox"
     assert payload["tools"][0]["parameterMappings"] == [
         {"sourceName": "in_geometry", "targetParameter": "wkb", "sourceDataType": "GPGeometry"},
         {"sourceName": "buffer_distance", "targetParameter": "distance"},

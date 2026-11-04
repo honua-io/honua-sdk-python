@@ -382,8 +382,7 @@ def Project(*args: Any, **kwargs: Any) -> Result:
 # implementation + COMPAT manifest rows live under ``honua_gp.sa`` (single
 # source of truth). These thin re-exports make ``arcpy.management.ProjectRaster``
 # resolve for drop-in scripts, mirroring the ``CopyFeatures = Copy`` alias
-# pattern. ``honua-gp assess`` canonicalizes the scanned ``management.*`` names
-# onto the ``sa.*`` manifest rows via ``_cli._ALIAS_TO_CANONICAL``.
+# pattern.
 from ..sa import Clip as Clip  # noqa: E402 -- alias re-export after the management defs.
 from ..sa import Mosaic as Mosaic  # noqa: E402
 from ..sa import ProjectRaster as ProjectRaster  # noqa: E402

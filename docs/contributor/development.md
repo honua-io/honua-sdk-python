@@ -20,7 +20,7 @@ Three independently installable packages live under `packages/`:
 |---------|-----------|---------|------|
 | `packages/honua-sdk` | `honua-sdk` | Apache-2.0 | Data-plane client: feature queries, geocoding, multi-protocol clients, gRPC streaming, GeoPandas integration. Optional extras `grpc` and `geopandas`. |
 | `packages/honua-admin` | `honua-admin` | Apache-2.0 | Control-plane client: services, connections, layers, styles, metadata, manifests, compatibility checks. Depends on `honua-sdk`. |
-| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer for teams migrating from ArcGIS `arcpy`. Import `honua_gp`. It has its own lenient lint/test gate, not the workspace-root strict rules. |
+| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer for teams migrating from GeoServices REST `desktop GIS API`. Import `honua_gp`. It has its own lenient lint/test gate, not the workspace-root strict rules. |
 
 The packages build with Hatchling and release through release-please
 (`python-sdk-v*` / `python-admin-v*` tags publish to PyPI). Docs are
@@ -157,10 +157,8 @@ New drift in a required case must fail the lane; never add a blanket
 The SDK exposes no way to submit custom (operator-authored) geoprocessing code
 and no way to select an execution backend; backend selection is server
 configuration. Per honua-server ADR-0063, untrusted custom GP code runs only
-in an isolated AWS Batch container, never on-host. The ArcPy/ModelBuilder
-codemod (`honua_sdk.migration`) translates recognized tools only to built-in
-server processes (`EXECUTABLE_PROCESS_IDS`) and emits anything else as
-`manual-review`. `honua gp inspect` and `honua gp logs` read the canonical job
+in an isolated AWS Batch container, never on-host. `honua gp inspect` and
+`honua gp logs` read the canonical job
 diagnostics projection in this SDK; every other `honua gp` command delegates
 to a separately installed trusted local devkit and never changes server
 submission or workload routing. `tests/test_custom_code_batch_only_policy.py`

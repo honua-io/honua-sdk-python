@@ -11,8 +11,8 @@ The cursor classes implement context-manager semantics on top of the
 
 The remaining 7 entries (Editor, Walk, the NumPy bridges, ExtendTable) raise
 :class:`~honua_gp._errors.HonuaGpUnsupportedError` with a tracking
-ticket. They are listed in the compatibility manifest so the matrix and
-``honua-gp assess`` show them.
+ticket. They are listed in the compatibility manifest so the matrix shows
+them.
 """
 
 from __future__ import annotations

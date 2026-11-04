@@ -4,7 +4,6 @@ Every shim function reads its dispatch metadata from ``COMPAT``. The same
 dictionary backs:
 
 * ``scripts/render_compat_matrix.py`` (documents the compatibility surface).
-* ``honua-gp assess`` (pivots scanner inventories against this table).
 * ``_dispatch.py`` (chooses the backend per call).
 
 Adding or moving a function therefore requires a single source edit; doc and

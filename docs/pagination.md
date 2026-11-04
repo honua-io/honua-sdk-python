@@ -90,11 +90,11 @@ for feature in client.iter_query("parcels", page_size=1000, max_pages=None):
 
 `client.query` / `Source.query` accept an arbitrary-geometry spatial
 filter and server-side statistics on the GeoServices FeatureServer path,
-mirroring Esri's `query(geometry=..., spatial_relationship=...)` and
-arcpy summary-statistics queries.
+mirroring GeoServices REST's `query(geometry=..., spatial_relationship=...)` and
+desktop GIS API summary-statistics queries.
 
 ```python
-# "Select by location": features WITHIN a polygon (Esri JSON, GeoJSON, or
+# "Select by location": features WITHIN a polygon (GeoServices REST JSON, GeoJSON, or
 # any shapely/`__geo_interface__` geometry are accepted).
 result = client.query(
     "parcels",

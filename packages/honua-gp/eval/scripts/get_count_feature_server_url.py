@@ -11,15 +11,15 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 # Live mode: deliberately NO configure call -- the first tool invocation must
 # pick up HONUA_BASE_URL / HONUA_API_KEY from the environment by itself.
 
-arcpy.env.workspace = "honua://services/transport"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/transport"
+gp.env.overwriteOutput = True
 
 import os
 
@@ -28,8 +28,8 @@ from honua_gp._resolve import descriptor_mapping, resolve
 base_url = os.environ.get("HONUA_BASE_URL") or "https://honua.example.com"
 full_url = base_url.rstrip("/") + "/rest/services/test_service/FeatureServer/0"
 relative_path = "rest/services/test_service/FeatureServer/0"
-full_count = arcpy.management.GetCount(full_url)
-relative_count = arcpy.management.GetCount(relative_path)
+full_count = gp.management.GetCount(full_url)
+relative_count = gp.management.GetCount(relative_path)
 locator = descriptor_mapping(resolve(full_url))["locator"]
 print(f"get_count_feature_server_url ok full={full_count} relative={relative_count} locator={locator}")
 from eval._emit import emit_response

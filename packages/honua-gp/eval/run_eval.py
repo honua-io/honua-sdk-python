@@ -12,7 +12,7 @@ three independent layers, from weakest to strongest:
    the shim POSTs to honua-server, captured from the ``process_inputs`` audit
    field. This is deterministic across the stub transport and a live server
    (the projection is transport-independent), so a dispatch /
-   parameter-translation regression -- an arcpy argument mapped to the wrong
+   parameter-translation regression -- an gp argument mapped to the wrong
    process input -- is caught even under the stub, which the canned-response
    stub could never catch on its own.
 

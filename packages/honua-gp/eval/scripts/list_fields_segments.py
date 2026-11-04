@@ -12,19 +12,19 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 from eval._emit import emit_response, schema_fingerprint
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 
-arcpy.env.workspace = "honua://services/legacy"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/legacy"
+gp.env.overwriteOutput = True
 
-fields = arcpy.management.ListFields("segments")
+fields = gp.management.ListFields("segments")
 names = [f.name for f in fields]
 emit_response("list_fields_segments", schema_fingerprint(fields))
 print(f"list_fields_segments ok count={len(fields)} fields={','.join(names)}")

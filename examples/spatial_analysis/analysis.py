@@ -6,7 +6,7 @@ script mirror reuse the same logic instead of carrying duplicate code.
 
 The helpers split into two groups:
 
-* **Pure-Python helpers** (no network): build a small demo Esri JSON response,
+* **Pure-Python helpers** (no network): build a small demo GeoServices REST JSON response,
   convert it to a GeoDataFrame through the SDK, and run the spatial operations
   (buffer, spatial join, dissolve, summarise). These are import- and
   test-friendly and never require a live Honua server.
@@ -40,7 +40,7 @@ DEFAULT_BASE_URL = "http://localhost:8080"
 DEFAULT_SERVICE_ID = "test_service"
 DEFAULT_LAYER_ID = 0
 
-# Working CRS for the buffer step. Esri "Web Mercator" (metres) keeps buffer
+# Working CRS for the buffer step. Web Mercator (metres) keeps buffer
 # distances intuitive; results are reprojected to WGS84 for display/summary.
 WORKING_CRS = "EPSG:3857"
 DISPLAY_CRS = "EPSG:4326"
@@ -85,7 +85,7 @@ class EnvContract:
 
 
 # ---------------------------------------------------------------------------
-# Demo fixture: an Esri JSON response shaped like HonuaClient.query_features
+# Demo fixture: a GeoServices REST JSON response shaped like HonuaClient.query_features
 # ---------------------------------------------------------------------------
 # Six air-quality sensors around San Francisco, in Web Mercator (EPSG:3857),
 # matching the shape ``features_to_geodataframe`` consumes. Using a fixture
@@ -128,7 +128,7 @@ def query_sensor_features(
     layer_id: int,
     where: str = "1=1",
 ) -> dict[str, Any]:
-    """Query a live Honua layer and return the raw Esri JSON response.
+    """Query a live Honua layer and return the raw GeoServices REST JSON response.
 
     This is the only helper that touches the network. The notebook's "live"
     cell calls it; tests and the pure-Python path use :data:`DEMO_SENSOR_RESPONSE`

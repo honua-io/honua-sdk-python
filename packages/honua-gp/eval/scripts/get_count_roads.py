@@ -11,19 +11,19 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 
-arcpy.env.workspace = "honua://services/transport"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/transport"
+gp.env.overwriteOutput = True
 
-count = arcpy.management.GetCount("roads")
+count = gp.management.GetCount("roads")
 print(f"get_count_roads ok count={count}")
 from eval._emit import emit_response
 emit_response('get_count_roads', {'count': int(count)})

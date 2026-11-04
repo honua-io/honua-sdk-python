@@ -5,8 +5,8 @@ adapter (``honua_gp._process_tools``) maps its arcpy signature onto
 honua-server's ``analytics.buffer-aggregate`` process, submits an async OGC
 API Processes job, polls it to completion, and returns an arcpy-style
 ``Result``. ``analysis.Clip`` stays a stub -- honua-server only exposes the
-single-WKB ``geometry.clip`` op, with no layer-aware counterpart -- so the
-migration tool still surfaces it via ``honua-gp assess``.
+single-WKB ``geometry.clip`` op, with no layer-aware counterpart -- so it
+raises ``HonuaGpUnsupportedError`` and the compatibility matrix lists it.
 
 The demo exercises the supported surface end-to-end: layer aliases, attribute
 selection, row counts, update cursors, and a layer-aware Buffer job.

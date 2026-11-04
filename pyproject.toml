@@ -63,10 +63,6 @@ ignore = []
 # _client_protocol.py mirrors the client's wide request signatures in a typed
 # Protocol, so it forwards the same many optional knobs (PLR0913).
 "packages/honua-sdk/honua_sdk/_client_protocol.py" = ["PLR0913"]
-"packages/honua-sdk/honua_sdk/migration/arcpy.py" = ["E501", "PLR2004"]
-# _cli.py imports HonuaClient lazily inside the `run` subcommand so the
-# offline scan/translate/pyt commands work without httpx wired up.
-"packages/honua-sdk/honua_sdk/migration/_cli.py" = ["PLC0415"]
 "packages/honua-sdk/honua_sdk/source.py" = ["E501", "PLC0415"]
 "packages/honua-sdk/honua_sdk/models.py" = ["E501"]
 # cursors.py: the UpdateCursor constructors forward the same many optional
@@ -94,10 +90,6 @@ ignore = []
 "packages/honua-admin/honua_admin/_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
 "packages/honua-admin/honua_admin/_async_client.py" = ["PLC0415", "PLR0913", "PLR2004"]
 "packages/honua-admin/honua_admin/_models.py" = ["PLR2004"]
-# _arcpy_scanner.py is an AST-walking inventory scanner: visitor methods use
-# the ast node-class CamelCase names (N802), and the classifier has inherently
-# many branches/returns and protocol-numeric comparisons.
-"packages/honua-admin/honua_admin/_arcpy_scanner.py" = ["N802", "PLR0911", "PLR0912", "PLR0913", "PLR2004"]
 # UP037: keep quoted forward refs in package source. The compatibility-gate snapshot
 # captures inspect.signature output, which renders quoted annotations differently
 # from bare references even with `from __future__ import annotations`. Stripping

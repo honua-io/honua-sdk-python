@@ -18,7 +18,7 @@
 # and `geospatial_etl` examples. It walks through a small air-quality workflow:
 #
 # 1. **Connect / query** sensor features from a Honua FeatureServer layer.
-# 2. **Convert** the Esri JSON response to a GeoPandas `GeoDataFrame` via the SDK.
+# 2. **Convert** the GeoServices REST JSON response to a GeoPandas `GeoDataFrame` via the SDK.
 # 3. **Run spatial operations**: buffer, spatial join, and dissolve.
 # 4. **Summarise / visualise** the results per district.
 #
@@ -69,7 +69,7 @@ from examples.spatial_analysis.analysis import (
 # %% [markdown]
 # ## 1. Query features
 #
-# The demo uses a bundled Esri JSON fixture shaped exactly like a
+# The demo uses a bundled GeoServices REST JSON fixture shaped exactly like a
 # `HonuaClient.query_features(...)` response, so the notebook is runnable
 # offline. Six air-quality sensors around San Francisco, in Web Mercator.
 

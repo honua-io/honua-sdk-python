@@ -1245,10 +1245,6 @@ class AsyncHonuaAdminClient:
         reasons a tool cannot be fully translated.
 
         A verdict derived from this call may be presented as *server-attested*.
-        A verdict the SDK computed on its own may not — see
-        :func:`honua_sdk.migration.attest_translation`, which builds an
-        attestation report around this method and degrades explicitly (never
-        silently) when the server cannot be reached.
 
         Args:
             manifest: The translated toolbox manifest to validate.

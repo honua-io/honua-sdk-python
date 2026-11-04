@@ -11,19 +11,19 @@ for path in (PACKAGE_ROOT, PACKAGE_ROOT.parent.parent / "packages" / "honua-sdk"
 
 from eval._stub import install_stub, stub_active
 
-import honua_gp as arcpy
+import honua_gp as gp
 
 if stub_active():
     install_stub()
 else:
     # Live mode: pick up HONUA_BASE_URL / HONUA_API_KEY / HONUA_BEARER_TOKEN
     # so the script runs against the configured Honua deployment.
-    arcpy.configure_from_env()
+    gp.configure_from_env()
 
-arcpy.env.workspace = "honua://services/transport"
-arcpy.env.overwriteOutput = True
+gp.env.workspace = "honua://services/transport"
+gp.env.overwriteOutput = True
 
-with arcpy.da.SearchCursor("roads", ["OID@", "STATUS"], where_clause="STATUS = 'OPEN'") as cursor:
+with gp.da.SearchCursor("roads", ["OID@", "STATUS"], where_clause="STATUS = 'OPEN'") as cursor:
     rows = list(cursor)
 print(f"search_cursor_filter ok rows={len(rows)}")
 from eval._emit import emit_response

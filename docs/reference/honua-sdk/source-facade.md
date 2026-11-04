@@ -29,15 +29,15 @@ descriptor = SourceDescriptor(id="svc", protocol="geoservices-feature-service",
 result = client.source(descriptor).query(Query(where="1=1"))
 ```
 
-## arcpy.da-style cursors
+## Cursor helpers
 
-For geoprocessing authoring the facade exposes the `arcpy.da` cursor idioms over
-the streaming query and batched `apply_edits`:
+For geoprocessing workflows the facade exposes cursor helpers over streaming
+queries and batched `apply_edits`:
 
 ```python
 source = client.source(descriptor)
 
-# SearchCursor: lazily iterate (attrs, geometry) rows; "SHAPE@" selects geometry.
+# SearchCursor: lazily iterate (attrs, geometry) rows; the geometry field selects geometry.
 for name, shape in source.search_cursor(["NAME", "SHAPE@"], where="POP > 1000"):
     ...
 
@@ -52,7 +52,7 @@ with source.insert_cursor() as cursor:
 ```
 
 `Source.schema()` returns a typed [`LayerSchema`][honua_sdk.LayerSchema]
-(`arcpy.Describe` analogue) and `Source.to_geodataframe(...)` returns a GeoPandas
+(`desktop GIS API.Describe` analogue) and `Source.to_geodataframe(...)` returns a GeoPandas
 `GeoDataFrame` in one call (the Spatially-Enabled-DataFrame equivalent; requires
 the `geopandas` extra).
 

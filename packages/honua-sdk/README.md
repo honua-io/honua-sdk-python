@@ -29,10 +29,8 @@ the full documentation index, install matrix, and release notes.
   interop (`rasterio` / `rioxarray` / `xarray`).
 - Optional `grpc` extra unlocks streaming feature queries through
   `honua_sdk.grpc.HonuaGrpcClient` / `HonuaGrpcAsyncClient`.
-- Two CLIs ship with the package: `honua` (services / layers / style apply /
-  sanitized `doctor` diagnostic bundles) and `honua-migrate` (offline ArcPy
-  migration tooling: scan and translate ArcPy scripts, classify `.pyt` and
-  `.atbx` toolboxes and geoprocessing services -- no `arcpy` install needed).
+- The package ships the `honua` CLI for services, layers, style application,
+  and sanitized `doctor` diagnostic bundles.
 
 ## Install
 

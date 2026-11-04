@@ -15,7 +15,7 @@ Every call to a supported shim function produces one JSON line. The shape is::
 
 The file path is ``${HONUA_GP_AUDIT_DIR:-./.honua-gp/audit}/audit-YYYYMMDD.jsonl``
 in UTC, written append-only with one writer at a time per process. Redaction
-delegates to :mod:`honua_admin._arcpy_scanner` so we don't reinvent path /
+delegates to :mod:`honua_admin._redaction` so we don't reinvent path /
 secret heuristics.
 """
 
@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 try:  # honua_admin owns the canonical redaction heuristics.
-    from honua_admin._arcpy_scanner import (
+    from honua_admin._redaction import (
         _PATH_EXTENSIONS,
         _is_sensitive_context,
         _looks_like_bare_secret,

@@ -148,6 +148,19 @@ def test_spatial_filter_params_reads_embedded_spatial_reference() -> None:
     assert params["inSR"] == 2193
 
 
+@pytest.mark.parametrize("token", ["esriSpatialRelIndexIntersects", "esriSpatialRelRelation"])
+def test_normalize_spatial_relationship_passes_raw_protocol_tokens_through(token: str) -> None:
+    assert normalize_spatial_relationship(token) == token
+
+
+@pytest.mark.parametrize("unit", ["esriSRUnit_NauticalMile", "esriSRUnit_Yard"])
+def test_spatial_filter_params_passes_raw_distance_unit_tokens_through(unit: str) -> None:
+    params = spatial_filter_params(
+        {"geometry": {"x": 1, "y": 2}, "relationship": "within-distance", "distance": 5, "units": unit}
+    )
+    assert params["units"] == unit
+
+
 def test_spatial_filter_params_within_distance() -> None:
     params = spatial_filter_params(
         {

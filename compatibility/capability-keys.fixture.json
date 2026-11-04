@@ -314,13 +314,13 @@
       "key": "identity.portal-sharing",
       "category": "Identity",
       "edition": "Community",
-      "displayName": "ArcGIS Portal Sharing Read Surface"
+      "displayName": "Portal Sharing Read Surface"
     },
     {
       "key": "identity.portal-token",
       "category": "Identity",
       "edition": "Community",
-      "displayName": "ArcGIS Portal Token Issuance"
+      "displayName": "Portal Token Issuance"
     },
     {
       "key": "identity.saml",

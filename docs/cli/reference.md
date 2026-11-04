@@ -79,7 +79,7 @@ failed candidate job is not claimed here. That journey remains outstanding.
 
 This developer tool does not add a local backend selector to SDK server
 submissions. Server-side untrusted custom code retains its AWS Batch isolation
-policy. The existing proprietary `honua-gp` ArcPy compatibility executable is
+policy. The existing proprietary `honua-gp` desktop GIS Python API compatibility executable is
 a different tool; it is not used as the devkit engine.
 
 ## Connection options
@@ -102,7 +102,7 @@ default to `HONUA_BASE_URL` and `HONUA_API_KEY`.
 |---------|----------|--------|
 | `honua services [--json \| --format table]` | `HonuaClient.list_service_summaries` | `[{"name", "type", "url"}]` |
 | `honua layers SERVICE_ID [--json \| --format table]` | `HonuaClient.feature_server(...).metadata` | `[{"id", "name", "type", "geometryType"}]`; an unknown service exits `1` with `HTTP 404` |
-| `honua query SERVICE_ID LAYER_ID` | `HonuaClient.query_features` | The server's GeoJSON `FeatureCollection` (`--format geojson`, default) or Esri JSON page (`--format json`) |
+| `honua query SERVICE_ID LAYER_ID` | `HonuaClient.query_features` | The server's GeoJSON `FeatureCollection` (`--format geojson`, default) or GeoServices REST JSON page (`--format json`) |
 | `honua query SERVICE_ID LAYER_ID --count [--json]` | `HonuaClient.query_features` with `returnCountOnly` | `N`, or `{"count": N}` with `--json` |
 
 `query` options: `--where` (default `1=1`), `--out-fields` (default `*`),

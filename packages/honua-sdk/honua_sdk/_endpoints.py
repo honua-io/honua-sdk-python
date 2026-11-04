@@ -51,9 +51,7 @@ class PreparedRequest:
     headers: Mapping[str, str] | None = None
 
 
-# ---------------------------------------------------------------------------
 # Readiness / capabilities / catalog
-# ---------------------------------------------------------------------------
 
 
 def build_readiness_request() -> PreparedRequest:
@@ -88,9 +86,7 @@ def parse_service_summaries(payload: Mapping[str, Any]) -> list[ServiceSummary]:
     ]
 
 
-# ---------------------------------------------------------------------------
 # FeatureServer query
-# ---------------------------------------------------------------------------
 
 
 def build_query_features_request(  # noqa: PLR0913 - mirrors the public client signature
@@ -129,9 +125,7 @@ def parse_feature_set(payload: Mapping[str, Any]) -> FeatureSet:
     return FeatureSet.from_dict(payload)
 
 
-# ---------------------------------------------------------------------------
 # FeatureServer applyEdits
-# ---------------------------------------------------------------------------
 
 
 def build_apply_edits_request(  # noqa: PLR0913 - mirrors the public client signature
@@ -178,9 +172,7 @@ def parse_apply_edits_result(payload: Mapping[str, Any]) -> ApplyEditsResult:
     return ApplyEditsResult.from_dict(payload)
 
 
-# ---------------------------------------------------------------------------
 # MapServer export
-# ---------------------------------------------------------------------------
 
 
 def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signature
@@ -216,9 +208,7 @@ def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signa
     )
 
 
-# ---------------------------------------------------------------------------
 # Paged query_features_all (pure paging logic; I/O remains on the client)
-# ---------------------------------------------------------------------------
 
 
 def validate_paging(page_size: int, max_pages: int) -> None:

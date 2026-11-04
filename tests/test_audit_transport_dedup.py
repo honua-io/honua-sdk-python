@@ -39,9 +39,7 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-# ---------------------------------------------------------------------------
-# #125 — request-path encoding
-# ---------------------------------------------------------------------------
+
 
 
 def test_encode_request_path_ascii_passthrough() -> None:
@@ -68,16 +66,13 @@ def test_request_with_non_ascii_path_does_not_crash() -> None:
 
     transport = httpx.MockTransport(handler)
     with HonuaClient("http://example.test", transport=transport, max_retries=0) as client:
-        # Simulates following a server-controlled next-link path with non-ASCII
-        # characters — previously this raised an unwrapped UnicodeEncodeError.
+        # A server-controlled next-link may contain non-ASCII characters.
         response = client._request("GET", "/rest/services/München/FeatureServer/0/query")
     assert response.status_code == 200
     assert seen[0] == b"/rest/services/M%C3%BCnchen/FeatureServer/0/query"
 
 
-# ---------------------------------------------------------------------------
-# #125 — geocoding retry transport is installed consistently (always-on)
-# ---------------------------------------------------------------------------
+
 
 
 def test_geocoding_installs_retry_transport_even_at_zero_retries() -> None:
@@ -91,9 +86,7 @@ async def test_async_geocoding_installs_retry_transport_even_at_zero_retries() -
         assert isinstance(geo._client._transport, AsyncRetryTransport)
 
 
-# ---------------------------------------------------------------------------
-# #129 (AUD-162) — protocol _text honours per-call options
-# ---------------------------------------------------------------------------
+
 
 
 def test_text_request_honors_with_options_max_retries() -> None:
@@ -107,8 +100,7 @@ def test_text_request_honors_with_options_max_retries() -> None:
 
     transport = httpx.MockTransport(handler)
     # The base client has a zero retry budget; the WFS GetCapabilities call goes
-    # through the _text path. with_options(max_retries=1) must be honoured there
-    # too — previously _text bypassed the per-call override entirely.
+    # through the _text path. with_options(max_retries=1) must be honoured there too.
     with HonuaClient("http://example.test", transport=transport, max_retries=0) as client:
         body = client.with_options(max_retries=1).wfs().capabilities()
     assert body == "<capabilities/>"
@@ -130,9 +122,7 @@ def test_text_request_joins_base_url_path_prefix() -> None:
     assert seen[0].split(b"?")[0] == b"/honua/wfs"
 
 
-# ---------------------------------------------------------------------------
-# #126 — async non-blocking auth refresh
-# ---------------------------------------------------------------------------
+
 
 
 @pytest.mark.anyio

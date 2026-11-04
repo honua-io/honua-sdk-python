@@ -234,7 +234,7 @@ def test_snapshot_omits_untouched_capabilities() -> None:
     snapshot = gen_sdk_coverage.collect_snapshot()
     keys = {entry["key"] for entry in snapshot["capabilities"]}
 
-    # Never-padded per #182: capabilities this SDK does not touch must not
+    # Capabilities this SDK does not touch must not
     # appear at all, e.g. identity/alerts/channels/dr/ai/routing/caching
     # protocols this client has no surface for.
     for untouched_prefix in ("identity.", "alerts.", "channels.", "dr.", "ai.", "routing.", "caching.", "fieldops."):

@@ -21,9 +21,7 @@ from honua_sdk.geopandas import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Fixtures: sample Esri JSON responses
-# ---------------------------------------------------------------------------
 
 POINT_RESPONSE: dict = {
     "spatialReference": {"wkid": 4326, "latestWkid": 4326},
@@ -158,9 +156,7 @@ STAC_ITEM_COLLECTION: dict = {
 }
 
 
-# ---------------------------------------------------------------------------
 # Point features
-# ---------------------------------------------------------------------------
 
 
 class TestPointFeatures:
@@ -183,9 +179,7 @@ class TestPointFeatures:
         assert gdf.crs.to_epsg() == 4326
 
 
-# ---------------------------------------------------------------------------
 # Polygon features
-# ---------------------------------------------------------------------------
 
 
 class TestPolygonFeatures:
@@ -205,9 +199,7 @@ class TestPolygonFeatures:
         assert gdf.crs.to_epsg() == 3857
 
 
-# ---------------------------------------------------------------------------
 # Empty and null edge cases
-# ---------------------------------------------------------------------------
 
 
 class TestEdgeCases:
@@ -254,9 +246,7 @@ class TestEdgeCases:
         assert gdf.geometry.iloc[0] is None
 
 
-# ---------------------------------------------------------------------------
 # OGC API Features GeoJSON
-# ---------------------------------------------------------------------------
 
 
 class TestOgcFeatures:
@@ -314,9 +304,7 @@ class TestOgcFeatures:
         assert gdf.geometry.iloc[0] is None
 
 
-# ---------------------------------------------------------------------------
 # STAC ItemCollections and search results
-# ---------------------------------------------------------------------------
 
 
 class TestStacItems:
@@ -360,9 +348,7 @@ class TestStacItems:
         assert gdf.crs.to_epsg() == 4326
 
 
-# ---------------------------------------------------------------------------
 # CRS detection
-# ---------------------------------------------------------------------------
 
 
 class TestCrsDetection:
@@ -395,9 +381,7 @@ class TestCrsDetection:
         assert gdf.crs.to_epsg() == 32632
 
 
-# ---------------------------------------------------------------------------
 # Round-trip
-# ---------------------------------------------------------------------------
 
 
 class TestRoundTrip:
@@ -464,9 +448,7 @@ class TestRoundTrip:
         assert attrs["observed_at"] == "2026-04-27T12:00:00+00:00"
 
 
-# ---------------------------------------------------------------------------
-# CRS reprojection on export (issue #137)
-# ---------------------------------------------------------------------------
+
 
 
 class TestExportReprojection:
@@ -539,9 +521,7 @@ class TestExportReprojection:
         assert "spatialReference" not in features[0]["geometry"]
 
 
-# ---------------------------------------------------------------------------
-# Esri ring winding on export (issue #137)
-# ---------------------------------------------------------------------------
+
 
 
 class TestEsriRingWinding:
@@ -575,9 +555,7 @@ class TestEsriRingWinding:
         assert fc["features"][0]["geometry"] == mapping(poly)
 
 
-# ---------------------------------------------------------------------------
-# NaN Esri point coordinates (issue #137)
-# ---------------------------------------------------------------------------
+
 
 
 class TestNaNPointCoords:

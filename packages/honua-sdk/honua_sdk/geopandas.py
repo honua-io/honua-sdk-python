@@ -40,10 +40,8 @@ def _ensure_deps() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # Well-known Esri WKID -> EPSG mappings for spatial references that do not
 # map 1:1 to an EPSG code.
-# ---------------------------------------------------------------------------
 _WKID_TO_EPSG: dict[int, str] = {
     102100: "EPSG:3857",
     102113: "EPSG:3857",
@@ -122,9 +120,7 @@ def _normalize_geojson_crs_identifier(identifier: str) -> str | None:
     return value
 
 
-# ---------------------------------------------------------------------------
 # Esri JSON geometry -> Shapely
-# ---------------------------------------------------------------------------
 
 
 def _coord_is_missing(value: Any) -> bool:
@@ -152,7 +148,6 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
     if geom is None:
         return None
 
-    # --- Point ---
     if "x" in geom and "y" in geom:
         x = geom["x"]
         y = geom["y"]
@@ -161,14 +156,12 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
             return None
         return Point(x, y)
 
-    # --- Multipoint ---
     if "points" in geom:
         pts = geom["points"]
         if not pts:
             return None
         return MultiPoint([Point(*p) for p in pts])
 
-    # --- Polyline ---
     if "paths" in geom:
         paths = geom["paths"]
         if not paths:
@@ -180,7 +173,6 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
             return LineString(lines[0])
         return MultiLineString(lines)
 
-    # --- Polygon ---
     if "rings" in geom:
         rings = geom["rings"]
         if not rings:
@@ -225,9 +217,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
     return None
 
 
-# ---------------------------------------------------------------------------
 # Shapely -> Esri JSON geometry
-# ---------------------------------------------------------------------------
 
 
 def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
@@ -275,7 +265,6 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
         # ``orient(..., sign=-1.0)`` yields a CW exterior and CCW interiors.
         oriented = _orient(geom, sign=-1.0)
         rings: list[list[list[float]]] = []
-        # Exterior ring
         rings.append([list(c) for c in oriented.exterior.coords])
         for interior in oriented.interiors:
             rings.append([list(c) for c in interior.coords])
@@ -293,9 +282,7 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
     raise TypeError(f"Unsupported geometry type: {type(geom).__name__}")
 
 
-# ---------------------------------------------------------------------------
 # Typed-model -> GeoDataFrame (the SEDF-equivalent first-class path)
-# ---------------------------------------------------------------------------
 
 
 def _crs_for_typed(crs_hint: Any, *, default_geojson: bool) -> str | None:
@@ -382,9 +369,7 @@ def result_to_geodataframe(result: Any) -> gpd.GeoDataFrame:
     return typed_features_to_geodataframe(result.features, crs=crs_hint)
 
 
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 
 
 def features_to_geodataframe(

@@ -17,9 +17,7 @@ from honua_sdk.async_client import AsyncHonuaClient
 from honua_sdk.client import HonuaClient
 
 
-# ---------------------------------------------------------------------------
 # Transport-exception retry coverage (sync)
-# ---------------------------------------------------------------------------
 
 
 def _build_exception_transport(
@@ -196,9 +194,7 @@ def test_failed_response_released_before_backoff_sleep() -> None:
     assert events == ["read", "close", "sleep"]
 
 
-# ---------------------------------------------------------------------------
 # Transport-exception retry coverage (async)
-# ---------------------------------------------------------------------------
 
 
 def _build_async_exception_transport(
@@ -299,9 +295,7 @@ def test_async_failed_response_released_before_backoff_sleep() -> None:
     assert events == ["read", "close", "sleep"]
 
 
-# ---------------------------------------------------------------------------
 # Idempotency-Key forwarding
-# ---------------------------------------------------------------------------
 
 
 def test_apply_edits_forwards_idempotency_key() -> None:
@@ -377,9 +371,7 @@ def test_async_apply_edits_forwards_idempotency_key() -> None:
     assert seen_headers.get("idempotency-key") == "async-key-9"
 
 
-# ---------------------------------------------------------------------------
 # with_options
-# ---------------------------------------------------------------------------
 
 
 def test_with_options_overrides_timeout_and_shares_transport() -> None:

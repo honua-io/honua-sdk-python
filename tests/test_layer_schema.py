@@ -131,9 +131,7 @@ def test_layer_schema_srid_falls_back_to_extent() -> None:
     assert schema.srid == 4326
 
 
-# ---------------------------------------------------------------------------
 # Facade integration: feature_server.schema / Source.schema
-# ---------------------------------------------------------------------------
 
 
 def _schema_transport() -> httpx.MockTransport:

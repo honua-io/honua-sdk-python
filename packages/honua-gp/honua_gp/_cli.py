@@ -95,10 +95,10 @@ def _filter_family(family: str) -> dict[str, FunctionEntry]:
 
 def _matrix(args: argparse.Namespace) -> int:
     text = render_compat_matrix()
-    # ``--check`` runs against the committed file *before* any ``--output``
-    # write so a caller that points both flags at the same path (CI used to
-    # do this) cannot rewrite the committed file with fresh-rendered text
-    # and then compare it to itself, masking real drift.
+    # ``--check`` runs against the committed file before any ``--output``
+    # write so a caller that points both flags at the same path cannot
+    # rewrite the committed file with fresh-rendered text and then compare
+    # it to itself, masking real drift.
     if args.check is not None:
         existing = args.check.read_text(encoding="utf-8") if args.check.exists() else ""
         if existing != text:

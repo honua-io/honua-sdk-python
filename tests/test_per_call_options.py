@@ -38,9 +38,7 @@ def _record(seen: list[httpx.Request], body: object = None) -> httpx.MockTranspo
     return httpx.MockTransport(handler)
 
 
-# ---------------------------------------------------------------------------
 # HonuaClient — extra_headers + timeout
-# ---------------------------------------------------------------------------
 
 
 def test_sync_list_services_forwards_extra_headers() -> None:
@@ -92,9 +90,7 @@ def test_sync_query_features_forwards_extra_headers() -> None:
     assert seen[0].headers.get("X-Trace") == "abc"
 
 
-# ---------------------------------------------------------------------------
 # AsyncHonuaClient — async equivalents
-# ---------------------------------------------------------------------------
 
 
 def test_async_list_services_forwards_extra_headers() -> None:
@@ -140,9 +136,7 @@ def test_async_apply_edits_idempotency_key_overrides_auto() -> None:
     assert seen[0].headers.get("Idempotency-Key") == "explicit-async"
 
 
-# ---------------------------------------------------------------------------
 # Admin client — sync/async parity
-# ---------------------------------------------------------------------------
 
 
 def test_admin_list_services_forwards_extra_headers() -> None:
@@ -199,9 +193,7 @@ def test_async_admin_list_services_forwards_extra_headers() -> None:
     assert seen[0].headers.get("X-Admin-Async") == "1"
 
 
-# ---------------------------------------------------------------------------
 # Geocoding clients
-# ---------------------------------------------------------------------------
 
 
 def test_geocoding_forward_geocode_forwards_extra_headers() -> None:
@@ -233,10 +225,8 @@ def test_async_geocoding_forward_geocode_forwards_extra_headers() -> None:
     assert seen[0].headers.get("X-Geo") == "async"
 
 
-# ---------------------------------------------------------------------------
 # Sanity: timeout=0 raises ConnectTimeout via httpx — we only need to ensure
 # the kwarg is wired through the chain without errors when set to a real value.
-# ---------------------------------------------------------------------------
 
 
 def test_sync_apply_edits_timeout_is_propagated() -> None:
@@ -251,9 +241,7 @@ def test_sync_apply_edits_timeout_is_propagated() -> None:
     assert all(v == 2.5 for v in timeout_ext.values())
 
 
-# ---------------------------------------------------------------------------
 # Protocol wrappers — extra_headers / timeout / idempotency_key plumbing
-# ---------------------------------------------------------------------------
 
 
 def test_protocol_feature_server_query_forwards_extra_headers() -> None:
@@ -445,9 +433,7 @@ def test_protocol_ogc_delete_item_forwards_per_call_options() -> None:
     assert seen[0].headers.get("Idempotency-Key") == "ogc-del-1"
 
 
-# ---------------------------------------------------------------------------
 # Dispatcher: client.query / client.iter_query forwarding to underlying pages
-# ---------------------------------------------------------------------------
 
 
 def test_sync_query_forwards_extra_headers_to_feature_server_pages() -> None:
@@ -507,9 +493,7 @@ def test_async_query_forwards_extra_headers_to_feature_server_pages() -> None:
     assert seen and seen[0].headers.get("X-Dispatch-Async") == "1"
 
 
-# ---------------------------------------------------------------------------
 # Source.query / Source.stream / Source.apply_edits forward per-call options
-# ---------------------------------------------------------------------------
 
 
 def test_source_query_forwards_extra_headers() -> None:
@@ -575,10 +559,8 @@ def test_source_apply_edits_forwards_idempotency_key() -> None:
     assert seen and seen[0].headers.get("Idempotency-Key") == "source-key"
 
 
-# ---------------------------------------------------------------------------
 # OGC Features pagination plumbing — items_pages / iter_items accept and
 # forward per-call timeout / extra_headers (and the dispatcher does too).
-# ---------------------------------------------------------------------------
 
 
 def test_ogc_items_pages_forwards_extra_headers() -> None:
@@ -643,10 +625,8 @@ def test_sync_iter_query_dispatcher_forwards_timeout_to_ogc_pages() -> None:
     assert all(v == 2.25 for v in timeout_ext.values())
 
 
-# ---------------------------------------------------------------------------
 # Dispatcher: idempotency_key is folded into extra_headers on the way to the
 # pagination wrappers (sync + async).
-# ---------------------------------------------------------------------------
 
 
 def test_sync_query_forwards_idempotency_key_to_feature_server_pages() -> None:
@@ -689,9 +669,7 @@ def test_async_iter_query_forwards_idempotency_key_to_ogc_pages() -> None:
     assert seen and seen[0].headers.get("Idempotency-Key") == "async-ogc-key"
 
 
-# ---------------------------------------------------------------------------
 # Source.query / Source.stream now accept idempotency_key.
-# ---------------------------------------------------------------------------
 
 
 def test_source_query_forwards_idempotency_key() -> None:

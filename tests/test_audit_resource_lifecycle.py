@@ -29,9 +29,7 @@ from honua_sdk.geopandas import (
 )
 
 
-# ---------------------------------------------------------------------------
 # geopandas columnar conversion
-# ---------------------------------------------------------------------------
 
 
 def test_geodataframe_to_features_columnar_output() -> None:
@@ -68,9 +66,7 @@ def test_geodataframe_to_geojson_columnar_output() -> None:
     assert fc["features"][0]["geometry"] == {"type": "Point", "coordinates": (5.0, 6.0)}
 
 
-# ---------------------------------------------------------------------------
 # FeatureServer non-advancing-cursor guard (bounded tracking set)
-# ---------------------------------------------------------------------------
 
 
 def test_query_pages_stops_on_non_advancing_cursor() -> None:
@@ -111,9 +107,7 @@ def test_query_pages_advancing_cursor_yields_all_pages() -> None:
     assert [[f.object_id for f in p.features] for p in pages] == [[1, 2], [3]]
 
 
-# ---------------------------------------------------------------------------
 # with_options independent clone does not close the shared transport
-# ---------------------------------------------------------------------------
 
 
 class _CloseTrackingTransport(httpx.BaseTransport):

@@ -21,9 +21,7 @@ from honua_admin import AsyncHonuaAdminClient, HonuaAdminClient
 from honua_sdk import HonuaClient, StaticAuthProvider
 from honua_sdk.async_client import AsyncHonuaClient
 
-# ---------------------------------------------------------------------------
 # copy() alias
-# ---------------------------------------------------------------------------
 
 
 def test_sync_copy_reuses_parent_transport_like_with_options() -> None:
@@ -68,9 +66,7 @@ def test_async_clients_expose_copy() -> None:
     assert admin_clone._client is admin._client
 
 
-# ---------------------------------------------------------------------------
 # bearer_token= deprecation
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(

@@ -33,9 +33,7 @@ except ImportError as exc:  # pragma: no cover - import guard for local usage
 
 from honua_sdk.geopandas import features_to_geodataframe
 
-# ---------------------------------------------------------------------------
 # Cloud environment contract (mirrors examples/README.md)
-# ---------------------------------------------------------------------------
 DEFAULT_BASE_URL = "http://localhost:8080"
 DEFAULT_SERVICE_ID = "test_service"
 DEFAULT_LAYER_ID = 0
@@ -84,9 +82,7 @@ class EnvContract:
         )
 
 
-# ---------------------------------------------------------------------------
 # Demo fixture: a GeoServices REST JSON response shaped like HonuaClient.query_features
-# ---------------------------------------------------------------------------
 # Six air-quality sensors around San Francisco, in Web Mercator (EPSG:3857),
 # matching the shape ``features_to_geodataframe`` consumes. Using a fixture
 # keeps the pure-Python path runnable with no live server.

@@ -512,9 +512,7 @@ class AsyncHonuaAdminClient:
         )
         return _endpoints.unwrap_envelope(response)
 
-    # ======================================================================
     # File imports
-    # ======================================================================
 
     async def upload_file(
         self,
@@ -568,9 +566,7 @@ class AsyncHonuaAdminClient:
             return BackgroundImportResponse.from_dict(payload)
         return ImportResult.from_dict(payload)
 
-    # ======================================================================
     # Services
-    # ======================================================================
 
     async def list_services(
         self,
@@ -786,9 +782,7 @@ class AsyncHonuaAdminClient:
         )
         return ServiceSettingsResponse.from_dict(data)
 
-    # ======================================================================
     # Metadata Resources
-    # ======================================================================
 
     async def list_metadata_resources(
         self,
@@ -1004,9 +998,7 @@ class AsyncHonuaAdminClient:
             idempotency_key=idempotency_key,
         )
 
-    # ======================================================================
     # Manifests
-    # ======================================================================
 
     async def get_version(
         self,
@@ -1198,9 +1190,7 @@ class AsyncHonuaAdminClient:
         )
         return ManifestApplyResult.from_dict(data)
 
-    # ======================================================================
     # Migration Toolkit
-    # ======================================================================
 
     async def scan_migration_source(
         self,
@@ -1270,9 +1260,7 @@ class AsyncHonuaAdminClient:
         )
         return ToolboxTranslationReport.from_dict(data)
 
-    # ======================================================================
     # Connections
-    # ======================================================================
 
     async def list_connections(
         self,
@@ -1561,9 +1549,7 @@ class AsyncHonuaAdminClient:
         )
         return KeyRotationResult.from_dict(data)
 
-    # ======================================================================
     # Layers
-    # ======================================================================
 
     async def list_layers(
         self,
@@ -1736,9 +1722,7 @@ class AsyncHonuaAdminClient:
             return []
         return [PublishedLayerSummary.from_dict(item) for item in data]
 
-    # ======================================================================
     # Discovery
-    # ======================================================================
 
     async def discover_tables(
         self,
@@ -1771,9 +1755,7 @@ class AsyncHonuaAdminClient:
         )
         return TableDiscoveryResponse.from_dict(data)
 
-    # ======================================================================
     # Styles
-    # ======================================================================
 
     async def list_styles(
         self,
@@ -1997,9 +1979,7 @@ class AsyncHonuaAdminClient:
         )
         return LayerStyleResponse.from_dict(data)
 
-    # ======================================================================
     # Operation proposals
-    # ======================================================================
 
     async def list_proposals(
         self,
@@ -2155,9 +2135,7 @@ class AsyncHonuaAdminClient:
         )
         return OperationProposalDetail.from_dict(data)
 
-    # ======================================================================
     # Config
-    # ======================================================================
 
     async def get_config(
         self,

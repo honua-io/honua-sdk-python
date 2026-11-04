@@ -94,9 +94,7 @@ def _audit_lines(audit_root: Path) -> list[dict]:
     return out
 
 
-# ---------------------------------------------------------------------------
 # analysis.Buffer -> analytics.buffer-aggregate
-# ---------------------------------------------------------------------------
 
 
 def test_buffer_projects_layer_id_distance_unit_and_dissolve(_isolated_audit_dir: Path) -> None:
@@ -199,9 +197,7 @@ def test_buffer_rejects_unsupported_line_and_method_options(
     assert proc.calls == []
 
 
-# ---------------------------------------------------------------------------
 # analysis.SpatialJoin -> analytics.spatial-join
-# ---------------------------------------------------------------------------
 
 
 def test_spatial_join_projects_layer_ids_and_predicate(_isolated_audit_dir: Path) -> None:
@@ -291,9 +287,7 @@ def test_spatial_join_accepts_explicit_default_options(_isolated_audit_dir: Path
     assert proc.calls  # job submitted -- explicit defaults are not rejected.
 
 
-# ---------------------------------------------------------------------------
 # management.Dissolve -> generalization.dissolve
-# ---------------------------------------------------------------------------
 
 
 def test_dissolve_projects_group_by_fields(_isolated_audit_dir: Path) -> None:
@@ -342,7 +336,6 @@ def test_dissolve_accepts_explicit_default_options(_isolated_audit_dir: Path) ->
     assert proc.calls  # job submitted -- explicit defaults are not rejected.
 
 
-# ---------------------------------------------------------------------------
 # management.CalculateField / Copy / CopyFeatures are unsupported stubs.
 #
 # honua-server classifies data-management.calculate-field and
@@ -351,7 +344,6 @@ def test_dissolve_accepts_explicit_default_options(_isolated_audit_dir: Path) ->
 # honua-geoprocessing analysis plan), so a one-shot POST .../execution 404s on
 # every server version. The shim refuses them client-side without touching the
 # transport.
-# ---------------------------------------------------------------------------
 
 
 def test_calculate_field_raises_unsupported(_isolated_audit_dir: Path) -> None:
@@ -383,9 +375,7 @@ def test_copy_features_alias_raises_unsupported(_isolated_audit_dir: Path) -> No
     assert proc.calls == []
 
 
-# ---------------------------------------------------------------------------
 # management.Project -> conversion.feature-project
-# ---------------------------------------------------------------------------
 
 
 def test_project_projects_layer_id_and_target_srid(_isolated_audit_dir: Path) -> None:
@@ -453,9 +443,7 @@ def test_project_accepts_explicit_default_options(_isolated_audit_dir: Path) -> 
     assert proc.calls  # job submitted -- explicit defaults are not rejected.
 
 
-# ---------------------------------------------------------------------------
 # Job lifecycle: failure, polling, output binding
-# ---------------------------------------------------------------------------
 
 
 def test_failed_job_raises_execute_error_with_message(_isolated_audit_dir: Path) -> None:
@@ -586,9 +574,7 @@ def test_failed_overwrite_leaves_prior_alias_untouched(_isolated_audit_dir: Path
     assert honua_gp.get_session().get_layer("scratch") == original_alias
 
 
-# ---------------------------------------------------------------------------
 # Input selections and env semantics
-# ---------------------------------------------------------------------------
 
 
 def test_input_layer_selection_is_forwarded_as_where(_isolated_audit_dir: Path) -> None:

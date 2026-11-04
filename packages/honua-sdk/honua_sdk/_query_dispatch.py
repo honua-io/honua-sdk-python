@@ -121,9 +121,7 @@ def merge_idempotency_into_headers(
     return merged
 
 
-# ---------------------------------------------------------------------------
 # Protocol-specific kwarg builders for the wrapper iterators
-# ---------------------------------------------------------------------------
 
 
 def _feature_server_layer_id(query: FeatureQuery) -> int:

@@ -17,9 +17,7 @@ from honua_sdk import AsyncHonuaClient, HonuaClient
 from honua_sdk.protocols import BinaryResponse, ODataQuery
 
 
-# --------------------------------------------------------------------------
 # Sync OGC Maps / Tiles / Coverages / Processes
-# --------------------------------------------------------------------------
 
 
 def test_ogc_maps_openapi_styled_and_tilesets_paths() -> None:
@@ -135,9 +133,7 @@ def test_ogc_processes_lifecycle_endpoints() -> None:
     assert ("DELETE", "/ogc/processes/jobs/job-1") in seen
 
 
-# --------------------------------------------------------------------------
 # Sync STAC: collections, collection, item, search_pages, search_items
-# --------------------------------------------------------------------------
 
 
 def test_stac_collections_collection_and_item_paths() -> None:
@@ -245,9 +241,7 @@ def test_stac_search_pages_with_zero_limit_short_circuits() -> None:
     assert pages == []
 
 
-# --------------------------------------------------------------------------
 # Sync WFS / WMS
-# --------------------------------------------------------------------------
 
 
 def test_wfs_describe_feature_type_and_get_feature_and_transaction() -> None:
@@ -342,9 +336,7 @@ def test_wmts_tile_returns_bytes_using_tile_response_internally() -> None:
     assert result == b"tile-png"
 
 
-# --------------------------------------------------------------------------
 # Sync FeatureServer / ImageServer / GeometryServer extras
-# --------------------------------------------------------------------------
 
 
 def test_featureserver_query_related_records_builds_request() -> None:
@@ -443,10 +435,8 @@ def test_image_server_export_image_with_size() -> None:
     assert seen["compression"] == "lz77"
 
 
-# --------------------------------------------------------------------------
 # Sync OData: layer_pages, iter_layers, layers_all, features_all,
 # feature_pages, feature() lookup, service_document, metadata, layer()
-# --------------------------------------------------------------------------
 
 
 def test_odata_service_document_metadata_and_lookups() -> None:
@@ -539,9 +529,7 @@ def test_odata_query_class_defaults_round_trip_through_helpers() -> None:
     assert seen[0]["$count"] == "true"
 
 
-# --------------------------------------------------------------------------
 # BinaryResponse helper
-# --------------------------------------------------------------------------
 
 
 def test_binary_response_from_httpx_extracts_metadata() -> None:
@@ -566,9 +554,7 @@ def test_binary_response_from_httpx_extracts_metadata() -> None:
     assert binary.status_code == 200
 
 
-# --------------------------------------------------------------------------
 # Async equivalents
-# --------------------------------------------------------------------------
 
 
 @pytest.fixture

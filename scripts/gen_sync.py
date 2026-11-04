@@ -93,7 +93,6 @@ def _rule(
 # (``AsyncHonuaClient`` → ``HonuaClient`` etc.) after the typed/httpx/module
 # special cases have already been handled.
 _COMMON_RULES: tuple[Rule, ...] = (
-    # --- prose (docstrings / comments / module summary) -------------------
     # ``Asynchronous`` / ``asynchronous`` must be rewritten before the generic
     # ``Async`` strip would corrupt them. Casing is preserved.
     _rule(r"\bAsynchronous\b", "Synchronous"),
@@ -144,7 +143,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # "awaiting :meth:`x`" → "calling :meth:`x`" (the sync verb).
     _rule(r"\bawaiting (?=:meth:`)", "calling "),
     #
-    # --- statement-level async syntax -------------------------------------
     _rule(r"\basync def\b", "def"),
     _rule(r"\basync with\b", "with"),
     _rule(r"\basync for\b", "for"),
@@ -158,13 +156,11 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # prefix operator in these modules.
     _rule(r"\bawait\s+", ""),
     #
-    # --- dunder context-manager / iterator protocol -----------------------
     _rule(r"__aenter__", "__enter__"),
     _rule(r"__aexit__", "__exit__"),
     _rule(r"__aiter__", "__iter__"),
     _rule(r"__anext__", "__next__"),
     #
-    # --- async stdlib / builtins ------------------------------------------
     # The retry-transport mirror imports ``asyncio`` for ``asyncio.sleep``; its
     # sync sibling imports ``time`` for ``time.sleep``. Rewrite the top-level
     # import before the ``asyncio.sleep`` → ``time.sleep`` call rewrite below.
@@ -176,7 +172,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     _rule(r"\banext\(", "next("),
     _rule(r"\baiter\(", "iter("),
     #
-    # --- typing constructs -------------------------------------------------
     _rule(r"\bAsyncIterator\b", "Iterator"),
     _rule(r"\bAsyncIterable\b", "Iterable"),
     _rule(r"\bAsyncGenerator\b", "Generator"),
@@ -186,7 +181,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # uses. (No occurrences today, but kept for completeness/safety.)
     _rule(r"\bAwaitable\[((?:[^\[\]]|\[[^\[\]]*\])*)\]", r"\1"),
     #
-    # --- httpx async surface ----------------------------------------------
     # Handled by the generic ``\bAsync`` strip below
     # (AsyncClient → Client, AsyncBaseTransport → BaseTransport,
     # AsyncHTTPTransport → HTTPTransport), but the resource-close method is
@@ -199,7 +193,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     _rule(r"\baread\b", "read"),
     _rule(r"\bhandle_async_request\b", "handle_request"),
     #
-    # --- function-name seams ----------------------------------------------
     # The async client uses the awaitable auth-application helper; its sync
     # mirror calls the synchronous one. The ``_async`` suffix is lowercase and
     # underscore-prefixed, so the generic ``\bAsync`` strip never fires on it.
@@ -217,7 +210,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     ),
     _rule(r"\bcollect_query_pages_async\b", "collect_query_pages"),
     #
-    # --- module-name seams -------------------------------------------------
     # Async-only sibling modules collapse onto their sync equivalents.
     _rule(r"\b_async_retry\b", "_retry"),
     _rule(r"\basync_geocoding\b", "geocoding"),
@@ -227,7 +219,6 @@ _COMMON_RULES: tuple[Rule, ...] = (
     # Map it explicitly to its sync sibling.
     _rule(r"\bHonuaGrpcAsyncClient\b", "HonuaGrpcClient"),
     #
-    # --- residual Async-prefixed identifiers ------------------------------
     # Everything left — the ``Async*`` client/transport/protocol class names
     # (AsyncHonuaClient → HonuaClient, AsyncSource → Source,
     # AsyncRetryTransport → RetryTransport, AsyncClient → Client, …). The word
@@ -273,9 +264,7 @@ TARGETS: tuple[Target, ...] = (
 )
 
 
-# ---------------------------------------------------------------------------
-# Intra-file sync/async twin guard (AUD-160/161, issue #129)
-# ---------------------------------------------------------------------------
+# Intra-file sync/async twin guard.
 #
 # The ``TARGETS`` above cover the async→sync *file-pair* mirrors, which are
 # fully generated. A second family of sync/async duplication lives *inside a

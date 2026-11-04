@@ -34,9 +34,7 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-# ---------------------------------------------------------------------------
 # Private helpers
-# ---------------------------------------------------------------------------
 
 
 class TestPrivateHelpers:
@@ -104,9 +102,7 @@ class TestPrivateHelpers:
         assert _normalize_total_limit(7) == 7
 
 
-# ---------------------------------------------------------------------------
 # Sync HonuaOgcFeatures coverage
-# ---------------------------------------------------------------------------
 
 
 def _ogc_routes() -> dict[str, Any]:
@@ -459,9 +455,7 @@ def test_sync_item_get_uses_crs_parameter() -> None:
     assert seen["query"]["crs"] == "EPSG:4326"
 
 
-# ---------------------------------------------------------------------------
 # Async coverage
-# ---------------------------------------------------------------------------
 
 
 pytestmark = pytest.mark.anyio

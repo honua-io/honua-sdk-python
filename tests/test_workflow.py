@@ -24,9 +24,7 @@ from honua_sdk.workflow import (
     HonuaWorkflow,
 )
 
-# ---------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
 
 ROOT = "/api/v1/console"
 
@@ -57,9 +55,7 @@ def _envelope(data: Any) -> dict[str, Any]:
     return {"success": True, "data": data, "message": None, "timestamp": "2026-05-25T00:00:00Z"}
 
 
-# ---------------------------------------------------------------------------
 # Node registry
-# ---------------------------------------------------------------------------
 
 
 def test_node_registry_and_node() -> None:
@@ -85,9 +81,7 @@ def test_node_registry_and_node() -> None:
     assert ("GET", f"{ROOT}/workflow-node-registry/geometry.buffer") in seen
 
 
-# ---------------------------------------------------------------------------
 # Package draft CRUD
-# ---------------------------------------------------------------------------
 
 
 def test_list_and_get_package() -> None:
@@ -151,9 +145,7 @@ def test_update_package_uses_put_and_route_id() -> None:
     assert captured["description"] == "updated"
 
 
-# ---------------------------------------------------------------------------
 # Versions + lifecycle
-# ---------------------------------------------------------------------------
 
 
 def test_versions_list_create_get() -> None:
@@ -242,9 +234,7 @@ def test_publish_version_schedule_carries_cron() -> None:
     assert captured["enabled"] is False
 
 
-# ---------------------------------------------------------------------------
 # Publications + runs
-# ---------------------------------------------------------------------------
 
 
 def test_publications_and_run() -> None:
@@ -288,9 +278,7 @@ def test_run_with_no_body_args_sends_empty_body() -> None:
     assert captured == {}
 
 
-# ---------------------------------------------------------------------------
 # Envelope unwrapping edge cases
-# ---------------------------------------------------------------------------
 
 
 def test_unwrap_passthrough_when_no_envelope() -> None:
@@ -314,9 +302,7 @@ def test_unwrap_scalar_data_wrapped() -> None:
     assert result == {"data": "just-a-string"}
 
 
-# ---------------------------------------------------------------------------
 # Async parity
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

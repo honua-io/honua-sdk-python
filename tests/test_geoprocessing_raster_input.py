@@ -76,9 +76,7 @@ def _tiny_geotiff() -> bytes:
         return bytes(memfile.read())
 
 
-# ---------------------------------------------------------------------------
 # RasterReference
-# ---------------------------------------------------------------------------
 
 
 def test_raster_scope_ids_are_the_nineteen_plus_zonal() -> None:
@@ -128,9 +126,7 @@ def test_raster_reference_to_inputs_guards_empty_carrier() -> None:
         RasterReference(kind="rasterId", raster_id="").to_inputs()
 
 
-# ---------------------------------------------------------------------------
 # Plan-wrapped submission body
-# ---------------------------------------------------------------------------
 
 
 def _capture_execution() -> tuple[list[dict[str, Any]], "httpx.MockTransport"]:
@@ -260,9 +256,7 @@ def test_default_plan_id_is_generated_and_unique() -> None:
     assert plan_id.startswith("raster-surface.aspect-")
 
 
-# ---------------------------------------------------------------------------
 # results_kind + kind-routed consumption
-# ---------------------------------------------------------------------------
 
 
 def _raster_results() -> dict[str, Any]:
@@ -399,12 +393,10 @@ def test_consume_result_unknown_kind_sniffs_json() -> None:
         assert client.geoprocessing().consume_result(results) == {"answer": 42}
 
 
-# ---------------------------------------------------------------------------
 # Pure decode/selection helpers (no optional extra needed for any of these --
 # these are the primitives consume_result's kind-routing is built on, and are
 # exercised directly so their branches stay covered independent of whether
 # geopandas/rasterio happen to be installed).
-# ---------------------------------------------------------------------------
 
 
 def test_data_uri_bytes_non_data_uri_is_none() -> None:
@@ -510,7 +502,7 @@ def test_consume_result_undeclared_kind_falls_back_to_json() -> None:
 
 
 def test_consume_result_undeclared_kind_nested_value_wrapper_sniffed() -> None:
-    # Regression test (codex review, PR #173): a plain OGC results document in
+    # A plain OGC results document in
     # the normal outputs-map shape -- {"out": {"value": {...}}} -- with no
     # Honua ArtifactKind ``kind`` tag anywhere. _primary_output_member() finds
     # nothing (no "kind"), so the JSON sniff must still descend into the
@@ -579,9 +571,7 @@ def test_result_feature_collection_raises_when_absent() -> None:
             client.geoprocessing()._result_feature_collection(_table_results())
 
 
-# ---------------------------------------------------------------------------
 # Async parity
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.anyio
@@ -685,7 +675,6 @@ async def test_async_consume_result_undeclared_kind_falls_back_to_json() -> None
 
 @pytest.mark.anyio
 async def test_async_consume_result_undeclared_kind_nested_value_wrapper_sniffed() -> None:
-    # Regression test (codex review, PR #173) -- async twin.
     results = {"out": {"value": {"mean": 5.0}}}
 
     def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - no fetch expected

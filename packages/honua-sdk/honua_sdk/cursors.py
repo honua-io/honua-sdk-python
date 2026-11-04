@@ -360,9 +360,7 @@ class UpdateCursor(_BaseWriteCursor):
             self.flush()
 
 
-# ---------------------------------------------------------------------------
 # Async cursor variants
-# ---------------------------------------------------------------------------
 
 
 class AsyncSearchCursor:

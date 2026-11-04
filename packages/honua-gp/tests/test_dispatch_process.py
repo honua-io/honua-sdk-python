@@ -35,10 +35,7 @@ def _audit_lines(audit_root: Path) -> list[dict]:
     return out
 
 
-# ---------------------------------------------------------------------------
-# Downgraded entries: every previously process-backed analysis / management
-# function now raises HonuaGpUnsupportedError + writes one audit line.
-# ---------------------------------------------------------------------------
+# Downgraded entries raise HonuaGpUnsupportedError and write one audit line.
 
 
 # Overlay tools (Clip/Intersect/Union/Erase) only have single-WKB
@@ -79,11 +76,9 @@ def test_downgraded_process_entries_raise_unsupported(
     assert refused[-1]["error_kind"] == "unsupported"
 
 
-# ---------------------------------------------------------------------------
 # Dispatcher exercise via a private test-only manifest entry. Keeps the
 # overwrite / rollback / failure-wrapping invariants covered without
 # claiming false compatibility for production shim entries.
-# ---------------------------------------------------------------------------
 
 
 _TEST_ENTRY_NAME = "_test.process_echo"

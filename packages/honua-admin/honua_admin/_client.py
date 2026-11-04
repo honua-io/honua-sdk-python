@@ -513,9 +513,7 @@ class HonuaAdminClient:
         )
         return _endpoints.unwrap_envelope(response)
 
-    # ======================================================================
     # File imports
-    # ======================================================================
 
     def upload_file(
         self,
@@ -569,9 +567,7 @@ class HonuaAdminClient:
             return BackgroundImportResponse.from_dict(payload)
         return ImportResult.from_dict(payload)
 
-    # ======================================================================
     # Services
-    # ======================================================================
 
     def list_services(
         self,
@@ -787,9 +783,7 @@ class HonuaAdminClient:
         )
         return ServiceSettingsResponse.from_dict(data)
 
-    # ======================================================================
     # Metadata Resources
-    # ======================================================================
 
     def list_metadata_resources(
         self,
@@ -1005,9 +999,7 @@ class HonuaAdminClient:
             idempotency_key=idempotency_key,
         )
 
-    # ======================================================================
     # Manifests
-    # ======================================================================
 
     def get_version(
         self,
@@ -1199,9 +1191,7 @@ class HonuaAdminClient:
         )
         return ManifestApplyResult.from_dict(data)
 
-    # ======================================================================
     # Migration Toolkit
-    # ======================================================================
 
     def scan_migration_source(
         self,
@@ -1271,9 +1261,7 @@ class HonuaAdminClient:
         )
         return ToolboxTranslationReport.from_dict(data)
 
-    # ======================================================================
     # Connections
-    # ======================================================================
 
     def list_connections(
         self,
@@ -1562,9 +1550,7 @@ class HonuaAdminClient:
         )
         return KeyRotationResult.from_dict(data)
 
-    # ======================================================================
     # Layers
-    # ======================================================================
 
     def list_layers(
         self,
@@ -1737,9 +1723,7 @@ class HonuaAdminClient:
             return []
         return [PublishedLayerSummary.from_dict(item) for item in data]
 
-    # ======================================================================
     # Discovery
-    # ======================================================================
 
     def discover_tables(
         self,
@@ -1772,9 +1756,7 @@ class HonuaAdminClient:
         )
         return TableDiscoveryResponse.from_dict(data)
 
-    # ======================================================================
     # Styles
-    # ======================================================================
 
     def list_styles(
         self,
@@ -1998,9 +1980,7 @@ class HonuaAdminClient:
         )
         return LayerStyleResponse.from_dict(data)
 
-    # ======================================================================
     # Operation proposals
-    # ======================================================================
 
     def list_proposals(
         self,
@@ -2156,9 +2136,7 @@ class HonuaAdminClient:
         )
         return OperationProposalDetail.from_dict(data)
 
-    # ======================================================================
     # Config
-    # ======================================================================
 
     def get_config(
         self,

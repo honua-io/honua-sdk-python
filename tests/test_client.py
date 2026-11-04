@@ -269,7 +269,7 @@ def test_source_query_maps_feature_server_count_only_response() -> None:
 
 
 def test_query_features_all_stops_on_non_advancing_cursor() -> None:
-    # issue #107.4: a server that ignores ``resultOffset`` returns the same
+    # A server that ignores ``resultOffset`` returns the same
     # full page with exceededTransferLimit=true forever. The non-advancing
     # cursor guard must stop after the first page rather than looping to
     # max_pages and duplicating features.

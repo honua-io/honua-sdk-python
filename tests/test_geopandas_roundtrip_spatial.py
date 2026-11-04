@@ -70,7 +70,6 @@ def test_buffer_and_spatial_join_roundtrip_preserves_integrity() -> None:
     assert stations.crs is not None
     assert stations.crs.to_epsg() == 3857
 
-    # --- Spatial op 1: buffer the point stations into circular footprints. ---
     buffered = stations.copy()
     buffered["geometry"] = stations.geometry.buffer(BUFFER_RADIUS)
     assert (buffered.geometry.geom_type == "Polygon").all()
@@ -78,12 +77,10 @@ def test_buffer_and_spatial_join_roundtrip_preserves_integrity() -> None:
     # under-estimates the true circle, so use a tolerant relative check.
     assert buffered.geometry.area.iloc[0] == pytest.approx(math.pi * BUFFER_RADIUS**2, rel=0.05)
 
-    # --- Spatial op 2: spatial-join buffered footprints onto zone polygons. ---
     joined = gpd.sjoin(buffered, zones, how="left", predicate="intersects")
     by_name = {row["name"]: row["zone_id"] for _, row in joined.iterrows()}
     assert by_name == {"alpha": "A", "bravo": "A", "charlie": "B"}
 
-    # --- Round trip: derived layer -> Esri JSON -> GeoDataFrame again. ---
     # Drop the join bookkeeping column so the payload mirrors a real write set.
     out = joined.drop(columns=[c for c in joined.columns if c.startswith("index_")])
     features = geodataframe_to_features(out)

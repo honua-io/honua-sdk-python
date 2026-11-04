@@ -39,9 +39,7 @@ from honua_sdk.geopandas import (
 )
 
 
-# ---------------------------------------------------------------------------
 # CRS parsing edge cases
-# ---------------------------------------------------------------------------
 
 
 class TestCrsParsing:
@@ -130,9 +128,7 @@ class TestCrsParsing:
         assert _normalize_geojson_crs_identifier("custom-crs") == "custom-crs"
 
 
-# ---------------------------------------------------------------------------
 # Esri JSON -> Shapely geometry conversions
-# ---------------------------------------------------------------------------
 
 
 class TestEsriToShapely:
@@ -186,9 +182,7 @@ class TestEsriToShapely:
         assert _esri_geometry_to_shapely({"foo": "bar"}) is None
 
 
-# ---------------------------------------------------------------------------
 # Shapely -> Esri JSON geometry conversions
-# ---------------------------------------------------------------------------
 
 
 class TestShapelyToEsri:
@@ -238,9 +232,7 @@ class TestShapelyToEsri:
             _shapely_to_esri_geometry(_NotAGeometry())
 
 
-# ---------------------------------------------------------------------------
 # _json_safe_value
-# ---------------------------------------------------------------------------
 
 
 class TestJsonSafeValue:
@@ -274,9 +266,7 @@ class TestJsonSafeValue:
         assert _json_safe_value("hello") == "hello"
 
 
-# ---------------------------------------------------------------------------
 # Public roundtrip exercising MultiPolygon / unknown geometry combinations
-# ---------------------------------------------------------------------------
 
 
 class TestPublicSurfaceMultiGeom:
@@ -311,9 +301,7 @@ class TestPublicSurfaceMultiGeom:
         assert gdf.crs.to_epsg() == 4326
 
 
-# ---------------------------------------------------------------------------
 # ImportError fallback path
-# ---------------------------------------------------------------------------
 
 
 def test_ensure_deps_raises_when_geopandas_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:

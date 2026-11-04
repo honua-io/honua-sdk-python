@@ -22,9 +22,7 @@ from honua_sdk.grpc._models import (
 )
 
 
-# ---------------------------------------------------------------------------
 # to_proto_request
-# ---------------------------------------------------------------------------
 
 
 class TestToProtoRequest:
@@ -219,9 +217,7 @@ class TestToProtoRequest:
         assert signed_area < 0, "envelope ring must be clockwise (Esri exterior)"
 
 
-# ---------------------------------------------------------------------------
 # from_proto_response
-# ---------------------------------------------------------------------------
 
 
 class TestFromProtoResponse:
@@ -322,9 +318,7 @@ class TestFromProtoResponse:
         assert result.fields[0].field_type == FieldType.UNSPECIFIED
 
 
-# ---------------------------------------------------------------------------
 # from_proto_page
-# ---------------------------------------------------------------------------
 
 
 class TestFromProtoPage:
@@ -373,9 +367,7 @@ class TestFromProtoPage:
         assert result.geometry_type == GeometryType.UNSPECIFIED
 
 
-# ---------------------------------------------------------------------------
 # Attribute conversion
-# ---------------------------------------------------------------------------
 
 
 class TestConvertAttribute:
@@ -431,9 +423,7 @@ class TestConvertAttribute:
         assert adapter._convert_attribute(attr) is None
 
 
-# ---------------------------------------------------------------------------
 # Geometry conversion
-# ---------------------------------------------------------------------------
 
 
 class TestConvertGeometry:

@@ -646,9 +646,7 @@ class InsertCursor(_BaseCursor):
             self._record["result_shape"] = _shape_of({"inserts": self._inserted})
 
 
-# ---------------------------------------------------------------------------
 # Stubs
-# ---------------------------------------------------------------------------
 
 
 def Editor(*args: Any, **kwargs: Any) -> Any:

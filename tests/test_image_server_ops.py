@@ -58,9 +58,7 @@ _ENVELOPE = {"xmin": -122.5, "ymin": 37.7, "xmax": -122.35, "ymax": 37.84, "spat
 _POINT = {"x": -122.45, "y": 37.75, "spatialReference": {"wkid": 4326}}
 
 
-# --------------------------------------------------------------------------
 # compute_histograms / compute_statistics_histograms — sync
-# --------------------------------------------------------------------------
 
 
 def test_compute_histograms_builds_params() -> None:
@@ -121,9 +119,7 @@ def test_compute_histograms_has_no_pixel_size_parameter() -> None:
     assert "pixel_size" not in sig.parameters
 
 
-# --------------------------------------------------------------------------
 # get_samples — sync
-# --------------------------------------------------------------------------
 
 
 def test_get_samples_builds_params() -> None:
@@ -165,9 +161,7 @@ def test_get_samples_has_no_dead_parameters() -> None:
     assert not (dead & sig.parameters.keys())
 
 
-# --------------------------------------------------------------------------
 # multidimensional_info — sync
-# --------------------------------------------------------------------------
 
 
 def test_multidimensional_info_hits_canonical_path() -> None:
@@ -179,9 +173,7 @@ def test_multidimensional_info_hits_canonical_path() -> None:
     assert seen[0]["query"] == {"f": "json"}
 
 
-# --------------------------------------------------------------------------
 # measure — sync
-# --------------------------------------------------------------------------
 
 
 def test_measure_builds_params() -> None:
@@ -234,9 +226,7 @@ def test_measure_has_no_dead_parameters() -> None:
     assert sig.parameters["measure_operation"].default is inspect.Parameter.empty
 
 
-# --------------------------------------------------------------------------
 # find — sync
-# --------------------------------------------------------------------------
 
 
 def test_find_requires_to_geometry_and_builds_params() -> None:
@@ -279,9 +269,7 @@ def test_find_minimal_call_sends_only_required_params() -> None:
     }
 
 
-# --------------------------------------------------------------------------
 # project — sync
-# --------------------------------------------------------------------------
 
 
 def test_project_builds_params_distinct_from_export_image_sr() -> None:
@@ -302,9 +290,7 @@ def test_project_builds_params_distinct_from_export_image_sr() -> None:
     assert query["datumTransformation"] == "1188"
 
 
-# --------------------------------------------------------------------------
 # async parity
-# --------------------------------------------------------------------------
 
 
 @pytest.mark.anyio

@@ -52,9 +52,7 @@ def _is_esri_geometry(geom: Mapping[str, Any]) -> bool:
     )
 
 
-# ---------------------------------------------------------------------------
 # Esri-JSON -> GeoJSON-mapping (``__geo_interface__``)
-# ---------------------------------------------------------------------------
 
 
 def _coords(point: Sequence[Any], *, has_z: bool) -> tuple[float, ...]:
@@ -148,9 +146,7 @@ def _esri_rings_to_geo_interface(
     return {"type": "MultiPolygon", "coordinates": polygons}
 
 
-# ---------------------------------------------------------------------------
 # GeoJSON normalization (drop M-only ordinates, keep Z)
-# ---------------------------------------------------------------------------
 
 
 def _geojson_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -167,9 +163,7 @@ def _geojson_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:
     return {"type": geom_type, "coordinates": coordinates}
 
 
-# ---------------------------------------------------------------------------
 # Public conversion entry points
-# ---------------------------------------------------------------------------
 
 
 def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] | None:

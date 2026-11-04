@@ -104,7 +104,7 @@ def bind_arguments(
     *,
     entry: FunctionEntry | None = None,
 ) -> dict[str, Any]:
-    """Bind positional + keyword args to the scripting API parameter names from the manifest."""
+    """Bind positional and keyword arguments to the manifest's scripting-API parameter names."""
 
     entry = entry or _entry_or_raise(qualified_name)
     ordered_params = list(entry.param_map.keys())
@@ -128,7 +128,7 @@ def _project_to_process_inputs(
     session: HonuaSession,
     rollback_log: list[tuple[str, LayerAlias | None]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Project bound the scripting API args into process inputs / outputs / metadata.
+    """Project bound scripting-API arguments into process inputs / outputs / metadata.
 
     If ``rollback_log`` is supplied, each output-param registration appends
     a ``(name, prior_alias)`` pair to it *before* mutating the session.

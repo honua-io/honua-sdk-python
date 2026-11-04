@@ -134,7 +134,7 @@ class Selection:
         return self.layer_name
 
     def __getitem__(self, index: int) -> Any:
-        # the scripting API returns (layer, count) -- preserve that idiom.
+        # The scripting API returns (layer, count) -- preserve that idiom.
         return (self.layer_name, self.count)[index]
 
 
@@ -374,7 +374,7 @@ def Project(*args: Any, **kwargs: Any) -> Result:
 
 
 # ---------------------------------------------------------------------------
-# Raster tools that live in the scripting-API *management* toolbox in the real scripting API
+# Raster tools that live in the *management* toolbox of the real scripting API
 # ---------------------------------------------------------------------------
 # ``ProjectRaster`` / ``Resample`` / ``Clip`` (raster) / ``Mosaic`` are Data
 # Management tools in the real scripting API (``management.ProjectRaster`` etc.), but
@@ -388,7 +388,7 @@ from ..sa import Mosaic as Mosaic  # noqa: E402
 from ..sa import ProjectRaster as ProjectRaster  # noqa: E402
 from ..sa import Resample as Resample  # noqa: E402
 
-# the scripting API also exposes the new-raster variant name; both map to raster.mosaic.
+# The scripting API also exposes the new-raster variant name; both map to raster.mosaic.
 MosaicToNewRaster = Mosaic
 
 
@@ -485,7 +485,7 @@ class DescribeResult:
 # all work identically.
 
 # esriFieldType* (honua_sdk.models.Field.type, verbatim from the server) ->
-# the scripting API's Field.type vocabulary. Unknown / unmapped tokens pass through
+# The scripting API's Field.type vocabulary. Unknown / unmapped tokens pass through
 # unchanged so a caller always sees a value even for a server type this
 # table has not been taught yet.
 _SCRIPTING_FIELD_TYPES: dict[str, str] = {
@@ -596,7 +596,7 @@ def _describe_result_from_schema(dataset: Any, schema: Any) -> DescribeResult:
 def _matches_wild_card(name: str, pattern: str | None) -> bool:
     if not pattern:
         return True
-    # the scripting API's wild_card only documents ``*`` as a wildcard and matches
+    # The scripting API's wild_card only documents ``*`` as a wildcard and matches
     # case-insensitively; normalize both sides to upper-case and use
     # fnmatchcase so behaviour does not depend on the host OS's path
     # case-folding rules (plain fnmatch.fnmatch varies by platform).

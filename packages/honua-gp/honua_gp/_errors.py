@@ -86,7 +86,7 @@ class HonuaGpConfigurationError(ExecuteError):
 
 
 class HonuaGpResolveError(ExecuteError):
-    """Raised when an workspace path cannot be resolved to a Honua source."""
+    """Raised when a workspace path cannot be resolved to a Honua source."""
 
     def __init__(self, path: str, *, hint: str | None = None) -> None:
         message = f"Could not resolve workspace path {path!r} to a Honua source."

@@ -1,4 +1,4 @@
-"""Bind the scripting API output names to the inline results of honua-server GP jobs.
+"""Bind scripting-API output names to the inline results of honua-server GP jobs.
 
 honua-server's layer-aware processes (``analytics.buffer-aggregate``,
 ``analytics.spatial-join``, ``generalization.dissolve``,

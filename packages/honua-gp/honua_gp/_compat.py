@@ -50,7 +50,7 @@ class FunctionEntry:
 
     output_params: tuple[str, ...] = ()
     source_params: tuple[str, ...] = ()
-    """the scripting API parameter names that carry source/feature paths.
+    """Scripting-API parameter names that carry source/feature paths.
 
     Elements of these parameters are passed through
     :func:`honua_gp._resolve.resolve` (including ``HONUA_GP_PATH_MAP``
@@ -77,8 +77,6 @@ one, so we anchor against that copy.
 
 
 def anchor_for(qualified_name: str) -> str:
-    """Return the in-repo anchor for a given scripting-API qualified name."""
-
     fragment = qualified_name.replace(".", "").lower()
     return f"{COMPAT_REPO_DOC}#{fragment}"
 
@@ -133,17 +131,11 @@ COMPAT: dict[str, FunctionEntry] = {
     # analysis.* (15)
     # -----------------------------------------------------------------
     # NOTE on the analysis.* and management.* process-backed stubs below:
-    # honua-server's ``geometry.*`` processes (``buffer``, ``clip``,
-    # ``intersect``, ``union``, ``difference``, ``dissolve``) take raw WKB
-    # geometries with an explicit ``srid``, not scripting-API-style feature class
-    # paths -- they buffer / clip / etc. a *single* geometry, not every
-    # feature in a layer. honua-server's ``analytics.*`` and
-    # ``data-management.*`` and ``conversion.feature-project`` processes
-    # take ``layerId``-shaped references, not workspace paths. Either family
-    # requires a projection adapter (feature -> WKB; workspace path -> layer
-    # id) to be invoked end-to-end. Until that adapter exists, every
-    # process-backed shim is a stub so the migration tool surfaces them
-    # accurately instead of the previous Supported-but-broken claim.
+    # honua-server's ``geometry.*`` processes take one raw WKB geometry with an
+    # explicit ``srid``; the ``analytics.*``, ``data-management.*`` and
+    # ``conversion.feature-project`` processes take ``layerId`` references. The
+    # process-backed entries below run through the projection adapter in
+    # ``honua_gp._process_tools``, which resolves workspace paths to layer ids.
     "analysis.Buffer": FunctionEntry(
         backend="process",
         status="partial",
@@ -532,7 +524,7 @@ COMPAT: dict[str, FunctionEntry] = {
         notes=(
             "honua-server's data-management.delete-features removes features that "
             "match where/objectIds inside a layer; it does NOT drop the dataset "
-            "itself. the scripting API's Delete deletes the whole feature class -- semantically "
+            "itself. The scripting API's Delete deletes the whole feature class -- semantically "
             "different from the server process."
         ),
         replacement_hint=(
@@ -651,7 +643,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "(a minimal read-only SpatialReferenceInfo exposing .factoryCode / .wkid and, "
             "when the server literally advertises one, .name), and .OIDFieldName are all "
             "populated from the FeatureServer layer-metadata response. Partial / explicitly "
-            "out of scope: the optional the scripting API data_type filter argument is accepted and "
+            "out of scope: the scripting API's optional data_type filter argument is accepted and "
             "recorded in the audit trail but not honored -- it never filters or "
             "disambiguates, every call describes the resolved dataset as-is; .catalogPath is the shim's "
             "resolved source string, not a verified on-disk/catalog path; .dataType is a "
@@ -951,7 +943,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "input) and an expression -> expression; data_type/no_data -> dataType/noData. "
             "Partial: the expression is restricted to single-letter band variables, "
             "numeric literals, a fixed operator set, and a small NumPy allow-list "
-            "(arbitrary the scripting API Map Algebra / Con()/nested-function syntax is not "
+            "(arbitrary scripting-API Map Algebra / Con()/nested-function syntax is not "
             "evaluated), and inputs must be inline GeoTIFF bytes."
         ),
         param_map={"expression": "expression", "data_type": "dataType", "no_data": "noData"},
@@ -1019,7 +1011,7 @@ COMPAT: dict[str, FunctionEntry] = {
     # reached in the scripting API through RasterObject/segmentation, and spectral indices
     # through per-index raster functions / the multidimensional toolset), and
     # honua-server's GPServerEsriTaskAliases assigns them no Esri task name
-    # either. Rather than invent a fake the scripting API name, they are surfaced as
+    # either. Rather than invent a fake scripting-API name, they are surfaced as
     # explicit stubs so the migration tool reports the gap honestly.
     "sa.Histogram": FunctionEntry(
         backend="not_implemented",
@@ -1029,7 +1021,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "honua-server's raster.histogram (per-band 256-bin histograms) has no clean "
             "single scripting-API Spatial Analyst GP tool name -- the scripting API exposes raster histograms "
             "through RasterObject / interactive symbology rather than a standalone tool. "
-            "Left as an explicit stub instead of guessing a fake the scripting API tool name."
+            "Left as an explicit stub instead of guessing a fake scripting-API tool name."
         ),
         replacement_hint=(
             "Submit the raster.histogram process directly via "
@@ -1048,7 +1040,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "rasters) has no clean single scripting-API Spatial Analyst GP tool name -- the scripting API "
             "computes these through per-index raster functions / the multidimensional "
             "toolset, not one standalone tool. Left as an explicit stub instead of "
-            "guessing a fake the scripting API tool name."
+            "guessing a fake scripting-API tool name."
         ),
         replacement_hint=(
             "Submit the raster.spectral-index process directly via "

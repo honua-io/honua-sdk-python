@@ -76,7 +76,7 @@ def _path_map() -> dict[str, str]:
 
 
 def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource:
-    """Resolve an workspace path / layer-name into a Honua source string."""
+    """Resolve a workspace path / layer-name into a Honua source string."""
 
     if path is None:
         raise HonuaGpResolveError("None", hint="Path / layer name must not be None.")
@@ -114,7 +114,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
     if path in overrides:
         return ResolvedSource(source=overrides[path], kind="honua-uri", raw=raw)
 
-    # 4. ArcGIS REST FeatureServer layer URL/path. the scripting API callers commonly pass
+    # 4. GeoServices REST FeatureServer layer URL/path. Scripting-API callers commonly pass
     # the same live URL they use with the real scripting API module; canonicalize it to
     # the shim's existing source URI instead of treating the URL as a workspace
     # name and sending it as a service id.
@@ -180,7 +180,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
 def resolve_or_register_output(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource:
     """Resolve an output path and, if it's a string, register an alias.
 
-    Output paths from the scripting API calls are typically created by the call itself.
+    Output paths from scripting-API calls are typically created by the call itself.
     The shim mirrors that by registering a layer alias so subsequent calls
     can reuse the same name without re-resolving against the workspace.
 
@@ -318,7 +318,7 @@ def descriptor_mapping(
 
 
 def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
-    """Project an workspace path / layer alias onto a honua-server ``layerId``.
+    """Project a workspace path / layer alias onto a honua-server ``layerId``.
 
     honua-server's layer-aware geoprocessing operations
     (``analytics.spatial-join``, ``generalization.dissolve``,

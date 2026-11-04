@@ -26,7 +26,7 @@ class _EnvProxy:
             return getattr(session, self._ALIASES[name])
         if name in session.extra_env_options:
             return session.extra_env_options[name]
-        return None  # env returns None for unset attributes.
+        return None
 
     def __setattr__(self, name: str, value: Any) -> None:
         session = get_session()

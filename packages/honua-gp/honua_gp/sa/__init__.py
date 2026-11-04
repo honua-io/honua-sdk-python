@@ -1,8 +1,8 @@
 """``sa`` (Spatial Analyst) shim -- 16 raster/surface tools + 2 stubs.
 
-Customers replace ``from sa import *`` (and the raster-oriented Data
-Management tools) with ``from honua_gp import sa``. Each tool projects its scripting-API
-signature onto one of honua-server's raster/surface GDAL-worker processes and
+Import the namespace with ``from honua_gp import sa`` and call tools as
+``sa.Slope(...)``; a script written with a wildcard import needs its call sites
+prefixed with ``sa.``. Each tool projects its scripting-API signature onto one of honua-server's raster/surface GDAL-worker processes and
 runs it as an asynchronous OGC API Processes job, auto-wrapped as a single
 ``geoprocess`` step inside the canonical ``honua-geoprocessing`` plan (raster
 process ids 404 on direct execution). See :mod:`honua_gp._raster_tools` for the
@@ -44,7 +44,7 @@ from .._raster_tools import (
 def _server_params(qualified: str, named: Mapping[str, Any], parameters: Mapping[str, Any] | None) -> dict[str, Any]:
     """Map named scripting-API kwargs (via the manifest ``param_map``) + generic passthrough.
 
-    ``named`` is keyed by the scripting API keyword and translated through the entry's
+    ``named`` is keyed by the scripting-API keyword and translated through the entry's
     ``param_map`` into honua-server input names; ``parameters`` (already keyed by
     server input name) is layered on top so a caller can reach any input the
     named kwargs do not surface.

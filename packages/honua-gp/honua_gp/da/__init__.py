@@ -622,7 +622,7 @@ class InsertCursor(_BaseCursor):
         payload = _payload_for_row(row, self.fields)
         self._inserts.append(payload)
         self._inserted += 1
-        return self._inserted  # the scripting API returns the new OID; we return a 1-based index pre-flush.
+        return self._inserted  # The scripting API returns the new OID; this is a 1-based index before flush.
 
     def flush(self) -> dict[str, Any] | None:
         if not self._inserts:

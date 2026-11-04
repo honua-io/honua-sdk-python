@@ -1,12 +1,7 @@
 """Process-backed dispatch: stub routing, audit JSONL, exception surface.
 
-The shim does NOT yet implement the scripting-API -> honua-server projection
-adapter (see ``test_compat_manifest.py::test_process_backed_entries_match_honua_server_catalog``),
-so every analysis.* and management.* entry that previously dispatched
-through ``dispatch_process`` now routes through ``raise_unsupported``
-instead. The tests below pin the new contract -- the dispatcher itself
-is exercised through a private test-only manifest entry so future
-process-backed entries can be re-added with confidence.
+The dispatcher is exercised through a private test-only manifest entry; the
+layer-aware projection adapter is covered in ``test_process_tools.py``.
 """
 
 from __future__ import annotations

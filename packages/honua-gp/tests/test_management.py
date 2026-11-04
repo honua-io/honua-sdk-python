@@ -87,7 +87,7 @@ def test_select_layer_by_attribute_applies_invert_where_clause(stub_clients) -> 
 
 
 def test_select_layer_by_attribute_switch_is_unsupported(stub_clients) -> None:
-    # the scripting API SWITCH_SELECTION inverts the prior selection set (OIDs), which we
+    # The scripting API's SWITCH_SELECTION inverts the prior selection set (OIDs), which we
     # cannot model as a SQL where clause; the previous behaviour silently
     # cleared the selection. Surface it as unsupported instead.
     honua_gp.management.MakeFeatureLayer("roads", "roads_lyr")
@@ -337,7 +337,7 @@ def test_describe_is_audited_as_supported(stub_clients) -> None:
 
 
 def test_describe_accepts_and_audits_data_type_argument(stub_clients) -> None:
-    """the scripting API's documented ``Describe(value, {datatype})`` form must not crash
+    """The scripting API's documented ``Describe(value, {datatype})`` form must not crash
     at the wrapper boundary. honua-gp does not honor the ``data_type`` filter
     (the manifest marks it unsupported), so the call is accepted, produces the
     same result as the one-arg form, and the supplied ``data_type`` is recorded
@@ -400,7 +400,7 @@ def test_list_fields_field_type_filters_by_type(stub_clients) -> None:
     fields = honua_gp.management.ListFields("segments", field_type="String")
     assert [f.name for f in fields] == ["STATUS"]
 
-    # Semicolon-delimited multi-type filter, the scripting API ValueTable style.
+    # Semicolon-delimited multi-type filter, in the scripting API's ValueTable style.
     fields = honua_gp.management.ListFields("segments", field_type="String;Double")
     assert {f.name for f in fields} == {"STATUS", "LENGTH_KM"}
 

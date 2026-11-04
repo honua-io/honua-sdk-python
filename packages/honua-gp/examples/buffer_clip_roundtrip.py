@@ -1,4 +1,4 @@
-"""End-to-end scripting API to ``honua_gp`` parity demo.
+"""End-to-end parity demo: scripting-API calls run through ``honua_gp``.
 
 ``analysis.Buffer`` is now end-to-end supported: the layer-aware projection
 adapter (``honua_gp._process_tools``) maps its scripting-API signature onto

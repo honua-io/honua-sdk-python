@@ -458,8 +458,8 @@ def test_failed_job_raises_execute_error(_isolated_audit_dir: Path) -> None:
 def test_management_toolbox_raster_aliases_resolve() -> None:
     """management raster tools re-export the sa implementations.
 
-    ProjectRaster / Resample / Clip (raster) / Mosaic live in the scripting-API
-    management toolbox in the real scripting API, so ``honua_gp.management.ProjectRaster``
+    ProjectRaster / Resample / Clip (raster) / Mosaic live in the
+    management toolbox of the real scripting API, so ``honua_gp.management.ProjectRaster``
     must resolve for drop-in scripts even though the manifest keys them under
     ``sa.*``.
     """

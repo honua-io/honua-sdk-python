@@ -1,4 +1,4 @@
-"""Layer-aware GP tool projection: the scripting API signature -> honua-server process.
+"""Layer-aware GP tool projection: scripting-API signature -> honua-server process.
 
 Each promoted tool (Buffer, SpatialJoin, Dissolve, Project) is exercised
 through a faked OGC API Processes transport that models

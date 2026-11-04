@@ -1,4 +1,4 @@
-"""Projection adapters: the scripting API GP tool signatures -> honua-server process inputs.
+"""Projection adapters: scripting-API GP tool signatures -> honua-server process inputs.
 
 Audit pass 8 downgraded every process-backed analysis/management entry to a
 stub because the shim emitted a scripting-API-style ``input_features`` / ``result``
@@ -53,7 +53,7 @@ from ._wkb import WkbEncodingError, geojson_to_base64_wkb, position_count
 
 @dataclass(frozen=True)
 class Result:
-    """the scripting API ``Result``-shaped return value for a completed GP tool.
+    """Scripting-API ``Result``-shaped return value for a completed GP tool.
 
     The real scripting API tools return a ``Result`` whose ``[0]`` (and ``str(...)``)
     is the output dataset path and whose ``.status`` is ``4`` (succeeded). The
@@ -65,7 +65,7 @@ class Result:
 
     output: str
     job_id: str
-    status: int = 4  # the scripting API esriJobSucceeded
+    status: int = 4  # esriJobSucceeded
     outputs: Mapping[str, Any] | None = None
 
     def __str__(self) -> str:
@@ -75,7 +75,7 @@ class Result:
         return self.status
 
     def __getitem__(self, index: int) -> Any:
-        # the scripting API's Result.getOutput(i); index 0 is the output dataset.
+        # As in the scripting API's Result.getOutput(i), index 0 is the output dataset.
         if index == 0:
             return self.output
         raise IndexError(f"Result has no output at index {index}.")
@@ -85,7 +85,7 @@ class Result:
 
 
 def _bound(entry: FunctionEntry, args: Sequence[Any], kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    """Bind positional + keyword args to the manifest's the scripting API parameter order.
+    """Bind positional and keyword arguments in the manifest's positional parameter order.
 
     Uses the full ``positional_params`` signature (output + non-input params
     included) so positional binding matches the real scripting API, not just the
@@ -159,7 +159,7 @@ def _csv_fields(value: Any) -> str | None:
 
 @dataclass
 class _ProjectedCall:
-    """Result of projecting bound the scripting API args onto a process payload."""
+    """Result of projecting bound scripting-API arguments onto a process payload."""
 
     inputs: dict[str, Any]
     output_name: str | None = None
@@ -498,7 +498,7 @@ def _combine_where(*clauses: Any) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Per-tool projections (the scripting API signature -> process inputs)
+# Per-tool projections (scripting-API signature -> process inputs)
 # ---------------------------------------------------------------------------
 
 
@@ -507,7 +507,7 @@ def _project_buffer(bound: Mapping[str, Any], *, session: HonuaSession, projecte
     layer_id = resolve_layer_id(bound.get("in_features"), session=session)
     distance, unit = _parse_linear_distance(bound.get("buffer_distance_or_field"))
     inputs: dict[str, Any] = {"layerId": layer_id, "distance": distance, "unit": unit}
-    # the scripting API dissolve_option ALL/LIST -> dissolve=true; NONE -> dissolve=false.
+    # Scripting-API dissolve_option ALL/LIST -> dissolve=true; NONE -> dissolve=false.
     dissolve_option = bound.get("dissolve_option")
     if dissolve_option is not None:
         inputs["dissolve"] = str(dissolve_option).upper() != "NONE"
@@ -529,7 +529,7 @@ def _project_spatial_join(bound: Mapping[str, Any], *, session: HonuaSession, pr
     layer_id = resolve_layer_id(bound.get("target_features"), session=session)
     join_id = resolve_layer_id(bound.get("join_features"), session=session)
     inputs: dict[str, Any] = {"layerId": layer_id, "joinLayerId": join_id}
-    # Map the scripting API match_option vocabulary onto honua-server's predicate enum.
+    # Map the scripting-API match_option vocabulary onto honua-server's predicate enum.
     match_option = bound.get("match_option")
     if match_option is not None:
         predicate, distance = _match_option_to_predicate(match_option, bound.get("search_radius"))

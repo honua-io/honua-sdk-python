@@ -19,6 +19,18 @@ Run the script against a configured Honua deployment::
 
 Or wire up a stub transport in tests (see
 ``tests/test_buffer_clip_roundtrip.py``).
+
+For parity reviews, the equivalent desktop geoprocessing script, shown
+without its module prefix, is::
+
+    env.workspace = r"C:\\GIS\\transport.gdb"
+    env.overwriteOutput = True
+    management.MakeFeatureLayer("roads", "roads_lyr", "STATUS = 'OPEN'")
+    open_count = int(management.GetCount("roads_lyr"))
+    with da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
+        for row in cursor:
+            if row[1] == "CLOSED":
+                cursor.deleteRow()
 """
 
 from __future__ import annotations
@@ -27,20 +39,6 @@ import os
 from pathlib import Path
 
 import honua_gp as gp
-
-# --------------------------------------------------------------------------
-# Equivalent geoprocessing script (kept here for parity reviews):
-#
-#   # desktop geoprocessing calls, shown without their module prefix
-#   env.workspace = r"C:\\GIS\\transport.gdb"
-#   env.overwriteOutput = True
-#   management.MakeFeatureLayer("roads", "roads_lyr", "STATUS = 'OPEN'")
-#   open_count = int(management.GetCount("roads_lyr"))
-#   with da.UpdateCursor("roads_lyr", ["OID@", "STATUS"]) as cursor:
-#       for row in cursor:
-#           if row[1] == "CLOSED":
-#               cursor.deleteRow()
-# --------------------------------------------------------------------------
 
 
 def main() -> int:

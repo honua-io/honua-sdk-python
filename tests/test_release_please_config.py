@@ -252,7 +252,7 @@ def test_attestation_jobs_bind_verified_bytes_to_the_release_commit() -> None:
         assert "actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e" in attest
         assert "anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c" in attest
         assert "format: cyclonedx-json" in attest
-        assert f"name: {package}-dist-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}" in attest
+        assert f"name: {package}-dist-${{{{ github.run_id }}}}\n" in attest
         assert "subject-path: artifact/dist/*" in attest
         assert "actions/checkout@" not in attest
         assert "pypa/gh-action-pypi-publish@" not in attest

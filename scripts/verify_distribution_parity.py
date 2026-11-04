@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from functools import partial
 import hashlib
 import json
 import os
@@ -34,8 +36,7 @@ def create_manifest(dist_dir: Path, package: str, version: str) -> dict[str, Any
     sdists = [path for path in files if path.name.endswith(".tar.gz")]
     if len(files) != 2 or len(wheels) != 1 or len(sdists) != 1:
         raise ParityError(
-            f"Expected exactly one wheel and one sdist in {dist_dir}; "
-            f"found {[path.name for path in files]}."
+            f"Expected exactly one wheel and one sdist in {dist_dir}; found {[path.name for path in files]}."
         )
 
     normalized_name = package.replace("-", "_")
@@ -155,6 +156,55 @@ def write_github_output(path: Path | None, key: str, value: str) -> None:
         output_file.write(f"{key}={value}\n")
 
 
+MAX_BACKOFF_DELAY_SECONDS = 60.0
+
+
+def backoff_delays(initial_seconds: float, budget_seconds: float) -> list[float]:
+    """Doubling delays capped at a minute whose sum stays within the budget."""
+    delays: list[float] = []
+    delay = min(initial_seconds, MAX_BACKOFF_DELAY_SECONDS)
+    while delay > 0 and sum(delays) + delay <= budget_seconds:
+        delays.append(delay)
+        delay = min(delay * 2, MAX_BACKOFF_DELAY_SECONDS)
+    return delays
+
+
+def check_preflight(manifest: Mapping[str, Any], payload: Mapping[str, Any] | None, github_output: Path | None) -> int:
+    if payload is None:
+        write_github_output(github_output, "publish_required", "true")
+        print("PyPI coordinate is unoccupied; publication is required.")
+        return 0
+    verify_hash_parity(manifest, payload)
+    write_github_output(github_output, "publish_required", "false")
+    print("PyPI coordinate has exact filename/SHA256 parity.")
+    return 0
+
+
+@dataclass(frozen=True)
+class PublicationPoll:
+    """How post-publish verification reads PyPI and waits between reads."""
+
+    fetch: Callable[[], Mapping[str, Any] | None]
+    delays: Sequence[float]
+    sleep: Callable[[float], None] = time.sleep
+
+
+def poll_until_published(manifest: Mapping[str, Any], poll: PublicationPoll) -> None:
+    """Retry while PyPI's JSON API catches up after an upload; raise the last mismatch once the delays run out."""
+    last_error = ParityError("PyPI coordinate is still unoccupied after publication.")
+    for delay in [*poll.delays, None]:
+        payload = poll.fetch()
+        if payload is not None:
+            try:
+                verify_hash_parity(manifest, payload)
+                return
+            except ParityError as exc:
+                last_error = exc
+        if delay is None:
+            raise last_error
+        poll.sleep(delay)
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -170,8 +220,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     pypi_parser.add_argument("--dist-dir", type=Path, required=True)
     pypi_parser.add_argument("--phase", choices=("preflight", "post-publish"), required=True)
     pypi_parser.add_argument("--index-url", default="https://pypi.org/pypi")
-    pypi_parser.add_argument("--attempts", type=int, default=6)
-    pypi_parser.add_argument("--retry-seconds", type=float, default=5.0)
+    pypi_parser.add_argument("--max-wait-seconds", type=float, default=300.0)
+    pypi_parser.add_argument("--initial-delay-seconds", type=float, default=5.0)
     pypi_parser.add_argument(
         "--github-output",
         type=Path,
@@ -191,29 +241,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         manifest = load_manifest(args.manifest)
         verify_local_files(manifest, args.dist_dir)
-        attempts = 1 if args.phase == "preflight" else args.attempts
-        last_error: ParityError | None = None
-        for attempt in range(1, attempts + 1):
-            payload = fetch_pypi_payload(args.index_url, manifest["package"], manifest["version"])
-            if payload is None:
-                if args.phase == "preflight":
-                    write_github_output(args.github_output, "publish_required", "true")
-                    print("PyPI coordinate is unoccupied; publication is required.")
-                    return 0
-                last_error = ParityError("PyPI coordinate is still unoccupied after publication.")
-            else:
-                try:
-                    verify_hash_parity(manifest, payload)
-                except ParityError as exc:
-                    last_error = exc
-                else:
-                    write_github_output(args.github_output, "publish_required", "false")
-                    print("PyPI coordinate has exact filename/SHA256 parity.")
-                    return 0
-            if attempt < attempts:
-                time.sleep(args.retry_seconds)
-        assert last_error is not None
-        raise last_error
+        fetch = partial(fetch_pypi_payload, args.index_url, manifest["package"], manifest["version"])
+        if args.phase == "preflight":
+            return check_preflight(manifest, fetch(), args.github_output)
+        poll_until_published(
+            manifest, PublicationPoll(fetch, backoff_delays(args.initial_delay_seconds, args.max_wait_seconds))
+        )
+        write_github_output(args.github_output, "publish_required", "false")
+        print("PyPI coordinate has exact filename/SHA256 parity.")
+        return 0
     except (OSError, ParityError, ValueError) as exc:
         sys.stderr.write(f"{exc}\n")
         return 1

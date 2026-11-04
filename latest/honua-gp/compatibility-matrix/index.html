@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Which arcpy surfaces the shim supports, which run with documented deviations, and which raise rather than fail silently. Check this before committing to a migration.">
+        <meta name="description" content="Which scripting API surfaces the shim supports, which run with documented deviations, and which raise rather than fail silently. Check this before committing to a migration.">
       
       
       
@@ -1391,10 +1391,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#arcpyanalysis" class="md-nav__link">
+  <a href="#analysis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        arcpy.analysis.*
+        analysis.*
       
     </span>
   </a>
@@ -1402,10 +1402,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#arcpymanagement" class="md-nav__link">
+  <a href="#management" class="md-nav__link">
     <span class="md-ellipsis">
       
-        arcpy.management.*
+        management.*
       
     </span>
   </a>
@@ -1413,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#arcpyda" class="md-nav__link">
+  <a href="#da" class="md-nav__link">
     <span class="md-ellipsis">
       
-        arcpy.da.*
+        da.*
       
     </span>
   </a>
@@ -1424,10 +1424,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#arcpysa" class="md-nav__link">
+  <a href="#sa" class="md-nav__link">
     <span class="md-ellipsis">
       
-        arcpy.sa.*
+        sa.*
       
     </span>
   </a>
@@ -1468,7 +1468,7 @@
 <h1 id="honua-gp-compatibility-matrix">honua-gp compatibility matrix<a class="headerlink" href="#honua-gp-compatibility-matrix" title="Permanent link">&para;</a></h1>
 <p>Generated from the in-code <code>COMPAT</code> manifest by <code>scripts/render_compat_matrix.py</code> (re-run after manifest edits).</p>
 <p>Statuses: <strong>Supported</strong> runs against Honua, <strong>Partial</strong> runs with documented deviations, <strong>Stub</strong> raises <code>HonuaGpUnsupportedError</code> with a replacement hint and tracking ticket.</p>
-<h2 id="arcpyanalysis">arcpy.analysis.*<a class="headerlink" href="#arcpyanalysis" title="Permanent link">&para;</a></h2>
+<h2 id="analysis">analysis.*<a class="headerlink" href="#analysis" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -1480,98 +1480,98 @@
 </thead>
 <tbody>
 <tr>
-<td><a id="analysisbuffer"></a><code>arcpy.analysis.Buffer</code></td>
+<td><a id="analysisbuffer"></a><code>analysis.Buffer</code></td>
 <td>Partial</td>
 <td><code>process</code></td>
-<td>Projects arcpy.analysis.Buffer onto honua-server's layer-aware analytics.buffer-aggregate process: in_features -&gt; layerId, the linear distance is split into distance+unit, and dissolve_option NONE/ALL maps to dissolve=false/true. Runs as an async OGC API Processes job (submit + poll). Deviation: arcpy's per-feature FULL/LIST buffer side table is not modelled; dissolve is all-or-nothing plus optional groupByFields. line_side, line_end_type, and method are validated against their arcpy defaults (FULL/ROUND/PLANAR) and rejected with HonuaGpConfigurationError otherwise -- never silently ignored. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and arcpy.env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
+<td>Projects analysis.Buffer onto honua-server's layer-aware analytics.buffer-aggregate process: in_features -&gt; layerId, the linear distance is split into distance+unit, and dissolve_option NONE/ALL maps to dissolve=false/true. Runs as an async OGC API Processes job (submit + poll). Deviation: the scripting API's per-feature FULL/LIST buffer side table is not modelled; dissolve is all-or-nothing plus optional groupByFields. line_side, line_end_type, and method are validated against their scripting-API defaults (FULL/ROUND/PLANAR) and rejected with HonuaGpConfigurationError otherwise -- never silently ignored. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
 </tr>
 <tr>
-<td><a id="analysisclip"></a><code>arcpy.analysis.Clip</code></td>
+<td><a id="analysisclip"></a><code>analysis.Clip</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>honua-server's geometry.clip operates on a single targetWkb against a clipEnvelopeWkb (single envelope geometry), not on feature classes.<br><strong>hint:</strong> Iterate target features via honua_sdk.Source.iter_features, clip each geometry against the envelope WKB, and write the result back via apply_edits.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
 </tr>
 <tr>
-<td><a id="analysiserase"></a><code>arcpy.analysis.Erase</code></td>
+<td><a id="analysiserase"></a><code>analysis.Erase</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>honua-server's geometry.difference operates on a single targetWkb minus a single eraserWkb, not on feature classes.<br><strong>hint:</strong> Iterate target features and subtract each geometry against the eraser WKB via honua_sdk.protocols.OgcProcessesClient('geometry.difference').<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
 </tr>
 <tr>
-<td><a id="analysisidentity"></a><code>arcpy.analysis.Identity</code></td>
+<td><a id="analysisidentity"></a><code>analysis.Identity</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Computes geometric identity between two layers. Blocked on the same projection adapter as analysis.Intersect (a stub today), so composing that shim is not a workaround.<br><strong>hint:</strong> Iterate target features via honua_sdk.Source.iter_features, call honua_sdk.protocols.OgcProcessesClient.execute('geometry.intersect') to compute the intersected geometry, and retain unmatched input rows client-side.<br><strong>tracking:</strong> <code>honua-server#identity</code></td>
 </tr>
 <tr>
-<td><a id="analysisintersect"></a><code>arcpy.analysis.Intersect</code></td>
+<td><a id="analysisintersect"></a><code>analysis.Intersect</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
-<td>honua-server's geometry.intersect operates on two single geometries (targetWkb, intersectorWkb), not on feature classes.<br><strong>hint:</strong> Use the layer-aware analytics.spatial-join process via honua_sdk.protocols.OgcProcessesClient with the predicate=intersects branch once the projection adapter lands.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
+<td>honua-server's geometry.intersect operates on two single geometries (targetWkb, intersectorWkb), not on feature classes.<br><strong>hint:</strong> Use the layer-aware analytics.spatial-join process via honua_sdk.protocols.OgcProcessesClient with the predicate=intersects branch.<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
 </tr>
 <tr>
-<td><a id="analysismultipleringbuffer"></a><code>arcpy.analysis.MultipleRingBuffer</code></td>
+<td><a id="analysismultipleringbuffer"></a><code>analysis.MultipleRingBuffer</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Multi-ring buffer emits one ring per distance band with the band distance carried as an attribute. honua-server's layer-aware analytics.buffer-aggregate (which analysis.Buffer now uses) buffers a single distance per call and does not emit the per-band ring attribute, so the multi-ring semantic is not a single-call mapping.<br><strong>hint:</strong> Call honua_gp.analysis.Buffer(...) once per distance band (it is now supported) and merge the per-band outputs client-side, tagging each with its ring distance.<br><strong>tracking:</strong> <code>honua-server#multiple-ring-buffer</code></td>
 </tr>
 <tr>
-<td><a id="analysisnear"></a><code>arcpy.analysis.Near</code></td>
+<td><a id="analysisnear"></a><code>analysis.Near</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Computes distance to nearest feature; requires honua-server analytics process.<br><strong>hint:</strong> Use honua_sdk.Source.query(...) with bbox + spatial filter and minimize distance client-side.<br><strong>tracking:</strong> <code>honua-server#near</code></td>
 </tr>
 <tr>
-<td><a id="analysisnearestneighbor"></a><code>arcpy.analysis.NearestNeighbor</code></td>
+<td><a id="analysisnearestneighbor"></a><code>analysis.NearestNeighbor</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Average nearest neighbor; requires honua-server analytics process.<br><strong>hint:</strong> Use honua_sdk.Source.query(...) with sort_by_distance and compute the ratio client-side.<br><strong>tracking:</strong> <code>honua-server#nearest-neighbor</code></td>
 </tr>
 <tr>
-<td><a id="analysispointdistance"></a><code>arcpy.analysis.PointDistance</code></td>
+<td><a id="analysispointdistance"></a><code>analysis.PointDistance</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Point-to-point distance matrix; requires honua-server analytics process.<br><strong>hint:</strong> Use honua_sdk.Source.query(...) and compute pairwise distance client-side.<br><strong>tracking:</strong> <code>honua-server#point-distance</code></td>
 </tr>
 <tr>
-<td><a id="analysisspatialjoin"></a><code>arcpy.analysis.SpatialJoin</code></td>
+<td><a id="analysisspatialjoin"></a><code>analysis.SpatialJoin</code></td>
 <td>Partial</td>
 <td><code>process</code></td>
-<td>Projects arcpy.analysis.SpatialJoin onto honua-server's analytics.spatial-join: target_features -&gt; layerId, join_features -&gt; joinLayerId, and match_option -&gt; predicate (INTERSECT/CONTAINS/WITHIN/WITHIN_A_DISTANCE+search_radius -&gt; intersects/contains/within/dwithin). Runs as an async job. Partial: arcpy's join_operation (ONE_TO_ONE vs ONE_TO_MANY), join_type (KEEP_ALL/KEEP_COMMON), field_mapping, and distance_field_name are not modelled; the process emits the server's carry-field join shape. A nondefault value for any of those four raises HonuaGpConfigurationError before submission instead of being silently dropped. A selection on join_features is rejected; one on target_features is forwarded as where. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and arcpy.env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
+<td>Projects analysis.SpatialJoin onto honua-server's analytics.spatial-join: target_features -&gt; layerId, join_features -&gt; joinLayerId, and match_option -&gt; predicate (INTERSECT/CONTAINS/WITHIN/WITHIN_A_DISTANCE+search_radius -&gt; intersects/contains/within/dwithin). Runs as an async job. Partial: the scripting API's join_operation (ONE_TO_ONE vs ONE_TO_MANY), join_type (KEEP_ALL/KEEP_COMMON), field_mapping, and distance_field_name are not modelled; the process emits the server's carry-field join shape. A nondefault value for any of those four raises HonuaGpConfigurationError before submission instead of being silently dropped. A selection on join_features is rejected; one on target_features is forwarded as where. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
 </tr>
 <tr>
-<td><a id="analysissummarizewithin"></a><code>arcpy.analysis.SummarizeWithin</code></td>
+<td><a id="analysissummarizewithin"></a><code>analysis.SummarizeWithin</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Aggregates features inside polygon bins.<br><strong>hint:</strong> Use analytics.spatial-join + groupby aggregation on the OGC API Features client.<br><strong>tracking:</strong> <code>honua-server#summarize-within</code></td>
 </tr>
 <tr>
-<td><a id="analysissymmetricaldifference"></a><code>arcpy.analysis.SymmetricalDifference</code></td>
+<td><a id="analysissymmetricaldifference"></a><code>analysis.SymmetricalDifference</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Returns features that fall in exactly one input. Blocked on the same projection adapter as analysis.Union / analysis.Intersect (both stubs today), so composing those shims is not a workaround.<br><strong>hint:</strong> Iterate features client-side via honua_sdk.Source.iter_features and compose the difference via honua_sdk.protocols.OgcProcessesClient.execute('geometry.union') and 'geometry.intersect' directly with base64-WKB geometries.<br><strong>tracking:</strong> <code>honua-server#symmetrical-difference</code></td>
 </tr>
 <tr>
-<td><a id="analysistabulateintersection"></a><code>arcpy.analysis.TabulateIntersection</code></td>
+<td><a id="analysistabulateintersection"></a><code>analysis.TabulateIntersection</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Cross-tabulates area / length of intersection.<br><strong>hint:</strong> Use analytics.spatial-join + summarize-within client-side post-processing.<br><strong>tracking:</strong> <code>honua-server#tabulate-intersection</code></td>
 </tr>
 <tr>
-<td><a id="analysisunion"></a><code>arcpy.analysis.Union</code></td>
+<td><a id="analysisunion"></a><code>analysis.Union</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>honua-server's geometry.union takes an array of single WKB geometries (wkbs[], srid), not a list of feature classes.<br><strong>hint:</strong> Collect features via honua_sdk.Source.iter_features, encode each as WKB, then call honua_sdk.protocols.OgcProcessesClient.execute('geometry.union').<br><strong>tracking:</strong> <code>honua-server#feature-class-geometry-ops</code></td>
 </tr>
 <tr>
-<td><a id="analysisupdate"></a><code>arcpy.analysis.Update</code></td>
+<td><a id="analysisupdate"></a><code>analysis.Update</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Replaces input geometries with updater layer features.<br><strong>hint:</strong> Use admin apply_manifest with a replace operation.<br><strong>tracking:</strong> <code>honua-server#update-analysis</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="arcpymanagement">arcpy.management.*<a class="headerlink" href="#arcpymanagement" title="Permanent link">&para;</a></h2>
+<h2 id="management">management.*<a class="headerlink" href="#management" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -1583,128 +1583,128 @@
 </thead>
 <tbody>
 <tr>
-<td><a id="managementaddfield"></a><code>arcpy.management.AddField</code></td>
+<td><a id="managementaddfield"></a><code>management.AddField</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Schema-mutating field add; HonuaAdminClient has no add_field/apply_manifest path that mutates layer schemas today.<br><strong>hint:</strong> File a honua-server ticket for layer-schema mutation; meanwhile run schema changes through your manifest publishing flow.<br><strong>tracking:</strong> <code>honua-server#layer-schema-mutate</code></td>
 </tr>
 <tr>
-<td><a id="managementappend"></a><code>arcpy.management.Append</code></td>
+<td><a id="managementappend"></a><code>management.Append</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Append rows from inputs into a target table.<br><strong>hint:</strong> Use honua_sdk.Source.apply_edits with adds payload after schema-translation.<br><strong>tracking:</strong> <code>honua-server#append</code></td>
 </tr>
 <tr>
-<td><a id="managementcalculatefield"></a><code>arcpy.management.CalculateField</code></td>
+<td><a id="managementcalculatefield"></a><code>management.CalculateField</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>honua-server classifies data-management.calculate-field as CanServe=false by design: it is never projected as a standalone OGC API process and is only reachable as a step inside a honua-geoprocessing analysis plan. A one-shot POST /processes/data-management.calculate-field/execution therefore 404s on every server version (Process does not exist), so the shim cannot run CalculateField standalone.<br><strong>hint:</strong> Compose a honua-geoprocessing analysis plan with a calculate-field step and submit it via honua_sdk.protocols.OgcProcessesClient.execute('honua-geoprocessing', ...), or edit field values directly with honua_sdk.Source.apply_edits.<br><strong>tracking:</strong> <code>honua-server#data-management-standalone-processes</code></td>
 </tr>
 <tr>
-<td><a id="managementcopy"></a><code>arcpy.management.Copy</code></td>
+<td><a id="managementcopy"></a><code>management.Copy</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>honua-server classifies data-management.copy-features as CanServe=false by design: it is never projected as a standalone OGC API process and is only reachable as a step inside a honua-geoprocessing analysis plan. A one-shot POST /processes/data-management.copy-features/execution therefore 404s on every server version (Process does not exist), so the shim cannot run Copy / CopyFeatures standalone.<br><strong>hint:</strong> Compose a honua-geoprocessing analysis plan with a copy-features step and submit it via honua_sdk.protocols.OgcProcessesClient.execute('honua-geoprocessing', ...), or read the source features with honua_sdk.Source and write them into the target layer via apply_edits.<br><strong>tracking:</strong> <code>honua-server#data-management-standalone-processes</code></td>
 </tr>
 <tr>
-<td><a id="managementcreatefeatureclass"></a><code>arcpy.management.CreateFeatureclass</code></td>
+<td><a id="managementcreatefeatureclass"></a><code>management.CreateFeatureclass</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Creates a new feature class; schema translation is the hard part.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.apply_manifest with a create-resource entry.<br><strong>tracking:</strong> <code>honua-server#create-feature-class</code></td>
 </tr>
 <tr>
-<td><a id="managementcreatetable"></a><code>arcpy.management.CreateTable</code></td>
+<td><a id="managementcreatetable"></a><code>management.CreateTable</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Creates a new table; schema translation is the hard part.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.apply_manifest with a create-resource entry.<br><strong>tracking:</strong> <code>honua-server#create-table</code></td>
 </tr>
 <tr>
-<td><a id="managementdelete"></a><code>arcpy.management.Delete</code></td>
+<td><a id="managementdelete"></a><code>management.Delete</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
-<td>honua-server's data-management.delete-features removes features that match where/objectIds inside a layer; it does NOT drop the dataset itself. arcpy's Delete deletes the whole feature class -- semantically different from the server process.<br><strong>hint:</strong> To delete the entire resource, use honua_admin.HonuaAdminClient with a delete-resource manifest entry. To delete features inside a layer, call honua_sdk.protocols.OgcProcessesClient.execute('data-management.delete-features').<br><strong>tracking:</strong> <code>honua-server#arcpy-delete-resource-adapter</code></td>
+<td>honua-server's data-management.delete-features removes features that match where/objectIds inside a layer; it does NOT drop the dataset itself. The scripting API's Delete deletes the whole feature class -- semantically different from the server process.<br><strong>hint:</strong> To delete the entire resource, use honua_admin.HonuaAdminClient with a delete-resource manifest entry. To delete features inside a layer, call honua_sdk.protocols.OgcProcessesClient.execute('data-management.delete-features').<br><strong>tracking:</strong> <code>honua-server#gp-delete-resource-adapter</code></td>
 </tr>
 <tr>
-<td><a id="managementdeletefield"></a><code>arcpy.management.DeleteField</code></td>
+<td><a id="managementdeletefield"></a><code>management.DeleteField</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Schema-mutating field delete; HonuaAdminClient has no delete_field/apply_manifest path that mutates layer schemas today.<br><strong>hint:</strong> File a honua-server ticket for layer-schema mutation; meanwhile run schema changes through your manifest publishing flow.<br><strong>tracking:</strong> <code>honua-server#layer-schema-mutate</code></td>
 </tr>
 <tr>
-<td><a id="managementdescribe"></a><code>arcpy.management.Describe</code></td>
+<td><a id="managementdescribe"></a><code>management.Describe</code></td>
 <td>Partial</td>
 <td><code>source</code></td>
-<td>Describes a dataset's schema via honua_sdk.HonuaClient.feature_server(...).schema(layer_id): .shapeType, .fields (ListFields-shaped), .spatialReference (a minimal read-only SpatialReferenceInfo exposing .factoryCode / .wkid and, when the server literally advertises one, .name), and .OIDFieldName are all populated from the FeatureServer layer-metadata response. Partial / explicitly out of scope: the optional arcpy data_type filter argument is accepted and recorded in the audit trail but not honored -- it never filters or disambiguates, every call describes the resolved dataset as-is; .catalogPath is the shim's resolved source string, not a verified on-disk/catalog path; .dataType is a heuristic ('FeatureClass' when a geometry type is present, else 'Table') -- arcpy's full dataType vocabulary (ShapeFile, RasterDataset, Table, ...) is not modelled; raster-specific Describe properties (bandCount, meanCellHeight, noDataValue, ...) are not covered since honua-server's FeatureServer metadata has no raster surface today; .spatialReference.name is only populated when the server response includes a literal name (most only advertise a WKID), so it is commonly None even when .factoryCode is set.</td>
+<td>Describes a dataset's schema via honua_sdk.HonuaClient.feature_server(...).schema(layer_id): .shapeType, .fields (ListFields-shaped), .spatialReference (a minimal read-only SpatialReferenceInfo exposing .factoryCode / .wkid and, when the server literally advertises one, .name), and .OIDFieldName are all populated from the FeatureServer layer-metadata response. Partial / explicitly out of scope: the scripting API's optional data_type filter argument is accepted and recorded in the audit trail but not honored -- it never filters or disambiguates, every call describes the resolved dataset as-is; .catalogPath is the shim's resolved source string, not a verified on-disk/catalog path; .dataType is a heuristic ('FeatureClass' when a geometry type is present, else 'Table') -- the scripting API's full dataType vocabulary (ShapeFile, RasterDataset, Table, ...) is not modelled; raster-specific Describe properties (bandCount, meanCellHeight, noDataValue, ...) are not covered since honua-server's FeatureServer metadata has no raster surface today; .spatialReference.name is only populated when the server response includes a literal name (most only advertise a WKID), so it is commonly None even when .factoryCode is set.</td>
 </tr>
 <tr>
-<td><a id="managementdissolve"></a><code>arcpy.management.Dissolve</code></td>
+<td><a id="managementdissolve"></a><code>management.Dissolve</code></td>
 <td>Partial</td>
 <td><code>process</code></td>
-<td>Projects arcpy.management.Dissolve onto honua-server's layer-aware generalization.dissolve: in_features -&gt; layerId and the dissolve_field list -&gt; comma-separated groupByFields. Runs as an async job. Partial: arcpy's statistics_fields (per-group SUM/MEAN/etc.) and multi_part / unsplit_lines flags are not modelled; the process emits one feature per group via the server's outStatistics shape only when configured server-side. A nondefault statistics_fields / multi_part / unsplit_lines raises HonuaGpConfigurationError before submission instead of being silently dropped. A selection on in_features is forwarded as where. When in_features is the bound output of an earlier GP tool, its geometries are sent to the synchronous geometry.dissolve process as base64 WKB (wkbs, srid, groupKeys from dissolve_field) and the dissolve_field values are restored on each group; a where clause, a selection, an empty result, null geometries or an unknown spatial reference raise HonuaGpConfigurationError before submission. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and arcpy.env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
+<td>Projects management.Dissolve onto honua-server's layer-aware generalization.dissolve: in_features -&gt; layerId and the dissolve_field list -&gt; comma-separated groupByFields. Runs as an async job. Partial: the scripting API's statistics_fields (per-group SUM/MEAN/etc.) and multi_part / unsplit_lines flags are not modelled; the process emits one feature per group via the server's outStatistics shape only when configured server-side. A nondefault statistics_fields / multi_part / unsplit_lines raises HonuaGpConfigurationError before submission instead of being silently dropped. A selection on in_features is forwarded as where. When in_features is the bound output of an earlier GP tool, its geometries are sent to the synchronous geometry.dissolve process as base64 WKB (wkbs, srid, groupKeys from dissolve_field) and the dissolve_field values are restored on each group; a where clause, a selection, an empty result, null geometries or an unknown spatial reference raise HonuaGpConfigurationError before submission. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
 </tr>
 <tr>
-<td><a id="managementgetcount"></a><code>arcpy.management.GetCount</code></td>
+<td><a id="managementgetcount"></a><code>management.GetCount</code></td>
 <td>Partial</td>
 <td><code>source</code></td>
 <td>Returns a row count via Source.query; currently materializes the full result set because Source has no count-only helper yet.</td>
 </tr>
 <tr>
-<td><a id="managementlistfields"></a><code>arcpy.management.ListFields</code></td>
+<td><a id="managementlistfields"></a><code>management.ListFields</code></td>
 <td>Partial</td>
 <td><code>source</code></td>
-<td>Lists a layer's fields via honua_sdk.HonuaClient.feature_server(...).schema(layer_id) (the typed LayerSchema built from the FeatureServer layer-metadata endpoint). wild_card ('<em>'-glob, case-insensitive) and field_type (single value, semicolon-delimited list, or Python sequence; 'All' / omitted disables the filter) are both applied client-side against the fetched field list. Field type tokens are normalized from honua-server's esriFieldType</em> vocabulary to arcpy's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/Single/Date/OID/Geometry/GUID/GlobalID/Blob/Raster/XML/DateOnly/TimeOnly/TimestampOffset). Partial: honua-server's field JSON does not carry precision/scale, so FieldDescribe.precision/.scale are always None (real arcpy populates them for numeric fields); required/isVersioned/domain-code nuances are also not modelled beyond passing the raw domain mapping through.</td>
+<td>Lists a layer's fields via honua_sdk.HonuaClient.feature_server(...).schema(layer_id) (the typed LayerSchema built from the FeatureServer layer-metadata endpoint). wild_card ('<em>'-glob, case-insensitive) and field_type (single value, semicolon-delimited list, or Python sequence; 'All' / omitted disables the filter) are both applied client-side against the fetched field list. Field type tokens are normalized from honua-server's esriFieldType</em> vocabulary to the scripting API's Field.type strings (String/Integer/SmallInteger/BigInteger/Double/Single/Date/OID/Geometry/GUID/GlobalID/Blob/Raster/XML/DateOnly/TimeOnly/TimestampOffset). Partial: honua-server's field JSON does not carry precision/scale, so FieldDescribe.precision/.scale are always None (the desktop scripting API populates them for numeric fields); required/isVersioned/domain-code nuances are also not modelled beyond passing the raw domain mapping through.</td>
 </tr>
 <tr>
-<td><a id="managementmakefeaturelayer"></a><code>arcpy.management.MakeFeatureLayer</code></td>
+<td><a id="managementmakefeaturelayer"></a><code>management.MakeFeatureLayer</code></td>
 <td>Supported</td>
 <td><code>session</code></td>
 <td>Creates an in-process layer alias; deviation: alias is bound to a Honua source descriptor.</td>
 </tr>
 <tr>
-<td><a id="managementmaketableview"></a><code>arcpy.management.MakeTableView</code></td>
+<td><a id="managementmaketableview"></a><code>management.MakeTableView</code></td>
 <td>Supported</td>
 <td><code>session</code></td>
 <td>Creates an in-process table-view alias; mirrors MakeFeatureLayer.</td>
 </tr>
 <tr>
-<td><a id="managementmerge"></a><code>arcpy.management.Merge</code></td>
+<td><a id="managementmerge"></a><code>management.Merge</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Merges multiple feature classes into one.<br><strong>hint:</strong> Iterate honua_sdk.Source.iter_features and write via apply_edits in chunks.<br><strong>tracking:</strong> <code>honua-server#merge</code></td>
 </tr>
 <tr>
-<td><a id="managementproject"></a><code>arcpy.management.Project</code></td>
+<td><a id="managementproject"></a><code>management.Project</code></td>
 <td>Partial</td>
 <td><code>process</code></td>
-<td>Projects arcpy.management.Project onto honua-server's conversion.feature-project: in_dataset -&gt; layerId and the out_coor_system EPSG/WKID code -&gt; targetSrid. Runs as an async job and registers the named out_dataset as a session alias. Deviation: out_coor_system must be an EPSG/WKID code (int or numeric string); arcpy.SpatialReference objects and named transformations are not resolvable by the shim. transform_method, in_coor_system, preserve_shape, max_deviation, and vertical are not modelled; a nondefault value for any of them raises HonuaGpConfigurationError before submission instead of being silently dropped. A selection on in_dataset and arcpy.env.geographicTransformations are rejected. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and arcpy.env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
+<td>Projects management.Project onto honua-server's conversion.feature-project: in_dataset -&gt; layerId and the out_coor_system EPSG/WKID code -&gt; targetSrid. Runs as an async job and registers the named out_dataset as a session alias. Deviation: out_coor_system must be an EPSG/WKID code (int or numeric string); SpatialReference objects and named transformations are not resolvable by the shim. transform_method, in_coor_system, preserve_shape, max_deviation, and vertical are not modelled; a nondefault value for any of them raises HonuaGpConfigurationError before submission instead of being silently dropped. A selection on in_dataset and env.geographicTransformations are rejected. Output: the named output is bound to the job's inline FeatureLayer result (outputFeatureLayer); GetCount, SearchCursor and MakeFeatureLayer read that result, SHAPE@JSON is GeoJSON, and management.Dissolve takes it as in_features (sent to geometry.dissolve as WKB). Where clauses, edits, Describe, ListFields or another layer-aware tool against it are rejected because nothing is persisted server-side. A missing or unreadable output raises ExecuteError; a failed or cancelled job keeps any prior alias and otherwise leaves the name unresolvable. A selection on an input the process cannot filter and env outputCoordinateSystem / extent / XYTolerance / XYResolution are rejected before submission.</td>
 </tr>
 <tr>
-<td><a id="managementrename"></a><code>arcpy.management.Rename</code></td>
+<td><a id="managementrename"></a><code>management.Rename</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Resource rename; HonuaAdminClient exposes apply_manifest but no rename_resource translation today.<br><strong>hint:</strong> Republish the resource under the new name via honua_admin.HonuaAdminClient.apply_manifest and delete the old entry.<br><strong>tracking:</strong> <code>honua-server#rename-resource</code></td>
 </tr>
 <tr>
-<td><a id="managementselectlayerbyattribute"></a><code>arcpy.management.SelectLayerByAttribute</code></td>
+<td><a id="managementselectlayerbyattribute"></a><code>management.SelectLayerByAttribute</code></td>
 <td>Partial</td>
 <td><code>source</code></td>
 <td>Where-clause selection; updates the in-process layer state. SWITCH_SELECTION is not supported because the shim cannot invert the prior OID selection set as a SQL where clause.</td>
 </tr>
 <tr>
-<td><a id="managementselectlayerbylocation"></a><code>arcpy.management.SelectLayerByLocation</code></td>
+<td><a id="managementselectlayerbylocation"></a><code>management.SelectLayerByLocation</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
-<td>Spatial selection by relationship to another layer. honua-server has no native spatial-select process today, and the natural compose path (analysis.Buffer + analysis.Intersect, then SelectLayerByAttribute) is blocked because Buffer and Intersect are themselves stubs pending the projection adapter.<br><strong>hint:</strong> Query the candidate features via honua_sdk.Source.query(...) with a bbox prefilter, compute the spatial relationship client-side (or via honua_sdk.protocols.OgcProcessesClient geometry.<em> calls with base64-WKB inputs), then call management.SelectLayerByAttribute with a where clause that pins the resulting OID set (OBJECTID IN (...)).<br></em><em>tracking:</em>* <code>honua-server#spatial-filter</code></td>
+<td>Spatial selection by relationship to another layer. honua-server has no native spatial-select process today, and the natural compose path (analysis.Buffer + analysis.Intersect, then SelectLayerByAttribute) is blocked because analysis.Intersect is a stub: honua-server's geometry.intersect works on single geometries, not feature classes.<br><strong>hint:</strong> Query the candidate features via honua_sdk.Source.query(...) with a bbox prefilter, compute the spatial relationship client-side (or via honua_sdk.protocols.OgcProcessesClient geometry.<em> calls with base64-WKB inputs), then call management.SelectLayerByAttribute with a where clause that pins the resulting OID set (OBJECTID IN (...)).<br></em><em>tracking:</em>* <code>honua-server#spatial-filter</code></td>
 </tr>
 <tr>
-<td><a id="managementsort"></a><code>arcpy.management.Sort</code></td>
+<td><a id="managementsort"></a><code>management.Sort</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Sorts feature class rows by one or more fields.<br><strong>hint:</strong> Use honua_sdk.Source.query(order_by=...) and write with apply_edits.<br><strong>tracking:</strong> <code>honua-server#sort</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="arcpyda">arcpy.da.*<a class="headerlink" href="#arcpyda" title="Permanent link">&para;</a></h2>
+<h2 id="da">da.*<a class="headerlink" href="#da" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -1716,68 +1716,68 @@
 </thead>
 <tbody>
 <tr>
-<td><a id="daeditor"></a><code>arcpy.da.Editor</code></td>
+<td><a id="daeditor"></a><code>da.Editor</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Workspace-level edit session context manager.<br><strong>hint:</strong> Wrap honua_sdk.Source.apply_edits calls in a try/except; per-workspace transactions are not yet exposed.<br><strong>tracking:</strong> <code>honua-server#workspace-editor</code></td>
 </tr>
 <tr>
-<td><a id="daextendtable"></a><code>arcpy.da.ExtendTable</code></td>
+<td><a id="daextendtable"></a><code>da.ExtendTable</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Joins a NumPy array onto an existing table.<br><strong>hint:</strong> Use admin apply_manifest with a field-add + apply_edits update sequence.<br><strong>tracking:</strong> <code>honua-server#extend-table</code></td>
 </tr>
 <tr>
-<td><a id="dafeatureclasstonumpyarray"></a><code>arcpy.da.FeatureClassToNumPyArray</code></td>
+<td><a id="dafeatureclasstonumpyarray"></a><code>da.FeatureClassToNumPyArray</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Materializes feature class rows as a NumPy structured array.<br><strong>hint:</strong> Use honua_sdk.Source.query(...).features and convert with numpy.array client-side.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
 </tr>
 <tr>
-<td><a id="dainsertcursor"></a><code>arcpy.da.InsertCursor</code></td>
+<td><a id="dainsertcursor"></a><code>da.InsertCursor</code></td>
 <td>Supported</td>
 <td><code>source</code></td>
-<td>Buffered inserts; flush on <strong>exit</strong>. Deviates from arcpy's per-row commit.</td>
+<td>Buffered inserts; flush on <strong>exit</strong>. Deviates from the scripting API's per-row commit.</td>
 </tr>
 <tr>
-<td><a id="danumpyarraytofeatureclass"></a><code>arcpy.da.NumPyArrayToFeatureClass</code></td>
+<td><a id="danumpyarraytofeatureclass"></a><code>da.NumPyArrayToFeatureClass</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Writes a NumPy structured array into a feature class.<br><strong>hint:</strong> Use honua_sdk.Source.apply_edits with feature rows derived from the structured array.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
 </tr>
 <tr>
-<td><a id="danumpyarraytotable"></a><code>arcpy.da.NumPyArrayToTable</code></td>
+<td><a id="danumpyarraytotable"></a><code>da.NumPyArrayToTable</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Writes a NumPy structured array into a table.<br><strong>hint:</strong> Use honua_sdk.Source.apply_edits with rows derived from the structured array.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
 </tr>
 <tr>
-<td><a id="dasearchcursor"></a><code>arcpy.da.SearchCursor</code></td>
+<td><a id="dasearchcursor"></a><code>da.SearchCursor</code></td>
 <td>Partial</td>
 <td><code>source</code></td>
 <td>Read-only iteration over Source.iter_features; forwards where/out_fields/order_by/out_sr where possible and rejects unsupported sql_clause variants or explode_to_points.</td>
 </tr>
 <tr>
-<td><a id="databletonumpyarray"></a><code>arcpy.da.TableToNumPyArray</code></td>
+<td><a id="databletonumpyarray"></a><code>da.TableToNumPyArray</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Materializes table rows as a NumPy structured array.<br><strong>hint:</strong> Use honua_sdk.Source.query(...).features and convert with numpy.array client-side.<br><strong>tracking:</strong> <code>honua-server#numpy-bridge</code></td>
 </tr>
 <tr>
-<td><a id="daupdatecursor"></a><code>arcpy.da.UpdateCursor</code></td>
+<td><a id="daupdatecursor"></a><code>da.UpdateCursor</code></td>
 <td>Supported</td>
 <td><code>source</code></td>
-<td>Buffered updates; flush on <strong>exit</strong> or explicit cursor.flush(). Deviates from arcpy's per-row commit.</td>
+<td>Buffered updates; flush on <strong>exit</strong> or explicit cursor.flush(). Deviates from the scripting API's per-row commit.</td>
 </tr>
 <tr>
-<td><a id="dawalk"></a><code>arcpy.da.Walk</code></td>
+<td><a id="dawalk"></a><code>da.Walk</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>Walks a workspace directory tree for datasets.<br><strong>hint:</strong> Use honua_admin.HonuaAdminClient.list_services / list_metadata_resources.<br><strong>tracking:</strong> <code>honua-server#workspace-walk</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="arcpysa">arcpy.sa.*<a class="headerlink" href="#arcpysa" title="Permanent link">&para;</a></h2>
+<h2 id="sa">sa.*<a class="headerlink" href="#sa" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -1789,118 +1789,118 @@
 </thead>
 <tbody>
 <tr>
-<td><a id="saaspect"></a><code>arcpy.sa.Aspect</code></td>
+<td><a id="saaspect"></a><code>sa.Aspect</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Aspect onto honua-server's surface.aspect GDAL-worker process (DEM 'source' in, compass-bearing aspect raster out). Returns a honua_gp.RasterResult handle.</td>
+<td>Projects sa.Aspect onto honua-server's surface.aspect GDAL-worker process (DEM 'source' in, compass-bearing aspect raster out). Returns a honua_gp.RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="saclip"></a><code>arcpy.sa.Clip</code></td>
+<td><a id="saclip"></a><code>sa.Clip</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy raster Clip onto honua-server's raster.clip GDAL-worker process (gdalwarp -cutline). boundary (WKB, required) -&gt; boundary; boundary_srid -&gt; boundarySrid. Distinct from the vector analysis.Clip stub. Returns a clipped RasterResult handle.</td>
+<td>Projects the scripting API's raster Clip onto honua-server's raster.clip GDAL-worker process (gdalwarp -cutline). boundary (WKB, required) -&gt; boundary; boundary_srid -&gt; boundarySrid. Distinct from the vector analysis.Clip stub. Returns a clipped RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="sacontour"></a><code>arcpy.sa.Contour</code></td>
+<td><a id="sacontour"></a><code>sa.Contour</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Contour onto honua-server's surface.contour GDAL-worker process. interval (required) -&gt; interval, base -&gt; base. Unlike the other surface tools, the output is a FeatureLayer (GeoJSON contour lines with an ELEV attribute); the returned RasterResult exposes it via .to_geodataframe().</td>
+<td>Projects sa.Contour onto honua-server's surface.contour GDAL-worker process. interval (required) -&gt; interval, base -&gt; base. Unlike the other surface tools, the output is a FeatureLayer (GeoJSON contour lines with an ELEV attribute); the returned RasterResult exposes it via .to_geodataframe().</td>
 </tr>
 <tr>
-<td><a id="sahillshade"></a><code>arcpy.sa.Hillshade</code></td>
+<td><a id="sahillshade"></a><code>sa.Hillshade</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Hillshade onto honua-server's surface.hillshade GDAL-worker process. azimuth/altitude/z_factor -&gt; azimuth/altitude/zFactor. Returns a honua_gp.RasterResult handle.</td>
+<td>Projects sa.Hillshade onto honua-server's surface.hillshade GDAL-worker process. azimuth/altitude/z_factor -&gt; azimuth/altitude/zFactor. Returns a honua_gp.RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="sahistogram"></a><code>arcpy.sa.Histogram</code></td>
+<td><a id="sahistogram"></a><code>sa.Histogram</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
-<td>honua-server's raster.histogram (per-band 256-bin histograms) has no clean single arcpy Spatial Analyst GP tool name -- arcpy exposes raster histograms through RasterObject / interactive symbology rather than a standalone tool. Left as an explicit stub instead of guessing a fake arcpy tool name.<br><strong>hint:</strong> Submit the raster.histogram process directly via honua_sdk.HonuaClient.geoprocessing().execute_raster_process('raster.histogram', RasterReference.from_...(...)) and read the Scalar JSON output with consume_result(...).<br><strong>tracking:</strong> <code>honua-server#arcpy-raster-histogram-name</code></td>
+<td>honua-server's raster.histogram (per-band 256-bin histograms) has no clean single scripting-API Spatial Analyst GP tool name -- the scripting API exposes raster histograms through RasterObject / interactive symbology rather than a standalone tool. Left as an explicit stub instead of guessing a fake scripting-API tool name.<br><strong>hint:</strong> Submit the raster.histogram process directly via honua_sdk.HonuaClient.geoprocessing().execute_raster_process('raster.histogram', RasterReference.from_...(...)) and read the Scalar JSON output with consume_result(...).<br><strong>tracking:</strong> <code>honua-server#gp-raster-histogram-name</code></td>
 </tr>
 <tr>
-<td><a id="saidw"></a><code>arcpy.sa.Idw</code></td>
+<td><a id="saidw"></a><code>sa.Idw</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker process (gdal_grid -a invdist). Takes a scattered point FeatureCollection (encoded to the base64 'points' input); z_field -&gt; zField, power -&gt; power, smoothing -&gt; smoothing, radius -&gt; radius. Matches the GPServer 'IDW' Esri task alias. Partial: the native worker sizes the output via width/height (passthrough) rather than an arcpy cell_size, and arcpy barrier/variable search options are not modelled. Returns a RasterResult handle.</td>
+<td>Projects sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker process (gdal_grid -a invdist). Takes a scattered point FeatureCollection (encoded to the base64 'points' input); z_field -&gt; zField, power -&gt; power, smoothing -&gt; smoothing, radius -&gt; radius. Matches the GPServer 'IDW' Esri task alias. Partial: the native worker sizes the output via width/height (passthrough) rather than a scripting-API cell_size, and the scripting API barrier/variable search options are not modelled. Returns a RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="sakriging"></a><code>arcpy.sa.Kriging</code></td>
+<td><a id="sakriging"></a><code>sa.Kriging</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
 <td>honua-server's raster.interpolate-kriging is advertised for discovery but NEVER produces output: GdalRasterInterpolateJobExecutor returns JobExecutionResult.Failed(...) before any raster work because stock GDAL gdal_grid bundles no kriging backend. The tool fails for every possible input, so the shim refuses it client-side (raising HonuaGpUnsupportedError before any server call) rather than overclaiming it as a working migration target -- exactly the failure mode a codemod reading manifest status must not be told is supported.<br><strong>hint:</strong> Use honua_gp.sa.Idw (raster.interpolate-idw) for a working inverse-distance-weighted interpolation. If a real kriging backend lands server-side, submit raster.interpolate-kriging directly via honua_sdk.HonuaClient.geoprocessing().execute_raster_process(...).<br><strong>tracking:</strong> <code>honua-server#raster-kriging-backend</code></td>
 </tr>
 <tr>
-<td><a id="samosaic"></a><code>arcpy.sa.Mosaic</code></td>
+<td><a id="samosaic"></a><code>sa.Mosaic</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy Mosaic onto honua-server's raster.mosaic GDAL-worker process. Takes two or more input rasters (encoded to the '</td>
+<td>Projects the scripting API's Mosaic onto honua-server's raster.mosaic GDAL-worker process. Takes two or more input rasters (encoded to the '</td>
 </tr>
 <tr>
-<td><a id="saprojectraster"></a><code>arcpy.sa.ProjectRaster</code></td>
+<td><a id="saprojectraster"></a><code>sa.ProjectRaster</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.management.ProjectRaster onto honua-server's raster.reproject GDAL-worker process (gdalwarp -t_srs). target_srid (required) -&gt; targetSrid; resampling -&gt; resampling (nearestneighbor/bilinear/cubic/lanczos). Matches the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle.</td>
+<td>Projects management.ProjectRaster onto honua-server's raster.reproject GDAL-worker process (gdalwarp -t_srs). target_srid (required) -&gt; targetSrid; resampling -&gt; resampling (nearestneighbor/bilinear/cubic/lanczos). Matches the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="sarastercalculator"></a><code>arcpy.sa.RasterCalculator</code></td>
+<td><a id="sarastercalculator"></a><code>sa.RasterCalculator</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.RasterCalculator onto honua-server's raster.map-algebra GDAL-worker process (gdal_calc.py). Takes one or more input rasters bound to band variables A, B, C, ... (encoded to the '</td>
+<td>Projects sa.RasterCalculator onto honua-server's raster.map-algebra GDAL-worker process (gdal_calc.py). Takes one or more input rasters bound to band variables A, B, C, ... (encoded to the '</td>
 </tr>
 <tr>
-<td><a id="sareclassify"></a><code>arcpy.sa.Reclassify</code></td>
+<td><a id="sareclassify"></a><code>sa.Reclassify</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Reclassify onto honua-server's raster.reclassify GDAL-worker process. remap (required) -&gt; remap (';'-separated 'value:newValue' / 'lo..hi:newValue' entries); default_value/data_type/no_data -&gt; defaultValue/dataType/noData. Returns a RasterResult handle.</td>
+<td>Projects sa.Reclassify onto honua-server's raster.reclassify GDAL-worker process. remap (required) -&gt; remap (';'-separated 'value:newValue' / 'lo..hi:newValue' entries); default_value/data_type/no_data -&gt; defaultValue/dataType/noData. Returns a RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="saresample"></a><code>arcpy.sa.Resample</code></td>
+<td><a id="saresample"></a><code>sa.Resample</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.management.Resample onto honua-server's raster.resample GDAL-worker process (gdalwarp -tr). cell_size (required) -&gt; cellSize; cell_size_y -&gt; cellSizeY; resampling -&gt; resampling. Matches the GPServer 'Resample' Esri task alias. Returns a RasterResult handle.</td>
+<td>Projects management.Resample onto honua-server's raster.resample GDAL-worker process (gdalwarp -tr). cell_size (required) -&gt; cellSize; cell_size_y -&gt; cellSizeY; resampling -&gt; resampling. Matches the GPServer 'Resample' Esri task alias. Returns a RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="saroughness"></a><code>arcpy.sa.Roughness</code></td>
+<td><a id="saroughness"></a><code>sa.Roughness</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy Roughness onto honua-server's surface.roughness GDAL-worker process. Partial: the server's canonical implementation supports only a 3x3 neighborhood (windowRadius=1); larger neighborhoods are rejected at submit time, so window_radius is exposed but must currently be 1.</td>
+<td>Projects the scripting API's Roughness onto honua-server's surface.roughness GDAL-worker process. Partial: the server's canonical implementation supports only a 3x3 neighborhood (windowRadius=1); larger neighborhoods are rejected at submit time, so window_radius is exposed but must currently be 1.</td>
 </tr>
 <tr>
-<td><a id="saslope"></a><code>arcpy.sa.Slope</code></td>
+<td><a id="saslope"></a><code>sa.Slope</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Slope onto honua-server's surface.slope GDAL-worker process (DEM 'source' in, slope raster out). units maps to the server units enum (degrees/percent; radians rejected server-side) and z_factor -&gt; zFactor. Returns a honua_gp.RasterResult handle.</td>
+<td>Projects sa.Slope onto honua-server's surface.slope GDAL-worker process (DEM 'source' in, slope raster out). units maps to the server units enum (degrees/percent; radians rejected server-side) and z_factor -&gt; zFactor. Returns a honua_gp.RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="saspectralindex"></a><code>arcpy.sa.SpectralIndex</code></td>
+<td><a id="saspectralindex"></a><code>sa.SpectralIndex</code></td>
 <td>Stub</td>
 <td><code>not-implemented</code></td>
-<td>honua-server's raster.spectral-index (NDVI/NDWI/NDBI/SAVI/EVI from band-role rasters) has no clean single arcpy Spatial Analyst GP tool name -- arcpy computes these through per-index raster functions / the multidimensional toolset, not one standalone tool. Left as an explicit stub instead of guessing a fake arcpy tool name.<br><strong>hint:</strong> Submit the raster.spectral-index process directly via honua_sdk.HonuaClient.geoprocessing().execute_raster_process('raster.spectral-index', RasterReference.from_...(band), parameters={'index': 'NDVI', ...}), or compose the band math with sa.RasterCalculator.<br><strong>tracking:</strong> <code>honua-server#arcpy-spectral-index-name</code></td>
+<td>honua-server's raster.spectral-index (NDVI/NDWI/NDBI/SAVI/EVI from band-role rasters) has no clean single scripting-API Spatial Analyst GP tool name -- the scripting API computes these through per-index raster functions / the multidimensional toolset, not one standalone tool. Left as an explicit stub instead of guessing a fake scripting-API tool name.<br><strong>hint:</strong> Submit the raster.spectral-index process directly via honua_sdk.HonuaClient.geoprocessing().execute_raster_process('raster.spectral-index', RasterReference.from_...(band), parameters={'index': 'NDVI', ...}), or compose the band math with sa.RasterCalculator.<br><strong>tracking:</strong> <code>honua-server#gp-spectral-index-name</code></td>
 </tr>
 <tr>
-<td><a id="satpi"></a><code>arcpy.sa.TPI</code></td>
+<td><a id="satpi"></a><code>sa.TPI</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy TPI (topographic position index) onto honua-server's surface.rugosity-tpi GDAL-worker process. Partial: the server supports only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but must currently be 1.</td>
+<td>Projects the scripting API's TPI (topographic position index) onto honua-server's surface.rugosity-tpi GDAL-worker process. Partial: the server supports only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but must currently be 1.</td>
 </tr>
 <tr>
-<td><a id="satri"></a><code>arcpy.sa.TRI</code></td>
+<td><a id="satri"></a><code>sa.TRI</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy TRI (terrain ruggedness index) onto honua-server's surface.rugosity-tri GDAL-worker process. Partial: the server supports only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but must currently be 1.</td>
+<td>Projects the scripting API's TRI (terrain ruggedness index) onto honua-server's surface.rugosity-tri GDAL-worker process. Partial: the server supports only a 3x3 neighborhood (windowRadius=1), so window_radius is exposed but must currently be 1.</td>
 </tr>
 <tr>
-<td><a id="saviewshed"></a><code>arcpy.sa.Viewshed</code></td>
+<td><a id="saviewshed"></a><code>sa.Viewshed</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.Viewshed onto honua-server's surface.viewshed GDAL-worker process. observer_x/observer_y (required) -&gt; observerX/observerY; observer_height/target_height/max_distance -&gt; observerHeight/targetHeight/maxDistance. Returns a binary-visibility RasterResult handle.</td>
+<td>Projects sa.Viewshed onto honua-server's surface.viewshed GDAL-worker process. observer_x/observer_y (required) -&gt; observerX/observerY; observer_height/target_height/max_distance -&gt; observerHeight/targetHeight/maxDistance. Returns a binary-visibility RasterResult handle.</td>
 </tr>
 <tr>
-<td><a id="sazonalstatisticsastable"></a><code>arcpy.sa.ZonalStatisticsAsTable</code></td>
+<td><a id="sazonalstatisticsastable"></a><code>sa.ZonalStatisticsAsTable</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects arcpy.sa.ZonalStatisticsAsTable onto honua-server's raster.zonal-statistics GDAL-worker process. Takes a value raster ('source') plus polygonal zones and returns the Table-kind JSON (a list of per-zone aggregate dicts) directly rather than a raster. band -&gt; band, statistics -&gt; statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer 'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved zones are deferred server-side.</td>
+<td>Projects sa.ZonalStatisticsAsTable onto honua-server's raster.zonal-statistics GDAL-worker process. Takes a value raster ('source') plus polygonal zones and returns the Table-kind JSON (a list of per-zone aggregate dicts) directly rather than a raster. band -&gt; band, statistics -&gt; statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer 'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved zones are deferred server-side.</td>
 </tr>
 </tbody>
 </table>

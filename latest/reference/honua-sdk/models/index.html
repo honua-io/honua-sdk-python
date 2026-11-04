@@ -2843,7 +2843,7 @@ Handles both Esri-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.</p>
     <div class="doc doc-contents ">
 
         <p>Return this feature's geometry as a Shapely geometry.</p>
-<p>The typed analogue of <code>arcpy</code> <code>feature.SHAPE</code> / the ArcGIS-API
+<p>The typed analogue of the scripting API <code>feature.SHAPE</code> / the ArcGIS-API
 geometry object. Returns <code>None</code> when the feature carries no geometry.
 Raises :class:<code>ImportError</code> with an install hint when the optional
 <code>shapely</code> dependency is absent.</p>
@@ -2968,7 +2968,7 @@ the wider Python geospatial ecosystem. Handles both the Esri-JSON
     <div class="doc doc-contents ">
 
         <p>Return this feature's geometry as a Shapely geometry.</p>
-<p>The typed analogue of <code>arcpy</code> <code>feature.SHAPE</code> / the ArcGIS-API
+<p>The typed analogue of the scripting API <code>feature.SHAPE</code> / the ArcGIS-API
 geometry object: a GP tool gets Shapely geometry directly from the
 feature without dropping to <code>result.raw</code>. Returns <code>None</code> when the
 feature has no geometry. Raises :class:<code>ImportError</code> with an install
@@ -3009,7 +3009,7 @@ hint when the optional <code>shapely</code> dependency is absent.</p>
         <p>Typed description of a single layer's fields, geometry, CRS, and extent.</p>
 <p>Built from a FeatureServer/MapServer <code>layer_metadata</code> JSON response (or
 the OGC-style <code>properties</code>/<code>queryables</code> shape) via
-:meth:<code>from_metadata</code>. The :class:<code>arcpy.Describe</code> analogue for Honua GP
+:meth:<code>from_metadata</code>. The :class:<code>Describe</code> analogue for Honua GP
 authoring: <code>fields</code>, <code>geometry_type</code>, <code>srid</code>, and <code>extent</code> are all
 typed so a tool never hand-parses the raw JSON.</p>
 
@@ -3171,7 +3171,7 @@ typed so a tool never hand-parses the raw JSON.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Field names in server order (the <code>arcpy.ListFields</code> name list).</p>
+        <p>Field names in server order (the <code>ListFields</code> name list).</p>
 
     </div>
 
@@ -3248,7 +3248,7 @@ typed so a tool never hand-parses the raw JSON.</p>
 
 
         <p>A single typed attribute field on a layer.</p>
-<p>Mirrors the fields surfaced by <code>arcpy.ListFields</code> / the ArcGIS-API layer
+<p>Mirrors the fields surfaced by <code>ListFields</code> / the ArcGIS-API layer
 <code>fields</code> property. <code>type</code> retains the server's native type token (the
 Esri <code>esriFieldType*</code> family or an OGC/JSON-schema type) verbatim.</p>
 

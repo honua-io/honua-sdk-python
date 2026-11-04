@@ -2808,7 +2808,7 @@ batch back if any individual edit fails.</p>
     <div class="doc doc-contents ">
 
         <p>Return a typed :class:<code>LayerSchema</code> for this source's layer.</p>
-<p>The <code>arcpy.Describe</code> / <code>ListFields</code> analogue: fetches the
+<p>The <code>Describe</code> / <code>ListFields</code> analogue: fetches the
 FeatureServer layer metadata and parses it into typed fields, geometry
 type, spatial-reference WKID, and extent. <code>layer_id</code> defaults to the
 source descriptor's layer.</p>
@@ -2830,7 +2830,7 @@ source descriptor's layer.</p>
     <div class="doc doc-contents ">
 
         <p>Open a lazy :class:<code>~honua_sdk.cursors.SearchCursor</code> over this source.</p>
-<p>The <code>arcpy.da.SearchCursor</code> analogue — iterate <code>(geometry, attrs)</code>
+<p>The <code>da.SearchCursor</code> analogue — iterate <code>(geometry, attrs)</code>
 rows lazily without materializing the whole result.</p>
 
 
@@ -3286,7 +3286,7 @@ batch back if any individual edit fails.</p>
 
         <p>Return a typed :class:<code>LayerSchema</code> for this source's layer.</p>
 <p>Asynchronous counterpart to :meth:<code>Source.schema</code>. The
-<code>arcpy.Describe</code> / <code>ListFields</code> analogue: fetches the FeatureServer
+<code>Describe</code> / <code>ListFields</code> analogue: fetches the FeatureServer
 layer metadata and parses it into typed fields, geometry type,
 spatial-reference WKID, and extent.</p>
 
@@ -3414,7 +3414,7 @@ Requires the optional <code>geopandas</code> extra.</p>
 
 
 
-        <p>Lazy row iterator over a source query (<code>arcpy.da.SearchCursor</code> analogue).</p>
+        <p>Lazy row iterator over a source query (<code>da.SearchCursor</code> analogue).</p>
 <p>Wraps :meth:<code>Source.stream</code>, yielding :class:<code>Row</code> objects one at a time so
 a tool never materializes the whole result. Pass <code>fields</code> to iterate
 positional value tuples (with <code>"SHAPE@"</code> selecting geometry) instead of
@@ -3484,7 +3484,7 @@ rows. Supports the context-manager and iterator protocols.</p>
 
 
 
-        <p>Iterate rows and write edits back (<code>arcpy.da.UpdateCursor</code> analogue).</p>
+        <p>Iterate rows and write edits back (<code>da.UpdateCursor</code> analogue).</p>
 <p>Iterating yields :class:<code>Row</code> objects (lazily, via a search cursor). Call
 :meth:<code>update_row</code> with new attributes/geometry to queue an update keyed by
 the row's object id; queued updates flush in batches through
@@ -3572,7 +3572,7 @@ the row's object id; queued updates flush in batches through
 
 
 
-        <p>Batched feature inserts (<code>arcpy.da.InsertCursor</code> analogue).</p>
+        <p>Batched feature inserts (<code>da.InsertCursor</code> analogue).</p>
 <p>Accumulate rows with :meth:<code>insert_row</code>; they are flushed to the source via
 <code>Source.apply_edits(adds=...)</code> once <code>batch_size</code> is reached, on
 :meth:<code>flush</code>, or when the context manager exits.</p>
@@ -3662,7 +3662,7 @@ the row's object id; queued updates flush in batches through
 
 
         <p>A single cursor row: a feature's geometry plus its attribute mapping.</p>
-<p>Mirrors an <code>arcpy.da</code> cursor row. :meth:<code>values</code> projects the row onto a
+<p>Mirrors a <code>da</code> cursor row. :meth:<code>values</code> projects the row onto a
 requested field tuple (with the <code>"SHAPE@"</code> token selecting geometry),
 giving the positional-tuple ergonomic GP tools expect.</p>
 

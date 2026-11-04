@@ -6,6 +6,13 @@
 
 - Removed the offline Python source scanner, local toolbox parsers, translation CLI, and their public exports. Source-code classification and automatic conversion are no longer provided. Consumers of the migration package, its command-line entry point, or local scan functions must remove or replace those integrations. This is an intentional breaking change for a coordinated major release. Generic admin toolbox-manifest submission and server validation remain available independently of local parsing.
 
+## [0.2.1](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.2.0...python-sdk-v0.2.1) (2026-11-04)
+
+
+### Documentation
+
+* show how to verify a release's build provenance ([#354](https://github.com/honua-io/honua-sdk-python/issues/354)) ([712beb1](https://github.com/honua-io/honua-sdk-python/commit/712beb11be58d4f0378b424dff3903dab56b2eaf))
+
 ## [0.2.0](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.1.19...python-sdk-v0.2.0) (2026-11-04)
 
 

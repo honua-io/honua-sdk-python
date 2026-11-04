@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from functools import partial
 import hashlib
 import json
@@ -35,8 +36,7 @@ def create_manifest(dist_dir: Path, package: str, version: str) -> dict[str, Any
     sdists = [path for path in files if path.name.endswith(".tar.gz")]
     if len(files) != 2 or len(wheels) != 1 or len(sdists) != 1:
         raise ParityError(
-            f"Expected exactly one wheel and one sdist in {dist_dir}; "
-            f"found {[path.name for path in files]}."
+            f"Expected exactly one wheel and one sdist in {dist_dir}; found {[path.name for path in files]}."
         )
 
     normalized_name = package.replace("-", "_")
@@ -162,7 +162,7 @@ MAX_BACKOFF_DELAY_SECONDS = 60.0
 def backoff_delays(initial_seconds: float, budget_seconds: float) -> list[float]:
     """Doubling delays capped at a minute whose sum stays within the budget."""
     delays: list[float] = []
-    delay = initial_seconds
+    delay = min(initial_seconds, MAX_BACKOFF_DELAY_SECONDS)
     while delay > 0 and sum(delays) + delay <= budget_seconds:
         delays.append(delay)
         delay = min(delay * 2, MAX_BACKOFF_DELAY_SECONDS)
@@ -180,16 +180,20 @@ def check_preflight(manifest: Mapping[str, Any], payload: Mapping[str, Any] | No
     return 0
 
 
-def poll_until_published(
-    manifest: Mapping[str, Any],
-    fetch: Callable[[], Mapping[str, Any] | None],
-    delays: Sequence[float],
-    sleep: Callable[[float], None],
-) -> None:
+@dataclass(frozen=True)
+class PublicationPoll:
+    """How post-publish verification reads PyPI and waits between reads."""
+
+    fetch: Callable[[], Mapping[str, Any] | None]
+    delays: Sequence[float]
+    sleep: Callable[[float], None] = time.sleep
+
+
+def poll_until_published(manifest: Mapping[str, Any], poll: PublicationPoll) -> None:
     """Retry while PyPI's JSON API catches up after an upload; raise the last mismatch once the delays run out."""
     last_error = ParityError("PyPI coordinate is still unoccupied after publication.")
-    for delay in [*delays, None]:
-        payload = fetch()
+    for delay in [*poll.delays, None]:
+        payload = poll.fetch()
         if payload is not None:
             try:
                 verify_hash_parity(manifest, payload)
@@ -198,7 +202,7 @@ def poll_until_published(
                 last_error = exc
         if delay is None:
             raise last_error
-        sleep(delay)
+        poll.sleep(delay)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -240,8 +244,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         fetch = partial(fetch_pypi_payload, args.index_url, manifest["package"], manifest["version"])
         if args.phase == "preflight":
             return check_preflight(manifest, fetch(), args.github_output)
-        schedule = backoff_delays(args.initial_delay_seconds, args.max_wait_seconds)
-        poll_until_published(manifest, fetch, schedule, time.sleep)
+        poll_until_published(
+            manifest, PublicationPoll(fetch, backoff_delays(args.initial_delay_seconds, args.max_wait_seconds))
+        )
         write_github_output(args.github_output, "publish_required", "false")
         print("PyPI coordinate has exact filename/SHA256 parity.")
         return 0

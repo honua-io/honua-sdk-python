@@ -31,37 +31,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-try:  # honua_admin owns the canonical redaction heuristics.
-    from honua_admin._redaction import (
-        _PATH_EXTENSIONS,
-        _is_sensitive_context,
-        _looks_like_bare_secret,
-        _looks_like_path,
-        _looks_like_url,
-        _redact_path,
-        _redact_url,
-    )
-except Exception:  # pragma: no cover -- honua-admin is a hard dependency at runtime
-    _PATH_EXTENSIONS = ()  # type: ignore[assignment]
-
-    def _is_sensitive_context(context: str | None) -> bool:  # type: ignore[misc]
-        return bool(context and any(token in context.lower() for token in ("password", "secret", "token", "key")))
-
-    def _looks_like_bare_secret(value: str) -> bool:  # type: ignore[misc]
-        lowered = value.lower()
-        return any(token in lowered for token in ("password", "secret", "token"))
-
-    def _looks_like_path(value: str) -> bool:  # type: ignore[misc]
-        return value.startswith("/") or value.startswith("\\") or ":\\" in value or ":/" in value
-
-    def _looks_like_url(value: str) -> bool:  # type: ignore[misc]
-        return any(value.lower().startswith(scheme) for scheme in ("http://", "https://", "s3://", "gs://"))
-
-    def _redact_path(value: str) -> str:  # type: ignore[misc]
-        return "<local-path>/" + Path(value.replace("\\", "/")).name
-
-    def _redact_url(value: str) -> str:  # type: ignore[misc]
-        return value
+# Import failure must stop the process before any audit line is written.
+# A local substitute returns URLs unchanged and would record credentials.
+from honua_admin._redaction import (
+    _is_sensitive_context,
+    _looks_like_bare_secret,
+    _looks_like_path,
+    _looks_like_url,
+    _redact_path,
+    _redact_url,
+)
 
 
 _AUDIT_LOCK = threading.Lock()

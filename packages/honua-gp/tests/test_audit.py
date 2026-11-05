@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +55,28 @@ def test_redact_value_redacts_paths_and_urls() -> None:
     assert _redact_value("C:\\GIS\\parcels.gdb\\Parcels").startswith("<local-path>")
     assert _redact_value("https://user:pass@db.example.com/?token=abcd").startswith("https://")
     assert _redact_value("super-secret-token", context="api_key") == "<redacted>"
+
+
+def test_missing_admin_redactor_fails_before_audit_writes(tmp_path: Path) -> None:
+    fake_admin = tmp_path / "honua_admin"
+    fake_admin.mkdir()
+    (fake_admin / "__init__.py").write_text("", encoding="utf-8")
+    gp_source = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join((str(tmp_path), str(gp_source))),
+        "HONUA_GP_AUDIT_DIR": str(tmp_path / "audit"),
+    }
+    result = subprocess.run(
+        [sys.executable, "-c", "import honua_gp._audit"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "ModuleNotFoundError" in result.stderr
+    assert not (tmp_path / "audit").exists()
 
 
 def test_audit_uses_the_shared_admin_redaction_rules() -> None:

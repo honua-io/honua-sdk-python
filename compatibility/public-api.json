@@ -1248,7 +1248,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_admin._models",
+          "module": "honua_admin._catalog",
           "qualname": "LayerListQuery",
           "signature": "(page: 'int' = 1, page_size: 'int' = 100, name_query: 'str | None' = None, service_name: 'str | None' = None) -> None"
         },
@@ -3281,7 +3281,7 @@
               "signature": "(cls, data: 'dict[str, Any] | None') -> 'PublishedLayerPage'"
             }
           },
-          "module": "honua_admin._models",
+          "module": "honua_admin._catalog",
           "qualname": "PublishedLayerPage",
           "signature": "(items: 'list[PublishedLayerSummary]', page: 'int', page_size: 'int', total: 'int') -> None"
         },
@@ -3583,7 +3583,7 @@
               "signature": "(cls, data: 'dict[str, Any] | None') -> 'ServiceListPage'"
             }
           },
-          "module": "honua_admin._models",
+          "module": "honua_admin._catalog",
           "qualname": "ServiceListPage",
           "signature": "(items: 'list[AdminServiceSummary]', page: 'int', page_size: 'int', total: 'int', layer_total: 'int') -> None"
         },
@@ -3611,7 +3611,7 @@
             }
           ],
           "kind": "class",
-          "module": "honua_admin._models",
+          "module": "honua_admin._catalog",
           "qualname": "ServiceListQuery",
           "signature": "(page: 'int' = 1, page_size: 'int' = 100, name_query: 'str | None' = None, folder_id: 'str | None' = None) -> None"
         },

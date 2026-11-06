@@ -10,8 +10,8 @@ keywords and the sync/async ``def`` declarations.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol, TypeVar
 
 import httpx
 from honua_sdk.http import build_idempotency_headers
@@ -54,6 +54,31 @@ def admin_catalog_params(
 def is_last_catalog_page(item_count: int, page_size: int, total: int, collected: int) -> bool:
     """A short page, an empty page, or a full total ends the walk."""
     return item_count == 0 or collected >= total or item_count < page_size
+
+
+_ItemT_co = TypeVar("_ItemT_co", covariant=True)
+
+
+class _CatalogPage(Protocol[_ItemT_co]):
+    @property
+    def items(self) -> Sequence[_ItemT_co]: ...
+
+    @property
+    def page(self) -> int: ...
+
+    @property
+    def page_size(self) -> int: ...
+
+    @property
+    def total(self) -> int: ...
+
+
+def _advance_catalog_page(collected: list[_ItemT_co], page: _CatalogPage[_ItemT_co]) -> int | None:
+    """Append this page and return the next page number, or None when the walk is done."""
+    collected.extend(page.items)
+    if is_last_catalog_page(len(page.items), page.page_size, page.total, len(collected)):
+        return None
+    return page.page + 1
 
 
 def _blank_to_none(value: str | None) -> str | None:

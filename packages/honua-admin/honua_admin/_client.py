@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import copy
 import warnings
-from collections.abc import Callable, Mapping
-from typing import Any, BinaryIO, cast
+from collections.abc import Mapping
+from typing import Any, BinaryIO
 
 import httpx
 from honua_sdk.http import (
@@ -33,6 +33,7 @@ from honua_sdk.http import (
 )
 
 from . import _endpoints
+from ._catalog import LayerListQuery, PublishedLayerPage, ServiceListPage, ServiceListQuery
 from ._models import (
     DEFAULT_STYLE_ENCODING as _DEFAULT_STYLE_ENCODING,
 )
@@ -48,7 +49,6 @@ from ._models import (
     EncryptionValidationResult,
     ImportResult,
     KeyRotationResult,
-    LayerListQuery,
     LayerStyleResponse,
     LayerStyleUpdateRequest,
     ManifestApplyRequest,
@@ -62,13 +62,10 @@ from ._models import (
     OgcStylesList,
     OperationProposalDetail,
     OperationProposalSummary,
-    PublishedLayerPage,
     PublishedLayerSummary,
     PublishLayerRequest,
     SecureConnectionDetail,
     SecureConnectionSummary,
-    ServiceListPage,
-    ServiceListQuery,
     ServiceSettingsResponse,
     ServiceSummary,
     StyleEncoding,
@@ -579,26 +576,17 @@ class HonuaAdminClient:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> list[ServiceSummary]:
-        """List every service registered on the admin catalog.
-
-        Reads each page of the admin service list. An empty envelope is an
-        empty catalog.
-
-        Raises:
-            HonuaHttpError: The server responded with a non-success status.
-            HonuaTransportError: The request failed before any HTTP
-                response was received.
-        """
-        return cast(
-            list[ServiceSummary],
-            self._collect_catalog_pages(
-                lambda page_number: self.list_services_page(
-                    ServiceListQuery(page=page_number),
-                    timeout=timeout,
-                    extra_headers=extra_headers,
-                )
-            ),
-        )
+        """Read every page of the admin service list."""
+        collected: list[ServiceSummary] = []
+        page_number = _endpoints.DEFAULT_CATALOG_PAGE
+        while True:
+            page = self.list_services_page(
+                ServiceListQuery(page=page_number), timeout=timeout, extra_headers=extra_headers
+            )
+            advanced = _endpoints._advance_catalog_page(collected, page)
+            if advanced is None:
+                return collected
+            page_number = advanced
 
     def list_services_page(
         self,
@@ -609,29 +597,20 @@ class HonuaAdminClient:
     ) -> ServiceListPage:
         """Return one page of admin services and the count of every match."""
         selected = query or ServiceListQuery()
-        data = self._request_json(
-            "GET",
-            "/api/v1/admin/services/",
-            params=_endpoints.admin_catalog_params(
-                page=selected.page,
-                page_size=selected.page_size,
-                name_query=selected.name_query,
-                extra=(("folderId", selected.folder_id),),
-            ),
-            timeout=timeout,
-            extra_headers=extra_headers,
+        return ServiceListPage.from_dict(
+            self._request_json(
+                "GET",
+                "/api/v1/admin/services/",
+                params=_endpoints.admin_catalog_params(
+                    page=selected.page,
+                    page_size=selected.page_size,
+                    name_query=selected.name_query,
+                    extra=(("folderId", selected.folder_id),),
+                ),
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
         )
-        return ServiceListPage.from_dict(data)
-
-    def _collect_catalog_pages(self, read_page: Callable[[int], Any]) -> list[Any]:
-        collected: list[Any] = []
-        page_number = _endpoints.DEFAULT_CATALOG_PAGE
-        while True:
-            page = read_page(page_number)
-            collected.extend(page.items)
-            if _endpoints.is_last_catalog_page(len(page.items), page.page_size, page.total, len(collected)):
-                return collected
-            page_number = page.page + 1
 
     def get_service_settings(
         self,
@@ -1593,34 +1572,20 @@ class HonuaAdminClient:
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> list[PublishedLayerSummary]:
-        """List published layers belonging to a connection.
-
-        Args:
-            conn_id: Connection identifier; URL-encoded.
-            service_name: When provided, restrict to one service's layers.
-
-        Returns:
-            Every matching :class:`PublishedLayerSummary`. An empty envelope
-            is an empty list.
-
-        Per-request options (``timeout`` / ``extra_headers``) are forwarded
-        to :meth:`_request`.
-
-        Raises:
-            HonuaHttpError: The server responded with a non-success status.
-            HonuaTransportError: The request failed at the transport layer.
-        """
-        return cast(
-            list[PublishedLayerSummary],
-            self._collect_catalog_pages(
-                lambda page_number: self.list_layers_page(
-                    conn_id,
-                    LayerListQuery(page=page_number, service_name=service_name),
-                    timeout=timeout,
-                    extra_headers=extra_headers,
-                )
-            ),
-        )
+        """Read every page of layers published on a connection."""
+        collected: list[PublishedLayerSummary] = []
+        page_number = _endpoints.DEFAULT_CATALOG_PAGE
+        while True:
+            page = self.list_layers_page(
+                conn_id,
+                LayerListQuery(page=page_number, service_name=service_name),
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
+            advanced = _endpoints._advance_catalog_page(collected, page)
+            if advanced is None:
+                return collected
+            page_number = advanced
 
     def list_layers_page(
         self,
@@ -1632,20 +1597,20 @@ class HonuaAdminClient:
     ) -> PublishedLayerPage:
         """Return one page of layers published on a connection."""
         selected = query or LayerListQuery()
-        connection_id = encode_path_segment(conn_id)
-        data = self._request_json(
-            "GET",
-            f"/api/v1/admin/connections/{connection_id}/layers",
-            params=_endpoints.admin_catalog_params(
-                page=selected.page,
-                page_size=selected.page_size,
-                name_query=selected.name_query,
-                extra=(("serviceName", selected.service_name),),
-            ),
-            timeout=timeout,
-            extra_headers=extra_headers,
+        return PublishedLayerPage.from_dict(
+            self._request_json(
+                "GET",
+                f"/api/v1/admin/connections/{encode_path_segment(conn_id)}/layers",
+                params=_endpoints.admin_catalog_params(
+                    page=selected.page,
+                    page_size=selected.page_size,
+                    name_query=selected.name_query,
+                    extra=(("serviceName", selected.service_name),),
+                ),
+                timeout=timeout,
+                extra_headers=extra_headers,
+            )
         )
-        return PublishedLayerPage.from_dict(data)
 
     def publish_layer(
         self,

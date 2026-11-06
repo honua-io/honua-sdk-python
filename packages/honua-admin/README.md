@@ -20,9 +20,9 @@ and manage server state declaratively through manifests. Sync
   contract, so callers can gate control-plane calls on what the connected
   server actually supports (`manifest_apply`, `manifest_dry_run`,
   `metadata_resources`, ...).
-- **Services**: `list_services()`, `get_service_settings()`,
+- **Services**: `list_services()`, `list_services_page()`, `get_service_settings()`,
   `update_protocols()`, `update_mapserver_settings()`.
-- **Layers and data**: `list_layers()`, `publish_layer()`,
+- **Layers and data**: `list_layers()`, `list_layers_page()`, `publish_layer()`,
   `set_layer_enabled()` / `set_service_layers_enabled()`, and
   `discover_tables()` for source-database table discovery.
 - **Connections**: typed CRUD plus `test_connection()` /

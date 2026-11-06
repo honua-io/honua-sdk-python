@@ -17,7 +17,7 @@ from honua_admin import (
     TableDiscoveryResponse,
     TableInfo,
 )
-from .conftest import make_api_response
+from .conftest import layer_page, make_api_response
 
 
 _LAYER_SUMMARY = {
@@ -42,14 +42,14 @@ def test_list_layers(make_client) -> None:
         seen["method"] = request.method
         seen["path"] = request.url.path
         seen["params"] = dict(request.url.params.multi_items())
-        return httpx.Response(200, json=make_api_response([_LAYER_SUMMARY]))
+        return httpx.Response(200, json=make_api_response(layer_page([_LAYER_SUMMARY])))
 
     with make_client(handler) as client:
         result = client.list_layers("conn-001")
 
     assert seen["method"] == "GET"
     assert seen["path"] == "/api/v1/admin/connections/conn-001/layers"
-    assert seen["params"] == {}
+    assert seen["params"] == {"page": "1", "pageSize": "100"}
     assert len(result) == 1
     assert isinstance(result[0], PublishedLayerSummary)
     assert result[0].layer_id == 1
@@ -63,13 +63,37 @@ def test_list_layers_with_service_name(make_client) -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["params"] = dict(request.url.params.multi_items())
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(layer_page([])))
 
     with make_client(handler) as client:
         result = client.list_layers("conn-001", service_name="staging")
 
     assert seen["params"]["serviceName"] == "staging"
+    assert seen["params"]["page"] == "1"
+    assert seen["params"]["pageSize"] == "100"
     assert result == []
+
+
+def test_list_layers_page_sends_the_name_query(make_client) -> None:
+    from honua_admin import LayerListQuery, PublishedLayerPage
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert dict(request.url.params.multi_items()) == {
+            "page": "1",
+            "pageSize": "10",
+            "q": "roads",
+            "serviceName": "transport",
+        }
+        return httpx.Response(200, json=make_api_response(layer_page([_LAYER_SUMMARY], page_size=10)))
+
+    with make_client(handler) as client:
+        page = client.list_layers_page("conn-001", LayerListQuery(
+            page_size=10, name_query="roads", service_name="transport",
+        ))
+
+    assert isinstance(page, PublishedLayerPage)
+    assert page.total == 1
+    assert page.items[0].layer_name == "parcels"
 
 
 def test_publish_layer(make_client) -> None:

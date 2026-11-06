@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import copy
 import warnings
-from collections.abc import Mapping
-from typing import Any, BinaryIO
+from collections.abc import Callable, Mapping
+from typing import Any, BinaryIO, cast
 
 import httpx
 from honua_sdk.http import (
@@ -48,6 +48,7 @@ from ._models import (
     EncryptionValidationResult,
     ImportResult,
     KeyRotationResult,
+    LayerListQuery,
     LayerStyleResponse,
     LayerStyleUpdateRequest,
     ManifestApplyRequest,
@@ -61,10 +62,13 @@ from ._models import (
     OgcStylesList,
     OperationProposalDetail,
     OperationProposalSummary,
+    PublishedLayerPage,
     PublishedLayerSummary,
     PublishLayerRequest,
     SecureConnectionDetail,
     SecureConnectionSummary,
+    ServiceListPage,
+    ServiceListQuery,
     ServiceSettingsResponse,
     ServiceSummary,
     StyleEncoding,
@@ -577,28 +581,57 @@ class HonuaAdminClient:
     ) -> list[ServiceSummary]:
         """List every service registered on the admin catalog.
 
-        Returns:
-            Typed :class:`ServiceSummary` objects for each service the
-            server reports. Empty when the server returns a non-list
-            payload (e.g. an empty envelope).
-
-        Per-request options (``timeout`` / ``extra_headers``) are forwarded
-        to :meth:`_request`.
+        Reads each page of the admin service list. An empty envelope is an
+        empty catalog.
 
         Raises:
             HonuaHttpError: The server responded with a non-success status.
             HonuaTransportError: The request failed before any HTTP
                 response was received.
         """
+        return cast(
+            list[ServiceSummary],
+            self._collect_catalog_pages(
+                lambda page_number: self.list_services_page(
+                    ServiceListQuery(page=page_number),
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
+            ),
+        )
+
+    def list_services_page(
+        self,
+        query: ServiceListQuery | None = None,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> ServiceListPage:
+        """Return one page of admin services and the count of every match."""
+        selected = query or ServiceListQuery()
         data = self._request_json(
             "GET",
             "/api/v1/admin/services/",
+            params=_endpoints.admin_catalog_params(
+                page=selected.page,
+                page_size=selected.page_size,
+                name_query=selected.name_query,
+                extra=(("folderId", selected.folder_id),),
+            ),
             timeout=timeout,
             extra_headers=extra_headers,
         )
-        if not isinstance(data, list):
-            return []
-        return [ServiceSummary.from_dict(s) for s in data]
+        return ServiceListPage.from_dict(data)
+
+    def _collect_catalog_pages(self, read_page: Callable[[int], Any]) -> list[Any]:
+        collected: list[Any] = []
+        page_number = _endpoints.DEFAULT_CATALOG_PAGE
+        while True:
+            page = read_page(page_number)
+            collected.extend(page.items)
+            if _endpoints.is_last_catalog_page(len(page.items), page.page_size, page.total, len(collected)):
+                return collected
+            page_number = page.page + 1
 
     def get_service_settings(
         self,
@@ -1567,8 +1600,8 @@ class HonuaAdminClient:
             service_name: When provided, restrict to one service's layers.
 
         Returns:
-            Matching :class:`PublishedLayerSummary` objects; empty when
-            the server returns a non-list payload.
+            Every matching :class:`PublishedLayerSummary`. An empty envelope
+            is an empty list.
 
         Per-request options (``timeout`` / ``extra_headers``) are forwarded
         to :meth:`_request`.
@@ -1577,20 +1610,42 @@ class HonuaAdminClient:
             HonuaHttpError: The server responded with a non-success status.
             HonuaTransportError: The request failed at the transport layer.
         """
+        return cast(
+            list[PublishedLayerSummary],
+            self._collect_catalog_pages(
+                lambda page_number: self.list_layers_page(
+                    conn_id,
+                    LayerListQuery(page=page_number, service_name=service_name),
+                    timeout=timeout,
+                    extra_headers=extra_headers,
+                )
+            ),
+        )
+
+    def list_layers_page(
+        self,
+        conn_id: str,
+        query: LayerListQuery | None = None,
+        *,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> PublishedLayerPage:
+        """Return one page of layers published on a connection."""
+        selected = query or LayerListQuery()
         connection_id = encode_path_segment(conn_id)
-        params: dict[str, str] | None = None
-        if service_name is not None:
-            params = {"serviceName": service_name}
         data = self._request_json(
             "GET",
             f"/api/v1/admin/connections/{connection_id}/layers",
-            params=params,
+            params=_endpoints.admin_catalog_params(
+                page=selected.page,
+                page_size=selected.page_size,
+                name_query=selected.name_query,
+                extra=(("serviceName", selected.service_name),),
+            ),
             timeout=timeout,
             extra_headers=extra_headers,
         )
-        if not isinstance(data, list):
-            return []
-        return [PublishedLayerSummary.from_dict(item) for item in data]
+        return PublishedLayerPage.from_dict(data)
 
     def publish_layer(
         self,

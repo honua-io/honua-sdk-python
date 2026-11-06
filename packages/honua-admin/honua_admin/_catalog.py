@@ -30,6 +30,14 @@ def _page_items(raw: Any, parse: Any, kind: str) -> list[Any]:
     return [parse(item) for item in raw]
 
 
+def _page_counts(parsed: dict[str, Any]) -> tuple[int, int, int]:
+    return (
+        _page_int(parsed.get("page"), 1),
+        _page_int(parsed.get("page_size"), 100),
+        _page_int(parsed.get("total"), 0),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ServiceListQuery:
     """Selects one page of the admin service list."""
@@ -53,11 +61,12 @@ class ServiceListPage:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> ServiceListPage:
         parsed = _require_page(data, "Service list")
+        page, page_size, total = _page_counts(parsed)
         return cls(
             items=_page_items(parsed.get("items"), AdminServiceSummary.from_dict, "Service list"),
-            page=_page_int(parsed.get("page"), 1),
-            page_size=_page_int(parsed.get("page_size"), 100),
-            total=_page_int(parsed.get("total"), 0),
+            page=page,
+            page_size=page_size,
+            total=total,
             layer_total=_page_int(parsed.get("layer_total"), 0),
         )
 
@@ -84,9 +93,10 @@ class PublishedLayerPage:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> PublishedLayerPage:
         parsed = _require_page(data, "Layer list")
+        page, page_size, total = _page_counts(parsed)
         return cls(
             items=_page_items(parsed.get("items"), PublishedLayerSummary.from_dict, "Layer list"),
-            page=_page_int(parsed.get("page"), 1),
-            page_size=_page_int(parsed.get("page_size"), 100),
-            total=_page_int(parsed.get("total"), 0),
+            page=page,
+            page_size=page_size,
+            total=total,
         )

@@ -125,55 +125,39 @@ def test_page_items_must_be_objects(parse: Any, kind: str) -> None:
         parse({"items": ["row"]})
 
 
-@pytest.mark.parametrize(
-    ("query", "match"),
-    [
-        (ServiceListQuery(page=0), "page must be at least 1"),
-        (ServiceListQuery(page_size=0), "page_size"),
-        (ServiceListQuery(page_size=101), "page_size"),
-        (ServiceListQuery(name_query="q" * 201), "name query"),
-    ],
-)
-def test_service_page_query_makes_no_request(make_client: Any, query: ServiceListQuery, match: str) -> None:
+_REJECTED_QUERIES = [
+    ("services", ServiceListQuery(page=0), "page must be at least 1"),
+    ("layers", LayerListQuery(page=0), "page must be at least 1"),
+    ("services", ServiceListQuery(page_size=0), "page_size"),
+    ("layers", LayerListQuery(page_size=0), "page_size"),
+    ("services", ServiceListQuery(page_size=101), "page_size"),
+    ("layers", LayerListQuery(page_size=101), "page_size"),
+    ("services", ServiceListQuery(name_query="q" * 201), "name query"),
+    ("layers", LayerListQuery(name_query="q" * 201), "name query"),
+]
+
+
+def _read_one_page(client: Any, catalog: str, query: Any = None) -> Any:
+    if catalog == "services":
+        return client.list_services_page(query)
+    return client.list_layers_page("conn-001", query)
+
+
+@pytest.mark.parametrize(("catalog", "query", "match"), _REJECTED_QUERIES)
+def test_page_query_makes_no_request(make_client: Any, catalog: str, query: Any, match: str) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise AssertionError(request.url)
 
     with make_client(handler) as client:
         with pytest.raises(ValueError, match=match):
-            client.list_services_page(query)
+            _read_one_page(client, catalog, query)
 
 
-@pytest.mark.parametrize(
-    ("query", "match"),
-    [
-        (LayerListQuery(page=0), "page must be at least 1"),
-        (LayerListQuery(page_size=0), "page_size"),
-        (LayerListQuery(page_size=101), "page_size"),
-        (LayerListQuery(name_query="q" * 201), "name query"),
-    ],
-)
-def test_layer_page_query_makes_no_request(make_client: Any, query: LayerListQuery, match: str) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise AssertionError(request.url)
-
-    with make_client(handler) as client:
-        with pytest.raises(ValueError, match=match):
-            client.list_layers_page("conn-001", query)
-
-
-def test_service_page_rejects_a_json_list_from_the_server(make_client: Any) -> None:
+@pytest.mark.parametrize("catalog", ["services", "layers"])
+def test_page_rejects_a_json_list_from_the_server(make_client: Any, catalog: str) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=make_api_response([]))
 
     with make_client(handler) as client:
         with pytest.raises(ValueError, match="page object"):
-            client.list_services_page()
-
-
-def test_layer_page_rejects_a_json_list_from_the_server(make_client: Any) -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=make_api_response([]))
-
-    with make_client(handler) as client:
-        with pytest.raises(ValueError, match="page object"):
-            client.list_layers_page("conn-001")
+            _read_one_page(client, catalog)

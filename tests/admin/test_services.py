@@ -94,17 +94,6 @@ def test_list_services_page_reads_one_page(make_client) -> None:
     assert page.items[0].service_name == "parks"
 
 
-def test_list_services_page_rejects_an_oversized_page_before_http(make_client) -> None:
-    from honua_admin import ServiceListQuery
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise AssertionError("page size is rejected before the request")
-
-    with make_client(handler) as client:
-        with pytest.raises(ValueError, match="page_size"):
-            client.list_services_page(ServiceListQuery(page_size=101))
-
-
 def test_get_service_settings_returns_nested_models(make_client) -> None:
     seen: dict[str, Any] = {}
 

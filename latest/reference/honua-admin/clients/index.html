@@ -1344,6 +1344,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.list_services_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_services_page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.get_service_settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1641,6 +1652,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.list_layers_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_layers_page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.publish_layer" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1882,6 +1904,17 @@
     <span class="md-ellipsis">
       
         list_services
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.list_services_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_services_page
       
     </span>
   </a>
@@ -2179,6 +2212,17 @@
     <span class="md-ellipsis">
       
         list_layers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.list_layers_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_layers_page
       
     </span>
   </a>
@@ -2627,6 +2671,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.list_services_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_services_page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.get_service_settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2924,6 +2979,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#honua_admin.HonuaAdminClient.list_layers_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_layers_page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#honua_admin.HonuaAdminClient.publish_layer" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3165,6 +3231,17 @@
     <span class="md-ellipsis">
       
         list_services
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.list_services_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_services_page
       
     </span>
   </a>
@@ -3462,6 +3539,17 @@
     <span class="md-ellipsis">
       
         list_layers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honua_admin.AsyncHonuaAdminClient.list_layers_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_layers_page
       
     </span>
   </a>
@@ -4277,86 +4365,25 @@ same <code>HonuaHttpError</code> / <code>HonuaTransportError</code> policy as ot
 
     <div class="doc doc-contents ">
 
-        <p>List every service registered on the admin catalog.</p>
+        <p>Read every page of the admin service list.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>Typed</code></td>            <td>
-                  <code><span title="list">list</span>[<span title="honua_admin._models.ServiceSummary">ServiceSummary</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>class:<code>ServiceSummary</code> objects for each service the</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="list">list</span>[<span title="honua_admin._models.ServiceSummary">ServiceSummary</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>server reports. Empty when the server returns a non-list</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="list">list</span>[<span title="honua_admin._models.ServiceSummary">ServiceSummary</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>payload (e.g. an empty envelope).</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-        <p>Per-request options (<code>timeout</code> / <code>extra_headers</code>) are forwarded
-to :meth:<code>_request</code>.</p>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
 
 
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError (honua_sdk.http.HonuaHttpError)" href="../../honua-sdk/errors/#honua_sdk.errors.HonuaHttpError">HonuaHttpError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The server responded with a non-success status.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="HonuaTransportError">HonuaTransportError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The request failed before any HTTP
-response was received.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+<h3 id="honua_admin.HonuaAdminClient.list_services_page" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_services_page</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.HonuaAdminClient.list_services_page" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return one page of admin services and the count of every match.</p>
 
 
     </div>
@@ -7345,132 +7372,25 @@ that retries are de-duplicated server-side.</p>
 
     <div class="doc doc-contents ">
 
-        <p>List published layers belonging to a connection.</p>
+        <p>Read every page of layers published on a connection.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>conn_id</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Connection identifier; URL-encoded.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>service_name</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>When provided, restrict to one service's layers.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>Matching</code></td>            <td>
-                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.PublishedLayerSummary
+<h3 id="honua_admin.HonuaAdminClient.list_layers_page" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_layers_page</span><span class="p">(</span><span class="n">conn_id</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#honua_admin.HonuaAdminClient.list_layers_page" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-  
-      dataclass
-   (honua_admin._models.PublishedLayerSummary)" href="../models/#honua_admin.PublishedLayerSummary">PublishedLayerSummary</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>class:<code>PublishedLayerSummary</code> objects; empty when</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.PublishedLayerSummary
+    <div class="doc doc-contents ">
 
-
-  
-      dataclass
-   (honua_admin._models.PublishedLayerSummary)" href="../models/#honua_admin.PublishedLayerSummary">PublishedLayerSummary</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the server returns a non-list payload.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-        <p>Per-request options (<code>timeout</code> / <code>extra_headers</code>) are forwarded
-to :meth:<code>_request</code>.</p>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError (honua_sdk.http.HonuaHttpError)" href="../../honua-sdk/errors/#honua_sdk.errors.HonuaHttpError">HonuaHttpError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The server responded with a non-success status.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="HonuaTransportError">HonuaTransportError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The request failed at the transport layer.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Return one page of layers published on a connection.</p>
 
 
     </div>
@@ -9934,86 +9854,29 @@ same <code>HonuaHttpError</code> / <code>HonuaTransportError</code> policy as ot
 
     <div class="doc doc-contents ">
 
-        <p>List every service registered on the admin catalog.</p>
+        <p>Read every page of the admin service list.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>Typed</code></td>            <td>
-                  <code><span title="list">list</span>[<span title="honua_admin._models.ServiceSummary">ServiceSummary</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>class:<code>ServiceSummary</code> objects for each service the</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="list">list</span>[<span title="honua_admin._models.ServiceSummary">ServiceSummary</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>server reports. Empty when the server returns a non-list</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="list">list</span>[<span title="honua_admin._models.ServiceSummary">ServiceSummary</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>payload (e.g. an empty envelope).</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-        <p>Per-request options (<code>timeout</code> / <code>extra_headers</code>) are forwarded
-to :meth:<code>_request</code>.</p>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
 
 
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError (honua_sdk.http.HonuaHttpError)" href="../../honua-sdk/errors/#honua_sdk.errors.HonuaHttpError">HonuaHttpError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The server responded with a non-success status.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="HonuaTransportError">HonuaTransportError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The request failed before any HTTP
-response was received.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+<h3 id="honua_admin.AsyncHonuaAdminClient.list_services_page" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_services_page</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#honua_admin.AsyncHonuaAdminClient.list_services_page" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return one page of admin services and the count of every match.</p>
 
 
     </div>
@@ -13110,132 +12973,29 @@ that retries are de-duplicated server-side.</p>
 
     <div class="doc doc-contents ">
 
-        <p>List published layers belonging to a connection.</p>
+        <p>Read every page of layers published on a connection.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>conn_id</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Connection identifier; URL-encoded.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>service_name</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>When provided, restrict to one service's layers.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>Matching</code></td>            <td>
-                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.PublishedLayerSummary
+<h3 id="honua_admin.AsyncHonuaAdminClient.list_layers_page" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_layers_page</span><span class="p">(</span><span class="n">conn_id</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#honua_admin.AsyncHonuaAdminClient.list_layers_page" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-  
-      dataclass
-   (honua_admin._models.PublishedLayerSummary)" href="../models/#honua_admin.PublishedLayerSummary">PublishedLayerSummary</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>class:<code>PublishedLayerSummary</code> objects; empty when</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-<td></td>            <td>
-                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="honua_admin.PublishedLayerSummary
+    <div class="doc doc-contents ">
 
-
-  
-      dataclass
-   (honua_admin._models.PublishedLayerSummary)" href="../models/#honua_admin.PublishedLayerSummary">PublishedLayerSummary</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the server returns a non-list payload.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-        <p>Per-request options (<code>timeout</code> / <code>extra_headers</code>) are forwarded
-to :meth:<code>_request</code>.</p>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="honua_sdk.errors.HonuaHttpError (honua_sdk.http.HonuaHttpError)" href="../../honua-sdk/errors/#honua_sdk.errors.HonuaHttpError">HonuaHttpError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The server responded with a non-success status.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="HonuaTransportError">HonuaTransportError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The request failed at the transport layer.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Return one page of layers published on a connection.</p>
 
 
     </div>

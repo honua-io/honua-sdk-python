@@ -1,0 +1,27 @@
+{
+  "roots": [
+    ".coveragerc",
+    ".gitattributes",
+    ".github/",
+    ".gitignore",
+    ".release-please-manifest.json",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "INSTALL.md",
+    "LICENSE",
+    "README.md",
+    "RELEASE_CHECKLIST.md",
+    "compatibility/",
+    "conformance/",
+    "docs/",
+    "examples/",
+    "mkdocs.yml",
+    "packages/",
+    "pyproject.toml",
+    "release-please-config.json",
+    "release/",
+    "scripts/",
+    "tests/"
+  ],
+  "gate_inputs": {}
+}

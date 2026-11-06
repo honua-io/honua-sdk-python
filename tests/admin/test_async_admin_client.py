@@ -37,7 +37,7 @@ from honua_sdk import (
 )
 from honua_sdk.errors import HonuaTransportError
 
-from .conftest import make_api_response
+from .conftest import layer_page, make_api_response, service_page
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ async def test_async_list_services_returns_typed_summaries() -> None:
         seen["path"] = request.url.path
         return httpx.Response(
             200,
-            json=make_api_response(
+            json=make_api_response(service_page(
                 [
                     {
                         "serviceName": "default",
@@ -79,7 +79,7 @@ async def test_async_list_services_returns_typed_summaries() -> None:
                         "enabledProtocols": [],
                     },
                 ]
-            ),
+            )),
         )
 
     async with _async_admin_client(handler) as client:
@@ -188,7 +188,7 @@ async def test_async_get_capability_flags_without_compat_block() -> None:
 
 async def test_async_close_releases_owned_client() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     client = AsyncHonuaAdminClient("http://test.honua.io", transport=transport)
@@ -216,7 +216,7 @@ async def test_async_close_is_noop_for_external_client() -> None:
 
 async def test_async_with_options_overrides_timeout_and_retries() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     client = AsyncHonuaAdminClient("http://test.honua.io", transport=transport, timeout=1.0)
@@ -294,7 +294,7 @@ async def test_async_init_api_key_sets_x_api_key_header() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["x_api_key"] = request.headers.get("x-api-key", "")
         seen["authorization"] = request.headers.get("authorization", "")
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
@@ -313,7 +313,7 @@ async def test_async_init_bearer_token_sets_authorization_header() -> None:
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["authorization"] = request.headers.get("authorization", "")
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
@@ -338,7 +338,7 @@ async def test_async_init_auth_provider_is_invoked_per_request() -> None:
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.headers.get("authorization", ""))
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
@@ -723,13 +723,15 @@ async def test_async_list_layers_with_filter() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["path"] = request.url.path
         seen["query"] = dict(request.url.params.multi_items())
-        return httpx.Response(200, json=make_api_response([_LAYER_SUMMARY]))
+        return httpx.Response(200, json=make_api_response(layer_page([_LAYER_SUMMARY])))
 
     async with _async_admin_client(handler) as client:
         result = await client.list_layers("conn-001", service_name="default")
 
     assert seen["path"] == "/api/v1/admin/connections/conn-001/layers"
     assert seen["query"]["serviceName"] == "default"
+    assert seen["query"]["page"] == "1"
+    assert seen["query"]["pageSize"] == "100"
     assert isinstance(result[0], PublishedLayerSummary)
 
 
@@ -1089,7 +1091,7 @@ async def test_async_admin_client_awaits_async_auth_provider() -> None:
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.headers.get("authorization", ""))
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(
@@ -1116,7 +1118,7 @@ async def test_async_admin_client_offloads_sync_auth_provider_off_the_loop() -> 
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.headers.get("authorization", ""))
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     async with AsyncHonuaAdminClient(

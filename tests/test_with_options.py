@@ -388,6 +388,11 @@ def test_with_options_enables_retries_on_zero_built_async_client() -> None:
     assert call_count["n"] == 3
 
 
+_EMPTY_ADMIN_SERVICE_PAGE = {
+    "data": {"items": [], "page": 1, "pageSize": 100, "total": 0, "layerTotal": 0}
+}
+
+
 def test_with_options_enables_retries_on_zero_built_admin_client() -> None:
     call_count = {"n": 0}
 
@@ -395,7 +400,7 @@ def test_with_options_enables_retries_on_zero_built_admin_client() -> None:
         call_count["n"] += 1
         if call_count["n"] <= 2:
             return httpx.Response(503, text="retry")
-        return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json=_EMPTY_ADMIN_SERVICE_PAGE)
 
     transport = httpx.MockTransport(handler)
     original = HonuaAdminClient("http://example.test", transport=transport, max_retries=0)
@@ -416,7 +421,7 @@ def test_with_options_enables_retries_on_zero_built_async_admin_client() -> None
         call_count["n"] += 1
         if call_count["n"] <= 2:
             return httpx.Response(503, text="retry")
-        return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json=_EMPTY_ADMIN_SERVICE_PAGE)
 
     async def run() -> list[Any]:
         transport = httpx.MockTransport(handler)

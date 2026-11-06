@@ -15,7 +15,7 @@ from honua_admin import (
     ServiceSettingsResponse,
     ServiceSummary,
 )
-from .conftest import make_api_response
+from .conftest import make_api_response, service_page
 
 
 def test_list_services_returns_typed_summaries(make_client) -> None:
@@ -24,9 +24,10 @@ def test_list_services_returns_typed_summaries(make_client) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         seen["method"] = request.method
         seen["path"] = request.url.path
+        seen["params"] = dict(request.url.params.multi_items())
         return httpx.Response(
             200,
-            json=make_api_response([
+            json=make_api_response(service_page([
                 {
                     "serviceName": "default",
                     "description": "Default service",
@@ -39,7 +40,7 @@ def test_list_services_returns_typed_summaries(make_client) -> None:
                     "layerCount": 0,
                     "enabledProtocols": [],
                 },
-            ]),
+            ])),
         )
 
     with make_client(handler) as client:
@@ -47,6 +48,8 @@ def test_list_services_returns_typed_summaries(make_client) -> None:
 
     assert seen["method"] == "GET"
     assert seen["path"] == "/api/v1/admin/services/"
+    assert seen["params"]["page"] == "1"
+    assert seen["params"]["pageSize"] == "100"
     assert len(result) == 2
     assert isinstance(result[0], ServiceSummary)
     assert result[0].service_name == "default"
@@ -54,6 +57,41 @@ def test_list_services_returns_typed_summaries(make_client) -> None:
     assert result[0].enabled_protocols == ["FeatureServer", "MapServer"]
     assert result[1].service_name == "testing"
     assert result[1].layer_count == 0
+
+
+def test_list_services_page_reads_one_page(make_client) -> None:
+    from honua_admin import ServiceListPage, ServiceListQuery
+
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url.params))
+        return httpx.Response(
+            200,
+            json=make_api_response(service_page(
+                [{
+                    "serviceName": "parks",
+                    "description": "Parks",
+                    "layerCount": 40,
+                    "enabledProtocols": ["FeatureServer"],
+                }],
+                total=2000,
+                layer_total=40,
+                page=2,
+                page_size=25,
+            )),
+        )
+
+    with make_client(handler) as client:
+        page = client.list_services_page(ServiceListQuery(
+            page=2, page_size=25, name_query=" parks ", folder_id="root",
+        ))
+
+    assert calls == ["page=2&pageSize=25&q=parks&folderId=root"]
+    assert isinstance(page, ServiceListPage)
+    assert page.total == 2000
+    assert page.layer_total == 40
+    assert page.items[0].service_name == "parks"
 
 
 def test_get_service_settings_returns_nested_models(make_client) -> None:
@@ -265,7 +303,7 @@ def test_does_not_follow_redirects_by_default_and_raises() -> None:
 
     assert exc_info.value.status_code == 302
     assert len(seen) == 1
-    assert seen[0][0] == "https://test.honua.io/api/v1/admin/services/"
+    assert seen[0][0] == "https://test.honua.io/api/v1/admin/services/?page=1&pageSize=100"
     assert seen[0][1] == "test-key"
 
 
@@ -287,7 +325,7 @@ def test_follow_redirects_does_not_forward_sensitive_headers_to_different_host()
             )
         return httpx.Response(
             200,
-            json=make_api_response([]),
+            json=make_api_response(service_page([])),
         )
 
     transport = httpx.MockTransport(handler)
@@ -312,7 +350,7 @@ def test_admin_client_auth_provider_headers_are_resolved_per_request() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.headers.get("x-api-key", ""))
-        return httpx.Response(200, json=make_api_response([]))
+        return httpx.Response(200, json=make_api_response(service_page([])))
 
     transport = httpx.MockTransport(handler)
     auth_provider = CallableAuthProvider(lambda: {"X-API-Key": next(api_keys)})
@@ -348,4 +386,4 @@ def test_transport_errors_are_normalized_to_honua_transport_error() -> None:
     err = exc_info.value
     assert "Transport error: dial failed" in str(err)
     assert err.cause_type == "ConnectError"
-    assert err.url == "http://test.honua.io/api/v1/admin/services/"
+    assert err.url == "http://test.honua.io/api/v1/admin/services/?page=1&pageSize=100"

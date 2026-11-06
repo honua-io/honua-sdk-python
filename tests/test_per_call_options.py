@@ -141,7 +141,9 @@ def test_async_apply_edits_idempotency_key_overrides_auto() -> None:
 
 def test_admin_list_services_forwards_extra_headers() -> None:
     seen: list[httpx.Request] = []
-    transport = _record(seen, body=_ok_envelope([]))
+    transport = _record(seen, body=_ok_envelope({
+        "items": [], "page": 1, "pageSize": 100, "total": 0, "layerTotal": 0,
+    }))
     with HonuaAdminClient(
         "http://example.test", transport=transport, max_retries=0
     ) as client:
@@ -179,7 +181,9 @@ def test_async_admin_list_services_forwards_extra_headers() -> None:
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(200, json=_ok_envelope([]))
+        return httpx.Response(200, json=_ok_envelope({
+            "items": [], "page": 1, "pageSize": 100, "total": 0, "layerTotal": 0,
+        }))
 
     transport = httpx.MockTransport(handler)
 

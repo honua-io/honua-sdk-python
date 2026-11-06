@@ -129,7 +129,12 @@ class FakeAdminServer:
     def _list_layers(self, _key: Any, _body: Any, request: httpx.Request, connection_id: str) -> httpx.Response:
         service = request.url.params.get("serviceName")
         rows = [row for row in self.layers.get(connection_id, []) if service in (None, row["serviceName"])]
-        return httpx.Response(200, json=make_api_response(rows))
+        return httpx.Response(200, json=make_api_response({
+            "items": rows,
+            "page": 1,
+            "pageSize": 100,
+            "total": len(rows),
+        }))
 
     def _publish_layer(self, _key: Any, body: dict[str, Any], _request: Any, connection_id: str) -> httpx.Response:
         rows = self.layers.setdefault(connection_id, [])

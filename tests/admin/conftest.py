@@ -10,6 +10,54 @@ import pytest
 from honua_admin import HonuaAdminClient
 
 
+def _catalog_page(
+    items: list[Any],
+    *,
+    total: int | None = None,
+    page: int = 1,
+    page_size: int = 100,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    body = {
+        "items": items,
+        "page": page,
+        "pageSize": page_size,
+        "total": len(items) if total is None else total,
+    }
+    if extra:
+        body.update(extra)
+    return body
+
+
+def service_page(
+    items: list[Any],
+    *,
+    total: int | None = None,
+    layer_total: int = 0,
+    page: int = 1,
+    page_size: int = 100,
+) -> dict[str, Any]:
+    """One admin service-list page."""
+    return _catalog_page(
+        items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        extra={"layerTotal": layer_total},
+    )
+
+
+def layer_page(
+    items: list[Any],
+    *,
+    total: int | None = None,
+    page: int = 1,
+    page_size: int = 100,
+) -> dict[str, Any]:
+    """One published-layer page."""
+    return _catalog_page(items, total=total, page=page, page_size=page_size)
+
+
 def make_api_response(data: Any, message: str | None = None) -> dict[str, Any]:
     """Wrap data in the ApiResponse envelope."""
     return {

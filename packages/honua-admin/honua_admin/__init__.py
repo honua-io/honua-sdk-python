@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover -- editable / not-installed fallback
     __version__ = "0.0.0.dev0"
 
 from ._async_client import AsyncHonuaAdminClient
+from ._catalog import LayerListQuery, PublishedLayerPage, ServiceListPage, ServiceListQuery
 from ._client import HonuaAdminClient
 from ._models import (
     MINIMUM_SUPPORTED_CONTROL_PLANE_API_MAJOR,
@@ -132,6 +133,7 @@ __all__ = [
     "HonuaAdminClient",
     "ImportResult",
     "KeyRotationResult",
+    "LayerListQuery",
     "LayerStyleResponse",
     "LayerStyleUpdateRequest",
     "ManifestApplyEntry",
@@ -176,10 +178,13 @@ __all__ = [
     "OperationProposalDetail",
     "OperationProposalSummary",
     "PublishLayerRequest",
+    "PublishedLayerPage",
     "PublishedLayerSummary",
     "ResourceMetadata",
     "SecureConnectionDetail",
     "SecureConnectionSummary",
+    "ServiceListPage",
+    "ServiceListQuery",
     "ServiceSettingsResponse",
     "ServiceSummary",
     "StyleEncoding",

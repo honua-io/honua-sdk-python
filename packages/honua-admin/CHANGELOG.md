@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.2.1...python-admin-v0.2.2) (2026-11-07)
+
+
+### Features
+
+* page the admin service and layer lists ([#362](https://github.com/honua-io/honua-sdk-python/issues/362)) ([eee2d3e](https://github.com/honua-io/honua-sdk-python/commit/eee2d3e4a898bdb53753bdd6d45ef471193f46b2))
+
+
+### Documentation
+
+* neutral wording in honua-gp docstrings and docs ([#356](https://github.com/honua-io/honua-sdk-python/issues/356)) ([08d4113](https://github.com/honua-io/honua-sdk-python/commit/08d4113a801ce22b60463ae021dc843a4dc21caa))
+* neutralize Python client and geometry terminology ([#367](https://github.com/honua-io/honua-sdk-python/issues/367)) ([5f8b245](https://github.com/honua-io/honua-sdk-python/commit/5f8b245179550d1799a09a0efa1154604291e86a))
+
 ## [0.2.1](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.2.0...python-admin-v0.2.1) (2026-11-04)
 
 

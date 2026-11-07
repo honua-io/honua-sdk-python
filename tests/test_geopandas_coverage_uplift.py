@@ -128,7 +128,7 @@ class TestCrsParsing:
         assert _normalize_geojson_crs_identifier("custom-crs") == "custom-crs"
 
 
-# Esri JSON -> Shapely geometry conversions
+# GeoServices JSON -> Shapely geometry conversions
 
 
 class TestEsriToShapely:
@@ -161,7 +161,7 @@ class TestEsriToShapely:
         assert _esri_geometry_to_shapely({"paths": []}) is None
 
     def test_polygon_with_hole(self) -> None:
-        # Exterior CW (Esri convention), hole CCW
+        # Exterior CW (GeoServices convention), hole CCW
         exterior_cw = [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
         hole_ccw = [[2, 2], [4, 2], [4, 4], [2, 4], [2, 2]]
         geom = _esri_geometry_to_shapely({"rings": [exterior_cw, hole_ccw]})
@@ -182,7 +182,7 @@ class TestEsriToShapely:
         assert _esri_geometry_to_shapely({"foo": "bar"}) is None
 
 
-# Shapely -> Esri JSON geometry conversions
+# Shapely -> GeoServices JSON geometry conversions
 
 
 class TestShapelyToEsri:

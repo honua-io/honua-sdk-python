@@ -1910,7 +1910,7 @@ class ToolboxToolDescriptor:
 
 @dataclass
 class ToolboxTranslationManifest:
-    """Client-proposed translation manifest for one ArcGIS toolbox.
+    """Client-proposed translation manifest for one source toolbox.
 
     ``source_format`` is the source toolbox format: ``pyt``, ``atbx``, or
     ``tbx``. Redact local paths and credentials out of ``source_label`` before

@@ -902,7 +902,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "Projects management.ProjectRaster onto honua-server's raster.reproject "
             "GDAL-worker process (gdalwarp -t_srs). target_srid (required) -> targetSrid; "
             "resampling -> resampling (nearestneighbor/bilinear/cubic/lanczos). Matches "
-            "the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle."
+            "the GPServer 'ProjectRaster' GeoServices task alias. Returns a RasterResult handle."
         ),
         param_map={"target_srid": "targetSrid", "resampling": "resampling"},
     ),
@@ -914,7 +914,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "Projects management.Resample onto honua-server's raster.resample "
             "GDAL-worker process (gdalwarp -tr). cell_size (required) -> cellSize; "
             "cell_size_y -> cellSizeY; resampling -> resampling. Matches the GPServer "
-            "'Resample' Esri task alias. Returns a RasterResult handle."
+            "'Resample' GeoServices task alias. Returns a RasterResult handle."
         ),
         param_map={
             "cell_size": "cellSize",
@@ -990,7 +990,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "plus polygonal zones and returns the Table-kind JSON (a list of per-zone "
             "aggregate dicts) directly rather than a raster. band -> band, statistics -> "
             "statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer "
-            "'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones "
+            "'ZonalStatisticsAsTable' GeoServices task alias. Partial: only inline-GeoJSON zones "
             "are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved "
             "zones are deferred server-side."
         ),
@@ -1000,7 +1000,7 @@ COMPAT: dict[str, FunctionEntry] = {
     # unambiguous single scripting-API Spatial Analyst tool-name analog (histograms are
     # reached in the scripting API through RasterObject/segmentation, and spectral indices
     # through per-index raster functions / the multidimensional toolset), and
-    # honua-server's GPServerEsriTaskAliases assigns them no Esri task name
+    # honua-server's GPServerEsriTaskAliases assigns them no GeoServices task name
     # either. Rather than invent a fake scripting-API name, they are surfaced as
     # explicit stubs so the migration tool reports the gap honestly.
     "sa.Histogram": FunctionEntry(

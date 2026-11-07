@@ -2,7 +2,7 @@
 
 Covers ``Feature``/``QueryFeature`` ``__geo_interface__`` (pure-dict, no
 third-party dependency) and ``to_shapely()`` / ``geometry_shape`` (optional
-shapely dep, gated with ``importorskip``) for the Esri-JSON (FeatureServer) and
+shapely dep, gated with ``importorskip``) for the GeoServices JSON (FeatureServer) and
 GeoJSON (OGC/STAC) encodings — point/line/polygon, Z/M, and ring orientation.
 """
 

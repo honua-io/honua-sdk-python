@@ -108,7 +108,7 @@ class StatisticDefinition:
 
 @dataclass
 class SpatialFilter:
-    geometry: dict[str, Any] | None = None  # Esri JSON geometry
+    geometry: dict[str, Any] | None = None  # GeoServices JSON geometry
     spatial_relationship: SpatialRelationship = SpatialRelationship.UNSPECIFIED
     spatial_reference: SpatialReference | None = None
     distance: float = 0.0
@@ -144,7 +144,7 @@ class QueryFeaturesRequest:
 class Feature:
     id: int = 0
     attributes: dict[str, Any] = field(default_factory=dict)
-    geometry: dict[str, Any] | None = None  # Esri JSON shape
+    geometry: dict[str, Any] | None = None  # GeoServices JSON shape
 
 
 @dataclass(frozen=True, slots=True)

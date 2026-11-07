@@ -127,7 +127,7 @@ def resolve(path: Any, *, session: HonuaSession | None = None) -> ResolvedSource
             raise HonuaGpResolveError(
                 raw,
                 hint=(
-                    "Foldered ArcGIS services (rest/services/<folder>/<service>/FeatureServer) "
+                    "Foldered GeoServices REST services (rest/services/<folder>/<service>/FeatureServer) "
                     "are not addressable through honua_gp; map this URL to "
                     "honua://services/<service>/<layer> with HONUA_GP_PATH_MAP."
                 ),

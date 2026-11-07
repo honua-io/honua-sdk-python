@@ -178,7 +178,7 @@ class OutputArtifactSource:
     """Read-only ``Source`` facade over a bound :class:`OutputArtifact`.
 
     Rows carry the feature ``properties`` as ``attributes`` and the GeoJSON
-    geometry unchanged (``SHAPE@JSON`` is GeoJSON here, not Esri JSON).
+    geometry unchanged (``SHAPE@JSON`` is GeoJSON here, not GeoServices JSON).
     """
 
     def __init__(self, artifact: OutputArtifact, *, name: str) -> None:

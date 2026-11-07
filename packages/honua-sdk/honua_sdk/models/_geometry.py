@@ -2,10 +2,10 @@
 
 The typed feature models (:class:`~honua_sdk.models.Feature`,
 :class:`~honua_sdk.models.QueryFeature`) carry geometry as a raw mapping in
-either the Esri-JSON shape (GeoServices FeatureServer) or the GeoJSON shape
+either the GeoServices JSON shape (GeoServices FeatureServer) or the GeoJSON shape
 (OGC API Features / STAC). This module converts either shape to a Shapely
 geometry and to a GeoJSON-mapping ``__geo_interface__``, giving GP tooling the
-``feature.SHAPE`` / ArcGIS-API geometry-object ergonomic without forcing the
+``feature.SHAPE`` / desktop scripting API geometry-object ergonomic without forcing the
 caller down to ``result.raw`` and the standalone ``geopandas`` bridge.
 
 Shapely stays an **optional** dependency: importing this module never requires
@@ -13,9 +13,9 @@ it, and only :func:`geometry_to_shapely` raises a clear :class:`ImportError`
 when Shapely is absent. The pure-dict ``__geo_interface__`` path
 (:func:`geometry_to_geo_interface`) has no third-party dependency at all.
 
-Both encodings preserve Z (and, for Esri, drop the trailing M ordinate so the
+Both encodings preserve Z (and, for GeoServices JSON, drop the trailing M ordinate so the
 coordinate tuples stay 2-D/3-D rather than leaking an M value into the Z slot).
-Esri polygon ring orientation follows the Esri convention — clockwise exterior
+Esri polygon ring orientation follows the GeoServices convention — clockwise exterior
 rings, counter-clockwise holes — and is mapped onto Shapely's exterior/interior
 ring model robustly even when a service emits inconsistent winding.
 """
@@ -46,13 +46,13 @@ def _require_shapely() -> Any:
 
 
 def _is_esri_geometry(geom: Mapping[str, Any]) -> bool:
-    """Heuristic: Esri-JSON geometries key on x/y, points, paths, or rings."""
+    """Heuristic: GeoServices JSON geometries key on x/y, points, paths, or rings."""
     return any(key in geom for key in ("x", "rings", "paths", "points")) or (
         "y" in geom and "type" not in geom
     )
 
 
-# Esri-JSON -> GeoJSON-mapping (``__geo_interface__``)
+# GeoServices JSON -> GeoJSON-mapping (``__geo_interface__``)
 
 
 def _coords(point: Sequence[Any], *, has_z: bool) -> tuple[float, ...]:
@@ -167,7 +167,7 @@ def _geojson_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """Normalize an Esri-JSON or GeoJSON geometry mapping to a GeoJSON mapping.
+    """Normalize an GeoServices JSON or GeoJSON geometry mapping to a GeoJSON mapping.
 
     Returns ``None`` for an absent or empty geometry. This is the pure-dict
     path behind ``Feature.__geo_interface__`` / ``QueryFeature.__geo_interface__``
@@ -186,7 +186,7 @@ def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] 
 
 
 def geometry_to_shapely(geom: Mapping[str, Any] | None) -> BaseGeometry | None:
-    """Convert an Esri-JSON or GeoJSON geometry mapping to a Shapely geometry.
+    """Convert an GeoServices JSON or GeoJSON geometry mapping to a Shapely geometry.
 
     Returns ``None`` for an absent or empty geometry. Raises :class:`ImportError`
     with an install hint when Shapely is not available.

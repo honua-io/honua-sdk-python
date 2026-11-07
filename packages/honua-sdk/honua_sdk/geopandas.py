@@ -120,7 +120,7 @@ def _normalize_geojson_crs_identifier(identifier: str) -> str | None:
     return value
 
 
-# Esri JSON geometry -> Shapely
+# GeoServices JSON geometry -> Shapely
 
 
 def _coord_is_missing(value: Any) -> bool:
@@ -141,7 +141,7 @@ def _coord_is_missing(value: Any) -> bool:
 
 
 def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0911, PLR0912 -- geometry type dispatch
-    """Convert a single Esri JSON geometry dict to a Shapely geometry.
+    """Convert a single GeoServices JSON geometry dict to a Shapely geometry.
 
     Returns ``None`` when *geom* is ``None`` or empty.
     """
@@ -177,7 +177,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
         rings = geom["rings"]
         if not rings:
             return None
-        # Esri JSON encodes polygons as a flat list of rings.  By spec,
+        # GeoServices JSON encodes polygons as a flat list of rings.  By spec,
         # exterior rings are clockwise (not CCW) and holes are CCW, but
         # many real-world services emit rings with inconsistent winding.
         # We use a robust heuristic: a ring whose absolute area is large
@@ -191,7 +191,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
             coords = [tuple(c) for c in ring_coords]
             lr = LinearRing(coords)
             # First ring is always exterior.  Subsequent rings:
-            # if CCW it's a hole (Esri convention), otherwise exterior.
+            # if CCW it's a hole (GeoServices convention), otherwise exterior.
             if idx == 0 or not lr.is_ccw:
                 exteriors.append(coords)
                 holes_for.append([])
@@ -217,11 +217,11 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
     return None
 
 
-# Shapely -> Esri JSON geometry
+# Shapely -> GeoServices JSON geometry
 
 
 def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
-    """Convert a Shapely geometry to an Esri JSON geometry dict.
+    """Convert a Shapely geometry to an GeoServices JSON geometry dict.
 
     Returns ``None`` when *geom* is ``None``.
     """
@@ -261,7 +261,7 @@ def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0
         return {"paths": [[list(c) for c in line.coords] for line in geom.geoms]}
 
     if isinstance(geom, _Poly):
-        # Esri convention: exterior rings are clockwise, holes counter-clockwise.
+        # GeoServices convention: exterior rings are clockwise, holes counter-clockwise.
         # ``orient(..., sign=-1.0)`` yields a CW exterior and CCW interiors.
         oriented = _orient(geom, sign=-1.0)
         rings: list[list[list[float]]] = []
@@ -375,7 +375,7 @@ def result_to_geodataframe(result: Any) -> gpd.GeoDataFrame:
 def features_to_geodataframe(
     response: dict[str, Any],
 ) -> gpd.GeoDataFrame:
-    """Convert an Esri JSON feature-query response to a GeoDataFrame.
+    """Convert an GeoServices JSON feature-query response to a GeoDataFrame.
 
     Parameters
     ----------
@@ -388,7 +388,7 @@ def features_to_geodataframe(
     -------
     geopandas.GeoDataFrame
         A GeoDataFrame with attributes as columns, a ``geometry`` column
-        built from the Esri JSON geometries, and the CRS set when a
+        built from the GeoServices JSON geometries, and the CRS set when a
         spatial reference is present.
     """
     _ensure_deps()
@@ -544,7 +544,7 @@ def _esri_spatial_reference_from_crs(crs: Any) -> dict[str, int] | None:
 def geodataframe_to_features(
     gdf: gpd.GeoDataFrame,
 ) -> list[dict[str, Any]]:
-    """Convert a GeoDataFrame to a list of Esri JSON feature dicts.
+    """Convert a GeoDataFrame to a list of GeoServices JSON feature dicts.
 
     This is useful for preparing data for
     :pymeth:`HonuaClient.apply_edits`.
@@ -553,7 +553,7 @@ def geodataframe_to_features(
     ----------
     gdf:
         A GeoDataFrame whose non-geometry columns become ``attributes``
-        and whose geometry column becomes an Esri JSON ``geometry``.
+        and whose geometry column becomes an GeoServices JSON ``geometry``.
 
     Returns
     -------

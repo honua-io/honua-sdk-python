@@ -417,7 +417,7 @@ class SpatialReferenceInfo:
     """Minimal read-only stand-in for ``SpatialReference``.
 
     honua-server's FeatureServer layer metadata advertises a spatial
-    reference as an Esri ``{"wkid": ..., "latestWkid": ...}`` mapping (see
+    reference as a GeoServices ``{"wkid": ..., "latestWkid": ...}`` mapping (see
     ``honua_sdk.models.LayerSchema.srid`` / ``.spatial_reference``). Real
     ``SpatialReference`` supports dozens of properties (``PCSCode``,
     ``GCSCode``, projection parameters, ``exportToString()``, ...); this

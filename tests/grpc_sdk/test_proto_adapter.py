@@ -196,7 +196,7 @@ class TestToProtoRequest:
     def test_envelope_spatial_filter_emits_clockwise_ring(self) -> None:
         """An Esri envelope must convert to a clockwise (exterior) ring.
 
-        Per the Esri winding convention used elsewhere in the SDK an exterior
+        Per the GeoServices winding convention used elsewhere in the SDK an exterior
         ring is clockwise (negative shoelace area); a CCW ring is read as a
         hole, which would make a bbox spatial filter inverted/empty over gRPC.
         """
@@ -427,7 +427,7 @@ class TestConvertAttribute:
 
 
 class TestConvertGeometry:
-    """Tests for geometry proto -> Esri JSON conversion."""
+    """Tests for geometry proto -> GeoServices JSON conversion."""
 
     def test_point(self) -> None:
         geom = spatial.Geometry()

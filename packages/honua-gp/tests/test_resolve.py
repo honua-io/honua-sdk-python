@@ -88,7 +88,7 @@ def test_feature_server_layer_paths_resolve_to_service_and_layer(
 def test_foldered_feature_server_url_is_rejected_not_escaped() -> None:
     from honua_gp._errors import HonuaGpResolveError
 
-    with pytest.raises(HonuaGpResolveError, match="Foldered ArcGIS services"):
+    with pytest.raises(HonuaGpResolveError, match="Foldered GeoServices REST services"):
         resolve("https://honua.example.com/gis/rest/services/folder/test/FeatureServer/12")
 
 

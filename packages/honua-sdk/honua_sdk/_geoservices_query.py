@@ -276,8 +276,11 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
     in_sr = _sr_wkid(
         _first(spatial_filter, "in_sr", "inSR", "sr", "spatial_reference", "spatialReference")
     )
-    if in_sr is None and isinstance(geoservices_geometry, Mapping):
-        in_sr = _sr_wkid(geoservices_geometry.get("spatialReference"))
+    if in_sr is None:
+        in_sr = (
+            _sr_wkid(geoservices_geometry.get("spatialReference"))
+            if isinstance(geoservices_geometry, Mapping) else None
+        )
     if in_sr is None:
         in_sr = 4326
     params["inSR"] = in_sr

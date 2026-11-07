@@ -51,7 +51,7 @@ _WKID_TO_EPSG: dict[int, str] = {
 _GEOJSON_DEFAULT_CRS = "EPSG:4326"
 #: EPSG code for WGS84 longitude/latitude (the GeoJSON default CRS).
 _WGS84_EPSG = 4326
-#: EPSG code for Web Mercator, and the legacy GeoServices REST ``wkid`` for the same CRS.
+#: EPSG code for Web Mercator, and the legacy non-EPSG ``wkid`` for the same CRS.
 _WEB_MERCATOR_EPSG = 3857
 _WEB_MERCATOR_LEGACY_WKID = 102100
 
@@ -310,8 +310,7 @@ def typed_features_to_geodataframe(
     :class:`~honua_sdk.models.Feature`, ``properties`` for
     :class:`~honua_sdk.models.QueryFeature`) as a row and its geometry — via the
     feature's first-class ``__geo_interface__`` bridge — as the geometry column.
-    Feature attributes become columns in the output GeoDataFrame:
-    one call turns a query result into geopandas without round-tripping through
+    One call turns a query result into geopandas without round-tripping through
     ``result.raw``.
 
     Parameters

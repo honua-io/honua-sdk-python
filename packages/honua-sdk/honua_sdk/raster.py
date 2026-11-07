@@ -179,7 +179,7 @@ def xarray_to_geotiff(data_array: xarray.DataArray) -> bytes:
 def _coerce_dimension_value(value: Any) -> float | tuple[float, ...]:
     """Coerce one ``values[]`` entry: a scalar coordinate or a ranged pair.
 
-    The GeoServices REST contract allows ``hasRanges: true`` axes whose entries are
+    The ImageServer contract allows ``hasRanges: true`` axes whose entries are
     ``[lower, upper]`` arrays; those are preserved as tuples rather than
     scalar-coerced (which would raise ``TypeError``).
     """
@@ -304,7 +304,7 @@ def parse_multidimensional_info(payload: Mapping[str, Any]) -> tuple[Multidimens
     ``{"multidimensionalInfo": {"variables": [...]}}`` or as the unwrapped
     ``{"variables": [...]}`` document, so this composes with whichever client
     method eventually surfaces the raw wire call. Each variable's dimensions
-    follow the GeoServices REST contract confirmed against honua-server's
+    follow the ImageServer contract confirmed against honua-server's
     ``ImageServerMultidimensionalInfoBuilder``/``ImageServerModels.cs``:
     ``name``, optional ``description``/``unit``, and a ``dimensions`` array of
     ``{name, unit?, extent?: [min, max], values?: [...], hasRegularIntervals,

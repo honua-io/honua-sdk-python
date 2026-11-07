@@ -369,7 +369,7 @@ class HonuaHttpError(HonuaError):
             ``X-Correlation-ID``), or ``None`` when not present.
         headers: Full response headers as a plain ``dict[str, str]``.
         error_code: The application-level error code reported by a GeoServices REST
-            GeoServices error envelope (e.g. ``498``/``499`` token errors), when
+            error envelope (e.g. ``498``/``499`` token errors), when
             the failure originated from such an envelope. ``None`` for ordinary
             transport-level HTTP failures. Distinct from ``status_code`` because
             GeoServices codes are an application code space, not HTTP statuses.

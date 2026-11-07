@@ -2800,7 +2800,7 @@ raw GeoServices <code>attributes</code>/<code>geometry</code> shape, see :class:
         <p>GeoJSON-mapping view of this feature's geometry (<code>None</code> if absent).</p>
 <p>Implements the de-facto <code>__geo_interface__</code> protocol so the feature
 plugs directly into Shapely and the wider Python geospatial ecosystem.
-Handles both Esri-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.</p>
+Handles both GeoServices JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.</p>
 
     </div>
 
@@ -2843,7 +2843,7 @@ Handles both Esri-JSON (FeatureServer) and GeoJSON (OGC/STAC) sources.</p>
     <div class="doc doc-contents ">
 
         <p>Return this feature's geometry as a Shapely geometry.</p>
-<p>The typed analogue of the scripting API <code>feature.SHAPE</code> / the ArcGIS-API
+<p>The typed analogue of the scripting API <code>feature.SHAPE</code> / the web GIS Python API
 geometry object. Returns <code>None</code> when the feature carries no geometry.
 Raises :class:<code>ImportError</code> with an install hint when the optional
 <code>shapely</code> dependency is absent.</p>
@@ -2924,7 +2924,7 @@ protocol-neutral feature shape used by :meth:<code>Source.query</code>, see
         <p>GeoJSON-mapping view of this feature's geometry (<code>None</code> if absent).</p>
 <p>Implements the de-facto <code>__geo_interface__</code> protocol so the feature
 plugs directly into Shapely (<code>shapely.geometry.shape(feature)</code>) and
-the wider Python geospatial ecosystem. Handles both the Esri-JSON
+the wider Python geospatial ecosystem. Handles both the GeoServices JSON
 (FeatureServer) and GeoJSON (OGC/STAC) geometry encodings.</p>
 
     </div>
@@ -2968,7 +2968,7 @@ the wider Python geospatial ecosystem. Handles both the Esri-JSON
     <div class="doc doc-contents ">
 
         <p>Return this feature's geometry as a Shapely geometry.</p>
-<p>The typed analogue of the scripting API <code>feature.SHAPE</code> / the ArcGIS-API
+<p>The typed analogue of the scripting API <code>feature.SHAPE</code> / the web GIS Python API
 geometry object: a GP tool gets Shapely geometry directly from the
 feature without dropping to <code>result.raw</code>. Returns <code>None</code> when the
 feature has no geometry. Raises :class:<code>ImportError</code> with an install
@@ -3248,7 +3248,7 @@ typed so a tool never hand-parses the raw JSON.</p>
 
 
         <p>A single typed attribute field on a layer.</p>
-<p>Mirrors the fields surfaced by <code>ListFields</code> / the ArcGIS-API layer
+<p>Mirrors the fields surfaced by <code>ListFields</code> / the web GIS Python API layer
 <code>fields</code> property. <code>type</code> retains the server's native type token (the
 Esri <code>esriFieldType*</code> family or an OGC/JSON-schema type) verbatim.</p>
 

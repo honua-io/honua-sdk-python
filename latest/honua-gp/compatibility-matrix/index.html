@@ -1822,7 +1822,7 @@
 <td><a id="saidw"></a><code>sa.Idw</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker process (gdal_grid -a invdist). Takes a scattered point FeatureCollection (encoded to the base64 'points' input); z_field -&gt; zField, power -&gt; power, smoothing -&gt; smoothing, radius -&gt; radius. Matches the GPServer 'IDW' Esri task alias. Partial: the native worker sizes the output via width/height (passthrough) rather than a scripting-API cell_size, and the scripting API barrier/variable search options are not modelled. Returns a RasterResult handle.</td>
+<td>Projects sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker process (gdal_grid -a invdist). Takes a scattered point FeatureCollection (encoded to the base64 'points' input); z_field -&gt; zField, power -&gt; power, smoothing -&gt; smoothing, radius -&gt; radius. Matches the GPServer 'IDW' GeoServices task alias. Partial: the native worker sizes the output via width/height (passthrough) rather than a scripting-API cell_size, and the scripting API barrier/variable search options are not modelled. Returns a RasterResult handle.</td>
 </tr>
 <tr>
 <td><a id="sakriging"></a><code>sa.Kriging</code></td>
@@ -1840,7 +1840,7 @@
 <td><a id="saprojectraster"></a><code>sa.ProjectRaster</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects management.ProjectRaster onto honua-server's raster.reproject GDAL-worker process (gdalwarp -t_srs). target_srid (required) -&gt; targetSrid; resampling -&gt; resampling (nearestneighbor/bilinear/cubic/lanczos). Matches the GPServer 'ProjectRaster' Esri task alias. Returns a RasterResult handle.</td>
+<td>Projects management.ProjectRaster onto honua-server's raster.reproject GDAL-worker process (gdalwarp -t_srs). target_srid (required) -&gt; targetSrid; resampling -&gt; resampling (nearestneighbor/bilinear/cubic/lanczos). Matches the GPServer 'ProjectRaster' GeoServices task alias. Returns a RasterResult handle.</td>
 </tr>
 <tr>
 <td><a id="sarastercalculator"></a><code>sa.RasterCalculator</code></td>
@@ -1858,7 +1858,7 @@
 <td><a id="saresample"></a><code>sa.Resample</code></td>
 <td>Supported</td>
 <td><code>raster</code></td>
-<td>Projects management.Resample onto honua-server's raster.resample GDAL-worker process (gdalwarp -tr). cell_size (required) -&gt; cellSize; cell_size_y -&gt; cellSizeY; resampling -&gt; resampling. Matches the GPServer 'Resample' Esri task alias. Returns a RasterResult handle.</td>
+<td>Projects management.Resample onto honua-server's raster.resample GDAL-worker process (gdalwarp -tr). cell_size (required) -&gt; cellSize; cell_size_y -&gt; cellSizeY; resampling -&gt; resampling. Matches the GPServer 'Resample' GeoServices task alias. Returns a RasterResult handle.</td>
 </tr>
 <tr>
 <td><a id="saroughness"></a><code>sa.Roughness</code></td>
@@ -1900,7 +1900,7 @@
 <td><a id="sazonalstatisticsastable"></a><code>sa.ZonalStatisticsAsTable</code></td>
 <td>Partial</td>
 <td><code>raster</code></td>
-<td>Projects sa.ZonalStatisticsAsTable onto honua-server's raster.zonal-statistics GDAL-worker process. Takes a value raster ('source') plus polygonal zones and returns the Table-kind JSON (a list of per-zone aggregate dicts) directly rather than a raster. band -&gt; band, statistics -&gt; statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer 'ZonalStatisticsAsTable' Esri task alias. Partial: only inline-GeoJSON zones are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved zones are deferred server-side.</td>
+<td>Projects sa.ZonalStatisticsAsTable onto honua-server's raster.zonal-statistics GDAL-worker process. Takes a value raster ('source') plus polygonal zones and returns the Table-kind JSON (a list of per-zone aggregate dicts) directly rather than a raster. band -&gt; band, statistics -&gt; statistics (count/sum/mean/min/max/stddev/variance). Matches the GPServer 'ZonalStatisticsAsTable' GeoServices task alias. Partial: only inline-GeoJSON zones are accepted (encoded to the base64 'zones' input); zonesLayerId-resolved zones are deferred server-side.</td>
 </tr>
 </tbody>
 </table>

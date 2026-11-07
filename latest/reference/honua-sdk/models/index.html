@@ -2635,8 +2635,7 @@ reserved for protocol-specific extension fields.</p>
     <div class="doc doc-contents ">
 
         <p>Convert this result's features to a GeoPandas <code>GeoDataFrame</code>.</p>
-<p>The first-class, one-call equivalent of the Esri Spatially-Enabled
-DataFrame: feature attributes become columns and each feature's geometry
+<p>Feature attributes become columns and each feature's geometry
 (via its <code>__geo_interface__</code> bridge) becomes the geometry column. The
 CRS is resolved from the result's <code>query.out_sr</code> / <code>extent</code> spatial
 reference, defaulting to <code>EPSG:4326</code> for GeoJSON sources.</p>
@@ -3250,7 +3249,7 @@ typed so a tool never hand-parses the raw JSON.</p>
         <p>A single typed attribute field on a layer.</p>
 <p>Mirrors the fields surfaced by <code>ListFields</code> / the web GIS Python API layer
 <code>fields</code> property. <code>type</code> retains the server's native type token (the
-Esri <code>esriFieldType*</code> family or an OGC/JSON-schema type) verbatim.</p>
+GeoServices REST <code>esriFieldType*</code> family or an OGC/JSON-schema type) verbatim.</p>
 
 
 

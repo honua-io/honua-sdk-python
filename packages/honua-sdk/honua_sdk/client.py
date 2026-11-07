@@ -933,7 +933,7 @@ class HonuaClient:
             bbox: Spatial filter as a list/tuple of coordinates or comma
                 string. Not supported when ``protocol`` is OData.
             spatial_filter: Arbitrary-geometry spatial filter (FeatureServer
-                only): a mapping of ``geometry`` (Esri JSON / GeoJSON /
+                only): a mapping of ``geometry`` (GeoServices JSON / GeoJSON /
                 ``__geo_interface__``), ``relationship`` (``intersects``,
                 ``within``, ``contains``, ``crosses``, ``touches``,
                 ``overlaps``, ``within-distance``), optional ``in_sr`` and

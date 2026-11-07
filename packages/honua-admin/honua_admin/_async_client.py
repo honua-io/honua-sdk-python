@@ -1236,7 +1236,7 @@ class AsyncHonuaAdminClient:
     ) -> ToolboxTranslationReport:
         """POST /api/v1/admin/import/toolbox/translation/validate
 
-        Validate an SDK-translated ArcGIS toolbox manifest against the server's
+        Validate an SDK-translated source toolbox manifest against the server's
         canonical geoprocessing process catalog, and return the
         server-authoritative per-tool classification.
 

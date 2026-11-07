@@ -21,7 +21,7 @@ from honua_sdk.geopandas import (
 )
 
 
-# Fixtures: sample Esri JSON responses
+# Fixtures: sample GeoServices JSON responses
 
 POINT_RESPONSE: dict = {
     "spatialReference": {"wkid": 4326, "latestWkid": 4326},
@@ -486,7 +486,7 @@ class TestExportReprojection:
         assert lat == pytest.approx(21.3069)
 
     def test_esri_features_export_stamps_spatial_reference(self) -> None:
-        # Esri JSON carries its own spatialReference, so the non-WGS84 frame is
+        # GeoServices JSON carries its own spatialReference, so the non-WGS84 frame is
         # preserved verbatim with an explicit CRS rather than reprojected.
         src = gpd.GeoDataFrame(
             {"id": [1]}, geometry=[Point(-157.8583, 21.3069)], crs="EPSG:4326"

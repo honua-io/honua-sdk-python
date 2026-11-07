@@ -75,8 +75,8 @@ def test_coerce_geometry_geojson_polygon() -> None:
 
 def test_geojson_polygon_spatial_filter_orients_rings_to_esri_winding() -> None:
     """An RFC 7946 GeoJSON polygon (CCW exterior, CW hole) must be re-wound to
-    the Esri convention (CW exterior, CCW hole). Emitting it verbatim would make
-    an Esri-conformant server read the exterior as a hole -> inverted/empty
+    the GeoServices convention (CW exterior, CCW hole). Emitting it verbatim would make
+    a GeoServices-conformant server read the exterior as a hole -> inverted/empty
     filter and silently wrong results."""
     geojson = {
         "type": "Polygon",
@@ -239,7 +239,7 @@ def test_coerce_geometry_rejects_unknown_geojson_type() -> None:
 
 
 def test_coerce_geometry_rejects_non_geometry() -> None:
-    with pytest.raises(TypeError, match="Esri JSON mapping"):
+    with pytest.raises(TypeError, match="GeoServices JSON mapping"):
         coerce_geometry("not-a-geometry")
 
 
@@ -263,7 +263,7 @@ def test_coerce_geometry_infers_esri_type(esri: dict[str, Any], expected_type: s
 
 
 def test_coerce_geometry_unknown_esri_shape_raises() -> None:
-    with pytest.raises(ValueError, match="Could not infer the Esri geometry type"):
+    with pytest.raises(ValueError, match="Could not infer the GeoServices geometry type"):
         coerce_geometry({"unknown": 1})
 
 

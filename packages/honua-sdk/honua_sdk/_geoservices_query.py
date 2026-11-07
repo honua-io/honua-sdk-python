@@ -9,7 +9,7 @@ emitted the bbox-envelope form of a spatial filter and exposed
 statistics/aggregation solely on the gRPC surface.
 
 This module is the SDK-side translation layer that turns a Pythonic
-spatial-filter mapping (accepting Esri JSON, GeoJSON, or any object exposing
+spatial-filter mapping (accepting GeoServices JSON, GeoJSON, or any object exposing
 ``__geo_interface__`` such as a ``shapely`` geometry) plus a chosen spatial
 relationship into the GeoServices query parameters, and turns a list of
 statistic definitions / group-by fields into their GeoServices equivalents.
@@ -74,7 +74,7 @@ def _is_distance_relationship(value: str) -> bool:
     return str(value).strip().lower().replace("_", "-") in _DISTANCE_RELATIONSHIPS
 
 
-# Geometry coercion (Esri JSON / GeoJSON / __geo_interface__) → Esri JSON
+# Geometry coercion (GeoServices JSON / GeoJSON / __geo_interface__) → GeoServices JSON
 
 #: Index of the first non-planar ordinate (z) in an ``[x, y, z]`` coordinate.
 _XY_LEN = 2
@@ -94,7 +94,7 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
 
     Accepts:
 
-    * Esri JSON mappings (``{"x", "y"}``, ``{"rings": ...}``, ``{"paths": ...}``,
+    * GeoServices JSON mappings (``{"x", "y"}``, ``{"rings": ...}``, ``{"paths": ...}``,
       ``{"points": ...}``, or an envelope ``{"xmin", "ymin", "xmax", "ymax"}``) —
       passed through with the geometry type inferred from its keys.
     * GeoJSON geometry mappings (``{"type", "coordinates"}``).
@@ -102,10 +102,10 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
       which yields a GeoJSON geometry.
 
     ``default_type`` is an explicit ``esriGeometryType`` override; when provided
-    it is used verbatim for an Esri-JSON mapping whose shape can't be inferred,
+    it is used verbatim for a GeoServices JSON mapping whose shape can't be inferred,
     instead of raising.
 
-    Returns the Esri JSON geometry dict and its ``geometryType`` token.
+    Returns the GeoServices JSON geometry dict and its ``geometryType`` token.
     """
     if geometry is None:
         raise ValueError("spatial_filter requires a geometry.")
@@ -114,7 +114,7 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
         geometry = geometry.__geo_interface__
     if not isinstance(geometry, Mapping):
         raise TypeError(
-            "spatial_filter geometry must be an Esri JSON mapping, a GeoJSON "
+            "spatial_filter geometry must be a GeoServices JSON mapping, a GeoJSON "
             "geometry, or an object exposing __geo_interface__ (e.g. shapely)."
         )
 
@@ -141,7 +141,7 @@ def _esri_geometry_type(geometry: Mapping[str, Any]) -> str:
     if {"xmin", "ymin", "xmax", "ymax"} <= set(geometry):
         return "esriGeometryEnvelope"
     raise ValueError(
-        "Could not infer the Esri geometry type from the spatial_filter geometry; "
+        "Could not infer the GeoServices geometry type from the spatial_filter geometry; "
         "provide an explicit 'geometryType' in the spatial_filter mapping."
     )
 
@@ -158,17 +158,17 @@ def _ring_signed_area(ring: Sequence[Sequence[Any]]) -> float:
 
 
 def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[Any]]:
-    """Copy a GeoJSON ring with Esri winding (CW exterior, CCW holes).
+    """Copy a GeoJSON ring with GeoServices winding (CW exterior, CCW holes).
 
     GeoJSON (RFC 7946) winds exterior rings counter-clockwise and holes
-    clockwise; Esri JSON uses the OPPOSITE convention and infers a ring's role
+    clockwise; GeoServices JSON uses the OPPOSITE convention and infers a ring's role
     (shell vs hole) from its winding. Emitting GeoJSON coordinates verbatim
-    therefore makes an Esri-conformant server read a CCW exterior as a hole,
+    therefore makes a GeoServices-conformant server read a CCW exterior as a hole,
     yielding an inverted/empty spatial filter and silently wrong query results.
 
     The ring's structural role is taken from its position (the first ring of a
     polygon part is the exterior), and the vertices are reversed when the
-    current winding does not match the Esri convention. This mirrors the
+    current winding does not match the GeoServices convention. This mirrors the
     orientation the geopandas/models export path applies via shapely
     ``orient(geom, sign=-1.0)``.
     """
@@ -177,7 +177,7 @@ def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[An
     if area == 0.0:
         return coords
     is_ccw = area > 0
-    want_ccw = not exterior  # Esri: exteriors clockwise, holes counter-clockwise
+    want_ccw = not exterior  # GeoServices: exteriors clockwise, holes counter-clockwise
     if is_ccw != want_ccw:
         coords.reverse()
     return coords
@@ -246,10 +246,10 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
 
     Recognised keys (case-insensitive aliases accepted):
 
-    * ``geometry`` — Esri JSON / GeoJSON / ``__geo_interface__`` geometry (required).
+    * ``geometry`` — GeoServices JSON / GeoJSON / ``__geo_interface__`` geometry (required).
     * ``relationship`` / ``spatial_relationship`` / ``relation`` — relationship
       token (default ``"intersects"``). See :data:`_SPATIAL_REL`.
-    * ``geometry_type`` / ``geometryType`` — explicit Esri geometry type
+    * ``geometry_type`` / ``geometryType`` — explicit GeoServices geometry type
       override (otherwise inferred from the geometry).
     * ``in_sr`` / ``sr`` / ``spatial_reference`` — input spatial reference
       (EPSG/wkid; defaults to the geometry's embedded ``spatialReference`` or 4326).
@@ -359,7 +359,7 @@ def statistics_params(
 ) -> dict[str, Any]:
     """Translate statistics/aggregation inputs into GeoServices ``query`` params.
 
-    Mirrors the scripting-API / ArcGIS-API summary-statistics surface:
+    Mirrors the scripting-API / web GIS Python API summary-statistics surface:
 
     * ``out_statistics`` → ``outStatistics`` (a JSON array of statistic defs).
     * ``group_by`` → ``groupByFieldsForStatistics`` (comma-joined).

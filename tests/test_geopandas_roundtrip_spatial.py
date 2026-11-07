@@ -2,11 +2,11 @@
 
 Exercises a realistic analyst loop end to end:
 
-1. Start from an Esri JSON feature-query response (as ``query_features`` returns).
+1. Start from a GeoServices JSON feature-query response (as ``query_features`` returns).
 2. Convert to a GeoDataFrame with ``features_to_geodataframe``.
 3. Run a real spatial workflow: buffer the points and spatial-join them against
    zone polygons.
-4. Convert the derived layer back to Esri JSON features with
+4. Convert the derived layer back to GeoServices JSON features with
    ``geodataframe_to_features`` (the ``apply_edits`` payload shape).
 5. Re-ingest the payload and assert geometric + attribute integrity survived the
    full round trip.
@@ -66,7 +66,7 @@ def test_buffer_and_spatial_join_roundtrip_preserves_integrity() -> None:
     zones = features_to_geodataframe(ZONES_RESPONSE)
 
     assert len(stations) == 3
-    # CRS survived the Esri JSON -> GeoDataFrame conversion.
+    # CRS survived the GeoServices JSON -> GeoDataFrame conversion.
     assert stations.crs is not None
     assert stations.crs.to_epsg() == 3857
 

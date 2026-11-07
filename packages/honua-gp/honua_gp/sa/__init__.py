@@ -17,7 +17,7 @@ the Table-kind JSON (a list of per-zone aggregate dicts) directly.
 
 Named kwargs cover each tool's common, catalog-confirmed parameters; a generic
 ``parameters=`` mapping (keyed by honua-server input name) passes the rest
-through untranslated. Esri tool names mirror honua-server's GPServer
+through untranslated. Scripting-API tool names mirror honua-server's GPServer
 ``GPServerEsriTaskAliases`` where a mapping exists (ProjectRaster, Resample,
 ZonalStatisticsAsTable, ...).
 """

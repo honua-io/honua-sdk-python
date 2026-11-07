@@ -64,7 +64,7 @@ class Feature:
     def to_shapely(self) -> "BaseGeometry | None":
         """Return this feature's geometry as a Shapely geometry.
 
-        The typed analogue of the scripting API ``feature.SHAPE`` / the desktop scripting API
+        The typed analogue of the scripting API ``feature.SHAPE`` / the web GIS Python API
         geometry object: a GP tool gets Shapely geometry directly from the
         feature without dropping to ``result.raw``. Returns ``None`` when the
         feature has no geometry. Raises :class:`ImportError` with an install
@@ -199,7 +199,7 @@ class QueryFeature:
     def to_shapely(self) -> "BaseGeometry | None":
         """Return this feature's geometry as a Shapely geometry.
 
-        The typed analogue of the scripting API ``feature.SHAPE`` / the desktop scripting API
+        The typed analogue of the scripting API ``feature.SHAPE`` / the web GIS Python API
         geometry object. Returns ``None`` when the feature carries no geometry.
         Raises :class:`ImportError` with an install hint when the optional
         ``shapely`` dependency is absent.

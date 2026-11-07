@@ -57,7 +57,7 @@ def _srid_from_spatial_reference(spatial_reference: Mapping[str, Any] | None) ->
 class Field:
     """A single typed attribute field on a layer.
 
-    Mirrors the fields surfaced by ``ListFields`` / the desktop scripting API layer
+    Mirrors the fields surfaced by ``ListFields`` / the web GIS Python API layer
     ``fields`` property. ``type`` retains the server's native type token (the
     Esri ``esriFieldType*`` family or an OGC/JSON-schema type) verbatim.
     """

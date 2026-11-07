@@ -2,7 +2,7 @@
 
 Exercises a realistic analyst loop end to end:
 
-1. Start from an GeoServices JSON feature-query response (as ``query_features`` returns).
+1. Start from a GeoServices JSON feature-query response (as ``query_features`` returns).
 2. Convert to a GeoDataFrame with ``features_to_geodataframe``.
 3. Run a real spatial workflow: buffer the points and spatial-join them against
    zone polygons.

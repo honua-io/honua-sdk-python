@@ -188,7 +188,7 @@ def _convert_attribute(attr: Any) -> Any:  # noqa: PLR0911 -- proto oneof dispat
 
 
 def _array_vertex(c: Any) -> list[Any]:
-    """Build an GeoServices JSON coordinate array for a proto coordinate.
+    """Build a GeoServices JSON coordinate array for a proto coordinate.
 
     GeoServices JSON never uses ``null`` placeholders inside coordinate arrays. A
     vertex is ``[x, y]``; ``[x, y, z]`` when only Z is present; ``[x, y, m]``
@@ -277,7 +277,7 @@ def _convert_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0912 -- p
 
 
 def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, common.SpatialReference | None]:
-    """Convert an GeoServices JSON geometry dict to a proto Geometry message."""
+    """Convert a GeoServices JSON geometry dict to a proto Geometry message."""
     from honua_sdk.grpc._generated.geospatial.v1 import (
         common_pb2 as common,
     )
@@ -298,7 +298,7 @@ def _to_proto_geometry(geom: dict[str, Any]) -> tuple[Any, common.SpatialReferen
             point.m = geom["m"]
         msg.point.CopyFrom(point)
     elif "xmin" in geom and "ymin" in geom and "xmax" in geom and "ymax" in geom:
-        # Emit the envelope ring clockwise so an GeoServices-winding-aware engine
+        # Emit the envelope ring clockwise so a GeoServices-winding-aware engine
         # reads it as an exterior, not a hole. Per the GeoServices convention used
         # elsewhere in the SDK (see ``geopandas`` ring decoding), an exterior
         # ring is clockwise (negative shoelace area) and a CCW ring is a hole.

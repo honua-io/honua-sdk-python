@@ -221,7 +221,7 @@ def _esri_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0
 
 
 def _shapely_to_esri_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
-    """Convert a Shapely geometry to an GeoServices JSON geometry dict.
+    """Convert a Shapely geometry to a GeoServices JSON geometry dict.
 
     Returns ``None`` when *geom* is ``None``.
     """
@@ -375,7 +375,7 @@ def result_to_geodataframe(result: Any) -> gpd.GeoDataFrame:
 def features_to_geodataframe(
     response: dict[str, Any],
 ) -> gpd.GeoDataFrame:
-    """Convert an GeoServices JSON feature-query response to a GeoDataFrame.
+    """Convert a GeoServices JSON feature-query response to a GeoDataFrame.
 
     Parameters
     ----------
@@ -553,7 +553,7 @@ def geodataframe_to_features(
     ----------
     gdf:
         A GeoDataFrame whose non-geometry columns become ``attributes``
-        and whose geometry column becomes an GeoServices JSON ``geometry``.
+        and whose geometry column becomes a GeoServices JSON ``geometry``.
 
     Returns
     -------

@@ -569,7 +569,7 @@ def _build_geoservices_error(
     body: Any | None,
     response: httpx.Response,
 ) -> HonuaHttpError:
-    """Construct a Honua exception from an GeoServices error envelope.
+    """Construct a Honua exception from a GeoServices error envelope.
 
     Chooses the exception subtype from a GeoServices-aware mapping (auth/token
     codes -> :class:`HonuaAuthError`) rather than reinterpreting the envelope

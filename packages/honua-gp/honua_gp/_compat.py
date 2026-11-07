@@ -946,7 +946,7 @@ COMPAT: dict[str, FunctionEntry] = {
             "Projects sa.Idw onto honua-server's raster.interpolate-idw GDAL-worker "
             "process (gdal_grid -a invdist). Takes a scattered point FeatureCollection "
             "(encoded to the base64 'points' input); z_field -> zField, power -> power, "
-            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' Esri "
+            "smoothing -> smoothing, radius -> radius. Matches the GPServer 'IDW' GeoServices "
             "task alias. Partial: the native worker sizes the output via width/height "
             "(passthrough) rather than a scripting-API cell_size, and the scripting API barrier/variable "
             "search options are not modelled. Returns a RasterResult handle."

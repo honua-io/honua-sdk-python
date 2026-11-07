@@ -102,7 +102,7 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
       which yields a GeoJSON geometry.
 
     ``default_type`` is an explicit ``esriGeometryType`` override; when provided
-    it is used verbatim for an GeoServices JSON mapping whose shape can't be inferred,
+    it is used verbatim for a GeoServices JSON mapping whose shape can't be inferred,
     instead of raising.
 
     Returns the GeoServices JSON geometry dict and its ``geometryType`` token.
@@ -114,7 +114,7 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
         geometry = geometry.__geo_interface__
     if not isinstance(geometry, Mapping):
         raise TypeError(
-            "spatial_filter geometry must be an GeoServices JSON mapping, a GeoJSON "
+            "spatial_filter geometry must be a GeoServices JSON mapping, a GeoJSON "
             "geometry, or an object exposing __geo_interface__ (e.g. shapely)."
         )
 
@@ -163,7 +163,7 @@ def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[An
     GeoJSON (RFC 7946) winds exterior rings counter-clockwise and holes
     clockwise; GeoServices JSON uses the OPPOSITE convention and infers a ring's role
     (shell vs hole) from its winding. Emitting GeoJSON coordinates verbatim
-    therefore makes an GeoServices-conformant server read a CCW exterior as a hole,
+    therefore makes a GeoServices-conformant server read a CCW exterior as a hole,
     yielding an inverted/empty spatial filter and silently wrong query results.
 
     The ring's structural role is taken from its position (the first ring of a
@@ -359,7 +359,7 @@ def statistics_params(
 ) -> dict[str, Any]:
     """Translate statistics/aggregation inputs into GeoServices ``query`` params.
 
-    Mirrors the scripting-API / desktop scripting API summary-statistics surface:
+    Mirrors the scripting-API / web GIS Python API summary-statistics surface:
 
     * ``out_statistics`` → ``outStatistics`` (a JSON array of statistic defs).
     * ``group_by`` → ``groupByFieldsForStatistics`` (comma-joined).

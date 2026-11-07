@@ -120,4 +120,8 @@ rules it enforces, and how the drift gate works.
 
 ## Protocol terminology
 
-GeoServices REST format names and wire tokens derive from the Esri REST API. This SDK uses protocol names in its own descriptions and preserves the exact tokens required for interoperability.
+GeoServices REST format names and wire tokens derive from the Esri REST API.
+This SDK uses protocol names in its own descriptions and preserves the exact
+tokens required for interoperability. Source toolbox formats (`pyt`, `atbx`,
+`tbx`) are Esri formats; the translation manifest describes them without
+changing their input grammar.

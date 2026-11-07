@@ -5,7 +5,7 @@ The typed feature models (:class:`~honua_sdk.models.Feature`,
 either the GeoServices JSON shape (GeoServices FeatureServer) or the GeoJSON shape
 (OGC API Features / STAC). This module converts either shape to a Shapely
 geometry and to a GeoJSON-mapping ``__geo_interface__``, giving GP tooling the
-``feature.SHAPE`` / desktop scripting API geometry-object ergonomic without forcing the
+``feature.SHAPE`` / web GIS Python API geometry-object ergonomic without forcing the
 caller down to ``result.raw`` and the standalone ``geopandas`` bridge.
 
 Shapely stays an **optional** dependency: importing this module never requires
@@ -15,7 +15,7 @@ when Shapely is absent. The pure-dict ``__geo_interface__`` path
 
 Both encodings preserve Z (and, for GeoServices JSON, drop the trailing M ordinate so the
 coordinate tuples stay 2-D/3-D rather than leaking an M value into the Z slot).
-Esri polygon ring orientation follows the GeoServices convention — clockwise exterior
+GeoServices JSON polygon rings follow the GeoServices convention — clockwise exterior
 rings, counter-clockwise holes — and is mapped onto Shapely's exterior/interior
 ring model robustly even when a service emits inconsistent winding.
 """
@@ -167,7 +167,7 @@ def _geojson_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """Normalize an GeoServices JSON or GeoJSON geometry mapping to a GeoJSON mapping.
+    """Normalize a GeoServices JSON or GeoJSON geometry mapping to a GeoJSON mapping.
 
     Returns ``None`` for an absent or empty geometry. This is the pure-dict
     path behind ``Feature.__geo_interface__`` / ``QueryFeature.__geo_interface__``
@@ -186,7 +186,7 @@ def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] 
 
 
 def geometry_to_shapely(geom: Mapping[str, Any] | None) -> BaseGeometry | None:
-    """Convert an GeoServices JSON or GeoJSON geometry mapping to a Shapely geometry.
+    """Convert a GeoServices JSON or GeoJSON geometry mapping to a Shapely geometry.
 
     Returns ``None`` for an absent or empty geometry. Raises :class:`ImportError`
     with an install hint when Shapely is not available.

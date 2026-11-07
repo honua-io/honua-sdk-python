@@ -76,7 +76,7 @@ def test_coerce_geometry_geojson_polygon() -> None:
 def test_geojson_polygon_spatial_filter_orients_rings_to_esri_winding() -> None:
     """An RFC 7946 GeoJSON polygon (CCW exterior, CW hole) must be re-wound to
     the GeoServices convention (CW exterior, CCW hole). Emitting it verbatim would make
-    an GeoServices-conformant server read the exterior as a hole -> inverted/empty
+    a GeoServices-conformant server read the exterior as a hole -> inverted/empty
     filter and silently wrong results."""
     geojson = {
         "type": "Polygon",

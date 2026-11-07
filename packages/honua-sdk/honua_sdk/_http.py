@@ -573,7 +573,7 @@ def _build_geoservices_error(
 
     Chooses the exception subtype from a GeoServices-aware mapping (auth/token
     codes -> :class:`HonuaAuthError`) rather than reinterpreting the envelope
-    code as an HTTP status, and records the original Esri code on ``error_code``.
+    code as an HTTP status, and records the original GeoServices REST code on ``error_code``.
     """
     request_id = (
         response.headers.get("x-request-id")

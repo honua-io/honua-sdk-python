@@ -27,7 +27,7 @@ from typing import Any
 #: Canonical spatial-relationship tokens accepted on a spatial filter, mapped to
 #: their GeoServices ``spatialRel`` values. Accepts the bare relationship name
 #: (``"intersects"``), the gRPC-style ``SCREAMING_SNAKE`` form
-#: (``"WITHIN_DISTANCE"``), and the raw Esri token (``"esriSpatialRelWithin"``).
+#: (``"WITHIN_DISTANCE"``), and the raw GeoServices REST token (``"esriSpatialRelWithin"``).
 _SPATIAL_REL: dict[str, str] = {
     "intersects": "esriSpatialRelIntersects",
     "envelope-intersects": "esriSpatialRelEnvelopeIntersects",
@@ -79,7 +79,7 @@ def _is_distance_relationship(value: str) -> bool:
 #: Index of the first non-planar ordinate (z) in an ``[x, y, z]`` coordinate.
 _XY_LEN = 2
 
-_GEOJSON_TO_ESRI_TYPE = {
+_GEOJSON_TO_GEOSERVICES_TYPE = {
     "Point": "esriGeometryPoint",
     "MultiPoint": "esriGeometryMultipoint",
     "LineString": "esriGeometryPolyline",
@@ -90,7 +90,7 @@ _GEOJSON_TO_ESRI_TYPE = {
 
 
 def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[dict[str, Any], str]:
-    """Coerce a geometry to ``(esri_json, esriGeometryType)``.
+    """Coerce a geometry to ``(geometry_json, geometry_type)``.
 
     Accepts:
 
@@ -120,16 +120,16 @@ def coerce_geometry(geometry: Any, *, default_type: str | None = None) -> tuple[
 
     # GeoJSON geometry: has a "type" + "coordinates".
     if "type" in geometry and "coordinates" in geometry:
-        return _geojson_geometry_to_esri(geometry), _GEOJSON_TO_ESRI_TYPE.get(
+        return _geojson_geometry_to_geoservices(geometry), _GEOJSON_TO_GEOSERVICES_TYPE.get(
             str(geometry.get("type")), "esriGeometryPolygon"
         )
 
     if default_type is not None:
         return dict(geometry), default_type
-    return dict(geometry), _esri_geometry_type(geometry)
+    return dict(geometry), _geoservices_geometry_type(geometry)
 
 
-def _esri_geometry_type(geometry: Mapping[str, Any]) -> str:
+def _geoservices_geometry_type(geometry: Mapping[str, Any]) -> str:
     if "x" in geometry and "y" in geometry:
         return "esriGeometryPoint"
     if "rings" in geometry:
@@ -157,7 +157,7 @@ def _ring_signed_area(ring: Sequence[Sequence[Any]]) -> float:
     return area / 2.0
 
 
-def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[Any]]:
+def _geoservices_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[Any]]:
     """Copy a GeoJSON ring with GeoServices winding (CW exterior, CCW holes).
 
     GeoJSON (RFC 7946) winds exterior rings counter-clockwise and holes
@@ -183,7 +183,7 @@ def _esri_ring(ring: Sequence[Sequence[Any]], *, exterior: bool) -> list[list[An
     return coords
 
 
-def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
+def _geojson_geometry_to_geoservices(geometry: Mapping[str, Any]) -> dict[str, Any]:
     gtype = str(geometry.get("type"))
     coords = geometry.get("coordinates")
     if gtype == "Point":
@@ -201,7 +201,7 @@ def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
     if gtype == "Polygon":
         return {
             "rings": [
-                _esri_ring(ring, exterior=(idx == 0))
+                _geoservices_ring(ring, exterior=(idx == 0))
                 for idx, ring in enumerate(coords or [])
             ]
         }
@@ -209,7 +209,7 @@ def _geojson_geometry_to_esri(geometry: Mapping[str, Any]) -> dict[str, Any]:
         rings: list[list[list[float]]] = []
         for polygon in coords or []:
             for idx, ring in enumerate(polygon):
-                rings.append(_esri_ring(ring, exterior=(idx == 0)))
+                rings.append(_geoservices_ring(ring, exterior=(idx == 0)))
         return {"rings": rings}
     raise ValueError(f"Unsupported GeoJSON geometry type: {gtype!r}.")
 
@@ -258,7 +258,7 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
     """
     geometry_value = _first(spatial_filter, "geometry", "geom", "shape")
     explicit_type = _first(spatial_filter, "geometry_type", "geometryType")
-    esri_geometry, inferred_type = coerce_geometry(geometry_value, default_type=explicit_type)
+    geoservices_geometry, inferred_type = coerce_geometry(geometry_value, default_type=explicit_type)
     geometry_type = explicit_type or inferred_type
 
     relationship = (
@@ -268,7 +268,7 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
     spatial_rel = normalize_spatial_relationship(str(relationship))
 
     params: dict[str, Any] = {
-        "geometry": json.dumps(esri_geometry, separators=(",", ":")),
+        "geometry": json.dumps(geoservices_geometry, separators=(",", ":")),
         "geometryType": geometry_type,
         "spatialRel": spatial_rel,
     }
@@ -277,7 +277,10 @@ def spatial_filter_params(spatial_filter: Mapping[str, Any]) -> dict[str, Any]:
         _first(spatial_filter, "in_sr", "inSR", "sr", "spatial_reference", "spatialReference")
     )
     if in_sr is None:
-        in_sr = _sr_wkid(esri_geometry.get("spatialReference")) if isinstance(esri_geometry, Mapping) else None
+        in_sr = (
+            _sr_wkid(geoservices_geometry.get("spatialReference"))
+            if isinstance(geoservices_geometry, Mapping) else None
+        )
     if in_sr is None:
         in_sr = 4326
     params["inSR"] = in_sr

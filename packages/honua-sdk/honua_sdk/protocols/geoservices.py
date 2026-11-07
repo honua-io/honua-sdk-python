@@ -50,9 +50,7 @@ AttachmentFile = str | os.PathLike[str] | bytes | IO[bytes]
 class AttachmentInfo:
     """One attachment's metadata, as returned by the FeatureServer.
 
-    Mirrors a GeoServices ``attachmentInfo`` entry (the same shape
-    the scripting API's attachment tools and the ArcGIS API for Python's
-    ``FeatureLayer.attachments`` surface). ``object_id`` is the attachment's
+    Mirrors a GeoServices REST ``attachmentInfo`` entry. ``object_id`` is the attachment's
     own id (used to download/delete it), distinct from the parent feature's
     object id (``parent_object_id``).
     """
@@ -146,7 +144,7 @@ class AttachmentOperationResult:
 class AddAttachmentResult(AttachmentOperationResult):
     """Parsed ``addAttachment`` response.
 
-    ``object_id`` is the id of the newly created attachment (Esri returns the
+    ``object_id`` is the id of the newly created attachment (GeoServices REST returns the
     attachment id in ``addAttachmentResult.objectId``), usable directly with
     :meth:`download_attachment` / :meth:`delete_attachment`.
     """
@@ -236,7 +234,7 @@ def _attachment_multipart_file(file: AttachmentFile, *, content_type: "str | Non
 
     The Honua server reads the first uploaded file regardless of field name
     (``form.Files[0]``), so the multipart part is always named ``attachment``
-    (the Esri-conventional field name).
+    (the conventional GeoServices REST field name).
     """
     if isinstance(file, bytes):
         return ("upload", file, content_type)
@@ -962,7 +960,7 @@ class GeoServicesImageServerClient(_SyncProtocol):
     ) -> JsonObject:
         """Find raster catalog images whose footprint contains ``to_geometry`` (GeoServices ``find``).
 
-        ``to_geometry`` (an Esri point) is required by honua's ImageServer
+        ``to_geometry`` (a GeoServices REST point) is required by honua's ImageServer
         ``find`` implementation; ``from_geometry`` is the optional viewpoint
         used for orientation-ranked ordering. ``where``/``object_ids`` filter
         the catalog the same way they do on :meth:`query`.
@@ -1783,7 +1781,7 @@ class AsyncGeoServicesImageServerClient(_AsyncProtocol):
     ) -> JsonObject:
         """Find raster catalog images whose footprint contains ``to_geometry`` (GeoServices ``find``).
 
-        ``to_geometry`` (an Esri point) is required by honua's ImageServer
+        ``to_geometry`` (a GeoServices REST point) is required by honua's ImageServer
         ``find`` implementation; ``from_geometry`` is the optional viewpoint
         used for orientation-ranked ordering. ``where``/``object_ids`` filter
         the catalog the same way they do on :meth:`query`.

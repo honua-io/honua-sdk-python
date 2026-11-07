@@ -85,7 +85,7 @@ class Row:
         return tuple(out)
 
 
-def _esri_feature_from(
+def _geoservices_feature_from(
     attributes: Mapping[str, Any],
     geometry: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
@@ -247,7 +247,7 @@ class InsertCursor(_BaseWriteCursor):
         geometry: Mapping[str, Any] | None = None,
     ) -> None:
         """Queue a feature for insertion, flushing when the batch fills."""
-        self._buffer.adds.append(_esri_feature_from(attributes, geometry))
+        self._buffer.adds.append(_geoservices_feature_from(attributes, geometry))
         if self._buffer.pending >= self._buffer.batch_size:
             self.flush()
 
@@ -336,7 +336,7 @@ class UpdateCursor(_BaseWriteCursor):
         if not any(key in merged for key in ("objectid", "objectId", "OBJECTID")):
             merged["OBJECTID"] = object_id
         geom = geometry if geometry is not None else row.feature.geometry
-        self._buffer.updates.append(_esri_feature_from(merged, geom))
+        self._buffer.updates.append(_geoservices_feature_from(merged, geom))
         if self._buffer.pending >= self._buffer.batch_size:
             self.flush()
 
@@ -426,7 +426,7 @@ class AsyncInsertCursor(_BaseWriteCursor):
         geometry: Mapping[str, Any] | None = None,
     ) -> None:
         """Queue a feature for insertion (flush is explicit on the async cursor)."""
-        self._buffer.adds.append(_esri_feature_from(attributes, geometry))
+        self._buffer.adds.append(_geoservices_feature_from(attributes, geometry))
 
     async def flush(self) -> ApplyEditsResult | None:
         """Write any pending inserts; returns the batch result or ``None``."""
@@ -504,7 +504,7 @@ class AsyncUpdateCursor(_BaseWriteCursor):
         if not any(key in merged for key in ("objectid", "objectId", "OBJECTID")):
             merged["OBJECTID"] = object_id
         geom = geometry if geometry is not None else row.feature.geometry
-        self._buffer.updates.append(_esri_feature_from(merged, geom))
+        self._buffer.updates.append(_geoservices_feature_from(merged, geom))
 
     async def flush(self) -> ApplyEditsResult | None:
         """Write any pending updates; returns the batch result or ``None``."""

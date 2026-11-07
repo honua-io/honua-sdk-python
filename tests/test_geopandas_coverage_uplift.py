@@ -29,10 +29,10 @@ from honua_sdk import geopandas as honua_gp
 from honua_sdk.geopandas import (
     _crs_from_geojson,
     _crs_from_spatial_reference,
-    _esri_geometry_to_shapely,
+    _geoservices_geometry_to_shapely,
     _json_safe_value,
     _normalize_geojson_crs_identifier,
-    _shapely_to_esri_geometry,
+    _shapely_to_geoservices_geometry,
     features_to_geodataframe,
     geodataframe_to_features,
     ogc_features_to_geodataframe,
@@ -131,40 +131,40 @@ class TestCrsParsing:
 # GeoServices JSON -> Shapely geometry conversions
 
 
-class TestEsriToShapely:
+class TestGeoServicesToShapely:
     def test_none_geometry_returns_none(self) -> None:
-        assert _esri_geometry_to_shapely(None) is None
+        assert _geoservices_geometry_to_shapely(None) is None
 
     def test_point_with_null_coords(self) -> None:
-        assert _esri_geometry_to_shapely({"x": None, "y": None}) is None
-        assert _esri_geometry_to_shapely({"x": 1.0, "y": None}) is None
+        assert _geoservices_geometry_to_shapely({"x": None, "y": None}) is None
+        assert _geoservices_geometry_to_shapely({"x": 1.0, "y": None}) is None
 
     def test_multipoint(self) -> None:
-        geom = _esri_geometry_to_shapely({"points": [[0, 0], [1, 1]]})
+        geom = _geoservices_geometry_to_shapely({"points": [[0, 0], [1, 1]]})
         assert isinstance(geom, MultiPoint)
         assert len(list(geom.geoms)) == 2
 
     def test_empty_multipoint(self) -> None:
-        assert _esri_geometry_to_shapely({"points": []}) is None
+        assert _geoservices_geometry_to_shapely({"points": []}) is None
 
     def test_polyline_single_path_is_linestring(self) -> None:
-        geom = _esri_geometry_to_shapely({"paths": [[[0, 0], [1, 1]]]})
+        geom = _geoservices_geometry_to_shapely({"paths": [[[0, 0], [1, 1]]]})
         assert isinstance(geom, LineString)
 
     def test_polyline_multi_paths_is_multilinestring(self) -> None:
-        geom = _esri_geometry_to_shapely(
+        geom = _geoservices_geometry_to_shapely(
             {"paths": [[[0, 0], [1, 1]], [[2, 2], [3, 3]]]}
         )
         assert isinstance(geom, MultiLineString)
 
     def test_empty_polyline(self) -> None:
-        assert _esri_geometry_to_shapely({"paths": []}) is None
+        assert _geoservices_geometry_to_shapely({"paths": []}) is None
 
     def test_polygon_with_hole(self) -> None:
         # Exterior CW (GeoServices convention), hole CCW
         exterior_cw = [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
         hole_ccw = [[2, 2], [4, 2], [4, 4], [2, 4], [2, 2]]
-        geom = _esri_geometry_to_shapely({"rings": [exterior_cw, hole_ccw]})
+        geom = _geoservices_geometry_to_shapely({"rings": [exterior_cw, hole_ccw]})
         assert isinstance(geom, Polygon)
         # Polygon area = 100 - 4 = 96
         assert geom.area == pytest.approx(96.0)
@@ -172,33 +172,33 @@ class TestEsriToShapely:
     def test_polygon_with_multiple_exteriors_is_multipolygon(self) -> None:
         ext1 = [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
         ext2 = [[20, 20], [20, 30], [30, 30], [30, 20], [20, 20]]
-        geom = _esri_geometry_to_shapely({"rings": [ext1, ext2]})
+        geom = _geoservices_geometry_to_shapely({"rings": [ext1, ext2]})
         assert isinstance(geom, MultiPolygon)
 
     def test_empty_polygon(self) -> None:
-        assert _esri_geometry_to_shapely({"rings": []}) is None
+        assert _geoservices_geometry_to_shapely({"rings": []}) is None
 
     def test_unknown_geometry_returns_none(self) -> None:
-        assert _esri_geometry_to_shapely({"foo": "bar"}) is None
+        assert _geoservices_geometry_to_shapely({"foo": "bar"}) is None
 
 
 # Shapely -> GeoServices JSON geometry conversions
 
 
-class TestShapelyToEsri:
+class TestShapelyToGeoServices:
     def test_none_geometry_returns_none(self) -> None:
-        assert _shapely_to_esri_geometry(None) is None
+        assert _shapely_to_geoservices_geometry(None) is None
 
     def test_multipoint(self) -> None:
-        result = _shapely_to_esri_geometry(MultiPoint([(0, 0), (1, 1)]))
+        result = _shapely_to_geoservices_geometry(MultiPoint([(0, 0), (1, 1)]))
         assert result == {"points": [[0.0, 0.0], [1.0, 1.0]]}
 
     def test_linestring(self) -> None:
-        result = _shapely_to_esri_geometry(LineString([(0, 0), (1, 1)]))
+        result = _shapely_to_geoservices_geometry(LineString([(0, 0), (1, 1)]))
         assert result == {"paths": [[[0.0, 0.0], [1.0, 1.0]]]}
 
     def test_multilinestring(self) -> None:
-        result = _shapely_to_esri_geometry(
+        result = _shapely_to_geoservices_geometry(
             MultiLineString([[(0, 0), (1, 1)], [(2, 2), (3, 3)]])
         )
         assert result == {
@@ -210,7 +210,7 @@ class TestShapelyToEsri:
             [(0, 0), (0, 10), (10, 10), (10, 0), (0, 0)],
             holes=[[(2, 2), (2, 4), (4, 4), (4, 2), (2, 2)]],
         )
-        result = _shapely_to_esri_geometry(poly)
+        result = _shapely_to_geoservices_geometry(poly)
         assert result is not None
         assert len(result["rings"]) == 2
 
@@ -220,7 +220,7 @@ class TestShapelyToEsri:
             holes=[[(2, 2), (2, 4), (4, 4), (4, 2), (2, 2)]],
         )
         p2 = Polygon([(20, 20), (20, 30), (30, 30), (30, 20), (20, 20)])
-        result = _shapely_to_esri_geometry(MultiPolygon([p1, p2]))
+        result = _shapely_to_geoservices_geometry(MultiPolygon([p1, p2]))
         assert result is not None
         assert len(result["rings"]) == 3
 
@@ -229,7 +229,7 @@ class TestShapelyToEsri:
             pass
 
         with pytest.raises(TypeError, match="Unsupported geometry type"):
-            _shapely_to_esri_geometry(_NotAGeometry())
+            _shapely_to_geoservices_geometry(_NotAGeometry())
 
 
 # _json_safe_value

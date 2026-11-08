@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Create and test a PostGIS datasource, publish a table, query and count it, approve an agent's proposal as a second principal, then unpublish the layer, using only the PyPI command-line clients.">
+        <meta name="description" content="Create and test a PostGIS Connection, publish a table, query and count it, approve an agent's proposal as a second principal, then disable the Layer, using only the PyPI command-line clients.">
       
       
       
@@ -1413,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-create-a-datasource-and-test-it" class="md-nav__link">
+  <a href="#2-create-a-connection-and-test-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Create a datasource and test it
+        2. Create a Connection and test it
       
     </span>
   </a>
@@ -1457,10 +1457,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-unpublish-the-layer" class="md-nav__link">
+  <a href="#6-disable-the-layer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. Unpublish the layer
+        6. Disable the Layer
       
     </span>
   </a>
@@ -1488,7 +1488,7 @@
 
 
 <h1 id="run-the-operator-workflow-from-a-terminal">Run the operator workflow from a terminal<a class="headerlink" href="#run-the-operator-workflow-from-a-terminal" title="Permanent link">&para;</a></h1>
-<p>This guide runs a whole publication from the shell with the <code>honua</code> script.
+<p>This guide runs a Layer lifecycle from the shell with the <code>honua</code> script.
 Every step is one command, and with <code>--json</code> each one prints a JSON object you
 can pipe into <code>jq</code>.</p>
 <h2 id="before-you-start">Before you start<a class="headerlink" href="#before-you-start" title="Permanent link">&para;</a></h2>
@@ -1503,13 +1503,13 @@ can pipe into <code>jq</code>.</p>
 <h2 id="1-find-the-published-services">1. Find the published services<a class="headerlink" href="#1-find-the-published-services" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>honua<span class="w"> </span>services<span class="w"> </span>--json
 </code></pre></div>
-<h2 id="2-create-a-datasource-and-test-it">2. Create a datasource and test it<a class="headerlink" href="#2-create-a-datasource-and-test-it" title="Permanent link">&para;</a></h2>
+<h2 id="2-create-a-connection-and-test-it">2. Create a Connection and test it<a class="headerlink" href="#2-create-a-connection-and-test-it" title="Permanent link">&para;</a></h2>
 <p>The password never goes on the command line. Name an environment variable
 that holds it with <code>--password-env</code>, pipe it in with <code>--password-stdin</code>, or put
 it in a <code>--body</code> file that only you can read.</p>
 <div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">FIXTURE_DB_PASSWORD</span><span class="o">=</span>...
 honua<span class="w"> </span>datasource<span class="w"> </span>create<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--name<span class="w"> </span>lifecycle<span class="w"> </span>--host<span class="w"> </span>db.internal<span class="w"> </span>--port<span class="w"> </span><span class="m">5432</span><span class="w"> </span>--database<span class="w"> </span>gis<span class="w"> </span>--username<span class="w"> </span>honua<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--name<span class="w"> </span>lifecycle<span class="w"> </span>--host<span class="w"> </span>db.example.com<span class="w"> </span>--port<span class="w"> </span><span class="m">5432</span><span class="w"> </span>--database<span class="w"> </span>gis<span class="w"> </span>--username<span class="w"> </span>honua<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--password-env<span class="w"> </span>FIXTURE_DB_PASSWORD<span class="w"> </span>--ssl-mode<span class="w"> </span>Require<span class="w"> </span>--json
 </code></pre></div>
 <p>The result carries <code>connectionId</code>. Test the stored connection:</p>
@@ -1550,11 +1550,11 @@ refuses: the command exits <code>1</code> and prints <code>error: HTTP 403: ...<
 <code>Failed</code>, <code>Rejected</code>, <code>RolledBack</code> or <code>Cancelled</code>). It exits <code>1</code> if that
 doesn't happen within <code>--wait-timeout</code> seconds (default 120). To turn a
 proposal down instead, run <code>honua proposal reject prop-123 --reason "..."</code>.</p>
-<h2 id="6-unpublish-the-layer">6. Unpublish the layer<a class="headerlink" href="#6-unpublish-the-layer" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>honua<span class="w"> </span>layer<span class="w"> </span>unpublish<span class="w"> </span>conn-1<span class="w"> </span><span class="m">1</span><span class="w"> </span>--service-name<span class="w"> </span>lifecycle<span class="w"> </span>--json
+<h2 id="6-disable-the-layer">6. Disable the Layer<a class="headerlink" href="#6-disable-the-layer" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>honua<span class="w"> </span>layer<span class="w"> </span>disable<span class="w"> </span>conn-1<span class="w"> </span><span class="m">1</span><span class="w"> </span>--service-name<span class="w"> </span>lifecycle<span class="w"> </span>--json
 honua<span class="w"> </span>query<span class="w"> </span>lifecycle<span class="w"> </span><span class="m">1</span><span class="w">   </span><span class="c1"># exits 1: error: HTTP 404: ...</span>
 </code></pre></div>
-<p><code>unpublish</code> (alias <code>disable</code>) turns the layer off but keeps its definition.
+<p><code>disable</code> turns the layer off but keeps its definition.
 <code>honua layer enable conn-1 1</code> turns it back on.</p>
 <p>See the <a href="../reference/">command reference</a> for every option.</p>
 

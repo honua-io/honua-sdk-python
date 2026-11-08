@@ -8,6 +8,22 @@
 
 - Removed the offline Python source scanner, local toolbox parsers, translation CLI, and their public exports. Source-code classification and automatic conversion are no longer provided. Consumers of the migration package, its command-line entry point, or local scan functions must remove or replace those integrations. This is an intentional breaking change for a coordinated major release. Generic admin toolbox-manifest submission and server validation remain available independently of local parsing.
 
+## [0.3.0](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.2.2...python-sdk-v0.3.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** name Layer disable accurately and align Connection help ([#376](https://github.com/honua-io/honua-sdk-python/issues/376))
+
+### Features
+
+* follow explicit Folder Service links in data reads ([#375](https://github.com/honua-io/honua-sdk-python/issues/375)) ([4742c92](https://github.com/honua-io/honua-sdk-python/commit/4742c92431e81294e4f7528e2cb8056389a0d5e6))
+
+
+### Bug Fixes
+
+* **cli:** name Layer disable accurately and align Connection help ([#376](https://github.com/honua-io/honua-sdk-python/issues/376)) ([837e5ee](https://github.com/honua-io/honua-sdk-python/commit/837e5ee4d497406af7ce4dd625f958a6a08749ed))
+
 ## [0.2.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.2.1...python-sdk-v0.2.2) (2026-11-07)
 
 

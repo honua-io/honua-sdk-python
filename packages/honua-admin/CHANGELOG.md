@@ -10,6 +10,24 @@
 
 - Replace `layer unpublish` with `layer disable` in `honua-admin` and in `honua` when this admin package is installed. The command disables serving and retains the Layer definition; `layer enable` restores serving. Update scripts to use `disable`. The `datasource` command path remains unchanged and manages Connections.
 
+## [0.3.0](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.2.2...python-admin-v0.3.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** name Layer disable accurately and align Connection help ([#376](https://github.com/honua-io/honua-sdk-python/issues/376))
+
+### Features
+
+* **admin:** add folder management and publishing metadata ([#371](https://github.com/honua-io/honua-sdk-python/issues/371)) ([fba5aa8](https://github.com/honua-io/honua-sdk-python/commit/fba5aa8f59d754d3c5f4dba82aa43b5cc5a7d766))
+
+
+### Bug Fixes
+
+* **admin:** accept nightly server compatibility with warnings ([#373](https://github.com/honua-io/honua-sdk-python/issues/373)) ([33b19df](https://github.com/honua-io/honua-sdk-python/commit/33b19df065a3f16ecde2914c40790f1b3fb5859c))
+* **cli:** name Layer disable accurately and align Connection help ([#376](https://github.com/honua-io/honua-sdk-python/issues/376)) ([837e5ee](https://github.com/honua-io/honua-sdk-python/commit/837e5ee4d497406af7ce4dd625f958a6a08749ed))
+* **release:** allow the paired SDK 0.3 dependency ([#377](https://github.com/honua-io/honua-sdk-python/issues/377)) ([6929e35](https://github.com/honua-io/honua-sdk-python/commit/6929e353709912a7137df4cbac472d85420c8fdc))
+
 ## [0.2.2](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.2.1...python-admin-v0.2.2) (2026-11-07)
 
 

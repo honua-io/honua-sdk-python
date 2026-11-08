@@ -46,7 +46,7 @@ async def test_folder_service_reads_preserve_features_and_logical_identity(folde
             result = source.query()
         else:
             address = config.service_id if address_kind == "root-alias" else ServiceAddress(path)
-            result = client.query_features(address, config.layer_id)
+            result = client.query_feature_set(address, config.layer_id)
         if inspect.isawaitable(result):
             result = await result
         assert result.features

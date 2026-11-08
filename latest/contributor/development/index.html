@@ -1482,6 +1482,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Release declarations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geoprocessing-publication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Geoprocessing publication
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1536,13 +1553,13 @@ the policies behind the gates.</p>
 <tr>
 <td><code>packages/honua-gp</code></td>
 <td><code>honua-gp</code></td>
-<td>Proprietary (do-not-upload)</td>
-<td>Closed-source geoprocessing compatibility layer for teams migrating from GeoServices REST <code>desktop GIS API</code>. Import <code>honua_gp</code>. It has its own lenient lint/test gate, not the workspace-root strict rules.</td>
+<td>Apache-2.0</td>
+<td>Geoprocessing compatibility layer for teams migrating from GeoServices REST <code>desktop GIS API</code>. Import <code>honua_gp</code>. It has its own lenient lint/test gate, not the workspace-root strict rules.</td>
 </tr>
 </tbody>
 </table>
 <p>The packages build with Hatchling and release through release-please
-(<code>python-sdk-v*</code> / <code>python-admin-v*</code> tags publish to PyPI). Docs are
+(<code>python-sdk-v*</code> / <code>python-admin-v*</code> / <code>python-gp-v*</code> tags publish to PyPI). Docs are
 mkdocs-material (<code>mkdocs.yml</code>, <code>docs/</code>).</p>
 <h2 id="opt-in-and-secondary-lanes">Opt-in and secondary lanes<a class="headerlink" href="#opt-in-and-secondary-lanes" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="c1"># Build a package wheel + sdist the way CI does (run inside the package dir)</span>
@@ -1692,6 +1709,22 @@ fails if such a surface appears.</p>
   remove a required capability in the same PR that starts or stops depending
   on it.</li>
 </ul>
+<h3 id="geoprocessing-publication">Geoprocessing publication<a class="headerlink" href="#geoprocessing-publication" title="Permanent link">&para;</a></h3>
+<p><code>honua-gp</code> follows the same exact-tag, protected-environment, reproducible-build,
+PyPI parity, release-asset and attestation gates as the SDK and Admin packages.
+Its environment is <code>pypi-honua-gp</code>; its immutable tags are <code>python-gp-v*</code>.
+Register the PyPI trusted publisher for <code>publish-python-sdk.yml</code> and that
+GitHub environment before merging its release PR. A manual dry run can select
+<code>honua-gp</code>; <code>both</code> continues to select only SDK and Admin. Release Please
+completion selects every package tagged at its exact commit.</p>
+<p>After publication, <code>install-honua-gp</code> installs the exact version anonymously
+from PyPI in a fresh environment, checks dependencies, and runs CLI help.
+Pin the final version and wheel SHA256 in the release cohort only after this
+job, registry parity, provenance and SBOM attestations succeed.</p>
+<p>The first GP release is pinned to <code>0.1.0</code> with <code>release-as</code> in the GP Release Please
+configuration. Remove that bootstrap override after the first release, so later
+releases use conventional version increments. Production publication requires the
+workflow commit to equal the release commit before any package upload.</p>
 
 
 

@@ -361,3 +361,5 @@ Before SDK edit/rollback/readback, release runs require the candidate license
 status to report mode disabled with the editing entitlement active. The receipt
 retains that fresh observation. A rehearsal grant, a signed-license claim, or a
 stale observation fails closed.
+
+Use the [Honua vocabulary](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/docs/concepts/domain/README.md) for Connections, Datasets, Layers, Services, Folders and Environments.

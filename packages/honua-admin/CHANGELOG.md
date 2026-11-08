@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+* `honua connection` now runs the Python admin commands instead of forwarding to the JavaScript CLI. Invoke the JavaScript launcher directly for its Connection commands.
+
+* Rename the `honua-admin datasource` and `honua datasource` groups to `connection`.
+* Replace `layer unpublish` with `layer disable` in both command-line programs. The command disables serving and retains the Layer definition; `layer enable` restores serving. Update scripts to use `disable`.
+
 ## [0.2.2](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.2.1...python-admin-v0.2.2) (2026-11-07)
 
 

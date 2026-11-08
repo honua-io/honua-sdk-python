@@ -1,13 +1,13 @@
 ---
 type: guide
 title: "Run the operator workflow from a terminal"
-description: "Create and test a PostGIS datasource, publish a table, query and count it, approve an agent's proposal as a second principal, then unpublish the layer, using only the PyPI command-line clients."
+description: "Create and test a PostGIS connection, publish a table, query and count it, approve an agent's proposal as a second principal, then disable the layer, using only the PyPI command-line clients."
 resource: "honua://capability/admin.control-plane"
 tags: [cli, operator, publish, approval]
 ---
 # Run the operator workflow from a terminal
 
-This guide runs a whole publication from the shell with the `honua` script.
+This guide runs a Layer lifecycle from the shell with the `honua` script.
 Every step is one command, and with `--json` each one prints a JSON object you
 can pipe into `jq`.
 
@@ -16,7 +16,7 @@ can pipe into `jq`.
 ```bash
 pip install honua-sdk honua-admin
 export HONUA_BASE_URL=https://honua.example.com
-export HONUA_ADMIN_KEY=...   # control-plane commands: datasource, layer, proposal
+export HONUA_ADMIN_KEY=...   # control-plane commands: connection, layer, proposal
 export HONUA_API_KEY=...     # data-plane commands: services, layers, query
 ```
 
@@ -30,7 +30,7 @@ The control-plane commands read `--api-key`, then `HONUA_ADMIN_KEY`, then
 honua services --json
 ```
 
-## 2. Create a datasource and test it
+## 2. Create a connection and test it
 
 The password never goes on the command line. Name an environment variable
 that holds it with `--password-env`, pipe it in with `--password-stdin`, or put
@@ -38,15 +38,15 @@ it in a `--body` file that only you can read.
 
 ```bash
 export FIXTURE_DB_PASSWORD=...
-honua datasource create \
-  --name lifecycle --host db.internal --port 5432 --database gis --username honua \
+honua connection create \
+  --name lifecycle --host db.example.com --port 5432 --database gis --username honua \
   --password-env FIXTURE_DB_PASSWORD --ssl-mode Require --json
 ```
 
 The result carries `connectionId`. Test the stored connection:
 
 ```bash
-honua datasource test conn-1 --json
+honua connection test conn-1 --json
 ```
 
 The command exits `1` when the server reports `"isHealthy": false`.
@@ -98,14 +98,14 @@ refuses: the command exits `1` and prints `error: HTTP 403: ...` on stderr.
 doesn't happen within `--wait-timeout` seconds (default 120). To turn a
 proposal down instead, run `honua proposal reject prop-123 --reason "..."`.
 
-## 6. Unpublish the layer
+## 6. Disable the layer
 
 ```bash
-honua layer unpublish conn-1 1 --service-name lifecycle --json
+honua layer disable conn-1 1 --service-name lifecycle --json
 honua query lifecycle 1   # exits 1: error: HTTP 404: ...
 ```
 
-`unpublish` (alias `disable`) turns the layer off but keeps its definition.
+`disable` turns the layer off but keeps its definition.
 `honua layer enable conn-1 1` turns it back on.
 
 See the [command reference](reference.md) for every option.

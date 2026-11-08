@@ -43,9 +43,9 @@ Commands
     every other GP command. This explicit local CLI path does not change
     server SDK submission or routing.
 
-``honua datasource | layer | proposal``
+``honua connection | layer | proposal``
     The operator workflow from ``honua-admin`` (``pip install honua-admin``):
-    create and test datasources, publish and unpublish layers, and read,
+    create and test connections, publish, enable and disable layers, and read,
     approve or reject operation proposals. The same commands ship as the
     ``honua-admin`` console script; see :mod:`honua_admin.cli`.
 
@@ -420,7 +420,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
     subparsers.add_parser(
         "gp",
-        help="Inspect a job projection, or run the separately installed local GP devkit.",
+        help="Inspect job diagnostics, or run the separately installed local GP devkit.",
     )
 
     # honua services
@@ -527,7 +527,7 @@ def _add_query_parser(subparsers: Any) -> None:
 
 
 def _add_operator_commands(subparsers: Any) -> None:
-    """Mount ``honua-admin``'s datasource/layer/proposal groups, or a pointer to install it."""
+    """Mount ``honua-admin``'s connection/layer/proposal groups, or a pointer to install it."""
     try:
         admin_cli = importlib.import_module("honua_admin.cli")
     except ImportError:
@@ -535,7 +535,7 @@ def _add_operator_commands(subparsers: Any) -> None:
     if admin_cli is not None and hasattr(admin_cli, "add_operator_commands"):
         admin_cli.add_operator_commands(subparsers)
         return
-    for name in ("datasource", "layer", "proposal"):
+    for name in ("connection", "layer", "proposal"):
         stub = subparsers.add_parser(name, help=f"{name} commands (requires honua-admin).", add_help=False)
         stub.add_argument("rest", nargs=argparse.REMAINDER)
         stub.set_defaults(func=_missing_admin)
@@ -560,7 +560,6 @@ def _dispatch_style(args: argparse.Namespace, out: Any) -> int:
 JS_CLI_COMMANDS: frozenset[str] = frozenset(
     {
         "admin",
-        "connection",
         "explain",
         "geocode",
         "import",
@@ -679,7 +678,7 @@ def _delegate_control_plane(argv: Sequence[str], runner: Any = None) -> int:
         sys.stderr.write(
             f"error: `honua {command_name}` is provided by the @honua/sdk-js CLI, which was not found. "
             "Install it with `npm install -g @honua/sdk-js`, or set HONUA_JS_CLI to its bin.js. "
-            "The Python operator commands are `honua datasource|layer|proposal` "
+            "The Python operator commands are `honua connection|layer|proposal` "
             "(or the `honua-admin` script from honua-admin).\n"
         )
         return 127

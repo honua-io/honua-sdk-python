@@ -10,14 +10,14 @@ tags: [cli, reference]
 Server commands use typed SDK calls. The CLI sends no HTTP requests of its
 own. The explicit `gp` command invokes a separate local developer tool.
 `honua-admin <group> ...` and `honua <group> ...` are the same for the
-`datasource`, `layer` and `proposal` groups.
+`connection`, `layer` and `proposal` groups.
 
 ## Exit codes and output
 
 | Exit | Meaning |
 |------|---------|
 | `0` | Success. |
-| `1` | The server or transport refused the call. stderr carries `error: HTTP <status>: <message>`, for example `HTTP 403` for a self-approval or `HTTP 404` for a disabled layer. Also returned when `datasource test` reports an unhealthy connection, or when `proposal read --wait` times out. |
+| `1` | The server or transport refused the call. stderr carries `error: HTTP <status>: <message>`, for example `HTTP 403` for a self-approval or `HTTP 404` for a disabled layer. Also returned when `connection test` reports an unhealthy connection, or when `proposal read --wait` times out. |
 | `2` | Usage error: a missing argument, a bad `--body` file, or a group given without a subcommand. |
 | `3` | `gp inspect` / `gp logs` only: unauthorized (HTTP 401 or 403). This is not a missing job and not missing evidence. |
 | `4` | `gp inspect` / `gp logs` only: the job was not found (HTTP 404). |
@@ -108,13 +108,13 @@ default to `HONUA_BASE_URL` and `HONUA_API_KEY`.
 `query` options: `--where` (default `1=1`), `--out-fields` (default `*`),
 `--order-by`, `--limit` (`resultRecordCount`), `--offset` (`resultOffset`).
 
-## `datasource`
+## `connection`
 
 | Command | SDK call |
 |---------|----------|
-| `datasource list` | `HonuaAdminClient.list_connections` |
-| `datasource create ...` | `HonuaAdminClient.create_connection` |
-| `datasource test CONNECTION_ID` | `HonuaAdminClient.test_connection`; exits `1` when `isHealthy` is `false` |
+| `connection list` | `HonuaAdminClient.list_connections` |
+| `connection create ...` | `HonuaAdminClient.create_connection` |
+| `connection test CONNECTION_ID` | `HonuaAdminClient.test_connection`; exits `1` when `isHealthy` is `false` |
 
 `create` options: `--name`, `--description`, `--host`, `--port` (default
 `5432`), `--database`, `--username`, `--ssl-required`, `--ssl-mode`,
@@ -133,7 +133,7 @@ The password is never accepted as a flag value, and it is never printed.
 |---------|----------|
 | `layer list CONNECTION_ID [--service-name NAME]` | `HonuaAdminClient.list_layers` |
 | `layer publish CONNECTION_ID ...` | `HonuaAdminClient.publish_layer` |
-| `layer unpublish CONNECTION_ID LAYER_ID [--service-name NAME]` (alias `disable`) | `HonuaAdminClient.set_layer_enabled(..., False)` |
+| `layer disable CONNECTION_ID LAYER_ID [--service-name NAME]` | `HonuaAdminClient.set_layer_enabled(..., False)` |
 | `layer enable CONNECTION_ID LAYER_ID [--service-name NAME]` | `HonuaAdminClient.set_layer_enabled(..., True)` |
 
 `publish` options: `--table` (required here or in `--body`), `--schema`
@@ -169,7 +169,7 @@ the CLI has no submit command.
 These commands are implemented only by the `@honua/sdk-js` command line, and
 `honua` forwards them to it with the same arguments and environment:
 
-`admin`, `connection`, `explain`, `geocode`, `import`, `login`, `logout`,
+`admin`, `explain`, `geocode`, `import`, `login`, `logout`,
 `map`, `stac`, `studio`, `tiles`, `whoami`.
 
 `honua` looks for that CLI in two places:

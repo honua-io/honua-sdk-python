@@ -76,7 +76,7 @@ def test_query_count(served: list[httpx.Request], capsys: pytest.CaptureFixture[
     assert capsys.readouterr().out == "7\n"
 
 
-def test_query_unpublished_layer_exits_1_with_http_status(
+def test_query_disabled_layer_exits_1_with_http_status(
     served: list[httpx.Request], capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert cli.main(["query", "lifecycle", "1", "--format", "geojson"]) == 1
@@ -131,7 +131,7 @@ def test_operator_groups_point_at_honua_admin_when_missing(
         return real_import(name, package)
 
     monkeypatch.setattr(cli.importlib, "import_module", without_admin)
-    for group in ("datasource", "layer", "proposal"):
+    for group in ("connection", "layer", "proposal"):
         assert cli.main([group, "create", "--name", "x"]) == 2
         assert f"`honua {group}` needs the control-plane package" in capsys.readouterr().err
 
@@ -148,7 +148,7 @@ def test_missing_js_cli_message_names_python_operator_commands(
     monkeypatch.delenv("HONUA_JS_CLI", raising=False)
     monkeypatch.setenv("PATH", "")
     assert cli._delegate_control_plane(["admin", "connect"]) == 127
-    assert "honua datasource|layer|proposal" in capsys.readouterr().err
+    assert "honua connection|layer|proposal" in capsys.readouterr().err
 
 
 def test_missing_admin_reports_command(capsys: pytest.CaptureFixture[str]) -> None:

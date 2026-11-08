@@ -61,6 +61,52 @@ server value; `False` disables the corresponding anonymous permission, and
 `[]` clears a role restriction. The response contains refreshed service
 settings, including the resolved access policy.
 
+## Folders
+
+Both clients expose the server's one-level Folder catalog. Access is managed
+per Service. `service_name` remains the logical Admin identity; use protocol
+links from discovery when connecting to a Service.
+
+| Method | Result |
+| --- | --- |
+| `list_folders()` | `(list[Folder], snapshot_etag)` including empty Folders |
+| `create_folder(name, if_match=etag)` | `(Folder, new_etag)` |
+| `update_folder(id, if_match=etag, ...)` | `(Folder, new_etag)` |
+| `delete_folder(id, if_match=etag)` | New ETag; the Folder must be empty |
+| `move_service(name, folder_id, if_match=etag)` | New ETag; `None` selects Root |
+
+```python
+from honua_admin import HonuaAdminClient
+
+with HonuaAdminClient("https://admin.your-honua-server.com", api_key="...") as admin:
+    folders, etag = admin.list_folders()
+    if etag is None:
+        raise RuntimeError("The catalog response did not include an ETag")
+    folder, etag = admin.create_folder("Survey", title="Field survey", if_match=etag)
+    if etag is None:
+        raise RuntimeError("The mutation response did not include an ETag")
+    etag = admin.move_service("parcels", folder.metadata.id, if_match=etag)
+```
+
+Await the same methods on `AsyncHonuaAdminClient`. The ETag belongs to the
+whole catalog, so another catalog edit can make it stale. A stale write raises
+`HonuaHttpError` with status 412: refresh and review the intended change before
+retrying. Conflicts, non-empty deletion and authorization failures retain the
+server's HTTP error status and details. Where approval is required, these calls
+surface that requirement; they do not approve the mutation.
+
+Omitting `namespace` keeps the operation unscoped. Supplying it selects the
+namespace operation under the tenant resolved by the server. Folder moves and
+path renames retain the old public paths according to the server's reservation
+rules. `update_folder(..., title=None)` clears display text; omitting `title`
+preserves it. Changing `name` changes the Folder path.
+
+Publishing accepts `PublishLayerRequest.folder_id`: omit it to preserve the
+server's default or existing membership, supply `None` to select Root, or pass
+the Folder ID. `public_name` selects the immutable public leaf for a new
+Service. It is separate from the logical `service_name` and display title.
+Existing calls without these fields keep their original request JSON.
+
 **See also**: [honua-sdk Clients](../honua-sdk/clients.md) for the data-plane
 counterpart that shares the same configuration model, and
 [Core client model](../../core-client.md) for cross-package `with_options(...)`

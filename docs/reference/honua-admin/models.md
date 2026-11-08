@@ -27,6 +27,16 @@ endpoints.
 ::: honua_admin.ServiceSettingsResponse
 ::: honua_admin.AccessPolicyResponse
 
+## Folders
+
+`Folder` carries typed identity/display metadata and permanent previous path
+names. `AdminServiceSummary` includes optional `folder_id`, `folder_name`,
+`public_name`, `title` and `folder_mutation_issues`; root-only responses may
+omit these fields. Logical service identity stays in `service_name`.
+
+::: honua_admin.Folder
+::: honua_admin.FolderMetadata
+
 ## File imports
 
 `upload_file` returns `ImportResult` for a completed import (HTTP 200), or

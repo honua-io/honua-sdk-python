@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field, fields
+from types import EllipsisType
 from typing import Any, Literal, TypeAlias
 
 # Derived, not chosen: release/sdk-capability-baseline.json declares
@@ -119,6 +120,11 @@ class AdminServiceSummary:
     description: str | None
     layer_count: int
     enabled_protocols: list[str]
+    folder_id: str | None = None
+    folder_name: str | None = None
+    public_name: str | None = None
+    title: str | None = None
+    folder_mutation_issues: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdminServiceSummary:
@@ -399,6 +405,35 @@ class OperationProposalDetail:
             if not isinstance(d.get(name), list):
                 d.pop(name, None)
         return cls(**_extract_fields(cls, d))
+
+
+@dataclass(frozen=True, slots=True)
+class FolderMetadata:
+    """Identity and display metadata for one catalog Folder."""
+
+    id: str
+    name: str
+    title: str | None = None
+    tenant: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> FolderMetadata:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+
+@dataclass(frozen=True, slots=True)
+class Folder:
+    """One catalog Folder and its permanent previous path names."""
+
+    metadata: FolderMetadata
+    previous_names: list[str] = field(default_factory=list)
+    deleted: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Folder:
+        values = _snake_keys(data)
+        values["metadata"] = FolderMetadata.from_dict(values["metadata"])
+        return cls(**_extract_fields(cls, values))
 
 
 @dataclass(frozen=True, slots=True)
@@ -750,11 +785,11 @@ def evaluate_admin_compatibility(
     actual_rank = get_release_channel_rank(compatibility.release_channel)
     minimum_rank = get_release_channel_rank(baseline.minimum_release_channel)
     if actual_rank is None:
-        reasons.append(f"Server release channel {compatibility.release_channel!r} is unknown.")
+        warnings.append(f"Server release channel {compatibility.release_channel!r} is unknown.")
     elif minimum_rank is None or actual_rank < minimum_rank:
-        reasons.append(
+        warnings.append(
             "Server release channel "
-            f"{compatibility.release_channel!r} is below required "
+            f"{compatibility.release_channel!r} is below recommended "
             f"{baseline.minimum_release_channel!r}."
         )
 
@@ -1033,17 +1068,21 @@ class PublishLayerRequest:
     fields_list: list[str] | None = None
     service_name: str | None = None
     enabled: bool = True
+    folder_id: str | EllipsisType | None = Ellipsis
+    public_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
         for f in fields(self):
             val = getattr(self, f.name)
-            if val is not None:
+            if f.name != "folder_id" and val is not None:
                 key = f.name
                 # Map fields_list back to "fields" in the API
                 if key == "fields_list":
                     key = "fields"
                 d[_to_camel(key)] = val
+        if self.folder_id is not Ellipsis:
+            d["folderId"] = self.folder_id  # None selects Root; omission keeps the server default.
         return d
 
 

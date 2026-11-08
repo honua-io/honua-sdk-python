@@ -71,7 +71,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci.lock
-          pip install --no-deps --no-build-isolation -e packages/honua-sdk
+          pip install --no-deps --no-build-isolation -e packages/honua-sdk -e packages/honua-admin
 
       - name: Validate staging smoke configuration
         id: smoke-config

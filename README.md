@@ -344,9 +344,8 @@ Do not open public issues for security reports.
 
 ## License
 
-`honua-sdk` and `honua-admin` are licensed under
-[Apache-2.0](LICENSE). `packages/honua-gp` is proprietary (see its `LICENSE`)
-and is not published.
+`honua-sdk`, `honua-admin`, and `honua-gp` are licensed under
+[Apache-2.0](LICENSE).
 
 
 The conformance workflow uses an explicit Enterprise Development grant only for

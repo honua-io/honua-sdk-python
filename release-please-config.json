@@ -41,6 +41,41 @@
         { "type": "docs", "section": "Documentation" },
         { "type": "chore", "section": "Miscellaneous", "hidden": true }
       ]
+    },
+    "packages/honua-gp": {
+      "release-type": "python",
+      "component": "python-gp",
+      "tag-separator": "-",
+      "include-component-in-tag": true,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance"
+        },
+        {
+          "type": "deps",
+          "section": "Dependencies"
+        },
+        {
+          "type": "docs",
+          "section": "Documentation"
+        },
+        {
+          "type": "chore",
+          "section": "Miscellaneous",
+          "hidden": true
+        }
+      ]
     }
   }
 }

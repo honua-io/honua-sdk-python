@@ -16,7 +16,7 @@ This repository owns the Python data-plane package and admin/control-plane packa
 - Sync and async client surfaces with matching factory and method shapes.
 - GeoPandas conversion helpers for feature results and edit payloads.
 - Retry handling for transient failures, `Retry-After`, and configurable retry counts.
-- `honua-gp` proprietary drop-in shim covering 45 top-of-corpus `desktop GIS API` functions (15 analysis + 20 management + 10 data-access); dispatches through the existing `honua-sdk` / `honua-admin` / OGC API Processes clients and writes a redacted JSONL audit per call.
+- `honua-gp` Apache-2.0 drop-in shim covering 45 top-of-corpus `desktop GIS API` functions (15 analysis + 20 management + 10 data-access); dispatches through the existing `honua-sdk` / `honua-admin` / OGC API Processes clients and writes a redacted JSONL audit per call.
 - ETL demo and staging/release smoke helpers with result artifacts.
 
 ## Source Evidence
@@ -30,4 +30,4 @@ This repository owns the Python data-plane package and admin/control-plane packa
 
 ## Boundary
 
-The Python SDK is alpha. Keep docs explicit about current read/write smoke coverage, optional dependencies, and server compatibility gates before making stable API claims. `honua-gp` is proprietary and excluded from the public Apache-2.0 grant; see [docs/honua-gp/](../honua-gp/README.md).
+The Python SDK is alpha. Keep docs explicit about current read/write smoke coverage, optional dependencies, and server compatibility gates before making stable API claims. `honua-gp` is Apache-2.0 under the public Apache-2.0 grant; see [docs/honua-gp/](../honua-gp/README.md).

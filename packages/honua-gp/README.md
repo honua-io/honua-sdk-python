@@ -1,6 +1,6 @@
 # honua-gp
 
-`honua-gp` is a separately licensed package for running supported
+`honua-gp` is an Apache-2.0 package for running supported
 geoprocessing operations against a Honua deployment. Its implementation uses
 the `honua-sdk`, `honua-admin`, and OGC API Processes clients.
 
@@ -32,6 +32,11 @@ The manifest contains 13 supported entries and 16 partial entries
 
 ## Distribution
 
-This package is proprietary and is not published by the public CI workflow.
-Its `LICENSE` applies to this package; the surrounding repository packages
-use their own licenses.
+Releases use the repository's trusted-publishing workflow with build provenance
+and a wheel SBOM. Install a published version from PyPI:
+
+```bash
+pip install honua-gp
+```
+
+The [Apache-2.0 license](LICENSE) matches `honua-sdk` and `honua-admin`.

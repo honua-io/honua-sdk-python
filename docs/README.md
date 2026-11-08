@@ -31,7 +31,7 @@ This file is the directory map for people browsing the repository.
 - [compatibility.md](compatibility.md) — server baseline and the release gate.
 - [troubleshooting.md](troubleshooting.md) — reading `HonuaHttpError` payloads.
 - [examples.md](examples.md), [demo-suite.md](demo-suite.md) — runnable demos.
-- [honua-gp/](honua-gp/README.md) — the proprietary desktop GIS Python API shim.
+- [honua-gp/](honua-gp/README.md) — the Apache-2.0 desktop GIS Python API shim.
 - [reference/](reference/honua-sdk/clients.md) — generated API reference.
 
 ## Project process

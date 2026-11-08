@@ -4,6 +4,13 @@ All notable changes to `honua-gp` will be documented in this file.
 
 ## Unreleased
 
+### Public distribution
+
+`honua-gp` now uses Apache-2.0, matching the SDK and Admin packages. Releases
+use immutable `python-gp-v*` tags and trusted PyPI publishing, with reproducible
+wheel/sdist builds, registry hash verification, provenance and wheel SBOM
+attestations, and a fresh anonymous install check.
+
 ### Unpublished re-export distribution removed
 
 The unpublished legacy import alias has been removed. Use the canonical

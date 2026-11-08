@@ -20,10 +20,10 @@ Three independently installable packages live under `packages/`:
 |---------|-----------|---------|------|
 | `packages/honua-sdk` | `honua-sdk` | Apache-2.0 | Data-plane client: feature queries, geocoding, multi-protocol clients, gRPC streaming, GeoPandas integration. Optional extras `grpc` and `geopandas`. |
 | `packages/honua-admin` | `honua-admin` | Apache-2.0 | Control-plane client: services, connections, layers, styles, metadata, manifests, compatibility checks. Depends on `honua-sdk`. |
-| `packages/honua-gp` | `honua-gp` | Proprietary (do-not-upload) | Closed-source geoprocessing compatibility layer for teams migrating from GeoServices REST `desktop GIS API`. Import `honua_gp`. It has its own lenient lint/test gate, not the workspace-root strict rules. |
+| `packages/honua-gp` | `honua-gp` | Apache-2.0 | Geoprocessing compatibility layer for teams migrating from GeoServices REST `desktop GIS API`. Import `honua_gp`. It has its own lenient lint/test gate, not the workspace-root strict rules. |
 
 The packages build with Hatchling and release through release-please
-(`python-sdk-v*` / `python-admin-v*` tags publish to PyPI). Docs are
+(`python-sdk-v*` / `python-admin-v*` / `python-gp-v*` tags publish to PyPI). Docs are
 mkdocs-material (`mkdocs.yml`, `docs/`).
 
 ## Opt-in and secondary lanes
@@ -186,3 +186,18 @@ fails if such a surface appears.
   must hold exactly one introduction entry per required capability. Add or
   remove a required capability in the same PR that starts or stops depending
   on it.
+
+### Geoprocessing publication
+
+`honua-gp` follows the same exact-tag, protected-environment, reproducible-build,
+PyPI parity, release-asset and attestation gates as the SDK and Admin packages.
+Its environment is `pypi-honua-gp`; its immutable tags are `python-gp-v*`.
+Register the PyPI trusted publisher for `publish-python-sdk.yml` and that
+GitHub environment before merging its release PR. A manual dry run can select
+`honua-gp`; `both` continues to select only SDK and Admin. Release Please
+completion selects every package tagged at its exact commit.
+
+After publication, `install-honua-gp` installs the exact version anonymously
+from PyPI in a fresh environment, checks dependencies, and runs CLI help.
+Pin the final version and wheel SHA256 in the release cohort only after this
+job, registry parity, provenance and SBOM attestations succeed.

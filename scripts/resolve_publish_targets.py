@@ -36,6 +36,12 @@ PACKAGE_SPECS: tuple[PackageSpec, ...] = (
         pyproject=Path("packages/honua-admin/pyproject.toml"),
         tag_prefix="python-admin-v",
     ),
+    PackageSpec(
+        key="gp",
+        distribution="honua-gp",
+        pyproject=Path("packages/honua-gp/pyproject.toml"),
+        tag_prefix="python-gp-v",
+    ),
 )
 
 
@@ -56,7 +62,7 @@ class PublishPlan:
 
 def _requested_keys(requested_package: str) -> tuple[str, ...]:
     if requested_package == "both":
-        return tuple(spec.key for spec in PACKAGE_SPECS)
+        return ("sdk", "admin")
     for spec in PACKAGE_SPECS:
         if spec.distribution == requested_package:
             return (spec.key,)

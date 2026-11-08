@@ -7,7 +7,7 @@ from scripts.resolve_publish_targets import plan_publish
 
 SHA = "f7930b6e9c3ce47ade148bba3d4510eeffd2ccc4"
 OTHER_SHA = "953f2b3ba2cbb2d947b13c8ac5848cebe1860a76"
-VERSIONS = {"sdk": "0.1.11", "admin": "0.1.8"}
+VERSIONS = {"sdk": "0.1.11", "admin": "0.1.8", "gp": "0.1.0"}
 SDK_TAG = "python-sdk-v0.1.11"
 ADMIN_TAG = "python-admin-v0.1.8"
 
@@ -23,7 +23,7 @@ def test_release_please_completion_selects_only_tags_on_its_exact_commit() -> No
 
     assert plan.selected == ("sdk",)
     assert plan.publish is True
-    assert plan.tags == {"sdk": SDK_TAG, "admin": ADMIN_TAG}
+    assert plan.tags == {"sdk": SDK_TAG, "admin": ADMIN_TAG, "gp": "python-gp-v0.1.0"}
 
 
 def test_release_please_completion_without_new_tags_is_a_clean_no_op() -> None:

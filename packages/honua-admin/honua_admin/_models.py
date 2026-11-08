@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field, fields
+from types import EllipsisType
 from typing import Any, Literal, TypeAlias
 
 # Derived, not chosen: release/sdk-capability-baseline.json declares
@@ -119,6 +120,11 @@ class AdminServiceSummary:
     description: str | None
     layer_count: int
     enabled_protocols: list[str]
+    folder_id: str | None = None
+    folder_name: str | None = None
+    public_name: str | None = None
+    title: str | None = None
+    folder_mutation_issues: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdminServiceSummary:
@@ -1062,12 +1068,14 @@ class PublishLayerRequest:
     fields_list: list[str] | None = None
     service_name: str | None = None
     enabled: bool = True
+    folder_id: str | EllipsisType | None = Ellipsis
+    public_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
         for f in fields(self):
             val = getattr(self, f.name)
-            if val is not None:
+            if val is not Ellipsis and (val is not None or f.name == "folder_id"):
                 key = f.name
                 # Map fields_list back to "fields" in the API
                 if key == "fields_list":

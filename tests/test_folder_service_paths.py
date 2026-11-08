@@ -20,21 +20,24 @@ def anyio_backend() -> str:
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("public_path", ["Parcels", "Survey/Parcels"])
 @pytest.mark.parametrize("operation", ["query", "metadata", "edit", "export"])
-async def test_geoservices_uses_public_path_at_each_adapter(asynchronous: bool, public_path: str, operation: str) -> None:
+@pytest.mark.parametrize(("mount", "absolute"), [("", True), ("/mounted", False)])
+async def test_geoservices_uses_public_path_at_each_adapter(asynchronous: bool, public_path: str, operation: str, mount: str, absolute: bool) -> None:
     suffixes = {"query": "FeatureServer/0/query", "metadata": "FeatureServer", "edit": "FeatureServer/0/applyEdits", "export": "MapServer/export"}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        expected = f"/rest/services/{public_path}/{suffixes[operation]}".encode()
+        expected = f"{mount}/rest/services/{public_path}/{suffixes[operation]}".encode()
         assert request.url.raw_path.split(b"?")[0] == expected
         if operation == "edit":
             return httpx.Response(200, json={"addResults": [{"objectId": 1, "success": True}]})
         return httpx.Response(200, json={"features": [], "layers": [], "href": "https://example.invalid/map.png"})
 
     client_type = AsyncHonuaClient if asynchronous else HonuaClient
-    client = client_type("http://test.honua.io", transport=httpx.MockTransport(handler))
+    client = client_type("http://test.honua.io" + mount, transport=httpx.MockTransport(handler))
     try:
         service_type = "MapServer" if operation == "export" else "FeatureServer"
-        service = public_path if "/" not in public_path else honua_sdk.ServiceAddress(f"http://test.honua.io/rest/services/{public_path}/{service_type}")
+        service = public_path if "/" not in public_path else honua_sdk.ServiceAddress(
+            ("http://test.honua.io" if absolute else "") + f"{mount}/rest/services/{public_path}/{service_type}"
+        )
         if operation == "query":
             result = client.query_features(service, 0)
         elif operation == "metadata":
@@ -206,3 +209,94 @@ def test_folder_discovery_cannot_normalize_an_invalid_folder_to_root(folder_name
     with HonuaClient("https://test.honua.io", transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ValueError):
             client.list_services(folder_name=folder_name)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(("protocol", "action"), [
+    ("ogc-features", "query"), ("stac", "query"), ("odata", "query"),
+    ("ogc-features", "native"), ("stac", "native"), ("odata", "native"),
+    ("wms", "native"), ("wmts", "native"), ("geoservices-geometry-service", "native"),
+])
+async def test_source_link_cannot_be_ignored_for_another_protocol(asynchronous: bool, protocol: str, action: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        pytest.fail("An incompatible explicit Service link must fail before sending")
+
+    client_type = AsyncHonuaClient if asynchronous else HonuaClient
+    client = client_type("https://test.honua.io", transport=httpx.MockTransport(handler))
+    source = client.source({"id": "logical", "protocol": protocol, "locator": {
+        "serviceId": "logical", "collectionId": "collection", "entitySet": "Features",
+        "url": "/rest/services/Survey/Parcels/FeatureServer",
+    }})
+    try:
+        with pytest.raises(ValueError, match="Service"):
+            result = source.query() if action == "query" else source.protocol()
+            if inspect.isawaitable(result):
+                await result
+    finally:
+        closed = client.close()
+        if inspect.isawaitable(closed):
+            await closed
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(("factory", "service_type"), [
+    ("feature_server", "FeatureServer"), ("map_server", "MapServer"), ("image_server", "ImageServer"),
+])
+async def test_protocol_wrappers_keep_supplied_link_and_resolve_at_request(asynchronous: bool, factory: str, service_type: str) -> None:
+    path = f"/mounted/rest/services/Survey/Parcels/{service_type}"
+    address = honua_sdk.ServiceAddress(path)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.raw_path.split(b"?")[0] == path.encode()
+        return httpx.Response(200, json={"layers": []})
+
+    client_type = AsyncHonuaClient if asynchronous else HonuaClient
+    client = client_type("https://test.honua.io/mounted", transport=httpx.MockTransport(handler))
+    wrapper = getattr(client, factory)(address)
+    try:
+        assert wrapper.service_id is address
+        result = wrapper.metadata()
+        if inspect.isawaitable(result):
+            await result
+    finally:
+        closed = client.close()
+        if inspect.isawaitable(closed):
+            await closed
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("facade", ["source", "client"])
+async def test_streaming_preserves_advertised_folder_link_and_logical_identity(asynchronous: bool, facade: str) -> None:
+    path = "/mounted/rest/services/Survey/Parcels/FeatureServer"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.raw_path.split(b"?")[0] == (path + "/0/query").encode()
+        return httpx.Response(200, json={"features": [{"attributes": {"OBJECTID": 7}}]})
+
+    client_type = AsyncHonuaClient if asynchronous else HonuaClient
+    client = client_type("https://test.honua.io/mounted", transport=httpx.MockTransport(handler))
+    try:
+        source = client.source({"id": "logical", "protocol": "geoservices-feature-service", "locator": {
+            "serviceId": "internal", "layerId": 0, "url": path,
+        }})
+        stream = source.stream() if facade == "source" else client.iter_query(
+            honua_sdk.FeatureQuery(source="logical", layer_id=0, service_url=path)
+        )
+        features = [item async for item in stream] if asynchronous else list(stream)
+        assert len(features) == 1
+        assert features[0].id == 7
+        assert features[0].source == "logical"
+    finally:
+        closed = client.close()
+        if inspect.isawaitable(closed):
+            await closed
+
+
+def test_service_path_resolves_relative_link_without_caller_preparation() -> None:
+    from honua_sdk.protocols._base import _service_path
+
+    path = "/mounted/rest/services/Survey/Parcels/FeatureServer"
+    assert _service_path(honua_sdk.ServiceAddress(path), "FeatureServer", "https://test.honua.io/mounted") == "https://test.honua.io" + path

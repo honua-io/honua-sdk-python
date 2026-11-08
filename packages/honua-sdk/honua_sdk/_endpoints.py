@@ -97,6 +97,7 @@ def build_query_features_request(  # noqa: PLR0913 - mirrors the public client s
     service_id: str | ServiceAddress,
     layer_id: int,
     *,
+    base_url: str | None = None,
     where: str = "1=1",
     out_fields: str | Sequence[str] = "*",
     return_geometry: bool = True,
@@ -119,7 +120,7 @@ def build_query_features_request(  # noqa: PLR0913 - mirrors the public client s
 
     return PreparedRequest(
         method="GET",
-        path=f"{_service_path(service_id, 'FeatureServer')}/{layer_id}/query",
+        path=f"{_service_path(service_id, 'FeatureServer', base_url)}/{layer_id}/query",
         params=params,
     )
 
@@ -135,6 +136,7 @@ def build_apply_edits_request(  # noqa: PLR0913 - mirrors the public client sign
     service_id: str | ServiceAddress,
     layer_id: int,
     *,
+    base_url: str | None = None,
     adds: Sequence[Mapping[str, Any]] | None = None,
     updates: Sequence[Mapping[str, Any]] | None = None,
     deletes: Sequence[int] | str | None = None,
@@ -164,7 +166,7 @@ def build_apply_edits_request(  # noqa: PLR0913 - mirrors the public client sign
 
     return PreparedRequest(
         method="POST",
-        path=f"{_service_path(service_id, 'FeatureServer')}/{layer_id}/applyEdits",
+        path=f"{_service_path(service_id, 'FeatureServer', base_url)}/{layer_id}/applyEdits",
         json=payload,
         headers=headers,
     )
@@ -181,6 +183,7 @@ def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signa
     service_id: str | ServiceAddress,
     bbox: Sequence[float] | str,
     *,
+    base_url: str | None = None,
     size: tuple[int, int] = (400, 400),
     image_format: str = "png",
     transparent: bool = True,
@@ -204,7 +207,7 @@ def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signa
 
     return PreparedRequest(
         method="GET",
-        path=f"{_service_path(service_id, 'MapServer')}/export",
+        path=f"{_service_path(service_id, 'MapServer', base_url)}/export",
         params=params,
     )
 

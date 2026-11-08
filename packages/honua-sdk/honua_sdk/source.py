@@ -62,6 +62,7 @@ from .models import (
     normalize_capability,
     normalize_protocol,
 )
+from .models._sources import _service_reference
 
 
 @runtime_checkable
@@ -1037,7 +1038,7 @@ def _feature_query_for_source(descriptor: SourceDescriptor, query: Query) -> Fea
 
     return FeatureQuery(
         source=_query_source(descriptor),
-        service_url=descriptor.locator.url if protocol == "geoservices-feature-service" else None,
+        service_url=descriptor.locator.url,
         protocol=protocol,
         layer_id=_query_layer_id(descriptor),
         where=where_value,
@@ -1184,12 +1185,13 @@ def _protocol_client(  # noqa: PLR0911 -- protocol dispatch
 ) -> Any:
     protocol = normalize_protocol(kind or descriptor.protocol)
     locator = descriptor.locator
+    service = _service_reference(locator.service_id or descriptor.id, locator.url, protocol)
     if protocol == "geoservices-feature-service":
-        return client.feature_server(_service_id(descriptor))
+        return client.feature_server(service)
     if protocol == "geoservices-map-service":
-        return client.map_server(_service_id(descriptor))
+        return client.map_server(service)
     if protocol == "geoservices-image-service":
-        return client.image_server(_service_id(descriptor))
+        return client.image_server(service)
     if protocol == "geoservices-geometry-service":
         return client.geometry_server()
     if protocol == "ogc-features":
@@ -1218,7 +1220,7 @@ def _protocol_client(  # noqa: PLR0911 -- protocol dispatch
 
 
 def _service_id(descriptor: SourceDescriptor) -> str | ServiceAddress:
-    return ServiceAddress(descriptor.locator.url) if descriptor.locator.url is not None else descriptor.locator.service_id or descriptor.id
+    return _service_reference(descriptor.locator.service_id or descriptor.id, descriptor.locator.url, descriptor.protocol)
 
 
 def _layer_id(descriptor: SourceDescriptor) -> int:

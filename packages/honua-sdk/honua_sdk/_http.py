@@ -267,7 +267,7 @@ def _ensure_same_origin_continuation(url: httpx.URL, base_url: httpx.URL) -> Non
     """Refuse an absolute request URL outside the client's configured origin.
 
     Pagination continuation links (``@odata.nextLink``, STAC ``rel="next"``)
-    are server-controlled and may be absolute. A caller-supplied
+    and explicit Service addresses may be absolute. A caller-supplied
     :class:`httpx.Client` applies its own default headers / ``auth`` to every
     request and bypasses the SDK's trusted-authority hook, so following such a
     link to another ``(scheme, host, port)`` would leak those credentials.
@@ -276,7 +276,7 @@ def _ensure_same_origin_continuation(url: httpx.URL, base_url: httpx.URL) -> Non
     if _extract_trusted_authority(url) == _extract_trusted_authority(base_url):
         return
     raise HonuaError(
-        f"Refusing to follow continuation URL {url.scheme}://{url.netloc.decode('ascii')} "
+        f"Refusing request URL {url.scheme}://{url.netloc.decode('ascii')} "
         "outside the client's configured origin "
         f"{base_url.scheme}://{base_url.netloc.decode('ascii')}."
     )

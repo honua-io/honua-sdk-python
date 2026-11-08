@@ -62,7 +62,6 @@ from .models import (
     ServiceAddress,
     ServiceSummary,
 )
-from .models._sources import _resolve_service_address
 
 _LOGGER = logging.getLogger("honua_sdk.client")
 
@@ -645,8 +644,8 @@ class HonuaClient:
         """Return a GeoServices ImageServer wrapper.
 
         Args:
-            service_id: A one-segment identifier or explicit ServiceAddress.
-                wrapper targets the deployment-level ImageServer surface.
+            service_id: Optional one-segment identifier or ServiceAddress; when
+                ``None`` the wrapper targets the deployment-level ImageServer surface.
 
         Returns:
             An :class:`GeoServicesImageServerClient` bound to this
@@ -1213,12 +1212,13 @@ class HonuaClient:
             HonuaTransportError: The request failed at the transport layer.
         """
         prep = _endpoints.build_query_features_request(
-            _resolve_service_address(service_id, str(self._base_url)),
+            service_id,
             layer_id,
             where=where,
             out_fields=out_fields,
             return_geometry=return_geometry,
             extra_params=extra_params,
+            base_url=str(self._base_url),
         )
         return self._request_json(
             prep.method,
@@ -1412,13 +1412,14 @@ class HonuaClient:
             HonuaTransportError: The request failed at the transport layer.
         """
         prep = _endpoints.build_apply_edits_request(
-            _resolve_service_address(service_id, str(self._base_url)),
+            service_id,
             layer_id,
             adds=adds,
             updates=updates,
             deletes=deletes,
             rollback_on_failure=rollback_on_failure,
             headers=self._idempotency_headers(idempotency_key),
+            base_url=str(self._base_url),
         )
         return self._request_json(
             prep.method,
@@ -1525,13 +1526,14 @@ class HonuaClient:
             HonuaTransportError: The request failed at the transport layer.
         """
         prep = _endpoints.build_export_map_request(
-            _resolve_service_address(service_id, str(self._base_url)),
+            service_id,
             bbox,
             size=size,
             image_format=image_format,
             transparent=transparent,
             dpi=dpi,
             extra_params=extra_params,
+            base_url=str(self._base_url),
         )
         response = self._request(
             prep.method,
@@ -1611,9 +1613,8 @@ class HonuaClient:
         # ``/honua/``) are not silently rewritten to the bare endpoint path.
         parsed_path = httpx.URL(path)
         if parsed_path.is_absolute_url:
-            # Absolute URLs only arrive from server-supplied pagination links;
-            # never follow one off the configured origin (a caller-supplied
-            # httpx client would attach its own credentials there).
+            # A supplied HTTP client attaches its own credentials, so pagination
+            # links and explicit Service addresses must stay on the configured origin.
             _ensure_same_origin_continuation(parsed_path, self._base_url)
             url = parsed_path
         else:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 from ._helpers import _first_present, _optional_int, _optional_str, _sequence_value
 from ._protocols import (
@@ -42,8 +42,14 @@ class ServiceAddress:
             raise ValueError("A Service address requires a valid port.")
 
 
-def _resolve_service_address(service: str | ServiceAddress, base_url: str) -> str | ServiceAddress:
-    return ServiceAddress(urljoin(base_url, service.url)) if isinstance(service, ServiceAddress) else service
+def _service_reference(service_id: str, service_url: str | None, protocol: Protocol | str) -> str | ServiceAddress:
+    if service_url is None:
+        return service_id
+    if normalize_protocol(protocol) not in {
+        "geoservices-feature-service", "geoservices-map-service", "geoservices-image-service",
+    }:
+        raise ValueError("A Service URL requires a GeoServices service protocol.")
+    return ServiceAddress(service_url)
 
 
 @dataclass(frozen=True)

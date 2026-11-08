@@ -135,12 +135,14 @@ def _odata_params(
     return _params(params, extra_params)
 
 
-def _service_path(service_id: str | ServiceAddress, service_type: str) -> str:
+def _service_path(service_id: str | ServiceAddress, service_type: str, base_url: str | None = None) -> str:
     if isinstance(service_id, ServiceAddress):
         path = urlsplit(service_id.url).path.rstrip("/")
         if not path.casefold().endswith(f"/{service_type}".casefold()):
             raise ValueError(f"The Service address must target a {service_type} service endpoint.")
-        return service_id.url.rstrip("/")
+        if service_id.url.startswith("/") and not base_url:
+            raise ValueError("A root-relative Service address requires the configured base URL.")
+        return urljoin(base_url or "", service_id.url).rstrip("/")
     return f"/rest/services/{_encode_path_segment(service_id)}/{service_type}"
 
 

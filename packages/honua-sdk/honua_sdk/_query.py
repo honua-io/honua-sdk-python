@@ -9,6 +9,7 @@ from typing import Any
 
 from ._geoservices_query import spatial_filter_params, statistics_params
 from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol, ServiceAddress, normalize_protocol
+from .models._sources import _service_reference
 
 
 def resolve_feature_query(
@@ -90,7 +91,7 @@ def resolve_feature_query(
 
 
 def feature_server_service(query: FeatureQuery) -> str | ServiceAddress:
-    return ServiceAddress(query.service_url) if query.service_url is not None else query.source
+    return _service_reference(query.source, query.service_url, query.protocol)
 
 
 def normalize_query_protocol(value: QueryProtocol) -> str:

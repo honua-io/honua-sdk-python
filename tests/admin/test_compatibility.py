@@ -55,7 +55,7 @@ def anyio_backend() -> str:
         ),
         (
             {"release_channel": "nightly"},
-            ["Server release channel 'nightly' is below required 'preview'."],
+            [],
         ),
     ],
     ids=[
@@ -93,7 +93,10 @@ async def test_reported_ga_server_contract_at_client_boundary(
     assert seen == ["/api/v1/admin/capabilities"]
     assert result.supported is (not expected_reasons)
     assert result.reasons == expected_reasons
-    assert result.warnings == []
+    if overrides.get("release_channel") == "nightly":
+        assert result.warnings == ["Server release channel 'nightly' is below recommended 'preview'."]
+    else:
+        assert result.warnings == []
     assert result.baseline.minimum_server_version == "2026.1.0-0"
     assert result.compatibility is not None
     assert result.compatibility.server_version == values["server_version"]
@@ -282,16 +285,38 @@ def test_check_compatibility_rejects_semver_below_baseline(make_client) -> None:
     assert any("below required" in reason for reason in result.reasons)
 
 
-def test_check_compatibility_rejects_release_channel_below_baseline(make_client) -> None:
+@pytest.mark.parametrize("release_channel", ["nightly", "dev", "alpha", "custom", ""])
+def test_check_compatibility_warns_without_rejecting_release_channel(make_client, release_channel) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
-        payload = _make_capabilities_payload(release_channel="alpha")
+        payload = _make_capabilities_payload(release_channel=release_channel)
+        return httpx.Response(200, json=make_api_response(payload))
+
+    with make_client(handler) as client:
+        result = client.check_compatibility()
+
+    assert result.supported is True
+    assert result.reasons == []
+    assert len(result.warnings) == 1
+    assert "release channel" in result.warnings[0]
+
+
+@pytest.mark.parametrize("overrides", [
+    {"server_version": "1.0.0"},
+    {"major": 2},
+    {"base_path": "/api/v2/admin"},
+])
+def test_nightly_warning_preserves_incompatible_contract_refusal(make_client, overrides) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        payload = _make_capabilities_payload(release_channel="nightly", **overrides)
         return httpx.Response(200, json=make_api_response(payload))
 
     with make_client(handler) as client:
         result = client.check_compatibility()
 
     assert result.supported is False
-    assert any("release channel" in reason for reason in result.reasons)
+    assert len(result.reasons) == 1
+    assert "release channel" not in result.reasons[0]
+    assert result.warnings == ["Server release channel 'nightly' is below recommended 'preview'."]
 
 
 def test_check_compatibility_warns_when_control_plane_api_is_deprecated(make_client) -> None:

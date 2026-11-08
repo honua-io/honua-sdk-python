@@ -81,7 +81,7 @@
     },
     {
       "name": "release-2026-1-nightly",
-      "description": "A 2026.1 nightly clears the version floor but is held back by the release channel, not by a CalVer cutoff.",
+      "description": "Non-release channels warn while compatible server versions and control-plane APIs remain supported.",
       "compatibility": {
         "serverVersion": "2026.1.1-nightly.20260913",
         "releaseChannel": "nightly",
@@ -94,8 +94,8 @@
         "features": {}
       },
       "expected": {
-        "supported": false,
-        "reasonsContain": [
+        "supported": true,
+        "warningsContain": [
           "release channel"
         ]
       }
@@ -339,7 +339,7 @@
     },
     {
       "name": "pre-preview-release-channel",
-      "description": "Nightly/dev/alpha server channels are not supported by release builds.",
+      "description": "Non-release channels warn while compatible server versions and control-plane APIs remain supported.",
       "compatibility": {
         "serverVersion": "2026.3.4-alpha.2",
         "releaseChannel": "alpha",
@@ -363,8 +363,8 @@
         }
       },
       "expected": {
-        "supported": false,
-        "reasonsContain": [
+        "supported": true,
+        "warningsContain": [
           "release channel"
         ]
       }

@@ -30,8 +30,10 @@ Release builds support Honua Server versions that meet all of these conditions:
   reported `1.0.0+<sha>`; they are not release identities and are refused. The
   major tracks the year rather than compatibility; the control-plane API major
   below is the breaking-change signal.
-- `releaseChannel` is `preview` or a later channel (`beta`, `rc`, `stable`, or
-  `lts`).
+- `releaseChannel` is advisory. Non-release channels such as `nightly`, `dev`
+  and `alpha`, and unrecognized channel labels, produce a warning rather than
+  an incompatibility. `minimum_release_channel` sets the warning threshold;
+  it does not override the server-version or control-plane API checks.
 - `controlPlaneApi.major` is `1`.
 - `controlPlaneApi.basePath` is `/api/v1/admin`.
 - The server returns the nested `compatibility` object from
@@ -57,7 +59,7 @@ identity reported in [#219](https://github.com/honua-io/honua-sdk-python/issues/
 and the `2026.1.1` compatibility contract a 2026.1 server image returns. Both
 synchronous and asynchronous admin clients test those identities through the
 capabilities response parser, with independent rejection cases for an incompatible
-API major, base path, or release channel. These deterministic transport fixtures
+API major or base path, and warning cases for non-release channels. These deterministic transport fixtures
 protect the runtime policy; they do not certify a deployed release candidate.
 
 `tests/conformance/test_live_admin_contract.py` runs the same check against a

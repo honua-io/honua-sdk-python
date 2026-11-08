@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
 
 from scripts.resolve_publish_targets import PACKAGE_SPECS
 
@@ -233,6 +234,25 @@ def test_dependent_packages_require_the_sdk_they_are_released_with() -> None:
         text = (ROOT / path).read_text(encoding="utf-8")
         floors = re.findall(r'"honua-sdk>=([0-9.]+)[^"]*",\s*# x-release-please-version\n', text)
         assert floors == [sdk_version], f"{path} honua-sdk floor must track the SDK release"
+
+
+@pytest.mark.parametrize(
+    ("sdk_version", "compatible"),
+    [("0.3.0", True), ("0.3.1", True), ("0.2.2", False), ("0.4.0", False)],
+)
+def test_admin_dependency_accepts_the_next_sdk_release(
+    sdk_version: str, compatible: bool,
+) -> None:
+    metadata = tomllib.loads(
+        (ROOT / "packages/honua-admin/pyproject.toml").read_text(encoding="utf-8")
+    )
+    dependency = next(
+        Requirement(value) for value in metadata["project"]["dependencies"]
+        if Requirement(value).name == "honua-sdk"
+    )
+    next_release_dependency = Requirement(re.sub(r">=[0-9.]+", ">=0.3.0", str(dependency)))
+
+    assert (sdk_version in next_release_dependency.specifier) is compatible
 
 
 def test_attestation_jobs_bind_verified_bytes_to_the_release_commit() -> None:

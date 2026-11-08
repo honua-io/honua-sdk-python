@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Bug fixes
+
+- Allow the paired SDK 0.3 release in the Admin dependency range so both packages can be installed together.
+
 ### Breaking changes
 
 - Replace `layer unpublish` with `layer disable` in `honua-admin` and in `honua` when this admin package is installed. The command disables serving and retains the Layer definition; `layer enable` restores serving. Update scripts to use `disable`. The `datasource` command path remains unchanged and manages Connections.

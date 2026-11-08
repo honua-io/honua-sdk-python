@@ -57,6 +57,7 @@ from .models import (
     Query,
     QueryFeature,
     Result,
+    ServiceAddress,
     SourceDescriptor,
     normalize_capability,
     normalize_protocol,
@@ -100,7 +101,7 @@ class SourceClientProtocol(TypingProtocol):
     ) -> Iterator[QueryFeature]: ...
     def apply_edits_result(  # noqa: PLR0913 -- mirrors the public client signature
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         adds: Sequence[Mapping[str, Any]] | None = ...,
@@ -111,9 +112,9 @@ class SourceClientProtocol(TypingProtocol):
         timeout: float | httpx.Timeout | None = ...,
         extra_headers: Mapping[str, str] | None = ...,
     ) -> ApplyEditsResult: ...
-    def feature_server(self, service_id: str) -> GeoServicesFeatureServerClient: ...
-    def map_server(self, service_id: str) -> GeoServicesMapServerClient: ...
-    def image_server(self, service_id: str | None = ...) -> GeoServicesImageServerClient: ...
+    def feature_server(self, service_id: str | ServiceAddress) -> GeoServicesFeatureServerClient: ...
+    def map_server(self, service_id: str | ServiceAddress) -> GeoServicesMapServerClient: ...
+    def image_server(self, service_id: str | ServiceAddress | None = ...) -> GeoServicesImageServerClient: ...
     def geometry_server(self) -> GeoServicesGeometryServerClient: ...
     def ogc_features(self) -> HonuaOgcFeatures: ...
     def ogc_tiles(self) -> OgcTilesClient: ...
@@ -154,7 +155,7 @@ class AsyncSourceClientProtocol(TypingProtocol):
     ) -> AsyncIterator[QueryFeature]: ...
     async def apply_edits_result(  # noqa: PLR0913 -- mirrors the public client signature
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         adds: Sequence[Mapping[str, Any]] | None = ...,
@@ -165,9 +166,9 @@ class AsyncSourceClientProtocol(TypingProtocol):
         timeout: float | httpx.Timeout | None = ...,
         extra_headers: Mapping[str, str] | None = ...,
     ) -> ApplyEditsResult: ...
-    def feature_server(self, service_id: str) -> AsyncGeoServicesFeatureServerClient: ...
-    def map_server(self, service_id: str) -> AsyncGeoServicesMapServerClient: ...
-    def image_server(self, service_id: str | None = ...) -> AsyncGeoServicesImageServerClient: ...
+    def feature_server(self, service_id: str | ServiceAddress) -> AsyncGeoServicesFeatureServerClient: ...
+    def map_server(self, service_id: str | ServiceAddress) -> AsyncGeoServicesMapServerClient: ...
+    def image_server(self, service_id: str | ServiceAddress | None = ...) -> AsyncGeoServicesImageServerClient: ...
     def geometry_server(self) -> AsyncGeoServicesGeometryServerClient: ...
     def ogc_features(self) -> AsyncHonuaOgcFeatures: ...
     def ogc_tiles(self) -> AsyncOgcTilesClient: ...
@@ -1036,6 +1037,7 @@ def _feature_query_for_source(descriptor: SourceDescriptor, query: Query) -> Fea
 
     return FeatureQuery(
         source=_query_source(descriptor),
+        service_url=descriptor.locator.url if protocol == "geoservices-feature-service" else None,
         protocol=protocol,
         layer_id=_query_layer_id(descriptor),
         where=where_value,
@@ -1183,11 +1185,11 @@ def _protocol_client(  # noqa: PLR0911 -- protocol dispatch
     protocol = normalize_protocol(kind or descriptor.protocol)
     locator = descriptor.locator
     if protocol == "geoservices-feature-service":
-        return client.feature_server(locator.service_id or descriptor.id)
+        return client.feature_server(_service_id(descriptor))
     if protocol == "geoservices-map-service":
-        return client.map_server(locator.service_id or descriptor.id)
+        return client.map_server(_service_id(descriptor))
     if protocol == "geoservices-image-service":
-        return client.image_server(locator.service_id or descriptor.id)
+        return client.image_server(_service_id(descriptor))
     if protocol == "geoservices-geometry-service":
         return client.geometry_server()
     if protocol == "ogc-features":
@@ -1215,8 +1217,8 @@ def _protocol_client(  # noqa: PLR0911 -- protocol dispatch
     )
 
 
-def _service_id(descriptor: SourceDescriptor) -> str:
-    return descriptor.locator.service_id or descriptor.id
+def _service_id(descriptor: SourceDescriptor) -> str | ServiceAddress:
+    return ServiceAddress(descriptor.locator.url) if descriptor.locator.url is not None else descriptor.locator.service_id or descriptor.id
 
 
 def _layer_id(descriptor: SourceDescriptor) -> int:

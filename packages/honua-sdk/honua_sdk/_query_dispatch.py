@@ -10,7 +10,7 @@ but everything around them is pure and lives here.
 
 Public helpers (callable from both ``client.py`` and ``async_client.py``):
 
-- :func:`validate_filter_routing` -- reject silent ``where``→CQL forwarding
+- :func:`validate_query_routing` -- reject silent ``where``→CQL forwarding
 - :func:`merge_idempotency_into_headers` -- fold ``Idempotency-Key`` into
   ``extra_headers`` so the dispatcher can fan out a single mapping
 - :func:`merge_request_headers` -- per-request header precedence merge
@@ -34,6 +34,7 @@ from ._http import merge_request_headers
 from ._query import (
     bbox_text,
     feature_server_extra_params,
+    feature_server_service,
     features_from_geojson_page,
     field_list,
     field_text,
@@ -54,8 +55,8 @@ from .models import FeatureQuery, QueryFeature
 _CQL_FILTER_DISPATCH_PROTOCOLS = frozenset(("ogc-features", "stac"))
 
 
-def validate_filter_routing(query: FeatureQuery, normalized_protocol: str) -> None:
-    """Reject silent ``where``→CQL forwarding on OGC Features / STAC.
+def validate_query_routing(query: FeatureQuery, normalized_protocol: str) -> None:
+    """Reject incompatible Service URLs and silent ``where``→CQL forwarding.
 
     Mirrors the rule enforced by :func:`honua_sdk.source._feature_query_for_source`
     so the legacy :meth:`HonuaClient.query` / :meth:`HonuaClient.iter_query`
@@ -66,6 +67,8 @@ def validate_filter_routing(query: FeatureQuery, normalized_protocol: str) -> No
     require callers to use that slot (or ``Source.query`` with
     ``where_as_cql=True``) instead.
     """
+    if query.service_url is not None and normalized_protocol != "feature-server":
+        raise ValueError("A Service URL is supported only for FeatureServer queries.")
     if normalized_protocol not in _CQL_FILTER_DISPATCH_PROTOCOLS:
         return
     if query.where is not None and query.filter is None:
@@ -334,7 +337,7 @@ def collect_query_pages(
 
     if normalized_protocol == "feature-server":
         feature_server_last_page: Any = None
-        for page in client.feature_server(query.source).query_pages(
+        for page in client.feature_server(feature_server_service(query)).query_pages(
             **feature_server_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
         ):
             pages_seen += 1
@@ -423,7 +426,7 @@ async def collect_query_pages_async(
 
     if normalized_protocol == "feature-server":
         feature_server_last_page: Any = None
-        async for page in client.feature_server(query.source).query_pages(
+        async for page in client.feature_server(feature_server_service(query)).query_pages(
             **feature_server_pages_kwargs(query, timeout=timeout, extra_headers=extra_headers),
         ):
             pages_seen += 1
@@ -509,6 +512,6 @@ __all__ = [
     "reject_odata_bbox",
     "stac_items_kwargs",
     "stac_pages_kwargs",
-    "validate_filter_routing",
+    "validate_query_routing",
     "warn_if_truncated",
 ]

@@ -4213,6 +4213,7 @@
         "RefreshableBearerTokenProvider",
         "Result",
         "ReverseGeocodeResult",
+        "ServiceAddress",
         "ServiceSummary",
         "Source",
         "SourceDescriptor",
@@ -4283,12 +4284,12 @@
             "apply_edits": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "apply_edits_result": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
             },
             "capabilities": {
               "async": true,
@@ -4311,11 +4312,11 @@
             "export_map": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bytes'"
+              "signature": "(self, service_id: 'str | ServiceAddress', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bytes'"
             },
             "feature_server": {
               "kind": "method",
-              "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesFeatureServerClient'\""
+              "signature": "(self, service_id: 'str | ServiceAddress') -> \"'AsyncGeoServicesFeatureServerClient'\""
             },
             "geocoder": {
               "kind": "method",
@@ -4338,7 +4339,7 @@
             },
             "image_server": {
               "kind": "method",
-              "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
+              "signature": "(self, service_id: 'str | ServiceAddress | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
             },
             "iter_query": {
               "kind": "method",
@@ -4347,16 +4348,16 @@
             "list_service_summaries": {
               "async": true,
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
+              "signature": "(self, *, response_format: 'str' = 'json', folder_name: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
             },
             "list_services": {
               "async": true,
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, *, response_format: 'str' = 'json', folder_name: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "map_server": {
               "kind": "method",
-              "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesMapServerClient'\""
+              "signature": "(self, service_id: 'str | ServiceAddress') -> \"'AsyncGeoServicesMapServerClient'\""
             },
             "odata": {
               "kind": "method",
@@ -4394,17 +4395,17 @@
             "query_feature_set": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'FeatureSet'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'FeatureSet'"
             },
             "query_features": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "query_features_all": {
               "async": true,
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[Feature]'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[Feature]'"
             },
             "readiness": {
               "async": true,
@@ -4941,12 +4942,17 @@
               "annotation": "Mapping[str, Any]",
               "defaultFactory": "dict",
               "name": "extra_params"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "service_url"
             }
           ],
           "kind": "class",
           "module": "honua_sdk.models",
           "qualname": "FeatureQuery",
-          "signature": "(source: 'str', protocol: 'QueryProtocol | str' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, out_statistics: 'Sequence[Mapping[str, Any]] | None' = None, group_by: 'str | Sequence[str] | None' = None, return_distinct_values: 'bool' = False, return_count_only: 'bool' = False, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(source: 'str', protocol: 'QueryProtocol | str' = 'feature-server', layer_id: 'int | None' = None, where: 'str | None' = None, filter: 'str | None' = None, bbox: 'str | Sequence[int | float] | None' = None, spatial_filter: 'Mapping[str, Any] | None' = None, fields: 'str | Sequence[str] | None' = None, return_geometry: 'bool' = True, out_statistics: 'Sequence[Mapping[str, Any]] | None' = None, group_by: 'str | Sequence[str] | None' = None, return_distinct_values: 'bool' = False, return_count_only: 'bool' = False, page_size: 'int | None' = None, limit: 'int | None' = None, max_pages: 'int | None' = None, extra_params: 'Mapping[str, Any]' = <factory>, service_url: 'str | None' = None) -> None"
         },
         "FeatureQueryResult": {
           "fields": [
@@ -5185,11 +5191,11 @@
           "methods": {
             "apply_edits": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "apply_edits_result": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, adds: 'Sequence[Mapping[str, Any]] | None' = None, updates: 'Sequence[Mapping[str, Any]] | None' = None, deletes: 'Sequence[int] | str | None' = None, rollback_on_failure: 'bool' = True, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'ApplyEditsResult'"
             },
             "capabilities": {
               "kind": "method",
@@ -5209,11 +5215,11 @@
             },
             "export_map": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bytes'"
+              "signature": "(self, service_id: 'str | ServiceAddress', bbox: 'Sequence[float] | str', *, size: 'tuple[int, int]' = (400, 400), image_format: 'str' = 'png', transparent: 'bool' = True, dpi: 'int' = 96, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'bytes'"
             },
             "feature_server": {
               "kind": "method",
-              "signature": "(self, service_id: 'str') -> \"'GeoServicesFeatureServerClient'\""
+              "signature": "(self, service_id: 'str | ServiceAddress') -> \"'GeoServicesFeatureServerClient'\""
             },
             "geocoder": {
               "kind": "method",
@@ -5236,7 +5242,7 @@
             },
             "image_server": {
               "kind": "method",
-              "signature": "(self, service_id: 'str | None' = None) -> \"'GeoServicesImageServerClient'\""
+              "signature": "(self, service_id: 'str | ServiceAddress | None' = None) -> \"'GeoServicesImageServerClient'\""
             },
             "iter_query": {
               "kind": "method",
@@ -5244,15 +5250,15 @@
             },
             "list_service_summaries": {
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
+              "signature": "(self, *, response_format: 'str' = 'json', folder_name: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[ServiceSummary]'"
             },
             "list_services": {
               "kind": "method",
-              "signature": "(self, *, response_format: 'str' = 'json', timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, *, response_format: 'str' = 'json', folder_name: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "map_server": {
               "kind": "method",
-              "signature": "(self, service_id: 'str') -> \"'GeoServicesMapServerClient'\""
+              "signature": "(self, service_id: 'str | ServiceAddress') -> \"'GeoServicesMapServerClient'\""
             },
             "odata": {
               "kind": "method",
@@ -5288,15 +5294,15 @@
             },
             "query_feature_set": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'FeatureSet'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'FeatureSet'"
             },
             "query_features": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'dict[str, Any]'"
             },
             "query_features_all": {
               "kind": "method",
-              "signature": "(self, service_id: 'str', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[Feature]'"
+              "signature": "(self, service_id: 'str | ServiceAddress', layer_id: 'int', *, where: 'str' = '1=1', out_fields: 'str | Sequence[str]' = '*', return_geometry: 'bool' = True, page_size: 'int' = 1000, limit: 'int | None' = None, max_pages: 'int' = 100, extra_params: 'Mapping[str, Any] | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[Feature]'"
             },
             "readiness": {
               "kind": "method",
@@ -5808,6 +5814,18 @@
           "qualname": "ReverseGeocodeResult",
           "signature": "(address: 'str', latitude: 'float', longitude: 'float', attributes: 'dict[str, str | None]') -> None"
         },
+        "ServiceAddress": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "url"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.models",
+          "qualname": "ServiceAddress",
+          "signature": "(url: 'str') -> None"
+        },
         "ServiceSummary": {
           "fields": [
             {
@@ -5974,6 +5992,11 @@
               "annotation": "str | None",
               "default": "None",
               "name": "type_name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "url"
             }
           ],
           "kind": "class",
@@ -5985,7 +6008,7 @@
           },
           "module": "honua_sdk.models",
           "qualname": "SourceLocator",
-          "signature": "(service_id: 'str | None' = None, layer_id: 'int | None' = None, collection_id: 'str | None' = None, entity_set: 'str | None' = None, type_name: 'str | None' = None) -> None"
+          "signature": "(service_id: 'str | None' = None, layer_id: 'int | None' = None, collection_id: 'str | None' = None, entity_set: 'str | None' = None, type_name: 'str | None' = None, url: 'str | None' = None) -> None"
         },
         "StaticAuthProvider": {
           "kind": "class",

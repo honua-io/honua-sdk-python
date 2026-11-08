@@ -30,9 +30,10 @@ from .models import (
     ApplyEditsResult,
     DataPlaneCapabilities,
     FeatureSet,
+    ServiceAddress,
     ServiceSummary,
 )
-from .protocols._base import _bool_text
+from .protocols._base import _bool_text, _service_path
 
 
 @dataclass(frozen=True)
@@ -66,10 +67,13 @@ def parse_capabilities(payload: Mapping[str, Any]) -> DataPlaneCapabilities:
     return DataPlaneCapabilities.from_dict(payload)
 
 
-def build_list_services_request(*, response_format: str = "json") -> PreparedRequest:
+def build_list_services_request(*, response_format: str = "json", folder_name: str | None = None) -> PreparedRequest:
+    if folder_name is not None and (not folder_name.strip() or folder_name in {".", ".."}):
+        raise ValueError("A Folder name must be a non-empty path segment other than a dot segment.")
+    path = "/rest/services" if folder_name is None else f"/rest/services/{_encode_path_segment(folder_name)}"
     return PreparedRequest(
         method="GET",
-        path="/rest/services",
+        path=path,
         params={"f": response_format},
     )
 
@@ -90,7 +94,7 @@ def parse_service_summaries(payload: Mapping[str, Any]) -> list[ServiceSummary]:
 
 
 def build_query_features_request(  # noqa: PLR0913 - mirrors the public client signature
-    service_id: str,
+    service_id: str | ServiceAddress,
     layer_id: int,
     *,
     where: str = "1=1",
@@ -99,7 +103,6 @@ def build_query_features_request(  # noqa: PLR0913 - mirrors the public client s
     extra_params: Mapping[str, Any] | None = None,
 ) -> PreparedRequest:
     """Build a FeatureServer ``query`` GET request."""
-    service_segment = _encode_path_segment(service_id)
     if isinstance(out_fields, Sequence) and not isinstance(out_fields, str):
         out_fields_value = ",".join(str(value) for value in out_fields)
     else:
@@ -116,7 +119,7 @@ def build_query_features_request(  # noqa: PLR0913 - mirrors the public client s
 
     return PreparedRequest(
         method="GET",
-        path=f"/rest/services/{service_segment}/FeatureServer/{layer_id}/query",
+        path=f"{_service_path(service_id, 'FeatureServer')}/{layer_id}/query",
         params=params,
     )
 
@@ -129,7 +132,7 @@ def parse_feature_set(payload: Mapping[str, Any]) -> FeatureSet:
 
 
 def build_apply_edits_request(  # noqa: PLR0913 - mirrors the public client signature
-    service_id: str,
+    service_id: str | ServiceAddress,
     layer_id: int,
     *,
     adds: Sequence[Mapping[str, Any]] | None = None,
@@ -145,7 +148,6 @@ def build_apply_edits_request(  # noqa: PLR0913 - mirrors the public client sign
     runtime state (``self._retry_methods``); callers pass the already-
     built header dict in via ``headers``.
     """
-    service_segment = _encode_path_segment(service_id)
     payload: dict[str, Any] = {
         "f": "json",
         "rollbackOnFailure": rollback_on_failure,
@@ -162,7 +164,7 @@ def build_apply_edits_request(  # noqa: PLR0913 - mirrors the public client sign
 
     return PreparedRequest(
         method="POST",
-        path=f"/rest/services/{service_segment}/FeatureServer/{layer_id}/applyEdits",
+        path=f"{_service_path(service_id, 'FeatureServer')}/{layer_id}/applyEdits",
         json=payload,
         headers=headers,
     )
@@ -176,7 +178,7 @@ def parse_apply_edits_result(payload: Mapping[str, Any]) -> ApplyEditsResult:
 
 
 def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signature
-    service_id: str,
+    service_id: str | ServiceAddress,
     bbox: Sequence[float] | str,
     *,
     size: tuple[int, int] = (400, 400),
@@ -185,7 +187,6 @@ def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signa
     dpi: int = 96,
     extra_params: Mapping[str, Any] | None = None,
 ) -> PreparedRequest:
-    service_segment = _encode_path_segment(service_id)
     bbox_value = (
         bbox if isinstance(bbox, str) else ",".join(str(value) for value in bbox)
     )
@@ -203,7 +204,7 @@ def build_export_map_request(  # noqa: PLR0913 - mirrors the public client signa
 
     return PreparedRequest(
         method="GET",
-        path=f"/rest/services/{service_segment}/MapServer/export",
+        path=f"{_service_path(service_id, 'MapServer')}/export",
         params=params,
     )
 

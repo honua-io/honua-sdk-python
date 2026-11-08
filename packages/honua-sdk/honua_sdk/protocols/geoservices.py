@@ -22,7 +22,8 @@ from honua_sdk._client_protocol import (
     SupportsSyncRequest,
 )
 from honua_sdk._http import _encode_path_segment
-from honua_sdk.models import Feature, FeatureSet, LayerSchema
+from honua_sdk.models import Feature, FeatureSet, LayerSchema, ServiceAddress
+from honua_sdk.models._sources import _resolve_service_address
 
 from ._base import (
     BboxValue,
@@ -262,9 +263,9 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
 
     client: SupportsSyncFeatureService
 
-    def __init__(self, client: SupportsSyncFeatureService, service_id: str) -> None:
+    def __init__(self, client: SupportsSyncFeatureService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
-        self.service_id = service_id
+        self.service_id = _resolve_service_address(service_id, str(client._base_url))
 
     @property
     def path(self) -> str:
@@ -650,9 +651,9 @@ class GeoServicesMapServerClient(_SyncProtocol):
 
     client: SupportsSyncMapService
 
-    def __init__(self, client: SupportsSyncMapService, service_id: str) -> None:
+    def __init__(self, client: SupportsSyncMapService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
-        self.service_id = service_id
+        self.service_id = _resolve_service_address(service_id, str(client._base_url))
 
     @property
     def path(self) -> str:
@@ -722,9 +723,9 @@ class GeoServicesMapServerClient(_SyncProtocol):
 class GeoServicesImageServerClient(_SyncProtocol):
     """GeoServices ImageServer wrapper."""
 
-    def __init__(self, client: SupportsSyncRequest, service_id: str | None = None) -> None:
+    def __init__(self, client: SupportsSyncRequest, service_id: str | ServiceAddress | None = None) -> None:
         super().__init__(client)
-        self.service_id = service_id
+        self.service_id = None if service_id is None else _resolve_service_address(service_id, str(client._base_url))
 
     @property
     def path(self) -> str:
@@ -1082,9 +1083,9 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
 
     client: SupportsAsyncFeatureService
 
-    def __init__(self, client: SupportsAsyncFeatureService, service_id: str) -> None:
+    def __init__(self, client: SupportsAsyncFeatureService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
-        self.service_id = service_id
+        self.service_id = _resolve_service_address(service_id, str(client._base_url))
 
     @property
     def path(self) -> str:
@@ -1471,9 +1472,9 @@ class AsyncGeoServicesMapServerClient(_AsyncProtocol):
 
     client: SupportsAsyncMapService
 
-    def __init__(self, client: SupportsAsyncMapService, service_id: str) -> None:
+    def __init__(self, client: SupportsAsyncMapService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
-        self.service_id = service_id
+        self.service_id = _resolve_service_address(service_id, str(client._base_url))
 
     @property
     def path(self) -> str:
@@ -1543,9 +1544,9 @@ class AsyncGeoServicesMapServerClient(_AsyncProtocol):
 class AsyncGeoServicesImageServerClient(_AsyncProtocol):
     """Async GeoServices ImageServer wrapper."""
 
-    def __init__(self, client: SupportsAsyncRequest, service_id: str | None = None) -> None:
+    def __init__(self, client: SupportsAsyncRequest, service_id: str | ServiceAddress | None = None) -> None:
         super().__init__(client)
-        self.service_id = service_id
+        self.service_id = None if service_id is None else _resolve_service_address(service_id, str(client._base_url))
 
     @property
     def path(self) -> str:

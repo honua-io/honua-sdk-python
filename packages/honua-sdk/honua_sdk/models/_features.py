@@ -139,6 +139,7 @@ class FeatureQuery:
         limit: Maximum features collected across all pages.
         max_pages: Cap on the number of pages walked. ``None`` is unbounded.
         extra_params: Free-form per-protocol query parameter overrides.
+        service_url: Explicit FeatureServer service URL; source remains the logical identity.
     """
 
     source: str
@@ -158,6 +159,7 @@ class FeatureQuery:
     limit: int | None = None
     max_pages: int | None = None
     extra_params: Mapping[str, Any] = field(default_factory=dict)
+    service_url: str | None = None
 
 
 @dataclass(frozen=True)

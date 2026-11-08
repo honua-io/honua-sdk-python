@@ -28,6 +28,7 @@ from ._http import (
     join_base_path,
 )
 from ._query import (
+    feature_server_service,
     normalize_query_protocol,
     query_feature_from_feature_server,
     query_feature_from_geojson,
@@ -43,7 +44,7 @@ from ._query_dispatch import (
     ogc_features_items_kwargs,
     reject_odata_bbox,
     stac_items_kwargs,
-    validate_filter_routing,
+    validate_query_routing,
     warn_if_truncated,
 )
 from .errors import HonuaHttpError
@@ -56,8 +57,10 @@ from .models import (
     FeatureSet,
     QueryFeature,
     QueryProtocol,
+    ServiceAddress,
     ServiceSummary,
 )
+from .models._sources import _resolve_service_address
 
 _LOGGER = logging.getLogger("honua_sdk.client")
 
@@ -515,12 +518,14 @@ class AsyncHonuaClient:
         self,
         *,
         response_format: str = "json",
+        folder_name: str | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         """List services from the GeoServices catalog endpoint.
 
         Args:
+            folder_name: Folder to discover; None keeps Root discovery.
             response_format: Value passed as the ``f`` query parameter on
                 ``/rest/services`` (defaults to ``"json"``).
 
@@ -534,7 +539,7 @@ class AsyncHonuaClient:
             HonuaHttpError: The server returned a non-success status.
             HonuaTransportError: The request failed at the transport layer.
         """
-        prep = _endpoints.build_list_services_request(response_format=response_format)
+        prep = _endpoints.build_list_services_request(response_format=response_format, folder_name=folder_name)
         return await self._request_json(
             prep.method,
             prep.path,
@@ -547,12 +552,14 @@ class AsyncHonuaClient:
         self,
         *,
         response_format: str = "json",
+        folder_name: str | None = None,
         timeout: float | httpx.Timeout | None = None,
         extra_headers: Mapping[str, str] | None = None,
     ) -> list[ServiceSummary]:
         """List services as typed catalog summaries.
 
         Args:
+            folder_name: Folder to discover; None keeps Root discovery.
             response_format: Value passed as the ``f`` query parameter on
                 ``/rest/services`` (defaults to ``"json"``).
 
@@ -570,6 +577,7 @@ class AsyncHonuaClient:
         return _endpoints.parse_service_summaries(
             await self.list_services(
                 response_format=response_format,
+                folder_name=folder_name,
                 timeout=timeout,
                 extra_headers=extra_headers,
             )
@@ -599,11 +607,11 @@ class AsyncHonuaClient:
 
         return AsyncHonuaGeocodingClient(str(self._base_url), locator_name=locator, client=self._client)
 
-    def feature_server(self, service_id: str) -> "AsyncGeoServicesFeatureServerClient":
+    def feature_server(self, service_id: str | ServiceAddress) -> "AsyncGeoServicesFeatureServerClient":
         """Return an async GeoServices FeatureServer wrapper for a service.
 
         Args:
-            service_id: Service identifier as advertised by the catalog.
+            service_id: A one-segment identifier or explicit ServiceAddress.
 
         Returns:
             An :class:`AsyncGeoServicesFeatureServerClient` bound to this
@@ -618,11 +626,11 @@ class AsyncHonuaClient:
 
         return AsyncGeoServicesFeatureServerClient(self, service_id)
 
-    def map_server(self, service_id: str) -> "AsyncGeoServicesMapServerClient":
+    def map_server(self, service_id: str | ServiceAddress) -> "AsyncGeoServicesMapServerClient":
         """Return an async GeoServices MapServer wrapper for a service.
 
         Args:
-            service_id: Service identifier as advertised by the catalog.
+            service_id: A one-segment identifier or explicit ServiceAddress.
 
         Returns:
             An :class:`AsyncGeoServicesMapServerClient` bound to this
@@ -632,11 +640,11 @@ class AsyncHonuaClient:
 
         return AsyncGeoServicesMapServerClient(self, service_id)
 
-    def image_server(self, service_id: str | None = None) -> "AsyncGeoServicesImageServerClient":
+    def image_server(self, service_id: str | ServiceAddress | None = None) -> "AsyncGeoServicesImageServerClient":
         """Return an async GeoServices ImageServer wrapper.
 
         Args:
-            service_id: Optional service identifier; when ``None`` the
+            service_id: A one-segment identifier or explicit ServiceAddress.
                 wrapper targets the deployment-level ImageServer surface.
 
         Returns:
@@ -994,7 +1002,7 @@ class AsyncHonuaClient:
             extra_params=extra_params,
         )
         normalized_protocol = normalize_query_protocol(query.protocol)  # type: ignore[arg-type]
-        validate_filter_routing(query, normalized_protocol)
+        validate_query_routing(query, normalized_protocol)
         features, exceeded, total_count, pages_seen = await self._collect_query_pages(
             query,
             normalized_protocol,
@@ -1114,11 +1122,11 @@ class AsyncHonuaClient:
             extra_params=extra_params,
         )
         normalized_protocol = normalize_query_protocol(query.protocol)  # type: ignore[arg-type]
-        validate_filter_routing(query, normalized_protocol)
+        validate_query_routing(query, normalized_protocol)
         extra_headers = merge_idempotency_into_headers(extra_headers, idempotency_key)
 
         if normalized_protocol == "feature-server":
-            async for feature in self.feature_server(query.source).query_items(
+            async for feature in self.feature_server(feature_server_service(query)).query_items(
                 **feature_server_items_kwargs(
                     query, timeout=timeout, extra_headers=extra_headers
                 ),
@@ -1171,7 +1179,7 @@ class AsyncHonuaClient:
 
     async def query_features(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         where: str = "1=1",
@@ -1184,7 +1192,7 @@ class AsyncHonuaClient:
         """Query features from a FeatureServer layer and return raw JSON.
 
         Args:
-            service_id: GeoServices service identifier; URL-encoded.
+            service_id: A one-segment identifier or explicit ServiceAddress.
             layer_id: Numeric layer index within the FeatureServer.
             where: GeoServices ``WHERE`` clause; defaults to ``"1=1"``.
             out_fields: Field selection; either a comma-string or sequence
@@ -1204,7 +1212,7 @@ class AsyncHonuaClient:
             HonuaTransportError: The request failed at the transport layer.
         """
         prep = _endpoints.build_query_features_request(
-            service_id,
+            _resolve_service_address(service_id, str(self._base_url)),
             layer_id,
             where=where,
             out_fields=out_fields,
@@ -1221,7 +1229,7 @@ class AsyncHonuaClient:
 
     async def query_feature_set(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         where: str = "1=1",
@@ -1234,7 +1242,7 @@ class AsyncHonuaClient:
         """Query a FeatureServer layer and return a typed :class:`FeatureSet`.
 
         Args:
-            service_id: GeoServices service identifier; URL-encoded.
+            service_id: A one-segment identifier or explicit ServiceAddress.
             layer_id: Numeric layer index within the FeatureServer.
             where: GeoServices ``WHERE`` clause; defaults to ``"1=1"``.
             out_fields: Field selection; either a comma-string or sequence
@@ -1268,7 +1276,7 @@ class AsyncHonuaClient:
 
     async def query_features_all(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         where: str = "1=1",
@@ -1289,7 +1297,7 @@ class AsyncHonuaClient:
         ``max_pages`` is hit.
 
         Args:
-            service_id: GeoServices service identifier; URL-encoded.
+            service_id: A one-segment identifier or explicit ServiceAddress.
             layer_id: Numeric layer index within the FeatureServer.
             where: GeoServices ``WHERE`` clause; defaults to ``"1=1"``.
             out_fields: Field selection; comma-string or sequence of names.
@@ -1362,7 +1370,7 @@ class AsyncHonuaClient:
 
     async def apply_edits(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         adds: Sequence[Mapping[str, Any]] | None = None,
@@ -1376,7 +1384,7 @@ class AsyncHonuaClient:
         """Submit a layer-level GeoServices ``applyEdits`` request.
 
         Args:
-            service_id: GeoServices service identifier; URL-encoded.
+            service_id: A one-segment identifier or explicit ServiceAddress.
             layer_id: Numeric layer index within the FeatureServer.
             adds: Sequence of feature mappings to insert.
             updates: Sequence of feature mappings to update by ``OBJECTID``.
@@ -1403,7 +1411,7 @@ class AsyncHonuaClient:
             HonuaTransportError: The request failed at the transport layer.
         """
         prep = _endpoints.build_apply_edits_request(
-            service_id,
+            _resolve_service_address(service_id, str(self._base_url)),
             layer_id,
             adds=adds,
             updates=updates,
@@ -1422,7 +1430,7 @@ class AsyncHonuaClient:
 
     async def apply_edits_result(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         adds: Sequence[Mapping[str, Any]] | None = None,
@@ -1436,7 +1444,7 @@ class AsyncHonuaClient:
         """Submit ``applyEdits`` and return typed per-operation results.
 
         Args:
-            service_id: GeoServices service identifier; URL-encoded.
+            service_id: A one-segment identifier or explicit ServiceAddress.
             layer_id: Numeric layer index within the FeatureServer.
             adds: Sequence of feature mappings to insert.
             updates: Sequence of feature mappings to update by ``OBJECTID``.
@@ -1480,7 +1488,7 @@ class AsyncHonuaClient:
 
     async def export_map(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         bbox: Sequence[float] | str,
         *,
         size: tuple[int, int] = (400, 400),
@@ -1494,7 +1502,7 @@ class AsyncHonuaClient:
         """Request rendered map bytes from the MapServer ``export`` endpoint.
 
         Args:
-            service_id: GeoServices service identifier; URL-encoded.
+            service_id: A one-segment identifier or explicit ServiceAddress.
             bbox: Bounding box as a sequence of floats (xmin, ymin, xmax,
                 ymax) or pre-formatted comma string.
             size: ``(width, height)`` in pixels; defaults to ``(400, 400)``.
@@ -1516,7 +1524,7 @@ class AsyncHonuaClient:
             HonuaTransportError: The request failed at the transport layer.
         """
         prep = _endpoints.build_export_map_request(
-            service_id,
+            _resolve_service_address(service_id, str(self._base_url)),
             bbox,
             size=size,
             image_format=image_format,

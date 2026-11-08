@@ -66,6 +66,7 @@ geometry bridge and the source facade exposes typed layer schema and cursors:
 ::: honua_sdk.LayerSchema
 ::: honua_sdk.Field
 ::: honua_sdk.Extent
+::: honua_sdk.ServiceAddress
 ::: honua_sdk.SourceDescriptor
 ::: honua_sdk.SourceLocator
 ::: honua_sdk.FeatureQuery

@@ -300,3 +300,11 @@ def test_service_path_resolves_relative_link_without_caller_preparation() -> Non
 
     path = "/mounted/rest/services/Survey/Parcels/FeatureServer"
     assert _service_path(honua_sdk.ServiceAddress(path), "FeatureServer", "https://test.honua.io/mounted") == "https://test.honua.io" + path
+
+
+def test_query_builder_rejects_root_relative_address_without_base_url() -> None:
+    from honua_sdk._endpoints import build_query_features_request
+
+    address = honua_sdk.ServiceAddress("/mounted/rest/services/Survey/Parcels/FeatureServer")
+    with pytest.raises(ValueError, match="requires the configured base URL"):
+        build_query_features_request(address, 0)

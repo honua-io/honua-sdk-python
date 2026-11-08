@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from types import EllipsisType
 
 import httpx
 import pytest
@@ -114,13 +115,13 @@ async def test_folder_mutations_send_preconditions_and_preserve_returned_etag(as
         assert etag == '"catalog-18"'
     finally:
         if asynchronous:
-            await client.aclose()
+            await client.close()
         else:
             client.close()
 
 
 @pytest.mark.parametrize("title", [Ellipsis, None, "New title"])
-def test_update_folder_distinguishes_omitted_title_from_clearing(make_client, title: str | None) -> None:
+def test_update_folder_distinguishes_omitted_title_from_clearing(make_client, title: str | None | EllipsisType) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         expected = {} if title is Ellipsis else {"title": title}
         assert json.loads(request.content) == expected

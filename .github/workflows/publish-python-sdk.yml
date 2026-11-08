@@ -138,6 +138,11 @@ jobs:
             exit 0
           fi
 
+          if [[ "$GITHUB_SHA" != "$RELEASE_SHA" ]]; then
+            echo "The workflow source must match the release commit before publication." >&2
+            exit 1
+          fi
+
           verify_release() {
             local tag="$1"
             local release actual_tag target draft
@@ -247,41 +252,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Materialize exact release source
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: git worktree add --detach release-source "$RELEASE_SHA"
-        working-directory: ${{ github.workspace }}
-
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install hash-locked third-party dependencies
-        run: |
-          python -m pip install \
-            --require-hashes \
-            --only-binary=:all: \
-            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
-
-      - name: Install commit-bound local packages without dependency resolution
-        run: |
-          python -m pip install --no-deps --no-build-isolation -e .
-          python -m pip install \
-            --no-deps \
-            --no-build-isolation \
-            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-admin"
-
-      - name: Run compatibility gate
-        run: python release-source/scripts/compatibility_gate.py
-        working-directory: ${{ github.workspace }}
-
-      - name: Run SDK coverage gate
-        env:
-          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python release-source/scripts/gen_sdk_coverage.py
-        working-directory: ${{ github.workspace }}
+      - name: Validate commit-bound release source
+        uses: ./.github/actions/validate-python-release-source
+        with:
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
       - name: Run SDK tests
         run: python -m pytest release-source/tests/ -q --tb=short
@@ -507,41 +486,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Materialize exact release source
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: git worktree add --detach release-source "$RELEASE_SHA"
-        working-directory: ${{ github.workspace }}
-
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install hash-locked third-party dependencies
-        run: |
-          python -m pip install \
-            --require-hashes \
-            --only-binary=:all: \
-            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
-
-      - name: Install commit-bound local packages without dependency resolution
-        run: |
-          python -m pip install \
-            --no-deps \
-            --no-build-isolation \
-            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-sdk"
-          python -m pip install --no-deps --no-build-isolation -e .
-
-      - name: Run compatibility gate
-        run: python release-source/scripts/compatibility_gate.py
-        working-directory: ${{ github.workspace }}
-
-      - name: Run SDK coverage gate
-        env:
-          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python release-source/scripts/gen_sdk_coverage.py
-        working-directory: ${{ github.workspace }}
+      - name: Validate commit-bound release source
+        uses: ./.github/actions/validate-python-release-source
+        with:
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
       - name: Run tests
         run: python -m pytest release-source/tests/ -q --tb=short
@@ -641,6 +594,7 @@ jobs:
       - resolve-publish-targets
       - build-honua-admin
       - preflight-honua-admin-pypi
+      - preflight-honua-gp-pypi
       - verify-honua-sdk-pypi
       - attach-honua-sdk-release
     if: >
@@ -653,6 +607,8 @@ jobs:
       && (needs.resolve-publish-targets.outputs.sdk != 'true'
           || (needs.verify-honua-sdk-pypi.result == 'success'
               && needs.attach-honua-sdk-release.result == 'success'))
+      && (needs.resolve-publish-targets.outputs.gp != 'true'
+          || needs.preflight-honua-gp-pypi.result == 'success')
     runs-on: ubuntu-latest
     environment: pypi-honua-admin
     permissions:
@@ -837,41 +793,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Materialize exact release source
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: git worktree add --detach release-source "$RELEASE_SHA"
-        working-directory: ${{ github.workspace }}
-
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install hash-locked third-party dependencies
-        run: |
-          python -m pip install \
-            --require-hashes \
-            --only-binary=:all: \
-            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
-
-      - name: Install commit-bound local packages without dependency resolution
-        run: |
-          python -m pip install \
-            --no-deps \
-            --no-build-isolation \
-            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-sdk"
-          python -m pip install --no-deps --no-build-isolation -e "${GITHUB_WORKSPACE}/release-source/packages/honua-admin"
-
-      - name: Run compatibility gate
-        run: python release-source/scripts/compatibility_gate.py
-        working-directory: ${{ github.workspace }}
-
-      - name: Run SDK coverage gate
-        env:
-          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python release-source/scripts/gen_sdk_coverage.py
-        working-directory: ${{ github.workspace }}
+      - name: Validate commit-bound release source
+        uses: ./.github/actions/validate-python-release-source
+        with:
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
       - name: Install GP package
         run: python -m pip install --no-deps --no-build-isolation -e .

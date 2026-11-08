@@ -154,3 +154,42 @@ def test_non_dry_manual_release_commit_must_be_on_trunk() -> None:
             release_tag=SDK_TAG,
             workflow_ref="refs/heads/trunk",
         )
+
+
+def test_manual_both_rejects_a_gp_release_tag() -> None:
+    with pytest.raises(ValueError, match="does not match the selection"):
+        plan_publish(event_name="workflow_dispatch", release_sha=SHA, versions=VERSIONS,
+                     tag_commits={SDK_TAG: SHA, ADMIN_TAG: SHA, "python-gp-v0.1.0": SHA},
+                     release_is_trunk_ancestor=True, dry_run=False,
+                     release_tag="python-gp-v0.1.0", workflow_ref="refs/heads/trunk")
+
+
+def test_sdk_release_before_gp_exists_still_resolves(tmp_path, capsys) -> None:
+    import json
+    import subprocess
+    from scripts.resolve_publish_targets import main
+
+    def git(*args):
+        return subprocess.check_output(  # noqa: S603 - local fixture git commands
+            ["/usr/bin/git", "-C", str(tmp_path), *args], text=True).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "Mike McDougall")
+    git("config", "user.email", "mike@honua.io")
+    for package, version in (("honua-sdk", "0.1.11"), ("honua-admin", "0.1.8")):
+        path = tmp_path / "packages" / package / "pyproject.toml"
+        path.parent.mkdir(parents=True)
+        path.write_text(f'[project]\nversion = "{version}"\n')
+    git("add", ".")
+    git("commit", "-qm", "feat: initial packages")
+    sha = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/trunk", sha)
+    git("tag", SDK_TAG)
+    args = ["--workspace", str(tmp_path), "--event-name", "workflow_dispatch",
+            "--workflow-ref", "refs/heads/trunk", "--dry-run", "false",
+            "--release-tag", SDK_TAG, "--package", "honua-sdk"]
+    assert main(args) == 0
+    assert json.loads(capsys.readouterr().out)["selected"] == ["sdk"]
+    assert main(["--workspace", str(tmp_path), "--event-name", "workflow_dispatch",
+                 "--package", "honua-gp"]) == 1
+    assert "honua-gp" in capsys.readouterr().err

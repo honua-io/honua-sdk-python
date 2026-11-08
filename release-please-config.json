@@ -45,6 +45,7 @@
     "packages/honua-gp": {
       "release-type": "python",
       "component": "python-gp",
+      "release-as": "0.1.0",
       "tag-separator": "-",
       "include-component-in-tag": true,
       "bump-minor-pre-major": true,

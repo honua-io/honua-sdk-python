@@ -19,6 +19,7 @@ PUBLISH_REQUIREMENTS = ROOT / ".github/requirements/publish-python.lock"
 BUILD_ACTION = ROOT / ".github/actions/build-python-distribution/action.yml"
 ATTACH_ACTION = ROOT / ".github/actions/attach-python-release/action.yml"
 ATTEST_ACTION = ROOT / ".github/actions/attest-python-distribution/action.yml"
+VALIDATE_ACTION = ROOT / ".github/actions/validate-python-release-source/action.yml"
 PUBLIC_PACKAGES = ("honua-sdk", "honua-admin", "honua-gp")
 
 
@@ -57,6 +58,10 @@ def test_public_package_metadata_release_components_and_jobs_stay_mapped() -> No
         publish_job = _job_block(workflow, f"publish-{spec.distribution}")
 
         assert metadata["project"]["name"] == spec.distribution
+        assert metadata["project"]["license"] == "Apache-2.0"
+        assert metadata["project"]["license-files"] == ["LICENSE"]
+        assert "Private :: Do Not Upload" not in metadata["project"]["classifiers"]
+        assert (ROOT / spec.pyproject.parent / "LICENSE").read_bytes() == (ROOT / "packages/honua-sdk/LICENSE").read_bytes()
         assert spec.tag_prefix == f"{release_config['component']}-v"
         assert f"working-directory: release-source/{spec.pyproject.parent.as_posix()}" in validate_job
         assert "uses: ./.github/actions/build-python-distribution" in build_job
@@ -79,7 +84,8 @@ def test_only_workflow_run_and_strict_manual_dispatch_can_publish() -> None:
     assert "--release-tag \"$RELEASE_TAG\"" in workflow
     assert "refs/remotes/origin/trunk" not in workflow  # ancestry is enforced in the resolver
     assert "ref: ${{ needs.resolve-publish-targets.outputs.release_sha }}" not in workflow
-    assert workflow.count('git worktree add --detach release-source "$RELEASE_SHA"') == 4
+    assert workflow.count('git worktree add --detach release-source "$RELEASE_SHA"') == 1
+    assert 'git worktree add --detach release-source "$RELEASE_SHA"' in VALIDATE_ACTION.read_text()
     build = BUILD_ACTION.read_text(encoding="utf-8")
     assert 'git worktree add --detach build-source-1 "$RELEASE_SHA"' in build
     assert 'git worktree add --detach build-source-2 "$RELEASE_SHA"' in build
@@ -110,7 +116,8 @@ def test_build_jobs_are_unprivileged_and_oidc_jobs_only_download_and_publish() -
         assert "environment:" not in validate_job
         assert "id-token: write" not in validate_job
         assert "Run tests" in validate_job or "Run SDK tests" in validate_job
-        assert "--no-deps" in validate_job
+        assert "uses: ./.github/actions/validate-python-release-source" in validate_job
+        assert "--no-deps" in VALIDATE_ACTION.read_text()
 
         assert "environment:" not in build_job
         assert "id-token: write" not in build_job
@@ -136,10 +143,11 @@ def test_build_inputs_are_hash_locked_and_artifacts_are_reproducible() -> None:
     requirements_input = PUBLISH_REQUIREMENTS_INPUT.read_text(encoding="utf-8")
     lock = PUBLISH_REQUIREMENTS.read_text(encoding="utf-8")
 
-    assert workflow.count("--require-hashes") == 7
-    assert workflow.count("--only-binary=:all:") == 7
-    assert workflow.count("--no-deps") == 9
-    assert workflow.count("--no-build-isolation") == 9
+    assert workflow.count("--require-hashes") == 4
+    assert VALIDATE_ACTION.read_text().count("--require-hashes") == 1
+    assert workflow.count("--only-binary=:all:") == 4
+    assert workflow.count("--no-deps") == 3
+    assert workflow.count("--no-build-isolation") == 3
     assert "pip install --upgrade" not in workflow
     assert "hatch build" not in workflow
     build = BUILD_ACTION.read_text(encoding="utf-8")
@@ -195,6 +203,7 @@ def test_registry_and_release_assets_require_exact_hash_parity() -> None:
 
     assert "skip-existing" not in workflow
     assert "--clobber" not in workflow
+    assert "--clobber" not in ATTACH_ACTION.read_text(encoding="utf-8")
     assert workflow.count("--phase preflight") == 3
     assert workflow.count("--phase post-publish") == 3
     assert ATTACH_ACTION.read_text(encoding="utf-8").count(".digest // \"\"") == 2
@@ -203,6 +212,10 @@ def test_registry_and_release_assets_require_exact_hash_parity() -> None:
     assert "needs.attach-honua-sdk-release.result == 'success'" in admin_publish
     assert "needs.preflight-honua-sdk-pypi.outputs.publish_required == 'true'" in sdk_publish
     assert "preflight-honua-admin-pypi" in sdk_publish
+    for publisher in (sdk_publish, admin_publish):
+        assert "- preflight-honua-gp-pypi" in publisher
+        assert "needs.resolve-publish-targets.outputs.gp != 'true'" in publisher
+        assert "needs.preflight-honua-gp-pypi.result == 'success'" in publisher
 
     for package in PUBLIC_PACKAGES:
         attachment = _job_block(workflow, f"attach-{package}-release")
@@ -213,6 +226,9 @@ def test_registry_and_release_assets_require_exact_hash_parity() -> None:
         assert "id-token: write" not in attachment
         assert "uses: ./.github/actions/attach-python-release" in attachment
         assert f"package: {package}" in attachment
+        assert "ref: ${{ github.workflow_sha }}" in attachment
+        assert "persist-credentials: false" in attachment
+        assert attachment.index("actions/checkout@") < attachment.index("uses: ./.github/actions/")
     shared_attachment = ATTACH_ACTION.read_text(encoding="utf-8")
     assert "gh release upload" in shared_attachment
     assert "sha256sum" in shared_attachment
@@ -228,7 +244,7 @@ def test_release_target_uses_rest_field_and_all_actions_are_sha_pinned() -> None
     assert "targetCommitish" not in publish_workflow
     _assert_actions_pinned(publish_workflow)
     _assert_actions_pinned(release_workflow)
-    for action in (BUILD_ACTION, ATTACH_ACTION, ATTEST_ACTION):
+    for action in (BUILD_ACTION, ATTACH_ACTION, ATTEST_ACTION, VALIDATE_ACTION):
         _assert_actions_pinned(action.read_text(encoding="utf-8"))
     assert "googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7" in release_workflow
 
@@ -285,6 +301,9 @@ def test_attestation_jobs_bind_verified_bytes_to_the_release_commit() -> None:
         assert "environment:" not in attest
         assert "uses: ./.github/actions/attest-python-distribution" in attest
         assert f"package: {package}" in attest
+        assert "ref: ${{ github.workflow_sha }}" in attest
+        assert "persist-credentials: false" in attest
+        assert attest.index("actions/checkout@") < attest.index("uses: ./.github/actions/")
         assert "release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}" in attest
         assert f"name: {package}-dist-${{{{ github.run_id }}}}\n" in attest
         assert "pypa/gh-action-pypi-publish@" not in attest
@@ -296,6 +315,9 @@ def test_attestation_jobs_bind_verified_bytes_to_the_release_commit() -> None:
     assert "anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c" in shared_attestation
     assert "format: cyclonedx-json" in shared_attestation
     assert "subject-path: artifact/dist/*" in shared_attestation
+    assert "id: wheel" in shared_attestation
+    assert 'echo "path=${wheels[0]}" >> "$GITHUB_OUTPUT"' in shared_attestation
+    assert "subject-path: ${{ steps.wheel.outputs.path }}" in shared_attestation
 
 
 
@@ -342,3 +364,53 @@ def test_each_consumer_downloads_its_own_package_distribution(package: str, cons
 
 def test_distribution_artifacts_are_rerun_safe() -> None:
     assert "dist-${{ github.run_id }}-${{ github.run_attempt }}" not in PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+
+
+def test_gp_first_release_version_is_explicit() -> None:
+    config = json.loads((ROOT / "release-please-config.json").read_text())
+    assert config["packages"]["packages/honua-gp"]["release-as"] == "0.1.0"
+
+
+def test_gp_registry_install_is_anonymous_and_pinned() -> None:
+    workflow = PUBLISH_WORKFLOW.read_text()
+    install = _job_block(workflow, "install-honua-gp")
+    assert "needs.verify-honua-gp-pypi.result == 'success'" in install
+    assert "needs.resolve-publish-targets.outputs.publish == 'true'" in install
+    assert "VERSION: ${{ needs.resolve-publish-targets.outputs.gp_version }}" in install
+    assert '--isolated install' in install
+    assert '--index-url https://pypi.org/simple "honua-gp==$VERSION"' in install
+    assert '-m pip check' in install
+    assert '/bin/honua-gp" --help' in install
+    assert "TOKEN" not in install
+
+
+def test_source_mismatch_fails_before_registry_or_release_access(tmp_path: Path) -> None:
+    import os
+    import subprocess
+    import textwrap
+
+    block = _job_block(PUBLISH_WORKFLOW.read_text(), "verify-github-releases")
+    step = block.split("      - name: Verify selected GitHub Releases through REST\n", 1)[1]
+    script = textwrap.dedent(step.split("        run: |\n", 1)[1].split("      - name:", 1)[0])
+    marker = tmp_path / "accessed"
+    gh = tmp_path / "gh"
+    gh.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 1\n")
+    gh.chmod(0o755)
+    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}",
+           "PUBLISH": "true", "GITHUB_SHA": "a" * 40, "RELEASE_SHA": "b" * 40,
+           "SDK_SELECTED": "false", "ADMIN_SELECTED": "false", "GP_SELECTED": "true",
+           "GP_TAG": "python-gp-v0.1.0", "GITHUB_REPOSITORY": "honua-io/honua-sdk-python"}
+    result = subprocess.run(  # noqa: S603 - executes a checked-in workflow against a fake gh
+        ["/bin/bash", "-e", "-c", script], check=False, env=env,
+                            capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "workflow source" in result.stderr
+    assert not marker.exists()
+
+
+def test_gp_waits_for_verified_and_attached_dependencies() -> None:
+    publish = _job_block(PUBLISH_WORKFLOW.read_text(), "publish-honua-gp")
+    for package in ("honua-sdk", "honua-admin"):
+        for gate in (f"verify-{package}-pypi", f"attach-{package}-release"):
+            assert f"- {gate}" in publish
+            assert f"needs.{gate}.result == 'success'" in publish

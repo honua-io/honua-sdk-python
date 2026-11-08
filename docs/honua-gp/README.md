@@ -7,7 +7,7 @@ tags: [honua-gp, geoprocessing]
 ---
 # honua-gp documentation
 
-`honua-gp` is a Apache-2.0 package for running supported
+`honua-gp` is an Apache-2.0 package for running supported
 geoprocessing operations against a Honua deployment.
 
 ## Pointers

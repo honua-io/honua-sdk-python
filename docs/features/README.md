@@ -30,4 +30,4 @@ This repository owns the Python data-plane package and admin/control-plane packa
 
 ## Boundary
 
-The Python SDK is alpha. Keep docs explicit about current read/write smoke coverage, optional dependencies, and server compatibility gates before making stable API claims. `honua-gp` is Apache-2.0 under the public Apache-2.0 grant; see [docs/honua-gp/](../honua-gp/README.md).
+The Python SDK is alpha. Keep docs explicit about current read/write smoke coverage, optional dependencies, and server compatibility gates before making stable API claims. `honua-gp` is available under Apache-2.0; see [docs/honua-gp/](../honua-gp/README.md).

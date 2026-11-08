@@ -201,3 +201,8 @@ After publication, `install-honua-gp` installs the exact version anonymously
 from PyPI in a fresh environment, checks dependencies, and runs CLI help.
 Pin the final version and wheel SHA256 in the release cohort only after this
 job, registry parity, provenance and SBOM attestations succeed.
+
+The first GP release is pinned to `0.1.0` with `release-as` in the GP Release Please
+configuration. Remove that bootstrap override after the first release, so later
+releases use conventional version increments. Production publication requires the
+workflow commit to equal the release commit before any package upload.

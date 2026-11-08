@@ -91,14 +91,15 @@ def plan_publish(
         raise ValueError("The checked-out release commit SHA is empty.")
 
     tags = {
-        spec.key: f"{spec.tag_prefix}{versions[spec.key]}" for spec in PACKAGE_SPECS
+        spec.key: f"{spec.tag_prefix}{versions[spec.key]}" for spec in PACKAGE_SPECS if versions.get(spec.key)
     }
 
     if event_name == "workflow_run":
         if not release_is_trunk_ancestor:
             raise ValueError(f"Release commit {release_sha} is not an ancestor of origin/trunk.")
         selected = tuple(
-            spec.key for spec in PACKAGE_SPECS if tag_commits.get(tags[spec.key]) == release_sha
+            spec.key for spec in PACKAGE_SPECS
+            if spec.key in tags and tag_commits.get(tags[spec.key]) == release_sha
         )
         return PublishPlan(
             release_sha=release_sha,
@@ -112,6 +113,10 @@ def plan_publish(
         raise ValueError(f"Unsupported publication event {event_name!r}.")
 
     selected = _requested_keys(requested_package)
+    missing = [spec.distribution for spec in PACKAGE_SPECS
+               if spec.key in selected and spec.key not in tags]
+    if missing:
+        raise ValueError(f"Package metadata missing at {release_sha}: {', '.join(missing)}.")
     if dry_run:
         return PublishPlan(
             release_sha=release_sha,
@@ -231,8 +236,8 @@ def _write_github_outputs(path: Path, plan: PublishPlan) -> None:
     }
     for spec in PACKAGE_SPECS:
         outputs[spec.key] = str(spec.key in plan.selected).lower()
-        outputs[f"{spec.key}_version"] = plan.versions[spec.key]
-        outputs[f"{spec.key}_tag"] = plan.tags[spec.key]
+        outputs[f"{spec.key}_version"] = plan.versions.get(spec.key, "")
+        outputs[f"{spec.key}_tag"] = plan.tags.get(spec.key, "")
     with path.open("a", encoding="utf-8") as output_file:
         for key, value in outputs.items():
             output_file.write(f"{key}={value}\n")
@@ -260,12 +265,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         workspace = args.workspace.resolve()
         release_sha = _resolve_commit(workspace, args.target_ref)
+        paths = subprocess.run(
+            ["git", "-C", str(workspace), "ls-tree", "-r", "--name-only", release_sha,
+             "--", *[spec.pyproject.as_posix() for spec in PACKAGE_SPECS]],
+            check=True, capture_output=True, text=True,
+        ).stdout.splitlines()
         versions = {
             spec.key: _package_version_at_commit(workspace, release_sha, spec)
-            for spec in PACKAGE_SPECS
+            for spec in PACKAGE_SPECS if spec.pyproject.as_posix() in paths
         }
         tags = {
-            spec.key: f"{spec.tag_prefix}{versions[spec.key]}" for spec in PACKAGE_SPECS
+            spec.key: f"{spec.tag_prefix}{versions[spec.key]}"
+            for spec in PACKAGE_SPECS if spec.key in versions
         }
         tag_commits = {tag: _tag_commit(workspace, tag) for tag in tags.values()}
         plan = plan_publish(

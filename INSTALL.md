@@ -188,9 +188,11 @@ All packages follow [Semantic Versioning](https://semver.org/). Major versions a
 The admin SDK uses `GET /api/v1/admin/capabilities` as the runtime compatibility
 source of truth. It currently expects:
 
-- server version `>= 1.0.0`, including the year-led release line (`2026.1.1`)
+- server version `>= 2026.1.0-0`, including the year-led release line (`2026.1.1`)
 - control-plane API major `v1`
-- release channel `preview` or newer
+
+Non-release channels (`nightly`, `dev`, `alpha`) and unrecognized labels produce
+a warning rather than an incompatibility.
 
 The coarse feature flags exposed today are:
 

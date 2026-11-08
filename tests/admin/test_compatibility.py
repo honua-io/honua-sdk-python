@@ -319,6 +319,24 @@ def test_nightly_warning_preserves_incompatible_contract_refusal(make_client, ov
     assert result.warnings == ["Server release channel 'nightly' is below recommended 'preview'."]
 
 
+@pytest.mark.parametrize(("minimum_channel", "server_channel"), [
+    ("stable", "beta"),
+    ("custom", "stable"),
+])
+def test_custom_release_channel_threshold_warns_without_refusal(minimum_channel, server_channel) -> None:
+    payload = _make_capabilities_payload(release_channel=server_channel)
+    compatibility = AdminCompatibilityMetadata.from_dict(payload["compatibility"])
+    baseline = AdminCompatibilityBaseline(minimum_release_channel=minimum_channel)
+
+    result = evaluate_admin_compatibility(compatibility, baseline)
+
+    assert result.supported is True
+    assert result.reasons == []
+    assert result.warnings == [
+        f"Server release channel {server_channel!r} is below recommended {minimum_channel!r}."
+    ]
+
+
 def test_check_compatibility_warns_when_control_plane_api_is_deprecated(make_client) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         payload = _make_capabilities_payload(deprecated=True)

@@ -81,7 +81,7 @@
     },
     {
       "name": "release-2026-1-nightly",
-      "description": "Non-release channels warn while compatible server versions and control-plane APIs remain supported.",
+      "description": "A 2026.1 nightly clears the version and API checks and warns about channel maturity.",
       "compatibility": {
         "serverVersion": "2026.1.1-nightly.20260913",
         "releaseChannel": "nightly",
@@ -339,7 +339,7 @@
     },
     {
       "name": "pre-preview-release-channel",
-      "description": "Non-release channels warn while compatible server versions and control-plane APIs remain supported.",
+      "description": "An alpha channel on a compatible 2026.3 server warns without refusing the server.",
       "compatibility": {
         "serverVersion": "2026.3.4-alpha.2",
         "releaseChannel": "alpha",

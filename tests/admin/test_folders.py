@@ -9,7 +9,7 @@ from types import EllipsisType
 import httpx
 import pytest
 
-from honua_admin import AsyncHonuaAdminClient, HonuaAdminClient
+from honua_admin import AdminServiceSummary, AsyncHonuaAdminClient, HonuaAdminClient, PublishLayerRequest
 from honua_sdk import HonuaHttpError
 
 from .conftest import make_api_response
@@ -139,3 +139,59 @@ def test_create_folder_preserves_http_error(make_client, status: int) -> None:
         with pytest.raises(HonuaHttpError) as caught:
             client.create_folder("Survey", if_match='"catalog-17"')
     assert caught.value.status_code == status
+
+
+@pytest.mark.parametrize("organized", [False, True])
+def test_service_summary_preserves_folder_and_display_metadata(organized: bool) -> None:
+    body = {"serviceName": "logical-parcels", "description": "", "layerCount": 1, "enabledProtocols": ["FeatureServer"]}
+    if organized:
+        body.update({"folderId": "folder-1", "folderName": "Survey", "publicName": "Parcels", "title": "Field parcels",
+                     "folderMutationIssues": ["Retired path is reserved."]})
+    result = AdminServiceSummary.from_dict(body)
+    assert result.service_name == "logical-parcels"
+    assert result.folder_id == ("folder-1" if organized else None)
+    assert result.folder_name == ("Survey" if organized else None)
+    assert result.public_name == ("Parcels" if organized else None)
+    assert result.title == ("Field parcels" if organized else None)
+    assert result.folder_mutation_issues == (["Retired path is reserved."] if organized else [])
+
+
+def test_publish_layer_legacy_defaults_preserve_wire_body() -> None:
+    assert PublishLayerRequest(table="parcels").to_dict() == {"schema": "public", "table": "parcels", "enabled": True}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("folder_id", [Ellipsis, None, "folder-1"])
+async def test_publish_layer_preserves_omitted_root_and_folder_choices(asynchronous: bool, folder_id) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/v1/admin/connections/conn-1/layers"
+        body = json.loads(request.content)
+        assert body["serviceName"] == "logical-parcels"
+        assert body["publicName"] == "Parcels"
+        if folder_id is Ellipsis:
+            assert "folderId" not in body
+        else:
+            assert body["folderId"] == folder_id
+        return httpx.Response(200, json=make_api_response({
+            "layerId": 4, "layerName": "Parcels", "schema": "public", "table": "parcels", "description": None,
+            "geometryType": "Point", "srid": 4326, "primaryKey": "id", "fieldCount": 1, "enabled": True,
+            "serviceName": "logical-parcels",
+        }))
+
+    selection = {} if folder_id is Ellipsis else {"folder_id": folder_id}
+    publication = PublishLayerRequest(table="parcels", service_name="logical-parcels", public_name="Parcels", **selection)
+    client_type = AsyncHonuaAdminClient if asynchronous else HonuaAdminClient
+    client = client_type("http://test.honua.io", transport=httpx.MockTransport(handler))
+    try:
+        result = client.publish_layer("conn-1", publication)
+        if inspect.isawaitable(result):
+            result = await result
+        assert result.service_name == "logical-parcels"
+        assert result.layer_id == 4
+    finally:
+        if asynchronous:
+            await client.close()
+        else:
+            client.close()

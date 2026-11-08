@@ -3,12 +3,12 @@
 A thin, dependency-free (stdlib :mod:`argparse`) CLI over
 :class:`honua_admin.HonuaAdminClient`. Every command is one typed client call;
 the CLI adds no HTTP of its own. The same command groups are mounted on the
-``honua`` console script (``honua connection ...``) when ``honua-admin`` is
+``honua`` console script (``honua datasource ...``) when ``honua-admin`` is
 installed.
 
 Commands
 --------
-``connection list | create | test``
+``datasource list | create | test``
     Secure connections (``list_connections``,
     ``create_connection``, ``test_connection``). ``create`` never takes a
     password on the command line: use ``--password-env``, ``--password-stdin``,
@@ -31,7 +31,7 @@ Output and exit codes
 ``--json`` prints the server-shaped JSON object (camelCase keys) on stdout;
 without it a short table or ``key: value`` listing is printed. Exit ``0`` on
 success; ``1`` when the server or transport refuses the call (stderr carries
-``error: HTTP <status>: <message>``), when ``connection test`` reports an
+``error: HTTP <status>: <message>``), when ``datasource test`` reports an
 unhealthy connection, or when ``proposal read --wait`` times out; ``2`` for a
 usage error.
 
@@ -77,7 +77,7 @@ class CliUsageError(ValueError):
     """An operator input error; reported on stderr with exit code 2."""
 
 
-# -- connection --------------------------------------------------------------
+# -- server access -----------------------------------------------------------
 
 
 def _resolve_base_url(args: argparse.Namespace) -> str:
@@ -207,17 +207,17 @@ def _password(args: argparse.Namespace) -> str | None:
     return None
 
 
-# -- connection --------------------------------------------------------------
+# -- datasource --------------------------------------------------------------
 
 
-def _cmd_connection_list(args: argparse.Namespace, out: TextIO) -> int:
+def _cmd_datasource_list(args: argparse.Namespace, out: TextIO) -> int:
     with _make_client(args) as client:
         connections = client.list_connections()
     _emit_rows(connections, ["connectionId", "name", "host", "databaseName", "healthStatus"], args, out)
     return 0
 
 
-def _cmd_connection_create(args: argparse.Namespace, out: TextIO) -> int:
+def _cmd_datasource_create(args: argparse.Namespace, out: TextIO) -> int:
     if args.password_stdin and args.body == "-":
         raise CliUsageError("--password-stdin and --body - both read stdin; put the password in the body instead")
     body = _read_body(args.body)
@@ -241,7 +241,7 @@ def _cmd_connection_create(args: argparse.Namespace, out: TextIO) -> int:
     return 0
 
 
-def _cmd_connection_test(args: argparse.Namespace, out: TextIO) -> int:
+def _cmd_datasource_test(args: argparse.Namespace, out: TextIO) -> int:
     with _make_client(args) as client:
         result = client.test_connection(args.connection_id)
     _emit_record(result, args, out)
@@ -385,12 +385,12 @@ def _group_help(parser: argparse.ArgumentParser) -> Command:
     return run
 
 
-def _add_connection(subparsers: Any) -> None:
-    group = subparsers.add_parser("connection", help="Create, test and list secure connections.")
-    sub = group.add_subparsers(dest="connection_command", metavar="<subcommand>")
+def _add_datasource(subparsers: Any) -> None:
+    group = subparsers.add_parser("datasource", help="Create, test and list secure connections.")
+    sub = group.add_subparsers(dest="datasource_command", metavar="<subcommand>")
     group.set_defaults(func=_group_help(group))
 
-    _common(sub.add_parser("list", help="List connections."), _cmd_connection_list)
+    _common(sub.add_parser("list", help="List connections."), _cmd_datasource_list)
 
     create = _common(
         sub.add_parser(
@@ -398,7 +398,7 @@ def _add_connection(subparsers: Any) -> None:
             help="Create a PostGIS connection.",
             description="Create a connection. Passwords are never accepted on the command line.",
         ),
-        _cmd_connection_create,
+        _cmd_datasource_create,
     )
     create.add_argument("--name", default=None, help="Connection name.")
     create.add_argument("--description", default=None)
@@ -419,7 +419,7 @@ def _add_connection(subparsers: Any) -> None:
         help="JSON request body (camelCase or snake_case keys; '-' for stdin); flags override its fields.",
     )
 
-    test = _common(sub.add_parser("test", help="Test a stored connection; exit 1 if unhealthy."), _cmd_connection_test)
+    test = _common(sub.add_parser("test", help="Test a stored connection; exit 1 if unhealthy."), _cmd_datasource_test)
     test.add_argument("connection_id", help="Connection identifier.")
 
 
@@ -486,12 +486,12 @@ def _add_proposal(subparsers: Any) -> None:
 
 
 def add_operator_commands(subparsers: Any) -> None:
-    """Mount the ``connection``, ``layer`` and ``proposal`` groups on ``subparsers``.
+    """Mount the ``datasource``, ``layer`` and ``proposal`` groups on ``subparsers``.
 
     Each leaf parser sets ``func(args, out) -> int``. The ``honua`` console
     script calls this so both programs expose the same commands.
     """
-    _add_connection(subparsers)
+    _add_datasource(subparsers)
     _add_layer(subparsers)
     _add_proposal(subparsers)
 

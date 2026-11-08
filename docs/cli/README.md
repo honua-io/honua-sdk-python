@@ -10,10 +10,10 @@ The PyPI packages install two console scripts:
 
 | Script | Installed by | Commands |
 |--------|--------------|----------|
-| `honua` | `honua-sdk` | `services`, `layers`, `query`, `style apply`, `doctor`, `gp` (separate devkit required). When `honua-admin` is installed it also has `connection`, `layer` and `proposal`. `admin`, `map` and the other [JavaScript CLI commands](reference.md#honua-admin-and-other-javascript-cli-commands) forward to an installed `@honua/sdk-js`. |
-| `honua-admin` | `honua-admin` | `connection`, `layer`, `proposal` |
+| `honua` | `honua-sdk` | `services`, `layers`, `query`, `style apply`, `doctor`, `gp` (separate devkit required). When `honua-admin` is installed it also has `datasource`, `layer` and `proposal`. `admin`, `map` and the other [JavaScript CLI commands](reference.md#honua-admin-and-other-javascript-cli-commands) forward to an installed `@honua/sdk-js`. |
+| `honua-admin` | `honua-admin` | `datasource`, `layer`, `proposal` |
 
-`honua connection ...` and `honua-admin connection ...` run the same code, and
+`honua datasource ...` and `honua-admin datasource ...` run the same code, and
 so do the `layer` and `proposal` groups. Install both packages to get the
 full operator workflow:
 
@@ -22,8 +22,8 @@ pip install honua-sdk honua-admin
 ```
 
 - [Run the operator workflow from a terminal](operator-workflow.md): create
-  and test a connection, publish a layer, query it, approve a proposal, then
-  disable the layer.
+  and test a Connection, publish a layer, query it, approve a proposal, then
+  disable the Layer.
 - [Command reference](reference.md): every command, its options, its JSON
   output and its exit codes.
 - [Collect a support bundle](../diagnostic-bundles.md): `honua doctor`.

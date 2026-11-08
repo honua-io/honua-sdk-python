@@ -1,7 +1,7 @@
 ---
 type: guide
 title: "Run the operator workflow from a terminal"
-description: "Create and test a PostGIS connection, publish a table, query and count it, approve an agent's proposal as a second principal, then disable the layer, using only the PyPI command-line clients."
+description: "Create and test a PostGIS Connection, publish a table, query and count it, approve an agent's proposal as a second principal, then disable the Layer, using only the PyPI command-line clients."
 resource: "honua://capability/admin.control-plane"
 tags: [cli, operator, publish, approval]
 ---
@@ -16,7 +16,7 @@ can pipe into `jq`.
 ```bash
 pip install honua-sdk honua-admin
 export HONUA_BASE_URL=https://honua.example.com
-export HONUA_ADMIN_KEY=...   # control-plane commands: connection, layer, proposal
+export HONUA_ADMIN_KEY=...   # control-plane commands: datasource, layer, proposal
 export HONUA_API_KEY=...     # data-plane commands: services, layers, query
 ```
 
@@ -30,7 +30,7 @@ The control-plane commands read `--api-key`, then `HONUA_ADMIN_KEY`, then
 honua services --json
 ```
 
-## 2. Create a connection and test it
+## 2. Create a Connection and test it
 
 The password never goes on the command line. Name an environment variable
 that holds it with `--password-env`, pipe it in with `--password-stdin`, or put
@@ -38,7 +38,7 @@ it in a `--body` file that only you can read.
 
 ```bash
 export FIXTURE_DB_PASSWORD=...
-honua connection create \
+honua datasource create \
   --name lifecycle --host db.example.com --port 5432 --database gis --username honua \
   --password-env FIXTURE_DB_PASSWORD --ssl-mode Require --json
 ```
@@ -46,7 +46,7 @@ honua connection create \
 The result carries `connectionId`. Test the stored connection:
 
 ```bash
-honua connection test conn-1 --json
+honua datasource test conn-1 --json
 ```
 
 The command exits `1` when the server reports `"isHealthy": false`.
@@ -98,7 +98,7 @@ refuses: the command exits `1` and prints `error: HTTP 403: ...` on stderr.
 doesn't happen within `--wait-timeout` seconds (default 120). To turn a
 proposal down instead, run `honua proposal reject prop-123 --reason "..."`.
 
-## 6. Disable the layer
+## 6. Disable the Layer
 
 ```bash
 honua layer disable conn-1 1 --service-name lifecycle --json

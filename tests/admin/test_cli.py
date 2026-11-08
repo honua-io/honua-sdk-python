@@ -45,11 +45,11 @@ def test_layer_unpublish_is_not_a_disable_alias(capsys: pytest.CaptureFixture[st
     assert "invalid choice" in capsys.readouterr().err
 
 
-def test_connection_group_uses_the_registered_connection_name(capsys: pytest.CaptureFixture[str]) -> None:
+def test_connection_help_names_registered_connections(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exit_status:
-        cli.main(["connection", "--help"])
+        cli.main(["--help"])
     assert exit_status.value.code == 0
-    assert "connection" in capsys.readouterr().out
+    assert "secure connections" in capsys.readouterr().out
 
 
 class FakeAdminServer:
@@ -259,7 +259,7 @@ def test_operator_workflow_end_to_end(
 
     created = run_json(
         capsys,
-        "connection", "create",
+        "datasource", "create",
         "--name", "lifecycle", "--host", "db", "--port", "5433", "--database", "fixture",
         "--username", "honua", "--password-env", "FIXTURE_DB_PASSWORD", "--ssl-mode", "Disable",
     )  # fmt: skip
@@ -271,7 +271,7 @@ def test_operator_workflow_end_to_end(
     assert sent["databaseName"] == "fixture"
     assert server.requests[-1].headers["X-API-Key"] == ROOT_KEY
 
-    tested = run_json(capsys, "connection", "test", "conn-1")
+    tested = run_json(capsys, "datasource", "test", "conn-1")
     assert tested["isHealthy"] is True
 
     body = tmp_path / "layer.json"
@@ -416,7 +416,7 @@ def test_proposal_reject(server: FakeAdminServer, capsys: pytest.CaptureFixture[
 def test_connection_test_unhealthy_exits_1(server: FakeAdminServer, capsys: pytest.CaptureFixture[str]) -> None:
     server.connections["conn-9"] = {"connectionId": "conn-9", "name": "broken"}
     server.healthy = False
-    code, out, _ = run(capsys, "connection", "test", "conn-9", "--json")
+    code, out, _ = run(capsys, "datasource", "test", "conn-9", "--json")
     assert code == 1
     assert json.loads(out)["isHealthy"] is False
 
@@ -424,13 +424,13 @@ def test_connection_test_unhealthy_exits_1(server: FakeAdminServer, capsys: pyte
 def test_connection_list_table_and_password_stdin(
     server: FakeAdminServer, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    code, out, _ = run(capsys, "connection", "list")
+    code, out, _ = run(capsys, "datasource", "list")
     assert (code, out) == (0, "(no entries)\n")
 
     monkeypatch.setattr("sys.stdin", io.StringIO("from-stdin\nignored\n"))
     code, out, _ = run(
         capsys,
-        "connection", "create", "--name", "n", "--host", "h", "--database", "d", "--username", "u",
+        "datasource", "create", "--name", "n", "--host", "h", "--database", "d", "--username", "u",
         "--password-stdin", "--ssl-required",
     )  # fmt: skip
     assert code == 0
@@ -440,7 +440,7 @@ def test_connection_list_table_and_password_stdin(
     assert sent["sslRequired"] is True
     assert sent["port"] == 5432
 
-    code, out, _ = run(capsys, "connection", "list")
+    code, out, _ = run(capsys, "datasource", "list")
     assert "conn-1" in out
 
 
@@ -458,7 +458,7 @@ def test_connection_create_body_from_stdin(
         "sslMode": "Disable",
     }
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(body)))
-    created = run_json(capsys, "connection", "create", "--body", "-", "--name", "override")
+    created = run_json(capsys, "datasource", "create", "--body", "-", "--name", "override")
     assert created["name"] == "override"
     assert json.loads(server.requests[-1].content)["password"] == "pw"
 
@@ -480,7 +480,7 @@ def test_connection_create_usage_errors(
     message: str,
 ) -> None:
     monkeypatch.delenv("UNSET_PASSWORD_VAR", raising=False)
-    code, _, err = run(capsys, "connection", "create", "--name", "n", *argv)
+    code, _, err = run(capsys, "datasource", "create", "--name", "n", *argv)
     assert code == 2
     assert message in err
     assert server.requests == []
@@ -502,7 +502,7 @@ def test_body_validation(
     code, _, err = run(capsys, "layer", "publish", "conn-1")
     assert (code, "a table is required" in err) == (2, True)
 
-    code, _, err = run(capsys, "connection", "create", "--host", "h")
+    code, _, err = run(capsys, "datasource", "create", "--host", "h")
     assert (code, "incomplete request" in err) == (2, True)
 
     huge = tmp_path / "huge.json"
@@ -562,20 +562,20 @@ def test_credentials_and_base_url_resolution(monkeypatch: pytest.MonkeyPatch, ca
     monkeypatch.delenv("HONUA_ADMIN_KEY", raising=False)
     monkeypatch.delenv("HONUA_API_KEY", raising=False)
 
-    code, _, err = run(capsys, "connection", "list")
+    code, _, err = run(capsys, "datasource", "list")
     assert code == 2
     assert "a base URL is required" in err
 
-    args = parser.parse_args(["connection", "list"])
+    args = parser.parse_args(["datasource", "list"])
     assert cli._resolve_api_key(args) is None
     monkeypatch.setenv("HONUA_API_KEY", "data-key")
     assert cli._resolve_api_key(args) == "data-key"
     monkeypatch.setenv("HONUA_ADMIN_KEY", "admin-key")
     assert cli._resolve_api_key(args) == "admin-key"
-    assert cli._resolve_api_key(parser.parse_args(["connection", "list", "--api-key", "flag"])) == "flag"
+    assert cli._resolve_api_key(parser.parse_args(["datasource", "list", "--api-key", "flag"])) == "flag"
 
     monkeypatch.setenv("HONUA_BASE_URL", BASE)
-    with cli._make_client(parser.parse_args(["connection", "list", "--timeout", "5"])) as client:
+    with cli._make_client(parser.parse_args(["datasource", "list", "--timeout", "5"])) as client:
         assert isinstance(client, HonuaAdminClient)
 
 
@@ -594,13 +594,13 @@ def test_transport_failure_exits_1(monkeypatch: pytest.MonkeyPatch, capsys: pyte
 
 
 def test_groups_without_subcommand_and_version(capsys: pytest.CaptureFixture[str]) -> None:
-    for group in ("connection", "layer", "proposal"):
+    for group in ("datasource", "layer", "proposal"):
         code, _, err = run(capsys, group)
         assert code == 2
         assert f"honua-admin {group}" in err
     code, _, err = run(capsys)
     assert code == 2
-    assert "connection" in err
+    assert "datasource" in err
     with pytest.raises(SystemExit) as excinfo:
         cli.main(["--version"])
     assert excinfo.value.code == 0
@@ -643,7 +643,7 @@ def test_credentials_over_plain_http_are_a_usage_error(
 ) -> None:
     monkeypatch.delenv("HONUA_ALLOW_INSECURE_HTTP", raising=False)
     code, _, err = run(
-        capsys, "connection", "list", "--base-url", "http://admin.example.test", "--api-key", "secret-key"
+        capsys, "datasource", "list", "--base-url", "http://admin.example.test", "--api-key", "secret-key"
     )
     assert code == 2
     assert "Refusing to send credentials over plain HTTP" in err

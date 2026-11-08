@@ -386,6 +386,7 @@ def test_gp_registry_install_is_anonymous_and_pinned() -> None:
 
 def test_source_mismatch_fails_before_registry_or_release_access(tmp_path: Path) -> None:
     import os
+    import shutil
     import subprocess
     import textwrap
 
@@ -394,15 +395,17 @@ def test_source_mismatch_fails_before_registry_or_release_access(tmp_path: Path)
     script = textwrap.dedent(step.split("        run: |\n", 1)[1].split("      - name:", 1)[0])
     marker = tmp_path / "accessed"
     gh = tmp_path / "gh"
-    gh.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 1\n")
+    gh.write_text("#!/bin/sh\ntouch accessed\nexit 1\n")
     gh.chmod(0o755)
-    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}",
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
            "PUBLISH": "true", "GITHUB_SHA": "a" * 40, "RELEASE_SHA": "b" * 40,
            "SDK_SELECTED": "false", "ADMIN_SELECTED": "false", "GP_SELECTED": "true",
            "GP_TAG": "python-gp-v0.1.0", "GITHUB_REPOSITORY": "honua-io/honua-sdk-python"}
+    bash = shutil.which("bash")
+    assert bash is not None
     result = subprocess.run(  # noqa: S603 - executes a checked-in workflow against a fake gh
-        ["/bin/bash", "-e", "-c", script], check=False, env=env,
-                            capture_output=True, text=True)
+        [bash, "-e", "-c", script], check=False, env=env, cwd=tmp_path,
+        capture_output=True, text=True)
     assert result.returncode != 0
     assert "workflow source" in result.stderr
     assert not marker.exists()

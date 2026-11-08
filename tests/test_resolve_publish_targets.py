@@ -166,12 +166,16 @@ def test_manual_both_rejects_a_gp_release_tag() -> None:
 
 def test_sdk_release_before_gp_exists_still_resolves(tmp_path, capsys) -> None:
     import json
+    import shutil
     import subprocess
     from scripts.resolve_publish_targets import main
 
+    git_executable = shutil.which("git")
+    assert git_executable is not None
+
     def git(*args):
         return subprocess.check_output(  # noqa: S603 - local fixture git commands
-            ["/usr/bin/git", "-C", str(tmp_path), *args], text=True).strip()
+            [git_executable, "-C", str(tmp_path), *args], text=True).strip()
 
     git("init", "-q")
     git("config", "user.name", "Mike McDougall")
@@ -187,9 +191,11 @@ def test_sdk_release_before_gp_exists_still_resolves(tmp_path, capsys) -> None:
     git("tag", SDK_TAG)
     args = ["--workspace", str(tmp_path), "--event-name", "workflow_dispatch",
             "--workflow-ref", "refs/heads/trunk", "--dry-run", "false",
-            "--release-tag", SDK_TAG, "--package", "honua-sdk"]
+            "--release-tag", SDK_TAG, "--package", "honua-sdk",
+            "--github-output", str(tmp_path / "step-output")]
     assert main(args) == 0
     assert json.loads(capsys.readouterr().out)["selected"] == ["sdk"]
     assert main(["--workspace", str(tmp_path), "--event-name", "workflow_dispatch",
-                 "--package", "honua-gp"]) == 1
+                 "--package", "honua-gp",
+                 "--github-output", str(tmp_path / "step-output")]) == 1
     assert "honua-gp" in capsys.readouterr().err

@@ -55,7 +55,7 @@ def anyio_backend() -> str:
         ),
         (
             {"release_channel": "nightly"},
-            ["Server release channel 'nightly' is below required 'preview'."],
+            [],
         ),
     ],
     ids=[
@@ -93,7 +93,10 @@ async def test_reported_ga_server_contract_at_client_boundary(
     assert seen == ["/api/v1/admin/capabilities"]
     assert result.supported is (not expected_reasons)
     assert result.reasons == expected_reasons
-    assert result.warnings == []
+    if overrides.get("release_channel") == "nightly":
+        assert result.warnings == ["Server release channel 'nightly' is below recommended 'preview'."]
+    else:
+        assert result.warnings == []
     assert result.baseline.minimum_server_version == "2026.1.0-0"
     assert result.compatibility is not None
     assert result.compatibility.server_version == values["server_version"]
@@ -107,7 +110,7 @@ async def test_reported_ga_server_contract_at_client_boundary(
 # triples, and the floor is the least identity of the first release line,
 # 2026.1.0-0, the value the JS and .NET SDKs also use. Builds that report
 # 1.0.0+<sha> are not release identities and fall below it. There is no separate
-# CalVer cutoff; release channel and control-plane API gate the rest.
+# CalVer cutoff; the control-plane API gates the rest, while release channels only warn.
 VERSION_POLICY_CASES = [
     (REPORTED_SERVER_VERSION, False),
     ("1.0.0", False),
@@ -282,16 +285,56 @@ def test_check_compatibility_rejects_semver_below_baseline(make_client) -> None:
     assert any("below required" in reason for reason in result.reasons)
 
 
-def test_check_compatibility_rejects_release_channel_below_baseline(make_client) -> None:
+@pytest.mark.parametrize("release_channel", ["nightly", "dev", "alpha", "custom", ""])
+def test_check_compatibility_warns_without_rejecting_release_channel(make_client, release_channel) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
-        payload = _make_capabilities_payload(release_channel="alpha")
+        payload = _make_capabilities_payload(release_channel=release_channel)
+        return httpx.Response(200, json=make_api_response(payload))
+
+    with make_client(handler) as client:
+        result = client.check_compatibility()
+
+    assert result.supported is True
+    assert result.reasons == []
+    assert len(result.warnings) == 1
+    assert "release channel" in result.warnings[0]
+
+
+@pytest.mark.parametrize("overrides", [
+    {"server_version": "1.0.0"},
+    {"major": 2},
+    {"base_path": "/api/v2/admin"},
+])
+def test_nightly_warning_preserves_incompatible_contract_refusal(make_client, overrides) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        payload = _make_capabilities_payload(release_channel="nightly", **overrides)
         return httpx.Response(200, json=make_api_response(payload))
 
     with make_client(handler) as client:
         result = client.check_compatibility()
 
     assert result.supported is False
-    assert any("release channel" in reason for reason in result.reasons)
+    assert len(result.reasons) == 1
+    assert "release channel" not in result.reasons[0]
+    assert result.warnings == ["Server release channel 'nightly' is below recommended 'preview'."]
+
+
+@pytest.mark.parametrize(("minimum_channel", "server_channel"), [
+    ("stable", "beta"),
+    ("custom", "stable"),
+])
+def test_custom_release_channel_threshold_warns_without_refusal(minimum_channel, server_channel) -> None:
+    payload = _make_capabilities_payload(release_channel=server_channel)
+    compatibility = AdminCompatibilityMetadata.from_dict(payload["compatibility"])
+    baseline = AdminCompatibilityBaseline(minimum_release_channel=minimum_channel)
+
+    result = evaluate_admin_compatibility(compatibility, baseline)
+
+    assert result.supported is True
+    assert result.reasons == []
+    assert result.warnings == [
+        f"Server release channel {server_channel!r} is below recommended {minimum_channel!r}."
+    ]
 
 
 def test_check_compatibility_warns_when_control_plane_api_is_deprecated(make_client) -> None:

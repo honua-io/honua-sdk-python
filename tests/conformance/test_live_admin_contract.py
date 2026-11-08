@@ -25,7 +25,7 @@ EXPECTED_SERVER_VERSION = os.environ.get("HONUA_CONTRACT_LIVE_EXPECTED_SERVER_VE
 
 # honua-server stamps <year>.<release>.<patch>[-prerelease][+build]; older builds 1.0.0+<sha>.
 _SERVER_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$")
-_SUPPORTED_CHANNELS = {"preview", "beta", "rc", "stable", "lts"}
+_RELEASE_CHANNELS = {"preview", "beta", "rc", "stable", "lts"}
 
 pytestmark = [
     pytest.mark.integration,
@@ -55,7 +55,8 @@ def test_live_server_identity_matches_versioning_contract(raw_compatibility: dic
     assert tuple(int(part) for part in match.group(1, 2, 3)) >= (1, 0, 0)
     if EXPECTED_SERVER_VERSION:
         assert version == EXPECTED_SERVER_VERSION
-    assert raw_compatibility["releaseChannel"] in _SUPPORTED_CHANNELS
+    assert isinstance(raw_compatibility["releaseChannel"], str)
+    assert raw_compatibility["releaseChannel"]
     assert raw_compatibility["controlPlaneApi"] == {"major": 1, "basePath": "/api/v1/admin", "deprecated": False}
 
 
@@ -66,7 +67,11 @@ def test_live_admin_server_is_supported_by_admin_sdk(raw_compatibility: dict[str
 
     assert result.reasons == []
     assert result.supported is True
-    assert result.warnings == []
+    if str(raw_compatibility["releaseChannel"]).lower() in _RELEASE_CHANNELS:
+        assert result.warnings == []
+    else:
+        assert len(result.warnings) == 1
+        assert "release channel" in result.warnings[0]
     assert result.compatibility is not None
     assert result.compatibility.server_version == raw_compatibility["serverVersion"]
     assert result.compatibility.release_channel == raw_compatibility["releaseChannel"]

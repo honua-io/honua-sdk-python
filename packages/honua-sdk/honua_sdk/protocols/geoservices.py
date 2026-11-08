@@ -22,7 +22,7 @@ from honua_sdk._client_protocol import (
     SupportsSyncRequest,
 )
 from honua_sdk._http import _encode_path_segment
-from honua_sdk.models import Feature, FeatureSet, LayerSchema
+from honua_sdk.models import Feature, FeatureSet, LayerSchema, ServiceAddress
 
 from ._base import (
     BboxValue,
@@ -262,13 +262,13 @@ class GeoServicesFeatureServerClient(_SyncProtocol):
 
     client: SupportsSyncFeatureService
 
-    def __init__(self, client: SupportsSyncFeatureService, service_id: str) -> None:
+    def __init__(self, client: SupportsSyncFeatureService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
         self.service_id = service_id
 
     @property
     def path(self) -> str:
-        return _service_path(self.service_id, "FeatureServer")
+        return _service_path(self.service_id, "FeatureServer", str(self.client._base_url))
 
     def metadata(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", self.path, params=_params({"f": response_format}, extra_params))
@@ -650,13 +650,13 @@ class GeoServicesMapServerClient(_SyncProtocol):
 
     client: SupportsSyncMapService
 
-    def __init__(self, client: SupportsSyncMapService, service_id: str) -> None:
+    def __init__(self, client: SupportsSyncMapService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
         self.service_id = service_id
 
     @property
     def path(self) -> str:
-        return _service_path(self.service_id, "MapServer")
+        return _service_path(self.service_id, "MapServer", str(self.client._base_url))
 
     def metadata(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", self.path, params=_params({"f": response_format}, extra_params))
@@ -722,7 +722,7 @@ class GeoServicesMapServerClient(_SyncProtocol):
 class GeoServicesImageServerClient(_SyncProtocol):
     """GeoServices ImageServer wrapper."""
 
-    def __init__(self, client: SupportsSyncRequest, service_id: str | None = None) -> None:
+    def __init__(self, client: SupportsSyncRequest, service_id: str | ServiceAddress | None = None) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -730,7 +730,7 @@ class GeoServicesImageServerClient(_SyncProtocol):
     def path(self) -> str:
         if self.service_id is None:
             return "/rest/services/ImageServer"
-        return _service_path(self.service_id, "ImageServer")
+        return _service_path(self.service_id, "ImageServer", str(self.client._base_url))
 
     def metadata(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return self._json("GET", self.path, params=_params({"f": response_format}, extra_params))
@@ -1082,13 +1082,13 @@ class AsyncGeoServicesFeatureServerClient(_AsyncProtocol):
 
     client: SupportsAsyncFeatureService
 
-    def __init__(self, client: SupportsAsyncFeatureService, service_id: str) -> None:
+    def __init__(self, client: SupportsAsyncFeatureService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
         self.service_id = service_id
 
     @property
     def path(self) -> str:
-        return _service_path(self.service_id, "FeatureServer")
+        return _service_path(self.service_id, "FeatureServer", str(self.client._base_url))
 
     async def metadata(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", self.path, params=_params({"f": response_format}, extra_params))
@@ -1471,13 +1471,13 @@ class AsyncGeoServicesMapServerClient(_AsyncProtocol):
 
     client: SupportsAsyncMapService
 
-    def __init__(self, client: SupportsAsyncMapService, service_id: str) -> None:
+    def __init__(self, client: SupportsAsyncMapService, service_id: str | ServiceAddress) -> None:
         super().__init__(client)
         self.service_id = service_id
 
     @property
     def path(self) -> str:
-        return _service_path(self.service_id, "MapServer")
+        return _service_path(self.service_id, "MapServer", str(self.client._base_url))
 
     async def metadata(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", self.path, params=_params({"f": response_format}, extra_params))
@@ -1543,7 +1543,7 @@ class AsyncGeoServicesMapServerClient(_AsyncProtocol):
 class AsyncGeoServicesImageServerClient(_AsyncProtocol):
     """Async GeoServices ImageServer wrapper."""
 
-    def __init__(self, client: SupportsAsyncRequest, service_id: str | None = None) -> None:
+    def __init__(self, client: SupportsAsyncRequest, service_id: str | ServiceAddress | None = None) -> None:
         super().__init__(client)
         self.service_id = service_id
 
@@ -1551,7 +1551,7 @@ class AsyncGeoServicesImageServerClient(_AsyncProtocol):
     def path(self) -> str:
         if self.service_id is None:
             return "/rest/services/ImageServer"
-        return _service_path(self.service_id, "ImageServer")
+        return _service_path(self.service_id, "ImageServer", str(self.client._base_url))
 
     async def metadata(self, *, response_format: str = "json", extra_params: Params = None) -> JsonObject:
         return await self._json("GET", self.path, params=_params({"f": response_format}, extra_params))

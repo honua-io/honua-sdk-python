@@ -18,7 +18,7 @@ from honua_sdk._query_dispatch import (
     ogc_features_pages_kwargs,
     reject_odata_bbox,
     stac_pages_kwargs,
-    validate_filter_routing,
+    validate_query_routing,
 )
 from honua_sdk.models import FeatureQuery
 
@@ -32,27 +32,27 @@ def _query(**overrides: object) -> FeatureQuery:
     return FeatureQuery(**defaults)  # type: ignore[arg-type]
 
 
-# validate_filter_routing
+# validate_query_routing
 
 
 @pytest.mark.parametrize("protocol", ["ogc-features", "stac"])
-def test_validate_filter_routing_rejects_where_without_filter(protocol: str) -> None:
+def test_validate_query_routing_rejects_where_without_filter(protocol: str) -> None:
     """``where`` on OGC Features / STAC must not be silently routed to CQL."""
     query = _query(protocol=protocol, where="name = 'a'")
     with pytest.raises(ValueError, match="SQL-style filter"):
-        validate_filter_routing(query, protocol)
+        validate_query_routing(query, protocol)
 
 
 @pytest.mark.parametrize("protocol", ["ogc-features", "stac"])
-def test_validate_filter_routing_allows_filter_only(protocol: str) -> None:
+def test_validate_query_routing_allows_filter_only(protocol: str) -> None:
     """A bare ``filter`` (CQL2-text) on OGC/STAC dispatches without error."""
     query = _query(protocol=protocol, filter="name = 'a'")
-    validate_filter_routing(query, protocol)  # does not raise
+    validate_query_routing(query, protocol)  # does not raise
 
 
-def test_validate_filter_routing_passes_through_feature_server() -> None:
+def test_validate_query_routing_passes_through_feature_server() -> None:
     """FeatureServer's ``where`` slot is SQL-style; no rejection."""
-    validate_filter_routing(
+    validate_query_routing(
         _query(protocol="feature-server", where="status = 'active'"),
         "feature-server",
     )

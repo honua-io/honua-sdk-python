@@ -29,6 +29,28 @@ descriptor = SourceDescriptor(id="svc", protocol="geoservices-feature-service",
 result = client.source(descriptor).query(Query(where="1=1"))
 ```
 
+## Bind a discovered Service URL
+
+`SourceLocator.url` binds GeoServices queries, edits, metadata and protocol
+access to a returned service-level URL. It takes precedence over `service_id`.
+`SourceDescriptor.id` and result source identities stay logical and stable.
+
+```python
+descriptor = SourceDescriptor(
+    id="parcels",
+    protocol="geoservices-feature-service",
+    locator=SourceLocator(
+        service_id="parcels", layer_id=0,
+        url="/rest/services/Survey/Parcels/FeatureServer",
+    ),
+)
+result = client.source(descriptor).query(Query(where="1=1"))
+```
+
+For the legacy query dispatcher, supply `FeatureQuery.service_url` alongside
+its logical `source`. That URL option is specific to FeatureServer queries;
+other query protocols keep their existing identifiers and links.
+
 ## Cursor helpers
 
 For geoprocessing workflows the facade exposes cursor helpers over streaming

@@ -9,9 +9,9 @@
         "signature": "(self) -> \"'AsyncElevationClient'\""
       },
       "feature_server": {
-        "parameters": "(self, service_id: 'str')",
+        "parameters": "(self, service_id: 'str | ServiceAddress')",
         "returns": "AsyncGeoServicesFeatureServerClient",
-        "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesFeatureServerClient'\""
+        "signature": "(self, service_id: 'str | ServiceAddress') -> \"'AsyncGeoServicesFeatureServerClient'\""
       },
       "geocoder": {
         "parameters": "(self, locator: 'str' = 'World')",
@@ -29,14 +29,14 @@
         "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcAsyncClient'\""
       },
       "image_server": {
-        "parameters": "(self, service_id: 'str | None' = None)",
+        "parameters": "(self, service_id: 'str | ServiceAddress | None' = None)",
         "returns": "AsyncGeoServicesImageServerClient",
-        "signature": "(self, service_id: 'str | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
+        "signature": "(self, service_id: 'str | ServiceAddress | None' = None) -> \"'AsyncGeoServicesImageServerClient'\""
       },
       "map_server": {
-        "parameters": "(self, service_id: 'str')",
+        "parameters": "(self, service_id: 'str | ServiceAddress')",
         "returns": "AsyncGeoServicesMapServerClient",
-        "signature": "(self, service_id: 'str') -> \"'AsyncGeoServicesMapServerClient'\""
+        "signature": "(self, service_id: 'str | ServiceAddress') -> \"'AsyncGeoServicesMapServerClient'\""
       },
       "odata": {
         "parameters": "(self)",
@@ -106,9 +106,9 @@
         "signature": "(self) -> \"'ElevationClient'\""
       },
       "feature_server": {
-        "parameters": "(self, service_id: 'str')",
+        "parameters": "(self, service_id: 'str | ServiceAddress')",
         "returns": "GeoServicesFeatureServerClient",
-        "signature": "(self, service_id: 'str') -> \"'GeoServicesFeatureServerClient'\""
+        "signature": "(self, service_id: 'str | ServiceAddress') -> \"'GeoServicesFeatureServerClient'\""
       },
       "geocoder": {
         "parameters": "(self, locator: 'str' = 'World')",
@@ -126,14 +126,14 @@
         "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcClient'\""
       },
       "image_server": {
-        "parameters": "(self, service_id: 'str | None' = None)",
+        "parameters": "(self, service_id: 'str | ServiceAddress | None' = None)",
         "returns": "GeoServicesImageServerClient",
-        "signature": "(self, service_id: 'str | None' = None) -> \"'GeoServicesImageServerClient'\""
+        "signature": "(self, service_id: 'str | ServiceAddress | None' = None) -> \"'GeoServicesImageServerClient'\""
       },
       "map_server": {
-        "parameters": "(self, service_id: 'str')",
+        "parameters": "(self, service_id: 'str | ServiceAddress')",
         "returns": "GeoServicesMapServerClient",
-        "signature": "(self, service_id: 'str') -> \"'GeoServicesMapServerClient'\""
+        "signature": "(self, service_id: 'str | ServiceAddress') -> \"'GeoServicesMapServerClient'\""
       },
       "odata": {
         "parameters": "(self)",

@@ -96,6 +96,7 @@ from .models import (
     QueryFeature,
     QueryProtocol,
     Result,
+    ServiceAddress,
     ServiceSummary,
     SourceDescriptor,
     SourceLocator,
@@ -120,6 +121,7 @@ __all__ = [  # noqa: RUF022 -- grouped by category for human discoverability
     # Source / Query facade
     "Source",
     "AsyncSource",
+    "ServiceAddress",
     "SourceDescriptor",
     "SourceLocator",
     "Query",

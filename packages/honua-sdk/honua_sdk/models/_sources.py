@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit
 
 from ._helpers import _first_present, _optional_int, _optional_str, _sequence_value
 from ._protocols import (
@@ -18,6 +19,40 @@ from ._protocols import (
 
 
 @dataclass(frozen=True)
+class ServiceAddress:
+    """An explicit service-level protocol URL returned by discovery.
+
+    Plain Service identifiers keep their one-segment encoding. An address
+    preserves the advertised path and uses the client's existing origin guard.
+    """
+
+    url: str
+
+    def __post_init__(self) -> None:
+        parts = urlsplit(self.url)
+        root_relative = (
+            self.url.startswith("/") and not self.url.startswith("//")
+            and not parts.netloc and not parts.scheme
+        )
+        if not root_relative and (parts.scheme not in {"http", "https"} or not parts.hostname):
+            raise ValueError("A Service address requires an absolute HTTP URL or a root-relative protocol link.")
+        if parts.username is not None or parts.password is not None or "?" in self.url or "#" in self.url:
+            raise ValueError("A Service address cannot contain credentials, a query or a fragment.")
+        if parts.port is not None and parts.port <= 0:
+            raise ValueError("A Service address requires a valid port.")
+
+
+def _service_reference(service_id: str, service_url: str | None, protocol: Protocol | str) -> str | ServiceAddress:
+    if service_url is None:
+        return service_id
+    if normalize_protocol(protocol) not in {
+        "geoservices-feature-service", "geoservices-map-service", "geoservices-image-service",
+    }:
+        raise ValueError("A Service URL requires a GeoServices service protocol.")
+    return ServiceAddress(service_url)
+
+
+@dataclass(frozen=True)
 class SourceLocator:
     """Protocol-specific source address using Pythonic field names.
 
@@ -27,6 +62,7 @@ class SourceLocator:
         collection_id: OGC API / STAC collection identifier.
         entity_set: OData entity-set name (e.g. ``"Features"``).
         type_name: WFS ``typeName`` value.
+        url: Advertised GeoServices service-level URL; takes precedence over service_id.
     """
 
     service_id: str | None = None
@@ -34,6 +70,7 @@ class SourceLocator:
     collection_id: str | None = None
     entity_set: str | None = None
     type_name: str | None = None
+    url: str | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "SourceLocator":
@@ -43,6 +80,7 @@ class SourceLocator:
             collection_id=_optional_str(_first_present(payload, "collectionId", "collection_id")),
             entity_set=_optional_str(_first_present(payload, "entitySet", "entity_set")),
             type_name=_optional_str(_first_present(payload, "typeName", "type_name")),
+            url=_optional_str(payload.get("url")),
         )
 
 

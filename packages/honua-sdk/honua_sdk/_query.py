@@ -8,7 +8,8 @@ from dataclasses import replace
 from typing import Any
 
 from ._geoservices_query import spatial_filter_params, statistics_params
-from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol, normalize_protocol
+from .models import Feature, FeatureQuery, QueryFeature, QueryProtocol, ServiceAddress, normalize_protocol
+from .models._sources import _service_reference
 
 
 def resolve_feature_query(
@@ -87,6 +88,10 @@ def resolve_feature_query(
         max_pages=max_pages,
         extra_params=dict(extra_params or {}),
     )
+
+
+def feature_server_service(query: FeatureQuery) -> str | ServiceAddress:
+    return _service_reference(query.source, query.service_url, query.protocol)
 
 
 def normalize_query_protocol(value: QueryProtocol) -> str:

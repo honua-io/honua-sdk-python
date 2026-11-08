@@ -29,6 +29,32 @@ with HonuaClient("https://your-honua-server.com", timeout=30.0) as client:
     services = client.list_services()
 ```
 
+## Folder discovery and returned Service links
+
+`list_services(folder_name="Survey")` and
+`list_service_summaries(folder_name="Survey")` read one Folder. Omitting
+`folder_name` keeps Root discovery. Folder names are encoded as one segment.
+
+Use `ServiceAddress` for an advertised service-level FeatureServer, MapServer
+or ImageServer URL. Both absolute and root-relative links preserve the
+advertised path, including a deployment prefix. Absolute links must stay on
+the client's configured origin. Credentials, query strings and fragments do
+not belong in a Service address.
+
+```python
+from honua_sdk import HonuaClient, ServiceAddress
+
+with HonuaClient("https://your-honua-server.com") as client:
+    address = ServiceAddress("/rest/services/Survey/Parcels/FeatureServer")
+    features = client.query_features(address, 0)
+    metadata = client.feature_server(address).metadata()
+```
+
+Use the matching protocol URL for `export_map` or an ImageServer wrapper.
+Existing string Service identifiers remain encoded as one segment:
+`"Survey/Parcels"` as a plain string still means a single identifier containing
+a slash. A Folder path requires an explicit `ServiceAddress`.
+
 **See also**: [Source facade](source-facade.md) for the canonical query path,
 [Core client model](../../core-client.md) for `with_options(...)` semantics,
 and [Retries and timeouts](../../retries-and-timeouts.md) for the retry policy,

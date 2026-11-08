@@ -50,7 +50,7 @@ from ._protocols import (
 )
 from ._query import DegradedReason, Pagination, Query, Result
 from ._schema import Extent, Field, LayerSchema
-from ._sources import SourceDescriptor, SourceLocator
+from ._sources import ServiceAddress, SourceDescriptor, SourceLocator
 
 #: Backwards-compatible alias for the result element type variable that used to
 #: be a module-level name in the former ``models.py``.
@@ -63,6 +63,7 @@ T = TypeVar("T")
 for _symbol in (
     ServiceSummary,
     DataPlaneCapabilities,
+    ServiceAddress,
     SourceLocator,
     SourceDescriptor,
     Pagination,
@@ -110,6 +111,7 @@ __all__ = [
     "QueryFeature",
     "QueryProtocol",
     "Result",
+    "ServiceAddress",
     "ServiceSummary",
     "SourceDescriptor",
     "SourceLocator",

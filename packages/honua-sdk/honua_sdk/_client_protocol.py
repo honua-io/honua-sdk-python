@@ -16,6 +16,8 @@ from typing import Any, Protocol
 
 import httpx
 
+from .models import ServiceAddress
+
 Params = Mapping[str, Any] | None
 
 
@@ -103,7 +105,7 @@ class SupportsSyncFeatureService(SupportsSyncRequest, Protocol):
 
     def query_features(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         where: str = "1=1",
@@ -116,7 +118,7 @@ class SupportsSyncFeatureService(SupportsSyncRequest, Protocol):
 
     def apply_edits(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         adds: Sequence[Mapping[str, Any]] | None = None,
@@ -138,7 +140,7 @@ class SupportsSyncMapService(SupportsSyncRequest, Protocol):
 
     def export_map(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         bbox: Sequence[float] | str,
         *,
         size: tuple[int, int] = (400, 400),
@@ -161,7 +163,7 @@ class SupportsAsyncFeatureService(SupportsAsyncRequest, Protocol):
 
     async def query_features(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         where: str = "1=1",
@@ -174,7 +176,7 @@ class SupportsAsyncFeatureService(SupportsAsyncRequest, Protocol):
 
     async def apply_edits(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         layer_id: int,
         *,
         adds: Sequence[Mapping[str, Any]] | None = None,
@@ -196,7 +198,7 @@ class SupportsAsyncMapService(SupportsAsyncRequest, Protocol):
 
     async def export_map(
         self,
-        service_id: str,
+        service_id: str | ServiceAddress,
         bbox: Sequence[float] | str,
         *,
         size: tuple[int, int] = (400, 400),

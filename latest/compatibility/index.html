@@ -1623,13 +1623,15 @@
   reported <code>1.0.0+&lt;sha&gt;</code>; they are not release identities and are refused. The
   major tracks the year rather than compatibility; the control-plane API major
   below is the breaking-change signal.</li>
-<li><code>releaseChannel</code> is <code>preview</code> or a later channel (<code>beta</code>, <code>rc</code>, <code>stable</code>, or
-  <code>lts</code>).</li>
 <li><code>controlPlaneApi.major</code> is <code>1</code>.</li>
 <li><code>controlPlaneApi.basePath</code> is <code>/api/v1/admin</code>.</li>
 <li>The server returns the nested <code>compatibility</code> object from
   <code>/api/v1/admin/capabilities</code>.</li>
 </ul>
+<p><code>releaseChannel</code> is advisory. Non-release channels such as <code>nightly</code>, <code>dev</code>
+and <code>alpha</code>, and unrecognized channel labels, produce a warning rather than
+an incompatibility. <code>minimum_release_channel</code> sets the warning threshold;
+it does not override the server-version or control-plane API checks.</p>
 <p>Matching control-plane APIs marked <code>deprecated</code> remain supported, but
 <code>check_compatibility()</code> returns a warning so applications can plan migrations
 before the API major is removed.</p>
@@ -1645,7 +1647,9 @@ identity reported in <a href="https://github.com/honua-io/honua-sdk-python/issue
 and the <code>2026.1.1</code> compatibility contract a 2026.1 server image returns. Both
 synchronous and asynchronous admin clients test those identities through the
 capabilities response parser, with independent rejection cases for an incompatible
-API major, base path, or release channel. These deterministic transport fixtures
+API major or base path. Both clients have a nightly-channel warning case; the
+shared evaluator also covers other non-release labels and custom thresholds.
+These deterministic transport fixtures
 protect the runtime policy; they do not certify a deployed release candidate.</p>
 <p><code>tests/conformance/test_live_admin_contract.py</code> runs the same check against a
 live server when <code>HONUA_CONTRACT_LIVE_URL</code> and an admin

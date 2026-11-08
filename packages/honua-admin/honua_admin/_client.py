@@ -570,6 +570,25 @@ class HonuaAdminClient:
             return BackgroundImportResponse.from_dict(payload)
         return ImportResult.from_dict(payload)
 
+    def _catalog_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        namespace: str | None,
+        if_match: str | None = None,
+        json_body: Any | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[Any, str | None]:
+        response = self._request(
+            method, path, json_body=json_body,
+            headers={"If-Match": if_match} if if_match is not None else None,
+            params={"namespace": namespace} if namespace is not None else None,
+            timeout=timeout, extra_headers=extra_headers,
+        )
+        return _endpoints.unwrap_envelope(response), response.headers.get("ETag")
+
     def list_folders(
         self,
         *,
@@ -578,15 +597,15 @@ class HonuaAdminClient:
         extra_headers: Mapping[str, str] | None = None,
     ) -> tuple[list[Folder], str | None]:
         """List catalog Folders with the snapshot ETag used by mutations."""
-        response = self._request(
+        payload, etag = self._catalog_request(
             "GET",
             "/api/v1/admin/folders",
-            params={"namespace": namespace} if namespace is not None else None,
+            namespace=namespace,
             timeout=timeout,
             extra_headers=extra_headers,
         )
-        folders = [Folder.from_dict(folder) for folder in _endpoints.unwrap_envelope(response)]
-        return folders, response.headers.get("ETag")
+        folders = [Folder.from_dict(folder) for folder in payload]
+        return folders, etag
 
     def create_folder(
         self,
@@ -602,13 +621,12 @@ class HonuaAdminClient:
         body = {"name": name}
         if title is not None:
             body["title"] = title
-        response = self._request(
+        payload, etag = self._catalog_request(
             "POST", "/api/v1/admin/folders", json_body=body,
-            headers={"If-Match": if_match},
-            params={"namespace": namespace} if namespace is not None else None,
+            if_match=if_match, namespace=namespace,
             timeout=timeout, extra_headers=extra_headers,
         )
-        return Folder.from_dict(_endpoints.unwrap_envelope(response)), response.headers.get("ETag")
+        return Folder.from_dict(payload), etag
 
     def update_folder(
         self,
@@ -627,13 +645,12 @@ class HonuaAdminClient:
             body["name"] = name
         if title is not Ellipsis:
             body["title"] = title
-        response = self._request(
+        payload, etag = self._catalog_request(
             "PATCH", f"/api/v1/admin/folders/{encode_path_segment(folder_id)}", json_body=body,
-            headers={"If-Match": if_match},
-            params={"namespace": namespace} if namespace is not None else None,
+            if_match=if_match, namespace=namespace,
             timeout=timeout, extra_headers=extra_headers,
         )
-        return Folder.from_dict(_endpoints.unwrap_envelope(response)), response.headers.get("ETag")
+        return Folder.from_dict(payload), etag
 
     def delete_folder(
         self,
@@ -645,13 +662,11 @@ class HonuaAdminClient:
         extra_headers: Mapping[str, str] | None = None,
     ) -> str | None:
         """Delete an empty Folder and return the resulting catalog ETag."""
-        response = self._request(
+        _, etag = self._catalog_request(
             "DELETE", f"/api/v1/admin/folders/{encode_path_segment(folder_id)}",
-            headers={"If-Match": if_match},
-            params={"namespace": namespace} if namespace is not None else None,
+            if_match=if_match, namespace=namespace,
             timeout=timeout, extra_headers=extra_headers,
         )
-        etag: str | None = response.headers.get("ETag")
         return etag
 
     def move_service(
@@ -665,13 +680,11 @@ class HonuaAdminClient:
         extra_headers: Mapping[str, str] | None = None,
     ) -> str | None:
         """Move a logical Service to a Folder or to Root when folder_id is None."""
-        response = self._request(
+        _, etag = self._catalog_request(
             "PUT", f"/api/v1/admin/services/{encode_path_segment(service_name)}/folder",
-            json_body={"folderId": folder_id}, headers={"If-Match": if_match},
-            params={"namespace": namespace} if namespace is not None else None,
+            json_body={"folderId": folder_id}, if_match=if_match, namespace=namespace,
             timeout=timeout, extra_headers=extra_headers,
         )
-        etag: str | None = response.headers.get("ETag")
         return etag
 
     # Services

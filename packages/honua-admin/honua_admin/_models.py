@@ -1075,12 +1075,14 @@ class PublishLayerRequest:
         d: dict[str, Any] = {}
         for f in fields(self):
             val = getattr(self, f.name)
-            if val is not Ellipsis and (val is not None or f.name == "folder_id"):
+            if f.name != "folder_id" and val is not None:
                 key = f.name
                 # Map fields_list back to "fields" in the API
                 if key == "fields_list":
                     key = "fields"
                 d[_to_camel(key)] = val
+        if self.folder_id is not Ellipsis:
+            d["folderId"] = self.folder_id  # None selects Root; omission keeps the server default.
         return d
 
 

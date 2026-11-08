@@ -32,43 +32,40 @@ def _folder_response(request: httpx.Request, namespace: str | None) -> httpx.Res
     )
 
 
-@pytest.mark.parametrize("namespace", [None, "workspace"])
-def test_list_folders_preserves_metadata_namespace_and_snapshot_etag(make_client, namespace: str | None) -> None:
-    with make_client(lambda request: _folder_response(request, namespace)) as client:
-        folders, etag = client.list_folders(namespace=namespace)
-    assert etag == '"catalog-17"'
-    assert len(folders) == 1
-    assert folders[0].metadata.id == "folder-1"
-    assert folders[0].metadata.name == "Survey"
-    assert folders[0].metadata.title == "Field survey"
-    assert folders[0].metadata.tenant is None
-    assert folders[0].previous_names == ["SurveyOld"]
-
-
 @pytest.fixture
 def anyio_backend() -> str:
     return "asyncio"
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("namespace", [None, "workspace"])
-async def test_async_list_folders_preserves_metadata_namespace_and_snapshot_etag(namespace: str | None) -> None:
-    transport = httpx.MockTransport(lambda request: _folder_response(request, namespace))
-    async with AsyncHonuaAdminClient("http://test.honua.io", transport=transport) as client:
-        folders, etag = await client.list_folders(namespace=namespace)
-    assert etag == '"catalog-17"'
-    assert len(folders) == 1
-    assert folders[0].metadata.id == "folder-1"
-    assert folders[0].metadata.name == "Survey"
-    assert folders[0].metadata.title == "Field survey"
-    assert folders[0].metadata.tenant is None
-    assert folders[0].previous_names == ["SurveyOld"]
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("namespace", [None, "", "workspace"])
+async def test_list_folders_preserves_metadata_namespace_and_snapshot_etag(asynchronous: bool, namespace: str | None) -> None:
+    client_type = AsyncHonuaAdminClient if asynchronous else HonuaAdminClient
+    client = client_type("http://test.honua.io", transport=httpx.MockTransport(lambda request: _folder_response(request, namespace)))
+    try:
+        result = client.list_folders(namespace=namespace)
+        if inspect.isawaitable(result):
+            result = await result
+        folders, etag = result
+        assert etag == '\"catalog-17\"'
+        assert len(folders) == 1
+        assert folders[0].metadata.id == "folder-1"
+        assert folders[0].metadata.name == "Survey"
+        assert folders[0].metadata.title == "Field survey"
+        assert folders[0].metadata.tenant is None
+        assert folders[0].previous_names == ["SurveyOld"]
+    finally:
+        if asynchronous:
+            await client.close()
+        else:
+            client.close()
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("operation", ["create", "update", "delete", "move"])
-async def test_folder_mutations_send_preconditions_and_preserve_returned_etag(asynchronous: bool, operation: str) -> None:
+@pytest.mark.parametrize(("operation", "folder_id"), [("create", None), ("update", None), ("delete", None), ("move", None), ("move", "folder-1")])
+async def test_folder_mutations_send_preconditions_and_preserve_returned_etag(asynchronous: bool, operation: str, folder_id: str | None) -> None:
     methods = {"create": "POST", "update": "PATCH", "delete": "DELETE", "move": "PUT"}
     paths = {
         "create": "/api/v1/admin/folders", "update": "/api/v1/admin/folders/folder-1",
@@ -88,7 +85,7 @@ async def test_folder_mutations_send_preconditions_and_preserve_returned_etag(as
                 json=make_api_response({"metadata": {"id": "folder-1", "name": "Survey", "title": "Field survey"}}),
             )
         if operation == "move":
-            assert json.loads(request.content) == {"folderId": None}
+            assert json.loads(request.content) == {"folderId": folder_id}
         return httpx.Response(204, headers={"ETag": '"catalog-18"'})
 
     client_type = AsyncHonuaAdminClient if asynchronous else HonuaAdminClient
@@ -102,7 +99,7 @@ async def test_folder_mutations_send_preconditions_and_preserve_returned_etag(as
         elif operation == "delete":
             result = client.delete_folder("folder-1", **options)
         else:
-            result = client.move_service("test", None, **options)
+            result = client.move_service("test", folder_id, **options)
         if inspect.isawaitable(result):
             result = await result
         if operation in {"create", "update"}:
@@ -190,6 +187,35 @@ async def test_publish_layer_preserves_omitted_root_and_folder_choices(asynchron
             result = await result
         assert result.service_name == "logical-parcels"
         assert result.layer_id == 4
+    finally:
+        if asynchronous:
+            await client.close()
+        else:
+            client.close()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("operation", ["update", "delete", "move"])
+async def test_folder_mutations_encode_each_logical_path_segment(asynchronous: bool, operation: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        expected = b"/api/v1/admin/services/a%2Fb%20c/folder" if operation == "move" else b"/api/v1/admin/folders/f%2F1"
+        assert request.url.raw_path == expected
+        if operation == "move":
+            assert json.loads(request.content) == {"folderId": "f/1"}
+        return httpx.Response(200, json=make_api_response({"metadata": {"id": "f/1", "name": "Survey"}}))
+
+    client_type = AsyncHonuaAdminClient if asynchronous else HonuaAdminClient
+    client = client_type("http://test.honua.io", transport=httpx.MockTransport(handler))
+    try:
+        if operation == "move":
+            result = client.move_service("a/b c", "f/1", if_match='"catalog-17"')
+        elif operation == "update":
+            result = client.update_folder("f/1", name="Survey", if_match='"catalog-17"')
+        else:
+            result = client.delete_folder("f/1", if_match='"catalog-17"')
+        if inspect.isawaitable(result):
+            await result
     finally:
         if asynchronous:
             await client.close()

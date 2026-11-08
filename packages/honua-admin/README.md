@@ -94,6 +94,13 @@ The async client mirrors the sync method surface (CRUD helpers, manifest
 operations, migration scans, capability checks) and shares the same retry
 transport, auth providers, and `HonuaHttpError` envelopes.
 
+## Folder management
+
+Both clients support typed Folder listing, creation, rename, empty deletion
+and Service moves with snapshot ETags. Publishing preserves omitted versus
+explicit Root selection. See the [Folder client reference](../../docs/reference/honua-admin/clients.md#folders)
+for concurrency, namespace, display metadata and approval behavior.
+
 ## Documentation
 
 Rendered docs site:

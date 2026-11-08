@@ -18,6 +18,8 @@
         "ConnectionTestResult",
         "CreateSecureConnectionRequest",
         "EncryptionValidationResult",
+        "Folder",
+        "FolderMetadata",
         "HonuaAdminClient",
         "ImportResult",
         "KeyRotationResult",
@@ -382,6 +384,31 @@
             {
               "annotation": "list[str]",
               "name": "enabled_protocols"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "folder_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "folder_name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "public_name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "folder_mutation_issues"
             }
           ],
           "kind": "class",
@@ -393,7 +420,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "AdminServiceSummary",
-          "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]') -> None"
+          "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]', folder_id: 'str | None' = None, folder_name: 'str | None' = None, public_name: 'str | None' = None, title: 'str | None' = None, folder_mutation_issues: 'list[str]' = <factory>) -> None"
         },
         "AdminVersionResponse": {
           "fields": [
@@ -453,6 +480,11 @@
               "kind": "method",
               "signature": "(self, request: 'CreateSecureConnectionRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'SecureConnectionSummary'"
             },
+            "create_folder": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, name: 'str', *, if_match: 'str', title: 'str | None' = None, namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[Folder, str | None]'"
+            },
             "create_metadata_resource": {
               "async": true,
               "kind": "method",
@@ -462,6 +494,11 @@
               "async": true,
               "kind": "method",
               "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
+            },
+            "delete_folder": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, folder_id: 'str', *, if_match: 'str', namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'str | None'"
             },
             "delete_metadata_resource": {
               "async": true,
@@ -538,6 +575,11 @@
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[SecureConnectionSummary]'"
             },
+            "list_folders": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, *, namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[list[Folder], str | None]'"
+            },
             "list_layers": {
               "async": true,
               "kind": "method",
@@ -572,6 +614,11 @@
               "async": true,
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStylesList'"
+            },
+            "move_service": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, service_name: 'str', folder_id: 'str | None', *, if_match: 'str', namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'str | None'"
             },
             "publish_layer": {
               "async": true,
@@ -622,6 +669,11 @@
               "async": true,
               "kind": "method",
               "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'SecureConnectionSummary'"
+            },
+            "update_folder": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, folder_id: 'str', *, if_match: 'str', name: 'str | None' = None, title: 'str | EllipsisType | None' = Ellipsis, namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[Folder, str | None]'"
             },
             "update_layer_style": {
               "async": true,
@@ -894,6 +946,66 @@
           "qualname": "EncryptionValidationResult",
           "signature": "(is_valid: 'bool', current_key_version: 'int | None', validated_at: 'str | None', message: 'str | None') -> None"
         },
+        "Folder": {
+          "fields": [
+            {
+              "annotation": "FolderMetadata",
+              "name": "metadata"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "previous_names"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "deleted"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'Folder'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "Folder",
+          "signature": "(metadata: 'FolderMetadata', previous_names: 'list[str]' = <factory>, deleted: 'bool' = False) -> None"
+        },
+        "FolderMetadata": {
+          "fields": [
+            {
+              "annotation": "str",
+              "name": "id"
+            },
+            {
+              "annotation": "str",
+              "name": "name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "tenant"
+            }
+          ],
+          "kind": "class",
+          "methods": {
+            "from_dict": {
+              "kind": "classmethod",
+              "signature": "(cls, data: 'dict[str, Any]') -> 'FolderMetadata'"
+            }
+          },
+          "module": "honua_admin._models",
+          "qualname": "FolderMetadata",
+          "signature": "(id: 'str', name: 'str', title: 'str | None' = None, tenant: 'str | None' = None) -> None"
+        },
         "HonuaAdminClient": {
           "kind": "class",
           "methods": {
@@ -921,6 +1033,10 @@
               "kind": "method",
               "signature": "(self, request: 'CreateSecureConnectionRequest', *, idempotency_key: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'SecureConnectionSummary'"
             },
+            "create_folder": {
+              "kind": "method",
+              "signature": "(self, name: 'str', *, if_match: 'str', title: 'str | None' = None, namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[Folder, str | None]'"
+            },
             "create_metadata_resource": {
               "kind": "method",
               "signature": "(self, resource: 'MetadataResource', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'MetadataResource'"
@@ -928,6 +1044,10 @@
             "delete_connection": {
               "kind": "method",
               "signature": "(self, id: 'str', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'None'"
+            },
+            "delete_folder": {
+              "kind": "method",
+              "signature": "(self, folder_id: 'str', *, if_match: 'str', namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'str | None'"
             },
             "delete_metadata_resource": {
               "kind": "method",
@@ -989,6 +1109,10 @@
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[SecureConnectionSummary]'"
             },
+            "list_folders": {
+              "kind": "method",
+              "signature": "(self, *, namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[list[Folder], str | None]'"
+            },
             "list_layers": {
               "kind": "method",
               "signature": "(self, conn_id: 'str', service_name: 'str | None' = None, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'list[PublishedLayerSummary]'"
@@ -1016,6 +1140,10 @@
             "list_styles": {
               "kind": "method",
               "signature": "(self, *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'OgcStylesList'"
+            },
+            "move_service": {
+              "kind": "method",
+              "signature": "(self, service_name: 'str', folder_id: 'str | None', *, if_match: 'str', namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'str | None'"
             },
             "publish_layer": {
               "kind": "method",
@@ -1056,6 +1184,10 @@
             "update_connection": {
               "kind": "method",
               "signature": "(self, id: 'str', request: 'UpdateSecureConnectionRequest', *, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None, idempotency_key: 'str | None' = None) -> 'SecureConnectionSummary'"
+            },
+            "update_folder": {
+              "kind": "method",
+              "signature": "(self, folder_id: 'str', *, if_match: 'str', name: 'str | None' = None, title: 'str | EllipsisType | None' = Ellipsis, namespace: 'str | None' = None, timeout: 'float | httpx.Timeout | None' = None, extra_headers: 'Mapping[str, str] | None' = None) -> 'tuple[Folder, str | None]'"
             },
             "update_layer_style": {
               "kind": "method",
@@ -3242,6 +3374,16 @@
               "annotation": "bool",
               "default": "True",
               "name": "enabled"
+            },
+            {
+              "annotation": "str | EllipsisType | None",
+              "default": "Ellipsis",
+              "name": "folder_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "public_name"
             }
           ],
           "kind": "class",
@@ -3253,7 +3395,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "PublishLayerRequest",
-          "signature": "(schema: 'str' = 'public', table: 'str' = '', layer_name: 'str | None' = None, description: 'str | None' = None, geometry_column: 'str | None' = None, geometry_type: 'str | None' = None, srid: 'int | None' = None, primary_key: 'str | None' = None, fields_list: 'list[str] | None' = None, service_name: 'str | None' = None, enabled: 'bool' = True) -> None"
+          "signature": "(schema: 'str' = 'public', table: 'str' = '', layer_name: 'str | None' = None, description: 'str | None' = None, geometry_column: 'str | None' = None, geometry_type: 'str | None' = None, srid: 'int | None' = None, primary_key: 'str | None' = None, fields_list: 'list[str] | None' = None, service_name: 'str | None' = None, enabled: 'bool' = True, folder_id: 'str | EllipsisType | None' = Ellipsis, public_name: 'str | None' = None) -> None"
         },
         "PublishedLayerPage": {
           "fields": [
@@ -3670,6 +3812,31 @@
             {
               "annotation": "list[str]",
               "name": "enabled_protocols"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "folder_id"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "folder_name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "public_name"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "title"
+            },
+            {
+              "annotation": "list[str]",
+              "defaultFactory": "list",
+              "name": "folder_mutation_issues"
             }
           ],
           "kind": "class",
@@ -3681,7 +3848,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "AdminServiceSummary",
-          "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]') -> None"
+          "signature": "(service_name: 'str', description: 'str | None', layer_count: 'int', enabled_protocols: 'list[str]', folder_id: 'str | None' = None, folder_name: 'str | None' = None, public_name: 'str | None' = None, title: 'str | None' = None, folder_mutation_issues: 'list[str]' = <factory>) -> None"
         },
         "StyleEncoding": {
           "kind": "constant",

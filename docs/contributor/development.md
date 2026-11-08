@@ -50,7 +50,10 @@ python -m honua_gp._cli --help
 
 Integration tests are opt-in: they need `--run-integration`, the markers
 `integration`/`staging`/`smoke`, and `HONUA_BASE_URL`. The same flag gates
-`tests/conformance` (marker `conformance`).
+`tests/conformance` (marker `conformance`). To run the Admin Folder lifecycle,
+also set `HONUA_ENABLE_WRITE_SMOKE=true` and `HONUA_FOLDER_TEST_SERVICE` to an
+existing disposable Service in Root. The test moves that Service, renames and
+deletes its temporary Folder, and returns the Service to Root.
 
 ## Code layout rules
 

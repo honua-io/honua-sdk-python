@@ -29,6 +29,29 @@ PROPOSER_KEY = "proposer-key"
 APPROVER_KEY = "approver-key"
 
 
+def test_layer_help_names_the_disable_action(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_status:
+        cli.main(["layer", "--help"])
+    assert exit_status.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "disable" in help_text
+    assert "unpublish" not in help_text
+
+
+def test_layer_unpublish_is_not_a_disable_alias(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_status:
+        cli.main(["layer", "unpublish", "conn-1", "1"])
+    assert exit_status.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_connection_help_names_registered_connections(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_status:
+        cli.main(["--help"])
+    assert exit_status.value.code == 0
+    assert "secure connections" in capsys.readouterr().out
+
+
 class FakeAdminServer:
     """Just enough of the admin API to run the operator workflow."""
 
@@ -271,7 +294,7 @@ def test_operator_workflow_end_to_end(
     assert [(row["layerId"], row["enabled"]) for row in listed] == [(1, True)]
     assert server.requests[-1].url.params["serviceName"] == "lifecycle"
 
-    disabled = run_json(capsys, "layer", "unpublish", "conn-1", "1", "--service-name", "lifecycle")
+    disabled = run_json(capsys, "layer", "disable", "conn-1", "1", "--service-name", "lifecycle")
     assert disabled["enabled"] is False
     assert server.requests[-1].method == "PUT"
     assert json.loads(server.requests[-1].content) == {"enabled": False}
@@ -390,7 +413,7 @@ def test_proposal_reject(server: FakeAdminServer, capsys: pytest.CaptureFixture[
     assert "--reason must not be blank" in err
 
 
-def test_datasource_test_unhealthy_exits_1(server: FakeAdminServer, capsys: pytest.CaptureFixture[str]) -> None:
+def test_connection_test_unhealthy_exits_1(server: FakeAdminServer, capsys: pytest.CaptureFixture[str]) -> None:
     server.connections["conn-9"] = {"connectionId": "conn-9", "name": "broken"}
     server.healthy = False
     code, out, _ = run(capsys, "datasource", "test", "conn-9", "--json")
@@ -398,7 +421,7 @@ def test_datasource_test_unhealthy_exits_1(server: FakeAdminServer, capsys: pyte
     assert json.loads(out)["isHealthy"] is False
 
 
-def test_datasource_list_table_and_password_stdin(
+def test_connection_list_table_and_password_stdin(
     server: FakeAdminServer, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     code, out, _ = run(capsys, "datasource", "list")
@@ -421,7 +444,7 @@ def test_datasource_list_table_and_password_stdin(
     assert "conn-1" in out
 
 
-def test_datasource_create_body_from_stdin(
+def test_connection_create_body_from_stdin(
     server: FakeAdminServer, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     body = {
@@ -449,7 +472,7 @@ def test_datasource_create_body_from_stdin(
         (["--body", "/nonexistent/body.json"], "readable JSON file"),
     ],
 )
-def test_datasource_create_usage_errors(
+def test_connection_create_usage_errors(
     server: FakeAdminServer,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,

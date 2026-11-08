@@ -4,6 +4,8 @@
 
 ### Breaking changes
 
+- When the updated `honua-admin` is installed, use `honua layer disable` instead of `honua layer unpublish`. Disabling retains the Layer definition. The `honua datasource` command path remains unchanged and manages Connections.
+
 - Removed the offline Python source scanner, local toolbox parsers, translation CLI, and their public exports. Source-code classification and automatic conversion are no longer provided. Consumers of the migration package, its command-line entry point, or local scan functions must remove or replace those integrations. This is an intentional breaking change for a coordinated major release. Generic admin toolbox-manifest submission and server validation remain available independently of local parsing.
 
 ## [0.2.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.2.1...python-sdk-v0.2.2) (2026-11-07)

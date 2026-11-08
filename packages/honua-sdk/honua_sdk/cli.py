@@ -45,7 +45,7 @@ Commands
 
 ``honua datasource | layer | proposal``
     The operator workflow from ``honua-admin`` (``pip install honua-admin``):
-    create and test datasources, publish and unpublish layers, and read,
+    create and test Connections, publish, enable and disable Layers, and read,
     approve or reject operation proposals. The same commands ship as the
     ``honua-admin`` console script; see :mod:`honua_admin.cli`.
 
@@ -420,7 +420,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
     subparsers.add_parser(
         "gp",
-        help="Inspect a job projection, or run the separately installed local GP devkit.",
+        help="Inspect job diagnostics, or run the separately installed local GP devkit.",
     )
 
     # honua services

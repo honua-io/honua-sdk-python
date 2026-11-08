@@ -82,7 +82,7 @@ submissions. Server-side untrusted custom code retains its AWS Batch isolation
 policy. The existing proprietary `honua-gp` desktop GIS Python API compatibility executable is
 a different tool; it is not used as the devkit engine.
 
-## Connection options
+## Server options
 
 Every control-plane command accepts:
 
@@ -133,7 +133,7 @@ The password is never accepted as a flag value, and it is never printed.
 |---------|----------|
 | `layer list CONNECTION_ID [--service-name NAME]` | `HonuaAdminClient.list_layers` |
 | `layer publish CONNECTION_ID ...` | `HonuaAdminClient.publish_layer` |
-| `layer unpublish CONNECTION_ID LAYER_ID [--service-name NAME]` (alias `disable`) | `HonuaAdminClient.set_layer_enabled(..., False)` |
+| `layer disable CONNECTION_ID LAYER_ID [--service-name NAME]` | `HonuaAdminClient.set_layer_enabled(..., False)` |
 | `layer enable CONNECTION_ID LAYER_ID [--service-name NAME]` | `HonuaAdminClient.set_layer_enabled(..., True)` |
 
 `publish` options: `--table` (required here or in `--body`), `--schema`

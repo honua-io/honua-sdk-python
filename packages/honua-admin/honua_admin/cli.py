@@ -9,14 +9,14 @@ installed.
 Commands
 --------
 ``datasource list | create | test``
-    Secure datasource connections (``list_connections``,
+    Secure connections (``list_connections``,
     ``create_connection``, ``test_connection``). ``create`` never takes a
     password on the command line: use ``--password-env``, ``--password-stdin``,
     ``--secret-reference`` or a ``--body`` file.
 
-``layer list | publish | unpublish | enable``
+``layer list | publish | disable | enable``
     Published layers of a connection (``list_layers``, ``publish_layer``,
-    ``set_layer_enabled``). ``unpublish`` (alias ``disable``) turns a layer off
+    ``set_layer_enabled``). ``disable`` turns a layer off
     so its data-plane URLs stop serving.
 
 ``proposal list | read | approve | reject``
@@ -77,7 +77,7 @@ class CliUsageError(ValueError):
     """An operator input error; reported on stderr with exit code 2."""
 
 
-# -- connection --------------------------------------------------------------
+# -- server access -----------------------------------------------------------
 
 
 def _resolve_base_url(args: argparse.Namespace) -> str:
@@ -291,7 +291,7 @@ def _set_enabled(args: argparse.Namespace, out: TextIO, *, enabled: bool) -> int
     return 0
 
 
-def _cmd_layer_unpublish(args: argparse.Namespace, out: TextIO) -> int:
+def _cmd_layer_disable(args: argparse.Namespace, out: TextIO) -> int:
     return _set_enabled(args, out, enabled=False)
 
 
@@ -386,17 +386,17 @@ def _group_help(parser: argparse.ArgumentParser) -> Command:
 
 
 def _add_datasource(subparsers: Any) -> None:
-    group = subparsers.add_parser("datasource", help="Create, test and list secure datasource connections.")
+    group = subparsers.add_parser("datasource", help="Create, test and list secure connections.")
     sub = group.add_subparsers(dest="datasource_command", metavar="<subcommand>")
     group.set_defaults(func=_group_help(group))
 
-    _common(sub.add_parser("list", help="List datasource connections."), _cmd_datasource_list)
+    _common(sub.add_parser("list", help="List connections."), _cmd_datasource_list)
 
     create = _common(
         sub.add_parser(
             "create",
-            help="Create a PostGIS datasource connection.",
-            description="Create a datasource connection. Passwords are never accepted on the command line.",
+            help="Create a PostGIS connection.",
+            description="Create a connection. Passwords are never accepted on the command line.",
         ),
         _cmd_datasource_create,
     )
@@ -424,7 +424,7 @@ def _add_datasource(subparsers: Any) -> None:
 
 
 def _add_layer(subparsers: Any) -> None:
-    group = subparsers.add_parser("layer", help="Publish, list and unpublish a connection's layers.")
+    group = subparsers.add_parser("layer", help="Publish, list, enable and disable a connection's layers.")
     sub = group.add_subparsers(dest="layer_command", metavar="<subcommand>")
     group.set_defaults(func=_group_help(group))
 
@@ -452,11 +452,11 @@ def _add_layer(subparsers: Any) -> None:
         help="JSON request body (camelCase or snake_case keys; '-' for stdin); flags override its fields.",
     )
 
-    for name, aliases, func, text in (
-        ("unpublish", ["disable"], _cmd_layer_unpublish, "Disable a published layer (stop serving it)."),
-        ("enable", [], _cmd_layer_enable, "Re-enable a disabled layer."),
+    for name, func, text in (
+        ("disable", _cmd_layer_disable, "Disable a published layer (stop serving it)."),
+        ("enable", _cmd_layer_enable, "Re-enable a disabled layer."),
     ):
-        toggle = _common(sub.add_parser(name, aliases=aliases, help=text), func)
+        toggle = _common(sub.add_parser(name, help=text), func)
         toggle.add_argument("connection_id", help="Connection identifier.")
         toggle.add_argument("layer_id", type=int, help="Numeric layer identifier.")
         toggle.add_argument("--service-name", default=None, help="Service that owns the layer.")
@@ -500,7 +500,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the ``honua-admin`` argument parser."""
     parser = argparse.ArgumentParser(
         prog="honua-admin",
-        description="Operator commands for the Honua control plane: datasources, layers and proposals.",
+        description="Operator commands for the Honua control plane: connections, layers and proposals.",
     )
     parser.add_argument("--version", action="version", version=f"honua-admin {__version__}")
     add_operator_commands(parser.add_subparsers(dest="command", metavar="<command>"))

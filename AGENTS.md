@@ -89,3 +89,7 @@ Generated from honua-flow `agents/fleet-rules.md` (full text, repo map). Do not 
    conventional title; footer `Closes #N` or `Refs #N (<what remains>)`. Never admin-merge.
 7. **Route by the repo map.** Archived repos get no issues or PRs.
 <!-- fleet:end -->
+
+## Vocabulary review gate
+
+Review every changed public name, CLI command, help string, error and authored example against the [canonical glossary](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/docs/concepts/domain/README.md) and [shared retired-terms policy](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/scripts/ci/retired-terms.v1.json). Block retired object names; use each actual kind, Connection, Dataset, Layer, Service, Folder, Environment and API key. Apply the policy's contextual exceptions for protocol wire names, dependency distributions and operating-system terminology. Server contract changes follow the coordinated migration.

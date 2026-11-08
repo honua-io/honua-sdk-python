@@ -22,8 +22,8 @@ pip install honua-sdk honua-admin
 ```
 
 - [Run the operator workflow from a terminal](operator-workflow.md): create
-  and test a datasource, publish a layer, query it, approve a proposal, then
-  unpublish the layer.
+  and test a Connection, publish a layer, query it, approve a proposal, then
+  disable the Layer.
 - [Command reference](reference.md): every command, its options, its JSON
   output and its exit codes.
 - [Collect a support bundle](../diagnostic-bundles.md): `honua doctor`.

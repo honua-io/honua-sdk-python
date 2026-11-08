@@ -750,11 +750,11 @@ def evaluate_admin_compatibility(
     actual_rank = get_release_channel_rank(compatibility.release_channel)
     minimum_rank = get_release_channel_rank(baseline.minimum_release_channel)
     if actual_rank is None:
-        reasons.append(f"Server release channel {compatibility.release_channel!r} is unknown.")
+        warnings.append(f"Server release channel {compatibility.release_channel!r} is unknown.")
     elif minimum_rank is None or actual_rank < minimum_rank:
-        reasons.append(
+        warnings.append(
             "Server release channel "
-            f"{compatibility.release_channel!r} is below required "
+            f"{compatibility.release_channel!r} is below recommended "
             f"{baseline.minimum_release_channel!r}."
         )
 

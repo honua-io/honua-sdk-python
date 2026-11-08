@@ -1403,6 +1403,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#honua_sdk.ServiceAddress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ServiceAddress
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#honua_sdk.SourceDescriptor" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2028,6 +2039,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#honua_sdk.ServiceAddress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ServiceAddress
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3358,6 +3380,58 @@ advertised one, so a GP tool can build an output extent without re-parsing.</p>
 
 
 
+<h2 id="honua_sdk.ServiceAddress" class="doc doc-heading">
+            <code>honua_sdk.ServiceAddress</code>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#honua_sdk.ServiceAddress" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>An explicit service-level protocol URL returned by discovery.</p>
+<p>Plain Service identifiers keep their one-segment encoding. An address
+preserves the advertised path and uses the client's existing origin guard.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
 <h2 id="honua_sdk.SourceDescriptor" class="doc doc-heading">
             <code>honua_sdk.SourceDescriptor</code>
 
@@ -3583,6 +3657,17 @@ so the stored value is always a canonical :data:<code>Protocol</code> literal.</
             <td>
               <div class="doc-md-description">
                 <p>WFS <code>typeName</code> value.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.SourceLocator.url">url</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Advertised GeoServices service-level URL; takes precedence over service_id.</p>
               </div>
             </td>
           </tr>
@@ -3839,6 +3924,17 @@ FeatureServer path. See :mod:<code>honua_sdk._geoservices_query</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Free-form per-protocol query parameter overrides.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="honua_sdk.FeatureQuery.service_url">service_url</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit FeatureServer service URL; source remains the logical identity.</p>
               </div>
             </td>
           </tr>

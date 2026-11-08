@@ -1091,6 +1091,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#folder-discovery-and-returned-service-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folder discovery and returned Service links
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#honua_sdk.HonuaClient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3024,6 +3035,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#folder-discovery-and-returned-service-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folder discovery and returned Service links
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#honua_sdk.HonuaClient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4627,6 +4649,26 @@ configuration knobs.</p>
 <span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://your-honua-server.com"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">services</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">list_services</span><span class="p">()</span>
 </code></pre></div>
+<h2 id="folder-discovery-and-returned-service-links">Folder discovery and returned Service links<a class="headerlink" href="#folder-discovery-and-returned-service-links" title="Permanent link">&para;</a></h2>
+<p><code>list_services(folder_name="Survey")</code> and
+<code>list_service_summaries(folder_name="Survey")</code> read one Folder. Omitting
+<code>folder_name</code> keeps Root discovery. Folder names are encoded as one segment.</p>
+<p>Use <code>ServiceAddress</code> for an advertised service-level FeatureServer, MapServer
+or ImageServer URL. Both absolute and root-relative links preserve the
+advertised path, including a deployment prefix. Absolute links must stay on
+the client's configured origin. Credentials, query strings and fragments do
+not belong in a Service address.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span><span class="p">,</span> <span class="n">ServiceAddress</span>
+
+<span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="s2">"https://your-honua-server.com"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">address</span> <span class="o">=</span> <span class="n">ServiceAddress</span><span class="p">(</span><span class="s2">"/rest/services/Survey/Parcels/FeatureServer"</span><span class="p">)</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_features</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">feature_server</span><span class="p">(</span><span class="n">address</span><span class="p">)</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
+</code></pre></div>
+<p>Use the matching protocol URL for <code>export_map</code> or an ImageServer wrapper.
+Existing string Service identifiers remain encoded as one segment:
+<code>"Survey/Parcels"</code> as a plain string still means a single identifier containing
+a slash. A Folder path requires an explicit <code>ServiceAddress</code>.</p>
 <p><strong>See also</strong>: <a href="../source-facade/">Source facade</a> for the canonical query path,
 <a href="../../../core-client/">Core client model</a> for <code>with_options(...)</code> semantics,
 and <a href="../../../retries-and-timeouts/">Retries and timeouts</a> for the retry policy,
@@ -5305,7 +5347,7 @@ should target.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.list_services" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">folder_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.list_services" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -5326,6 +5368,22 @@ should target.</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>folder_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Folder to discover; None keeps Root discovery.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>response_format</code>
@@ -5413,7 +5471,7 @@ to :meth:<code>_request</code>.</p>
 
 
 <h3 id="honua_sdk.HonuaClient.list_service_summaries" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">folder_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#honua_sdk.HonuaClient.list_service_summaries" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -5434,6 +5492,22 @@ to :meth:<code>_request</code>.</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>folder_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Folder to discover; None keeps Root discovery.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>response_format</code>
@@ -5680,11 +5754,16 @@ to :meth:<code>list_services</code>.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service identifier as advertised by the catalog.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -5787,11 +5866,16 @@ does not perform I/O).</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service identifier as advertised by the catalog.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -5869,12 +5953,17 @@ does not perform I/O).</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | None</code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional service identifier; when <code>None</code> the
-wrapper targets the deployment-level ImageServer surface.</p>
+                <p>Optional one-segment identifier or ServiceAddress; when
+<code>None</code> the wrapper targets the deployment-level ImageServer surface.</p>
               </div>
             </td>
             <td>
@@ -7710,11 +7799,16 @@ before forwarding.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -7899,11 +7993,16 @@ to :meth:<code>_request</code>.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -8092,11 +8191,16 @@ server stops indicating that the transfer limit was exceeded, or
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -8345,11 +8449,16 @@ to every page-level :meth:<code>query_feature_set</code> call.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -8556,11 +8665,16 @@ retries as well.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -8763,11 +8877,16 @@ auto-generation semantics.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -9636,7 +9755,7 @@ should target.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.list_services" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_services</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">folder_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -9661,6 +9780,22 @@ should target.</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>folder_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Folder to discover; None keeps Root discovery.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>response_format</code>
@@ -9748,7 +9883,7 @@ to :meth:<code>_request</code>.</p>
 
 
 <h3 id="honua_sdk.AsyncHonuaClient.list_service_summaries" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">list_service_summaries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">response_format</span><span class="o">=</span><span class="s1">'json'</span><span class="p">,</span> <span class="n">folder_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -9773,6 +9908,22 @@ to :meth:<code>_request</code>.</p>
         </tr>
       </thead>
       <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>folder_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Folder to discover; None keeps Root discovery.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
           <tr class="doc-section-item">
             <td>
                 <code>response_format</code>
@@ -10019,11 +10170,16 @@ to :meth:<code>list_services</code>.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service identifier as advertised by the catalog.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -10126,11 +10282,16 @@ does not perform I/O).</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Service identifier as advertised by the catalog.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -10208,12 +10369,17 @@ does not perform I/O).</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | None</code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional service identifier; when <code>None</code> the
-wrapper targets the deployment-level ImageServer surface.</p>
+                <p>Optional one-segment identifier or ServiceAddress; when
+<code>None</code> the wrapper targets the deployment-level ImageServer surface.</p>
               </div>
             </td>
             <td>
@@ -12061,11 +12227,16 @@ before forwarding.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -12254,11 +12425,16 @@ to :meth:<code>_request</code>.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -12451,11 +12627,16 @@ server stops indicating that the transfer limit was exceeded, or
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -12708,11 +12889,16 @@ to every page-level :meth:<code>query_feature_set</code> call.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -12923,11 +13109,16 @@ retries as well.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>
@@ -13134,11 +13325,16 @@ auto-generation semantics.</p>
                 <code>service_id</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="str">str</span> | <a class="autorefs autorefs-internal" title="honua_sdk.ServiceAddress
+
+
+  
+      dataclass
+   (honua_sdk.models.ServiceAddress)" href="../models/#honua_sdk.ServiceAddress">ServiceAddress</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>GeoServices service identifier; URL-encoded.</p>
+                <p>A one-segment identifier or explicit ServiceAddress.</p>
               </div>
             </td>
             <td>

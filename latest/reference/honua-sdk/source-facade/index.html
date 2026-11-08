@@ -1119,6 +1119,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#bind-a-discovered-service-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bind a discovered Service URL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cursor-helpers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1924,6 +1935,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#bind-a-discovered-service-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bind a discovered Service URL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cursor-helpers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2432,6 +2454,23 @@ facade.</p>
                               <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span><span class="n">service_id</span><span class="o">=</span><span class="s2">"svc"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">descriptor</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">))</span>
 </code></pre></div>
+<h2 id="bind-a-discovered-service-url">Bind a discovered Service URL<a class="headerlink" href="#bind-a-discovered-service-url" title="Permanent link">&para;</a></h2>
+<p><code>SourceLocator.url</code> binds GeoServices queries, edits, metadata and protocol
+access to a returned service-level URL. It takes precedence over <code>service_id</code>.
+<code>SourceDescriptor.id</code> and result source identities stay logical and stable.</p>
+<div class="highlight"><pre><span></span><code><span class="n">descriptor</span> <span class="o">=</span> <span class="n">SourceDescriptor</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span>
+    <span class="n">protocol</span><span class="o">=</span><span class="s2">"geoservices-feature-service"</span><span class="p">,</span>
+    <span class="n">locator</span><span class="o">=</span><span class="n">SourceLocator</span><span class="p">(</span>
+        <span class="n">service_id</span><span class="o">=</span><span class="s2">"parcels"</span><span class="p">,</span> <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">url</span><span class="o">=</span><span class="s2">"/rest/services/Survey/Parcels/FeatureServer"</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">descriptor</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"1=1"</span><span class="p">))</span>
+</code></pre></div>
+<p>For the legacy query dispatcher, supply <code>FeatureQuery.service_url</code> alongside
+its logical <code>source</code>. That URL option is specific to FeatureServer queries;
+other query protocols keep their existing identifiers and links.</p>
 <h2 id="cursor-helpers">Cursor helpers<a class="headerlink" href="#cursor-helpers" title="Permanent link">&para;</a></h2>
 <p>For geoprocessing workflows the facade exposes cursor helpers over streaming
 queries and batched <code>apply_edits</code>:</p>

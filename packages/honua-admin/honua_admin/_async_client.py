@@ -45,6 +45,7 @@ from ._models import (
     ConnectionTestResult,
     CreateSecureConnectionRequest,
     EncryptionValidationResult,
+    Folder,
     ImportResult,
     KeyRotationResult,
     LayerStyleResponse,
@@ -566,6 +567,24 @@ class AsyncHonuaAdminClient:
         if response.status_code == 202:
             return BackgroundImportResponse.from_dict(payload)
         return ImportResult.from_dict(payload)
+
+    async def list_folders(
+        self,
+        *,
+        namespace: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[list[Folder], str | None]:
+        """List catalog Folders with the snapshot ETag used by mutations."""
+        response = await self._request(
+            "GET",
+            "/api/v1/admin/folders",
+            params={"namespace": namespace} if namespace is not None else None,
+            timeout=timeout,
+            extra_headers=extra_headers,
+        )
+        folders = [Folder.from_dict(folder) for folder in _endpoints.unwrap_envelope(response)]
+        return folders, response.headers.get("ETag")
 
     # Services
 

@@ -402,6 +402,35 @@ class OperationProposalDetail:
 
 
 @dataclass(frozen=True, slots=True)
+class FolderMetadata:
+    """Identity and display metadata for one catalog Folder."""
+
+    id: str
+    name: str
+    title: str | None = None
+    tenant: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> FolderMetadata:
+        return cls(**_extract_fields(cls, _snake_keys(data)))
+
+
+@dataclass(frozen=True, slots=True)
+class Folder:
+    """One catalog Folder and its permanent previous path names."""
+
+    metadata: FolderMetadata
+    previous_names: list[str] = field(default_factory=list)
+    deleted: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Folder:
+        values = _snake_keys(data)
+        values["metadata"] = FolderMetadata.from_dict(values["metadata"])
+        return cls(**_extract_fields(cls, values))
+
+
+@dataclass(frozen=True, slots=True)
 class ResourceMetadata:
     id: str | None
     name: str

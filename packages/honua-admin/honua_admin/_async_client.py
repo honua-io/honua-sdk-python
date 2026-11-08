@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import warnings
 from collections.abc import Mapping
+from types import EllipsisType
 from typing import Any, BinaryIO
 
 import httpx
@@ -585,6 +586,92 @@ class AsyncHonuaAdminClient:
         )
         folders = [Folder.from_dict(folder) for folder in _endpoints.unwrap_envelope(response)]
         return folders, response.headers.get("ETag")
+
+    async def create_folder(
+        self,
+        name: str,
+        *,
+        if_match: str,
+        title: str | None = None,
+        namespace: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[Folder, str | None]:
+        """Create a Folder against the supplied catalog snapshot ETag."""
+        body = {"name": name}
+        if title is not None:
+            body["title"] = title
+        response = await self._request(
+            "POST", "/api/v1/admin/folders", json_body=body,
+            headers={"If-Match": if_match},
+            params={"namespace": namespace} if namespace is not None else None,
+            timeout=timeout, extra_headers=extra_headers,
+        )
+        return Folder.from_dict(_endpoints.unwrap_envelope(response)), response.headers.get("ETag")
+
+    async def update_folder(
+        self,
+        folder_id: str,
+        *,
+        if_match: str,
+        name: str | None = None,
+        title: str | EllipsisType | None = Ellipsis,
+        namespace: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> tuple[Folder, str | None]:
+        """Rename a Folder or update its title; None clears a supplied title."""
+        body: dict[str, str | None] = {}
+        if name is not None:
+            body["name"] = name
+        if title is not Ellipsis:
+            body["title"] = title
+        response = await self._request(
+            "PATCH", f"/api/v1/admin/folders/{encode_path_segment(folder_id)}", json_body=body,
+            headers={"If-Match": if_match},
+            params={"namespace": namespace} if namespace is not None else None,
+            timeout=timeout, extra_headers=extra_headers,
+        )
+        return Folder.from_dict(_endpoints.unwrap_envelope(response)), response.headers.get("ETag")
+
+    async def delete_folder(
+        self,
+        folder_id: str,
+        *,
+        if_match: str,
+        namespace: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> str | None:
+        """Delete an empty Folder and return the resulting catalog ETag."""
+        response = await self._request(
+            "DELETE", f"/api/v1/admin/folders/{encode_path_segment(folder_id)}",
+            headers={"If-Match": if_match},
+            params={"namespace": namespace} if namespace is not None else None,
+            timeout=timeout, extra_headers=extra_headers,
+        )
+        etag: str | None = response.headers.get("ETag")
+        return etag
+
+    async def move_service(
+        self,
+        service_name: str,
+        folder_id: str | None,
+        *,
+        if_match: str,
+        namespace: str | None = None,
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+    ) -> str | None:
+        """Move a logical Service to a Folder or to Root when folder_id is None."""
+        response = await self._request(
+            "PUT", f"/api/v1/admin/services/{encode_path_segment(service_name)}/folder",
+            json_body={"folderId": folder_id}, headers={"If-Match": if_match},
+            params={"namespace": namespace} if namespace is not None else None,
+            timeout=timeout, extra_headers=extra_headers,
+        )
+        etag: str | None = response.headers.get("ETag")
+        return etag
 
     # Services
 

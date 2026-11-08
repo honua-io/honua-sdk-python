@@ -1,7 +1,7 @@
 # honua-sdk-python: agent instructions
 
 Python clients for Honua: `honua-sdk` (data plane), `honua-admin` (control plane), and the
-proprietary `honua-gp` geoprocessing workflow layer, each under `packages/`. Status: alpha
+`honua-gp` geoprocessing workflow layer, each under `packages/`. Status: alpha
 (`0.x`); APIs may change before 1.0. Python 3.11+; CI tests 3.11, 3.12 and 3.13.
 
 ## Setup

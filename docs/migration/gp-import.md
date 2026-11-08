@@ -5,7 +5,8 @@ description: "Install and import the Honua geoprocessing package."
 ---
 # Geoprocessing package import
 
-`honua-gp` is a separately licensed geoprocessing package. Use its
+`honua-gp` is an Apache-2.0 geoprocessing package. Install it with
+`pip install honua-gp`, then use its
 `honua_gp` namespace:
 
 ```python

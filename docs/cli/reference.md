@@ -79,7 +79,7 @@ failed candidate job is not claimed here. That journey remains outstanding.
 
 This developer tool does not add a local backend selector to SDK server
 submissions. Server-side untrusted custom code retains its AWS Batch isolation
-policy. The existing proprietary `honua-gp` desktop GIS Python API compatibility executable is
+policy. The existing Apache-2.0 `honua-gp` desktop GIS Python API compatibility executable is
 a different tool; it is not used as the devkit engine.
 
 ## Server options

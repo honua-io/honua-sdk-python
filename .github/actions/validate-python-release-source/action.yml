@@ -1,0 +1,44 @@
+name: validate-python-release-source
+description: Install and validate the exact SDK and Admin sources used by a release
+inputs:
+  release-sha:
+    description: Exact release commit
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Materialize exact release source
+      shell: bash
+      env:
+        RELEASE_SHA: ${{ inputs.release-sha }}
+      run: git worktree add --detach release-source "$RELEASE_SHA"
+      working-directory: ${{ github.workspace }}
+
+    - name: Install hash-locked third-party dependencies
+      shell: bash
+      run: |
+        python -m pip install \
+          --require-hashes \
+          --only-binary=:all: \
+          -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
+      working-directory: ${{ github.workspace }}
+
+    - name: Install commit-bound local packages without dependency resolution
+      shell: bash
+      run: |
+        python -m pip install --no-deps --no-build-isolation -e "${GITHUB_WORKSPACE}/release-source/packages/honua-sdk"
+        python -m pip install --no-deps --no-build-isolation -e "${GITHUB_WORKSPACE}/release-source/packages/honua-admin"
+      working-directory: ${{ github.workspace }}
+
+    - name: Run compatibility gate
+      shell: bash
+      run: python release-source/scripts/compatibility_gate.py
+      working-directory: ${{ github.workspace }}
+
+    - name: Run SDK coverage gate
+      shell: bash
+      env:
+        HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
+      run: python release-source/scripts/gen_sdk_coverage.py
+      working-directory: ${{ github.workspace }}
+

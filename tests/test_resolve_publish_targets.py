@@ -7,7 +7,7 @@ from scripts.resolve_publish_targets import plan_publish
 
 SHA = "f7930b6e9c3ce47ade148bba3d4510eeffd2ccc4"
 OTHER_SHA = "953f2b3ba2cbb2d947b13c8ac5848cebe1860a76"
-VERSIONS = {"sdk": "0.1.11", "admin": "0.1.8"}
+VERSIONS = {"sdk": "0.1.11", "admin": "0.1.8", "gp": "0.1.0"}
 SDK_TAG = "python-sdk-v0.1.11"
 ADMIN_TAG = "python-admin-v0.1.8"
 
@@ -23,7 +23,7 @@ def test_release_please_completion_selects_only_tags_on_its_exact_commit() -> No
 
     assert plan.selected == ("sdk",)
     assert plan.publish is True
-    assert plan.tags == {"sdk": SDK_TAG, "admin": ADMIN_TAG}
+    assert plan.tags == {"sdk": SDK_TAG, "admin": ADMIN_TAG, "gp": "python-gp-v0.1.0"}
 
 
 def test_release_please_completion_without_new_tags_is_a_clean_no_op() -> None:
@@ -154,3 +154,48 @@ def test_non_dry_manual_release_commit_must_be_on_trunk() -> None:
             release_tag=SDK_TAG,
             workflow_ref="refs/heads/trunk",
         )
+
+
+def test_manual_both_rejects_a_gp_release_tag() -> None:
+    with pytest.raises(ValueError, match="does not match the selection"):
+        plan_publish(event_name="workflow_dispatch", release_sha=SHA, versions=VERSIONS,
+                     tag_commits={SDK_TAG: SHA, ADMIN_TAG: SHA, "python-gp-v0.1.0": SHA},
+                     release_is_trunk_ancestor=True, dry_run=False,
+                     release_tag="python-gp-v0.1.0", workflow_ref="refs/heads/trunk")
+
+
+def test_sdk_release_before_gp_exists_still_resolves(tmp_path, capsys) -> None:
+    import json
+    import shutil
+    import subprocess
+    from scripts.resolve_publish_targets import main
+
+    git_executable = shutil.which("git")
+    assert git_executable is not None
+
+    def git(*args):
+        return subprocess.check_output(  # noqa: S603 - local fixture git commands
+            [git_executable, "-C", str(tmp_path), *args], text=True).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "Mike McDougall")
+    git("config", "user.email", "mike@honua.io")
+    for package, version in (("honua-sdk", "0.1.11"), ("honua-admin", "0.1.8")):
+        path = tmp_path / "packages" / package / "pyproject.toml"
+        path.parent.mkdir(parents=True)
+        path.write_text(f'[project]\nversion = "{version}"\n')
+    git("add", ".")
+    git("commit", "-qm", "feat: initial packages")
+    sha = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/trunk", sha)
+    git("tag", SDK_TAG)
+    args = ["--workspace", str(tmp_path), "--event-name", "workflow_dispatch",
+            "--workflow-ref", "refs/heads/trunk", "--dry-run", "false",
+            "--release-tag", SDK_TAG, "--package", "honua-sdk",
+            "--github-output", str(tmp_path / "step-output")]
+    assert main(args) == 0
+    assert json.loads(capsys.readouterr().out)["selected"] == ["sdk"]
+    assert main(["--workspace", str(tmp_path), "--event-name", "workflow_dispatch",
+                 "--package", "honua-gp",
+                 "--github-output", str(tmp_path / "step-output")]) == 1
+    assert "honua-gp" in capsys.readouterr().err

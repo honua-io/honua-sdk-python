@@ -1,0 +1,81 @@
+name: build-python-distribution
+description: Build and compare two pristine commit-bound distributions
+inputs:
+  package:
+    description: Distribution name
+    required: true
+  release-sha:
+    description: Exact release commit
+    required: true
+  version:
+    description: Expected package version
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Materialize independent pristine commit-bound build sources
+      env:
+        RELEASE_SHA: ${{ inputs.release-sha }}
+      shell: bash
+      run: |
+        git worktree add --detach build-source-1 "$RELEASE_SHA"
+        git worktree add --detach build-source-2 "$RELEASE_SHA"
+        for source in build-source-1 build-source-2; do
+          actual_sha="$(git -C "$source" rev-parse HEAD)"
+          [[ "$actual_sha" == "$RELEASE_SHA" ]] \
+            || { echo "$source commit mismatch" >&2; exit 1; }
+          [[ -z "$(git -C "$source" status --porcelain --untracked-files=all)" ]] \
+            || { echo "$source is not clean" >&2; exit 1; }
+        done
+      working-directory: ${{ github.workspace }}
+
+    - name: Build package from independent pristine sources
+      env:
+        PACKAGE: ${{ inputs.package }}
+      shell: bash
+      run: |
+        source_date_epoch="$(git -C build-source-1 show -s --format=%ct HEAD)"
+        [[ "$source_date_epoch" =~ ^[0-9]+$ ]] || { echo "Invalid release commit timestamp" >&2; exit 1; }
+        export SOURCE_DATE_EPOCH="$source_date_epoch"
+        mkdir -p \
+          "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
+          "${GITHUB_WORKSPACE}/publish-artifact/dist"
+        python -m build \
+          --no-isolation \
+          --wheel \
+          --sdist \
+          --outdir "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
+          "build-source-1/packages/$PACKAGE"
+        [[ -z "$(git -C build-source-1 status --porcelain --untracked-files=all)" ]] \
+          || { echo "First build mutated its independent source" >&2; exit 1; }
+        python -m build \
+          --no-isolation \
+          --wheel \
+          --sdist \
+          --outdir "${GITHUB_WORKSPACE}/publish-artifact/dist" \
+          "build-source-2/packages/$PACKAGE"
+        [[ -z "$(git -C build-source-2 status --porcelain --untracked-files=all)" ]] \
+          || { echo "Second build mutated its independent source" >&2; exit 1; }
+      working-directory: ${{ github.workspace }}
+
+    - name: Require reproducible artifacts and create immutable manifest
+      env:
+        EXPECTED_VERSION: ${{ inputs.version }}
+        PACKAGE: ${{ inputs.package }}
+      shell: bash
+      run: |
+        python scripts/verify_distribution_parity.py manifest \
+          --dist-dir publish-artifact/reproducibility \
+          --package "$PACKAGE" \
+          --version "$EXPECTED_VERSION" \
+          --output publish-artifact/reproducibility-manifest.json
+        python scripts/verify_distribution_parity.py manifest \
+          --dist-dir publish-artifact/dist \
+          --package "$PACKAGE" \
+          --version "$EXPECTED_VERSION" \
+          --output publish-artifact/dist-manifest.json
+        cmp -s \
+          publish-artifact/reproducibility-manifest.json \
+          publish-artifact/dist-manifest.json \
+          || { echo "Repeated package builds were not byte-for-byte reproducible" >&2; exit 1; }
+      working-directory: ${{ github.workspace }}

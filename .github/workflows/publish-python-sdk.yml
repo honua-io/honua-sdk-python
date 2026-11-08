@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "Package to build/publish (honua-sdk, honua-admin, or both)"
+        description: "Package to build/publish (honua-sdk, honua-admin, honua-gp, or SDK and Admin together)"
         required: true
         default: "both"
         type: choice
         options:
           - honua-sdk
           - honua-admin
+          - honua-gp
           - both
       dry_run:
         description: "Run build and validation only (skip publish)"
@@ -68,6 +69,9 @@ jobs:
       admin: ${{ steps.plan.outputs.admin }}
       admin_version: ${{ steps.plan.outputs.admin_version }}
       admin_tag: ${{ steps.plan.outputs.admin_tag }}
+      gp: ${{ steps.plan.outputs.gp }}
+      gp_version: ${{ steps.plan.outputs.gp_version }}
+      gp_tag: ${{ steps.plan.outputs.gp_tag }}
     steps:
       - name: Checkout trusted publication automation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -125,11 +129,18 @@ jobs:
           SDK_SELECTED: ${{ needs.resolve-publish-targets.outputs.sdk }}
           SDK_TAG: ${{ needs.resolve-publish-targets.outputs.sdk_tag }}
           ADMIN_SELECTED: ${{ needs.resolve-publish-targets.outputs.admin }}
+          GP_SELECTED: ${{ needs.resolve-publish-targets.outputs.gp }}
           ADMIN_TAG: ${{ needs.resolve-publish-targets.outputs.admin_tag }}
+          GP_TAG: ${{ needs.resolve-publish-targets.outputs.gp_tag }}
         run: |
           if [[ "$PUBLISH" != "true" ]]; then
             echo "Dry run: GitHub Release verification is not required."
             exit 0
+          fi
+
+          if [[ "$GITHUB_SHA" != "$RELEASE_SHA" ]]; then
+            echo "The workflow source must match the release commit before publication." >&2
+            exit 1
           fi
 
           verify_release() {
@@ -146,6 +157,7 @@ jobs:
 
           [[ "$SDK_SELECTED" != "true" ]] || verify_release "$SDK_TAG"
           [[ "$ADMIN_SELECTED" != "true" ]] || verify_release "$ADMIN_TAG"
+          [[ "$GP_SELECTED" != "true" ]] || verify_release "$GP_TAG"
 
       - name: Require protected environments and immutable release tags
         if: needs.resolve-publish-targets.outputs.publish == 'true'
@@ -153,6 +165,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           SDK_SELECTED: ${{ needs.resolve-publish-targets.outputs.sdk }}
           ADMIN_SELECTED: ${{ needs.resolve-publish-targets.outputs.admin }}
+          GP_SELECTED: ${{ needs.resolve-publish-targets.outputs.gp }}
         run: |
           if [[ "$SDK_SELECTED" == "true" ]]; then
             python scripts/verify_publication_controls.py \
@@ -165,6 +178,12 @@ jobs:
               --repository "$GITHUB_REPOSITORY" \
               --environment pypi-honua-admin \
               --tag-pattern 'refs/tags/python-admin-v*'
+          fi
+          if [[ "$GP_SELECTED" == "true" ]]; then
+            python scripts/verify_publication_controls.py \
+              --repository "$GITHUB_REPOSITORY" \
+              --environment pypi-honua-gp \
+              --tag-pattern 'refs/tags/python-gp-v*'
           fi
 
   pre-publish-typecheck:
@@ -233,41 +252,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Materialize exact release source
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: git worktree add --detach release-source "$RELEASE_SHA"
-        working-directory: ${{ github.workspace }}
-
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install hash-locked third-party dependencies
-        run: |
-          python -m pip install \
-            --require-hashes \
-            --only-binary=:all: \
-            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
-
-      - name: Install commit-bound local packages without dependency resolution
-        run: |
-          python -m pip install --no-deps --no-build-isolation -e .
-          python -m pip install \
-            --no-deps \
-            --no-build-isolation \
-            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-admin"
-
-      - name: Run compatibility gate
-        run: python release-source/scripts/compatibility_gate.py
-        working-directory: ${{ github.workspace }}
-
-      - name: Run SDK coverage gate
-        env:
-          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python release-source/scripts/gen_sdk_coverage.py
-        working-directory: ${{ github.workspace }}
+      - name: Validate commit-bound release source
+        uses: ./.github/actions/validate-python-release-source
+        with:
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
       - name: Run SDK tests
         run: python -m pytest release-source/tests/ -q --tb=short
@@ -314,66 +307,12 @@ jobs:
             --only-binary=:all: \
             -r .github/requirements/publish-python.lock
 
-      - name: Materialize independent pristine commit-bound build sources
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: |
-          git worktree add --detach build-source-1 "$RELEASE_SHA"
-          git worktree add --detach build-source-2 "$RELEASE_SHA"
-          for source in build-source-1 build-source-2; do
-            actual_sha="$(git -C "$source" rev-parse HEAD)"
-            [[ "$actual_sha" == "$RELEASE_SHA" ]] \
-              || { echo "$source commit mismatch" >&2; exit 1; }
-            [[ -z "$(git -C "$source" status --porcelain --untracked-files=all)" ]] \
-              || { echo "$source is not clean" >&2; exit 1; }
-          done
-        working-directory: ${{ github.workspace }}
-
-      - name: Build package from independent pristine sources
-        run: |
-          source_date_epoch="$(git -C build-source-1 show -s --format=%ct HEAD)"
-          [[ "$source_date_epoch" =~ ^[0-9]+$ ]] || { echo "Invalid release commit timestamp" >&2; exit 1; }
-          export SOURCE_DATE_EPOCH="$source_date_epoch"
-          mkdir -p \
-            "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
-            "${GITHUB_WORKSPACE}/publish-artifact/dist"
-          python -m build \
-            --no-isolation \
-            --wheel \
-            --sdist \
-            --outdir "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
-            build-source-1/packages/honua-sdk
-          [[ -z "$(git -C build-source-1 status --porcelain --untracked-files=all)" ]] \
-            || { echo "First build mutated its independent source" >&2; exit 1; }
-          python -m build \
-            --no-isolation \
-            --wheel \
-            --sdist \
-            --outdir "${GITHUB_WORKSPACE}/publish-artifact/dist" \
-            build-source-2/packages/honua-sdk
-          [[ -z "$(git -C build-source-2 status --porcelain --untracked-files=all)" ]] \
-            || { echo "Second build mutated its independent source" >&2; exit 1; }
-        working-directory: ${{ github.workspace }}
-
-      - name: Require reproducible artifacts and create immutable manifest
-        env:
-          EXPECTED_VERSION: ${{ needs.resolve-publish-targets.outputs.sdk_version }}
-        run: |
-          python scripts/verify_distribution_parity.py manifest \
-            --dist-dir publish-artifact/reproducibility \
-            --package honua-sdk \
-            --version "$EXPECTED_VERSION" \
-            --output publish-artifact/reproducibility-manifest.json
-          python scripts/verify_distribution_parity.py manifest \
-            --dist-dir publish-artifact/dist \
-            --package honua-sdk \
-            --version "$EXPECTED_VERSION" \
-            --output publish-artifact/dist-manifest.json
-          cmp -s \
-            publish-artifact/reproducibility-manifest.json \
-            publish-artifact/dist-manifest.json \
-            || { echo "Repeated SDK builds were not byte-for-byte reproducible" >&2; exit 1; }
-        working-directory: ${{ github.workspace }}
+      - name: Build reproducible distribution
+        uses: ./.github/actions/build-python-distribution
+        with:
+          package: honua-sdk
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+          version: ${{ needs.resolve-publish-targets.outputs.sdk_version }}
 
       - name: Upload verified SDK artifact
         id: upload
@@ -422,6 +361,7 @@ jobs:
       - build-honua-sdk
       - preflight-honua-sdk-pypi
       - preflight-honua-admin-pypi
+      - preflight-honua-gp-pypi
     if: >
       always()
       && needs.resolve-publish-targets.result == 'success'
@@ -431,6 +371,8 @@ jobs:
       && needs.preflight-honua-sdk-pypi.outputs.publish_required == 'true'
       && (needs.resolve-publish-targets.outputs.admin != 'true'
           || needs.preflight-honua-admin-pypi.result == 'success')
+      && (needs.resolve-publish-targets.outputs.gp != 'true'
+          || needs.preflight-honua-gp-pypi.result == 'success')
     runs-on: ubuntu-latest
     environment: pypi-honua-sdk
     permissions:
@@ -504,61 +446,25 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
       - name: Download verified SDK artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-sdk-dist-${{ github.run_id }}
           path: artifact
 
-      - name: Reconcile exact SDK assets and PyPI link
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE: honua-sdk
-          VERSION: ${{ needs.resolve-publish-targets.outputs.sdk_version }}
-          TAG: ${{ needs.resolve-publish-targets.outputs.sdk_tag }}
-        run: |
-          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
-          release_id="$(jq -r .id <<<"$release")"
-          mapfile -t filenames < <(jq -r '.files[].filename' artifact/dist-manifest.json)
-          [[ "${#filenames[@]}" == "2" ]] || { echo "Manifest must contain two files" >&2; exit 1; }
-
-          for filename in "${filenames[@]}"; do
-            [[ "$filename" != */* && "$filename" != *\\* ]] || { echo "Unsafe asset filename" >&2; exit 1; }
-            file="artifact/dist/$filename"
-            expected="$(jq -r --arg name "$filename" '.files[] | select(.filename == $name) | .sha256' artifact/dist-manifest.json)"
-            actual="$(sha256sum "$file" | cut -d ' ' -f1)"
-            [[ "$actual" == "$expected" ]] || { echo "Local asset hash mismatch for $filename" >&2; exit 1; }
-
-            assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets")"
-            count="$(jq --arg name "$filename" '[.[] | select(.name == $name)] | length' <<<"$assets")"
-            [[ "$count" -le 1 ]] || { echo "Duplicate release assets named $filename" >&2; exit 1; }
-            if [[ "$count" == "0" ]]; then
-              gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY"
-            else
-              remote_digest="$(jq -r --arg name "$filename" '.[] | select(.name == $name) | .digest // ""' <<<"$assets")"
-              [[ "$remote_digest" == "sha256:$expected" ]] || { echo "Existing asset hash mismatch for $filename" >&2; exit 1; }
-            fi
-
-            for attempt in {1..6}; do
-              assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets")"
-              remote_digest="$(jq -r --arg name "$filename" '.[] | select(.name == $name) | .digest // ""' <<<"$assets")"
-              [[ "$remote_digest" == "sha256:$expected" ]] && break
-              [[ "$attempt" == "6" ]] && { echo "Uploaded asset hash mismatch for $filename" >&2; exit 1; }
-              sleep 2
-            done
-          done
-
-          marker="<!-- honua-pypi-link:${PACKAGE}:${VERSION} -->"
-          body_file="$(mktemp)"
-          jq -r '.body // ""' <<<"$release" > "$body_file"
-          if ! grep -Fq "$marker" "$body_file"; then
-            {
-              printf '\n\n## Install from PyPI\n\n%s\n\n' "$marker"
-              printf '`pip install "%s==%s"`\n\n' "$PACKAGE" "$VERSION"
-              printf '[View %s %s on PyPI](https://pypi.org/project/%s/%s/)\n' "$PACKAGE" "$VERSION" "$PACKAGE" "$VERSION"
-            } >> "$body_file"
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$body_file"
-          fi
+      - name: Reconcile exact package assets and registry link
+        uses: ./.github/actions/attach-python-release
+        with:
+          github-token: ${{ github.token }}
+          package: honua-sdk
+          version: ${{ needs.resolve-publish-targets.outputs.sdk_version }}
+          tag: ${{ needs.resolve-publish-targets.outputs.sdk_tag }}
 
   validate-honua-admin:
     needs:
@@ -580,41 +486,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Materialize exact release source
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: git worktree add --detach release-source "$RELEASE_SHA"
-        working-directory: ${{ github.workspace }}
-
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install hash-locked third-party dependencies
-        run: |
-          python -m pip install \
-            --require-hashes \
-            --only-binary=:all: \
-            -r "${GITHUB_WORKSPACE}/.github/requirements/publish-python.lock"
-
-      - name: Install commit-bound local packages without dependency resolution
-        run: |
-          python -m pip install \
-            --no-deps \
-            --no-build-isolation \
-            -e "${GITHUB_WORKSPACE}/release-source/packages/honua-sdk"
-          python -m pip install --no-deps --no-build-isolation -e .
-
-      - name: Run compatibility gate
-        run: python release-source/scripts/compatibility_gate.py
-        working-directory: ${{ github.workspace }}
-
-      - name: Run SDK coverage gate
-        env:
-          HONUA_CAPABILITY_KEY_LIST_URL: https://raw.githubusercontent.com/honua-io/honua-server/trunk/docs/gis/data/capability-keys.v1.json
-        run: python release-source/scripts/gen_sdk_coverage.py
-        working-directory: ${{ github.workspace }}
+      - name: Validate commit-bound release source
+        uses: ./.github/actions/validate-python-release-source
+        with:
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
       - name: Run tests
         run: python -m pytest release-source/tests/ -q --tb=short
@@ -661,66 +541,12 @@ jobs:
             --only-binary=:all: \
             -r .github/requirements/publish-python.lock
 
-      - name: Materialize independent pristine commit-bound build sources
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: |
-          git worktree add --detach build-source-1 "$RELEASE_SHA"
-          git worktree add --detach build-source-2 "$RELEASE_SHA"
-          for source in build-source-1 build-source-2; do
-            actual_sha="$(git -C "$source" rev-parse HEAD)"
-            [[ "$actual_sha" == "$RELEASE_SHA" ]] \
-              || { echo "$source commit mismatch" >&2; exit 1; }
-            [[ -z "$(git -C "$source" status --porcelain --untracked-files=all)" ]] \
-              || { echo "$source is not clean" >&2; exit 1; }
-          done
-        working-directory: ${{ github.workspace }}
-
-      - name: Build package from independent pristine sources
-        run: |
-          source_date_epoch="$(git -C build-source-1 show -s --format=%ct HEAD)"
-          [[ "$source_date_epoch" =~ ^[0-9]+$ ]] || { echo "Invalid release commit timestamp" >&2; exit 1; }
-          export SOURCE_DATE_EPOCH="$source_date_epoch"
-          mkdir -p \
-            "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
-            "${GITHUB_WORKSPACE}/publish-artifact/dist"
-          python -m build \
-            --no-isolation \
-            --wheel \
-            --sdist \
-            --outdir "${GITHUB_WORKSPACE}/publish-artifact/reproducibility" \
-            build-source-1/packages/honua-admin
-          [[ -z "$(git -C build-source-1 status --porcelain --untracked-files=all)" ]] \
-            || { echo "First build mutated its independent source" >&2; exit 1; }
-          python -m build \
-            --no-isolation \
-            --wheel \
-            --sdist \
-            --outdir "${GITHUB_WORKSPACE}/publish-artifact/dist" \
-            build-source-2/packages/honua-admin
-          [[ -z "$(git -C build-source-2 status --porcelain --untracked-files=all)" ]] \
-            || { echo "Second build mutated its independent source" >&2; exit 1; }
-        working-directory: ${{ github.workspace }}
-
-      - name: Require reproducible artifacts and create immutable manifest
-        env:
-          EXPECTED_VERSION: ${{ needs.resolve-publish-targets.outputs.admin_version }}
-        run: |
-          python scripts/verify_distribution_parity.py manifest \
-            --dist-dir publish-artifact/reproducibility \
-            --package honua-admin \
-            --version "$EXPECTED_VERSION" \
-            --output publish-artifact/reproducibility-manifest.json
-          python scripts/verify_distribution_parity.py manifest \
-            --dist-dir publish-artifact/dist \
-            --package honua-admin \
-            --version "$EXPECTED_VERSION" \
-            --output publish-artifact/dist-manifest.json
-          cmp -s \
-            publish-artifact/reproducibility-manifest.json \
-            publish-artifact/dist-manifest.json \
-            || { echo "Repeated admin builds were not byte-for-byte reproducible" >&2; exit 1; }
-        working-directory: ${{ github.workspace }}
+      - name: Build reproducible distribution
+        uses: ./.github/actions/build-python-distribution
+        with:
+          package: honua-admin
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+          version: ${{ needs.resolve-publish-targets.outputs.admin_version }}
 
       - name: Upload verified admin artifact
         id: upload
@@ -768,6 +594,7 @@ jobs:
       - resolve-publish-targets
       - build-honua-admin
       - preflight-honua-admin-pypi
+      - preflight-honua-gp-pypi
       - verify-honua-sdk-pypi
       - attach-honua-sdk-release
     if: >
@@ -780,6 +607,8 @@ jobs:
       && (needs.resolve-publish-targets.outputs.sdk != 'true'
           || (needs.verify-honua-sdk-pypi.result == 'success'
               && needs.attach-honua-sdk-release.result == 'success'))
+      && (needs.resolve-publish-targets.outputs.gp != 'true'
+          || needs.preflight-honua-gp-pypi.result == 'success')
     runs-on: ubuntu-latest
     environment: pypi-honua-admin
     permissions:
@@ -858,69 +687,26 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
       - name: Download verified admin artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: honua-admin-dist-${{ github.run_id }}
           path: artifact
 
-      - name: Reconcile exact admin assets and PyPI link
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE: honua-admin
-          VERSION: ${{ needs.resolve-publish-targets.outputs.admin_version }}
-          TAG: ${{ needs.resolve-publish-targets.outputs.admin_tag }}
-        run: |
-          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
-          release_id="$(jq -r .id <<<"$release")"
-          mapfile -t filenames < <(jq -r '.files[].filename' artifact/dist-manifest.json)
-          [[ "${#filenames[@]}" == "2" ]] || { echo "Manifest must contain two files" >&2; exit 1; }
+      - name: Reconcile exact package assets and registry link
+        uses: ./.github/actions/attach-python-release
+        with:
+          github-token: ${{ github.token }}
+          package: honua-admin
+          version: ${{ needs.resolve-publish-targets.outputs.admin_version }}
+          tag: ${{ needs.resolve-publish-targets.outputs.admin_tag }}
 
-          for filename in "${filenames[@]}"; do
-            [[ "$filename" != */* && "$filename" != *\\* ]] || { echo "Unsafe asset filename" >&2; exit 1; }
-            file="artifact/dist/$filename"
-            expected="$(jq -r --arg name "$filename" '.files[] | select(.filename == $name) | .sha256' artifact/dist-manifest.json)"
-            actual="$(sha256sum "$file" | cut -d ' ' -f1)"
-            [[ "$actual" == "$expected" ]] || { echo "Local asset hash mismatch for $filename" >&2; exit 1; }
-
-            assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets")"
-            count="$(jq --arg name "$filename" '[.[] | select(.name == $name)] | length' <<<"$assets")"
-            [[ "$count" -le 1 ]] || { echo "Duplicate release assets named $filename" >&2; exit 1; }
-            if [[ "$count" == "0" ]]; then
-              gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY"
-            else
-              remote_digest="$(jq -r --arg name "$filename" '.[] | select(.name == $name) | .digest // ""' <<<"$assets")"
-              [[ "$remote_digest" == "sha256:$expected" ]] || { echo "Existing asset hash mismatch for $filename" >&2; exit 1; }
-            fi
-
-            for attempt in {1..6}; do
-              assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets")"
-              remote_digest="$(jq -r --arg name "$filename" '.[] | select(.name == $name) | .digest // ""' <<<"$assets")"
-              [[ "$remote_digest" == "sha256:$expected" ]] && break
-              [[ "$attempt" == "6" ]] && { echo "Uploaded asset hash mismatch for $filename" >&2; exit 1; }
-              sleep 2
-            done
-          done
-
-          marker="<!-- honua-pypi-link:${PACKAGE}:${VERSION} -->"
-          body_file="$(mktemp)"
-          jq -r '.body // ""' <<<"$release" > "$body_file"
-          if ! grep -Fq "$marker" "$body_file"; then
-            {
-              printf '\n\n## Install from PyPI\n\n%s\n\n' "$marker"
-              printf '`pip install "%s==%s"`\n\n' "$PACKAGE" "$VERSION"
-              printf '[View %s %s on PyPI](https://pypi.org/project/%s/%s/)\n' "$PACKAGE" "$VERSION" "$PACKAGE" "$VERSION"
-            } >> "$body_file"
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$body_file"
-          fi
-
-  # Publisher attestations (honua-release post-gate collector). The collector
-  # looks up repos/<repo>/attestations/sha256:<wheel digest> and verifies each
-  # bundle with --source-digest <release commit> --signer-workflow this file, so
-  # the Sigstore certificate's source digest (github.sha) must be the release
-  # commit. Only verified bytes are attested: this job runs after the
-  # post-publish PyPI filename/SHA256 parity check passed for this run's
-  # reproducible build, whether this run uploaded it or found it already there.
   attest-honua-sdk:
     needs:
       - resolve-publish-targets
@@ -936,14 +722,11 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - name: Require the workflow source to be the release commit
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: |
-          if [ "$GITHUB_SHA" != "$RELEASE_SHA" ]; then
-            echo "::error::workflow source $GITHUB_SHA is not release commit $RELEASE_SHA; an attestation from it would not bind the release source. Trunk moved past the release before this run started, so no attestation is produced; cut the next release from an unmoved trunk."
-            exit 1
-          fi
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
 
       - name: Download verified SDK artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -951,54 +734,12 @@ jobs:
           name: honua-sdk-dist-${{ github.run_id }}
           path: artifact
 
-      - name: Unpack the wheel for SBOM cataloging
-        run: |
-          set -euo pipefail
-          wheels=(artifact/dist/*.whl)
-          [ "${#wheels[@]}" -eq 1 ] && [ -f "${wheels[0]}" ] || { echo "::error::expected exactly one wheel" >&2; exit 1; }
-          mkdir -p "$RUNNER_TEMP/wheel"
-          python3 -m zipfile -e "${wheels[0]}" "$RUNNER_TEMP/wheel"
-          echo "WHEEL=${wheels[0]}" >> "$GITHUB_ENV"
-
-      # CycloneDX: actions/attest types SPDX as .../Document/v2.3, which the
-      # collector does not accept; it accepts https://cyclonedx.org/bom.
-      - name: Generate the wheel SBOM
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - name: Attest source-bound distribution and SBOM
+        uses: ./.github/actions/attest-python-distribution
         with:
-          path: ${{ runner.temp }}/wheel
-          format: cyclonedx-json
-          output-file: ${{ runner.temp }}/honua-sdk.cdx.json
-          upload-artifact: false
-          upload-release-assets: false
+          package: honua-sdk
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
-      - name: Refuse an SBOM that does not describe the wheel
-        env:
-          SBOM: ${{ runner.temp }}/honua-sdk.cdx.json
-          DISTRIBUTION: honua-sdk
-        run: >
-          python3 -c "import json, os, sys;
-          bom = json.load(open(os.environ['SBOM']));
-          ok = bom.get('bomFormat') == 'CycloneDX' and any(c.get('type') == 'library' and c.get('name') == os.environ['DISTRIBUTION'] for c in bom.get('components', []));
-          sys.exit(0 if ok else 'SBOM does not describe ' + os.environ['DISTRIBUTION'])"
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: artifact/dist/*
-
-      - name: Attest the wheel SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
-        with:
-          subject-path: ${{ env.WHEEL }}
-          sbom-path: ${{ runner.temp }}/honua-sdk.cdx.json
-
-  # Publisher attestations (honua-release post-gate collector). The collector
-  # looks up repos/<repo>/attestations/sha256:<wheel digest> and verifies each
-  # bundle with --source-digest <release commit> --signer-workflow this file, so
-  # the Sigstore certificate's source digest (github.sha) must be the release
-  # commit. Only verified bytes are attested: this job runs after the
-  # post-publish PyPI filename/SHA256 parity check passed for this run's
-  # reproducible build, whether this run uploaded it or found it already there.
   attest-honua-admin:
     needs:
       - resolve-publish-targets
@@ -1014,14 +755,11 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - name: Require the workflow source to be the release commit
-        env:
-          RELEASE_SHA: ${{ needs.resolve-publish-targets.outputs.release_sha }}
-        run: |
-          if [ "$GITHUB_SHA" != "$RELEASE_SHA" ]; then
-            echo "::error::workflow source $GITHUB_SHA is not release commit $RELEASE_SHA; an attestation from it would not bind the release source. Trunk moved past the release before this run started, so no attestation is produced; cut the next release from an unmoved trunk."
-            exit 1
-          fi
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
 
       - name: Download verified admin artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -1029,43 +767,317 @@ jobs:
           name: honua-admin-dist-${{ github.run_id }}
           path: artifact
 
-      - name: Unpack the wheel for SBOM cataloging
-        run: |
-          set -euo pipefail
-          wheels=(artifact/dist/*.whl)
-          [ "${#wheels[@]}" -eq 1 ] && [ -f "${wheels[0]}" ] || { echo "::error::expected exactly one wheel" >&2; exit 1; }
-          mkdir -p "$RUNNER_TEMP/wheel"
-          python3 -m zipfile -e "${wheels[0]}" "$RUNNER_TEMP/wheel"
-          echo "WHEEL=${wheels[0]}" >> "$GITHUB_ENV"
-
-      # CycloneDX: actions/attest types SPDX as .../Document/v2.3, which the
-      # collector does not accept; it accepts https://cyclonedx.org/bom.
-      - name: Generate the wheel SBOM
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - name: Attest source-bound distribution and SBOM
+        uses: ./.github/actions/attest-python-distribution
         with:
-          path: ${{ runner.temp }}/wheel
-          format: cyclonedx-json
-          output-file: ${{ runner.temp }}/honua-admin.cdx.json
-          upload-artifact: false
-          upload-release-assets: false
+          package: honua-admin
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
 
-      - name: Refuse an SBOM that does not describe the wheel
+  validate-honua-gp:
+    needs:
+      - resolve-publish-targets
+      - verify-github-releases
+      - pre-publish-typecheck
+    if: needs.resolve-publish-targets.outputs.gp == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: release-source/packages/honua-gp
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate commit-bound release source
+        uses: ./.github/actions/validate-python-release-source
+        with:
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+
+      - name: Install GP package
+        run: python -m pip install --no-deps --no-build-isolation -e .
+
+      - name: Run tests
+        run: python -m pytest release-source/packages/honua-gp/tests -q --tb=short
+        working-directory: ${{ github.workspace }}
+
+      - name: Validate tag version
+        if: needs.resolve-publish-targets.outputs.publish == 'true'
         env:
-          SBOM: ${{ runner.temp }}/honua-admin.cdx.json
-          DISTRIBUTION: honua-admin
+          EXPECTED_TAG: ${{ needs.resolve-publish-targets.outputs.gp_tag }}
         run: >
-          python3 -c "import json, os, sys;
-          bom = json.load(open(os.environ['SBOM']));
-          ok = bom.get('bomFormat') == 'CycloneDX' and any(c.get('type') == 'library' and c.get('name') == os.environ['DISTRIBUTION'] for c in bom.get('components', []));
-          sys.exit(0 if ok else 'SBOM does not describe ' + os.environ['DISTRIBUTION'])"
+          python "${GITHUB_WORKSPACE}/release-source/scripts/validate_publish_tag.py"
+          --pyproject pyproject.toml
+          --tag "$EXPECTED_TAG"
+          --prefix python-gp-v
 
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+  build-honua-gp:
+    needs:
+      - resolve-publish-targets
+      - verify-github-releases
+      - validate-honua-gp
+    if: needs.resolve-publish-targets.outputs.gp == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          subject-path: artifact/dist/*
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Attest the wheel SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          subject-path: ${{ env.WHEEL }}
-          sbom-path: ${{ runner.temp }}/honua-admin.cdx.json
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install hash-locked build backend
+        run: |
+          python -m pip install \
+            --require-hashes \
+            --only-binary=:all: \
+            -r .github/requirements/publish-python.lock
+
+      - name: Build reproducible distribution
+        uses: ./.github/actions/build-python-distribution
+        with:
+          package: honua-gp
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+          version: ${{ needs.resolve-publish-targets.outputs.gp_version }}
+
+      - name: Upload verified GP artifact
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: honua-gp-dist-${{ github.run_id }}
+          path: |
+            publish-artifact/dist
+            publish-artifact/dist-manifest.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  preflight-honua-gp-pypi:
+    needs:
+      - resolve-publish-targets
+      - build-honua-gp
+    if: needs.resolve-publish-targets.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      publish_required: ${{ steps.parity.outputs.publish_required }}
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Download verified GP artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: honua-gp-dist-${{ github.run_id }}
+          path: artifact
+
+      - name: Require absent coordinate or exact PyPI parity
+        id: parity
+        run: >
+          python scripts/verify_distribution_parity.py pypi
+          --manifest artifact/dist-manifest.json
+          --dist-dir artifact/dist
+          --phase preflight
+
+  publish-honua-gp:
+    needs:
+      - resolve-publish-targets
+      - build-honua-gp
+      - preflight-honua-gp-pypi
+      - verify-honua-sdk-pypi
+      - attach-honua-sdk-release
+      - verify-honua-admin-pypi
+      - attach-honua-admin-release
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.build-honua-gp.result == 'success'
+      && needs.preflight-honua-gp-pypi.result == 'success'
+      && needs.resolve-publish-targets.outputs.publish == 'true'
+      && needs.preflight-honua-gp-pypi.outputs.publish_required == 'true'
+      && (needs.resolve-publish-targets.outputs.sdk != 'true'
+          || (needs.verify-honua-sdk-pypi.result == 'success'
+              && needs.attach-honua-sdk-release.result == 'success'))
+      && (needs.resolve-publish-targets.outputs.admin != 'true'
+          || (needs.verify-honua-admin-pypi.result == 'success'
+              && needs.attach-honua-admin-release.result == 'success'))
+    runs-on: ubuntu-latest
+    environment: pypi-honua-gp
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download verified GP artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: honua-gp-dist-${{ github.run_id }}
+          path: artifact
+
+      - name: Publish GP to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: artifact/dist
+
+  verify-honua-gp-pypi:
+    needs:
+      - resolve-publish-targets
+      - build-honua-gp
+      - preflight-honua-gp-pypi
+      - publish-honua-gp
+      - verify-honua-sdk-pypi
+      - attach-honua-sdk-release
+      - verify-honua-admin-pypi
+      - attach-honua-admin-release
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.build-honua-gp.result == 'success'
+      && needs.resolve-publish-targets.outputs.gp == 'true'
+      && (needs.resolve-publish-targets.outputs.publish != 'true'
+          || (needs.preflight-honua-gp-pypi.result == 'success'
+              && (needs.preflight-honua-gp-pypi.outputs.publish_required != 'true'
+                  || needs.publish-honua-gp.result == 'success')
+              && (needs.resolve-publish-targets.outputs.sdk != 'true'
+                  || (needs.verify-honua-sdk-pypi.result == 'success'
+                      && needs.attach-honua-sdk-release.result == 'success'))))
+      && (needs.resolve-publish-targets.outputs.admin != 'true'
+          || (needs.verify-honua-admin-pypi.result == 'success'
+              && needs.attach-honua-admin-release.result == 'success'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record dry build completion
+        if: needs.resolve-publish-targets.outputs.publish != 'true'
+        run: echo "Dry run completed without accessing PyPI publishing credentials."
+
+      - name: Checkout trusted publication automation
+        if: needs.resolve-publish-targets.outputs.publish == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Download verified GP artifact
+        if: needs.resolve-publish-targets.outputs.publish == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: honua-gp-dist-${{ github.run_id }}
+          path: artifact
+
+      - name: Verify final GP PyPI filename and SHA256 parity
+        if: needs.resolve-publish-targets.outputs.publish == 'true'
+        run: >
+          python scripts/verify_distribution_parity.py pypi
+          --manifest artifact/dist-manifest.json
+          --dist-dir artifact/dist
+          --phase post-publish
+
+  attach-honua-gp-release:
+    needs:
+      - resolve-publish-targets
+      - verify-honua-gp-pypi
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.verify-honua-gp-pypi.result == 'success'
+      && needs.resolve-publish-targets.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Download verified GP artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: honua-gp-dist-${{ github.run_id }}
+          path: artifact
+
+      - name: Reconcile exact package assets and registry link
+        uses: ./.github/actions/attach-python-release
+        with:
+          github-token: ${{ github.token }}
+          package: honua-gp
+          version: ${{ needs.resolve-publish-targets.outputs.gp_version }}
+          tag: ${{ needs.resolve-publish-targets.outputs.gp_tag }}
+
+  attest-honua-gp:
+    needs:
+      - resolve-publish-targets
+      - verify-honua-gp-pypi
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.verify-honua-gp-pypi.result == 'success'
+      && needs.resolve-publish-targets.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout trusted publication automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Download verified GP artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: honua-gp-dist-${{ github.run_id }}
+          path: artifact
+
+      - name: Attest source-bound distribution and SBOM
+        uses: ./.github/actions/attest-python-distribution
+        with:
+          package: honua-gp
+          release-sha: ${{ needs.resolve-publish-targets.outputs.release_sha }}
+
+
+  install-honua-gp:
+    needs:
+      - resolve-publish-targets
+      - verify-honua-gp-pypi
+    if: >
+      always()
+      && needs.resolve-publish-targets.result == 'success'
+      && needs.verify-honua-gp-pypi.result == 'success'
+      && needs.resolve-publish-targets.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Verify anonymous registry install
+        env:
+          VERSION: ${{ needs.resolve-publish-targets.outputs.gp_version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/anonymous-install"
+          "$RUNNER_TEMP/anonymous-install/bin/python" -m pip --isolated install \
+            --index-url https://pypi.org/simple "honua-gp==$VERSION"
+          "$RUNNER_TEMP/anonymous-install/bin/python" -m pip check
+          "$RUNNER_TEMP/anonymous-install/bin/honua-gp" --help

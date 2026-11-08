@@ -1,0 +1,68 @@
+name: attach-python-release
+description: Attach verified distributions and reconcile the registry link
+inputs:
+  package:
+    description: Distribution name
+    required: true
+  version:
+    description: Expected package version
+    required: true
+  tag:
+    description: Exact release tag
+    required: true
+  github-token:
+    description: Release asset token
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Reconcile exact package assets and PyPI link
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PACKAGE: ${{ inputs.package }}
+        VERSION: ${{ inputs.version }}
+        TAG: ${{ inputs.tag }}
+      shell: bash
+      run: |
+        release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" </dev/null)"
+        release_id="$(jq -r .id <<<"$release")"
+        mapfile -t filenames < <(jq -r '.files[].filename' artifact/dist-manifest.json)
+        [[ "${#filenames[@]}" == "2" ]] || { echo "Manifest must contain two files" >&2; exit 1; }
+
+        for filename in "${filenames[@]}"; do
+          [[ "$filename" != */* && "$filename" != *\\* ]] || { echo "Unsafe asset filename" >&2; exit 1; }
+          file="artifact/dist/$filename"
+          expected="$(jq -r --arg name "$filename" '.files[] | select(.filename == $name) | .sha256' artifact/dist-manifest.json)"
+          actual="$(sha256sum "$file" | cut -d ' ' -f1)"
+          [[ "$actual" == "$expected" ]] || { echo "Local asset hash mismatch for $filename" >&2; exit 1; }
+
+          assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" </dev/null)"
+          count="$(jq --arg name "$filename" '[.[] | select(.name == $name)] | length' <<<"$assets")"
+          [[ "$count" -le 1 ]] || { echo "Duplicate release assets named $filename" >&2; exit 1; }
+          if [[ "$count" == "0" ]]; then
+            gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" </dev/null
+          else
+            remote_digest="$(jq -r --arg name "$filename" '.[] | select(.name == $name) | .digest // ""' <<<"$assets")"
+            [[ "$remote_digest" == "sha256:$expected" ]] || { echo "Existing asset hash mismatch for $filename" >&2; exit 1; }
+          fi
+
+          for attempt in {1..6}; do
+            assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" </dev/null)"
+            remote_digest="$(jq -r --arg name "$filename" '.[] | select(.name == $name) | .digest // ""' <<<"$assets")"
+            [[ "$remote_digest" == "sha256:$expected" ]] && break
+            [[ "$attempt" == "6" ]] && { echo "Uploaded asset hash mismatch for $filename" >&2; exit 1; }
+            sleep 2
+          done
+        done
+
+        marker="<!-- honua-pypi-link:${PACKAGE}:${VERSION} -->"
+        body_file="$(mktemp)"
+        jq -r '.body // ""' <<<"$release" > "$body_file"
+        if ! grep -Fq "$marker" "$body_file"; then
+          {
+            printf '\n\n## Install from PyPI\n\n%s\n\n' "$marker"
+            printf '`pip install "%s==%s"`\n\n' "$PACKAGE" "$VERSION"
+            printf '[View %s %s on PyPI](https://pypi.org/project/%s/%s/)\n' "$PACKAGE" "$VERSION" "$PACKAGE" "$VERSION"
+          } >> "$body_file"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$body_file" </dev/null
+        fi

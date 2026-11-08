@@ -1,13 +1,13 @@
 ---
 type: index
 title: "honua-gp documentation"
-description: "Documentation for the separately licensed Honua geoprocessing package."
+description: "Documentation for the Apache-2.0 Honua geoprocessing package."
 resource: "https://github.com/honua-io/honua-sdk-python/tree/trunk/packages/honua-gp"
 tags: [honua-gp, geoprocessing]
 ---
 # honua-gp documentation
 
-`honua-gp` is a separately licensed package for running supported
+`honua-gp` is an Apache-2.0 package for running supported
 geoprocessing operations against a Honua deployment.
 
 ## Pointers
@@ -29,5 +29,11 @@ commit both generated compatibility matrices.
 
 ## Distribution
 
-The package is proprietary and is not published by the public CI workflow.
-Its license and package metadata describe the distribution restrictions.
+Releases use trusted publishing, reproducible builds, provenance attestations,
+and a wheel SBOM. Install from PyPI:
+
+```bash
+pip install honua-gp
+```
+
+The package uses Apache-2.0, matching `honua-sdk` and `honua-admin`.

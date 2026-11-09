@@ -16,6 +16,11 @@ DESCRIPTOR = SourceDescriptor(
 )
 
 
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
+
+
 def query_response(object_id: int) -> dict[str, Any]:
     return {
         "objectIdFieldName": "gid",
@@ -41,7 +46,7 @@ def test_source_query_preserves_the_declared_object_id(object_id: int) -> None:
     assert feature.raw == payload["features"][0]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_source_query_and_stream_keep_the_declared_id() -> None:
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json=query_response(7)))
     async with AsyncHonuaClient("https://example.test", transport=transport) as client:

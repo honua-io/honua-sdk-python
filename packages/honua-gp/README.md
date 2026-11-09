@@ -10,12 +10,16 @@ the `honua-sdk`, `honua-admin`, and OGC API Processes clients.
 import honua_gp as gp
 
 gp.configure(base_url="https://honua.example.com", api_key="...")
-gp.env.workspace = "honua://services/transport"
 gp.env.overwriteOutput = True
 
-gp.management.MakeFeatureLayer("roads", "roads_lyr", where_clause="STATUS = 'OPEN'")
+gp.management.MakeFeatureLayer("honua://services/transport/1", "roads_lyr", where_clause="STATUS = 'OPEN'")
 count = int(gp.management.GetCount("roads_lyr"))
 ```
+
+Replace `transport` and `1` with the Service name and `layerId` returned when
+you publish your Layer. Use the complete `honua://services/<service>/<layerId>`
+URI: a Dataset name inside `gp.env.workspace` does not look up the published
+Layer and defaults to Layer 0. Replace the filter with one valid for your data.
 
 The supported operations and their current limitations are listed in the
 [compatibility matrix](docs/compatibility-matrix.md). Unsupported operations

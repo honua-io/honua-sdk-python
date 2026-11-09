@@ -1,7 +1,3 @@
-# Changelog
-
-All notable changes to `honua-gp` will be documented in this file.
-
 ## Pre-release development history
 
 ### Public distribution

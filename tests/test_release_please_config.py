@@ -417,3 +417,13 @@ def test_gp_waits_for_verified_and_attached_dependencies() -> None:
         for gate in (f"verify-{package}-pypi", f"attach-{package}-release"):
             assert f"- {gate}" in publish
             assert f"needs.{gate}.result == 'success'" in publish
+
+
+def test_gp_initial_release_notes_match_the_public_license() -> None:
+    changelog = (ROOT / "packages/honua-gp/CHANGELOG.md").read_text(encoding="utf-8")
+    metadata = tomllib.loads((ROOT / "packages/honua-gp/pyproject.toml").read_text(encoding="utf-8"))
+
+    assert metadata["project"]["license"] == "Apache-2.0"
+    assert "proprietary" not in changelog.lower()
+    assert "## 0.1.0 (2026-05-22)" not in changelog
+    assert "## Unreleased" not in changelog

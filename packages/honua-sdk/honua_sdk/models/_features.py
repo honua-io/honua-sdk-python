@@ -31,19 +31,26 @@ class Feature:
     attributes: Mapping[str, Any]
     geometry: Mapping[str, Any] | None = None
     raw: Mapping[str, Any] = field(default_factory=dict)
+    object_id_field: str | None = None
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> "Feature":
+    def from_dict(
+        cls, payload: Mapping[str, Any], *, object_id_field: str | None = None,
+    ) -> "Feature":
         attributes = payload.get("attributes")
         geometry = payload.get("geometry")
         return cls(
             attributes=dict(attributes) if isinstance(attributes, Mapping) else {},
             geometry=dict(geometry) if isinstance(geometry, Mapping) else None,
             raw=dict(payload),
+            object_id_field=object_id_field,
         )
 
     @property
     def object_id(self) -> int | None:
+        if self.object_id_field is not None:
+            value = self.attributes.get(self.object_id_field)
+            return int(value) if value is not None else None
         for key in ("objectid", "objectId", "OBJECTID"):
             value = self.attributes.get(key)
             if value is not None:
@@ -100,7 +107,7 @@ class FeatureSet:
         spatial_reference = payload.get("spatialReference")
         return cls(
             features=tuple(
-                Feature.from_dict(feature)
+                Feature.from_dict(feature, object_id_field=_optional_str(payload.get("objectIdFieldName")))
                 for feature in raw_features or []
                 if isinstance(feature, Mapping)
             ),

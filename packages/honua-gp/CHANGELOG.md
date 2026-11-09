@@ -1,8 +1,4 @@
-# Changelog
-
-All notable changes to `honua-gp` will be documented in this file.
-
-## Unreleased
+## Pre-release development history
 
 ### Public distribution
 
@@ -144,7 +140,7 @@ see the `management.Describe` / `management.ListFields` manifest notes in
   canonical package prefix. The console entry point is `honua-gp`. The old
   alias was never published and has been removed.
 
-## Unreleased
+## Earlier development
 
 ### Spatial Analyst (`honua_gp.sa`) -- 16 raster/surface tools wrapped
 
@@ -254,9 +250,9 @@ cleanly onto them.
   ``tests/test_process_tools.py`` (per-tool projection + job lifecycle) and
   ``tests/test_process_jobs.py`` (submit/poll/timeout/failure).
 
-## 0.1.0 (2026-05-22)
+### Initial development (2026-05-22)
 
-Initial drop. Adds the proprietary `honua_gp` shim package covering 45
+Initial development of the `honua_gp` compatibility layer covering 45
 top-of-corpus gp functions (15 analysis, 20 management, 10 data-access).
 Dispatches through `honua_sdk`, `honua_admin`, and
 `honua_sdk.protocols.OgcProcessesClient` -- no direct REST/gRPC plumbing.

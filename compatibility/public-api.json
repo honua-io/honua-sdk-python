@@ -5001,13 +5001,18 @@
               "annotation": "Mapping[str, Any]",
               "defaultFactory": "dict",
               "name": "raw"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "object_id_field"
             }
           ],
           "kind": "class",
           "methods": {
             "from_dict": {
               "kind": "classmethod",
-              "signature": "(cls, payload: 'Mapping[str, Any]') -> \"'Feature'\""
+              "signature": "(cls, payload: 'Mapping[str, Any]', *, object_id_field: 'str | None' = None) -> \"'Feature'\""
             },
             "geometry_shape": {
               "kind": "property"
@@ -5022,7 +5027,7 @@
           },
           "module": "honua_sdk.models",
           "qualname": "Feature",
-          "signature": "(attributes: 'Mapping[str, Any]', geometry: 'Mapping[str, Any] | None' = None, raw: 'Mapping[str, Any]' = <factory>) -> None"
+          "signature": "(attributes: 'Mapping[str, Any]', geometry: 'Mapping[str, Any] | None' = None, raw: 'Mapping[str, Any]' = <factory>, object_id_field: 'str | None' = None) -> None"
         },
         "FeatureQuery": {
           "fields": [

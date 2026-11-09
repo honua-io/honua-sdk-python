@@ -1,3 +1,51 @@
+# Changelog
+
+## [0.1.0](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.0...python-gp-v0.1.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* the honua_sdk.migration module, the honua-migrate console script and the scanner exports of honua_admin are removed.
+* **sdk:** constructing a client with credentials and a plain http:// base URL on a non-loopback host now raises ValueError (HonuaGpConfigurationError in honua_gp). Use an https:// base URL, a loopback host, or opt in with allow_insecure_http=True / HONUA_ALLOW_INSECURE_HTTP=1. The `honua` CLI no longer forwards arbitrary unknown commands, and forwards JS-only commands only to HONUA_JS_CLI or an installed @honua/sdk-js launcher.
+
+### refactor
+
+* remove local source conversion tooling ([#345](https://github.com/honua-io/honua-sdk-python/issues/345)) ([623cc86](https://github.com/honua-io/honua-sdk-python/commit/623cc86ca0ea7ed98a51638889e19ef39db4913a))
+
+
+### Features
+
+* **gp:** enable Apache-licensed trusted publication ([#378](https://github.com/honua-io/honua-sdk-python/issues/378)) ([8dc9a2a](https://github.com/honua-io/honua-sdk-python/commit/8dc9a2a5d3ceb16c1e809f5accfd918332fd2a61))
+* **honua-arcpy:** promote 6 high-frequency GP tools from stub to working via layer-aware projection adapter ([#120](https://github.com/honua-io/honua-sdk-python/issues/120)) ([617ec80](https://github.com/honua-io/honua-sdk-python/commit/617ec80e83f4e35e2f1a3f091506e263a239c4a5))
+* **honua-gp:** add arcpy Spatial Analyst (honua_gp.sa) raster/surface tools ([#175](https://github.com/honua-io/honua-sdk-python/issues/175)) ([e72a872](https://github.com/honua-io/honua-sdk-python/commit/e72a8729cb764db465fb0d1e40834fabbc634590))
+* **honua-gp:** implement management.Describe / ListFields via FeatureServer schema ([#169](https://github.com/honua-io/honua-sdk-python/issues/169)) ([cee95be](https://github.com/honua-io/honua-sdk-python/commit/cee95bef68a8927dfe924e040e8661389816dd22))
+
+
+### Bug Fixes
+
+* **eval:** seed the SpatialJoin join layer before honua-server starts ([#200](https://github.com/honua-io/honua-sdk-python/issues/200)) ([953f2b3](https://github.com/honua-io/honua-sdk-python/commit/953f2b3ba2cbb2d947b13c8ac5848cebe1860a76))
+* fail closed when the audit redactor cannot be imported ([#361](https://github.com/honua-io/honua-sdk-python/issues/361)) ([f2a9641](https://github.com/honua-io/honua-sdk-python/commit/f2a9641740b8fa0430bf0006f64b595961010eb5))
+* **gp-eval:** parse inline OGC value outputs, refresh buffer oracles ([#234](https://github.com/honua-io/honua-sdk-python/issues/234)) ([40ecf73](https://github.com/honua-io/honua-sdk-python/commit/40ecf7318573214fb6c702b12ebd56b3ad47ba60))
+* **gp:** bless live response oracles for 9 unblessed scripts + gate future regrowth ([#229](https://github.com/honua-io/honua-sdk-python/issues/229)) ([5ad6c66](https://github.com/honua-io/honua-sdk-python/commit/5ad6c66809f66ae5627786dc3c608fbc97ec0897))
+* **gp:** pin eval goldens to the calendar DateOnly contract ([#340](https://github.com/honua-io/honua-sdk-python/issues/340)) ([a5fe626](https://github.com/honua-io/honua-sdk-python/commit/a5fe626a45851be94fd9b9e1c5459fc72675b02a))
+* **gp:** repair initial public release notes ([#380](https://github.com/honua-io/honua-sdk-python/issues/380)) ([efc7a71](https://github.com/honua-io/honua-sdk-python/commit/efc7a71b44209746172bc347fa1ef40d7d5cbfcf))
+* **honua-gp:** bind GP outputs to real job results, reject unapplied semantics ([#227](https://github.com/honua-io/honua-sdk-python/issues/227)) ([a8dded9](https://github.com/honua-io/honua-sdk-python/commit/a8dded9e5b7bfffaa1c82b4d5a598fb081b68ee0)), closes [#226](https://github.com/honua-io/honua-sdk-python/issues/226)
+* **honua-gp:** bootstrap env, resolve FeatureServer URLs, prove installed GetCount ([#206](https://github.com/honua-io/honua-sdk-python/issues/206)) ([296a4d0](https://github.com/honua-io/honua-sdk-python/commit/296a4d030a6598e4f5e8e140d07c991f28d7c78a))
+* **honua-gp:** dissolve a bound GP output through geometry.dissolve ([#240](https://github.com/honua-io/honua-sdk-python/issues/240)) ([9251027](https://github.com/honua-io/honua-sdk-python/commit/9251027ebb803a71e2aa348242e5ee041a4a91ff)), closes [#226](https://github.com/honua-io/honua-sdk-python/issues/226)
+* **honua-gp:** get ephemeral-server-smoke supported-surface to 100% ([#157](https://github.com/honua-io/honua-sdk-python/issues/157)) ([#163](https://github.com/honua-io/honua-sdk-python/issues/163)) ([8ec86a0](https://github.com/honua-io/honua-sdk-python/commit/8ec86a03c6ed1ffe57c0c94b63e4b1a94a0ca8d3))
+* **honua-gp:** reclassify data-management CalculateField/Copy as unsupported stubs ([#159](https://github.com/honua-io/honua-sdk-python/issues/159)) ([acdce9d](https://github.com/honua-io/honua-sdk-python/commit/acdce9d228e629655068d5ee2b01e041eb8c0a1d))
+* **honua-gp:** type results gone after success as missing_output; pin 548b7a5 ([#241](https://github.com/honua-io/honua-sdk-python/issues/241)) ([df70d6c](https://github.com/honua-io/honua-sdk-python/commit/df70d6c1aceb000cf5895d40f03c2ce98cb5c5a7)), closes [#226](https://github.com/honua-io/honua-sdk-python/issues/226)
+* **sdk:** refuse credentials over plain HTTP to non-loopback hosts and delegate CLI to @honua/sdk-js ([#328](https://github.com/honua-io/honua-sdk-python/issues/328)) ([ea8a119](https://github.com/honua-io/honua-sdk-python/commit/ea8a1195a4bf4c4a266fcf1a2fd4077810996c85))
+
+
+### Documentation
+
+* **honua-gp:** correct README coverage to match the compatibility matrix ([#152](https://github.com/honua-io/honua-sdk-python/issues/152)) ([8c5dfe2](https://github.com/honua-io/honua-sdk-python/commit/8c5dfe280b4b07d9f79b546e29af01fe9279c7c7))
+* neutral wording in honua-gp docstrings and docs ([#356](https://github.com/honua-io/honua-sdk-python/issues/356)) ([08d4113](https://github.com/honua-io/honua-sdk-python/commit/08d4113a801ce22b60463ae021dc843a4dc21caa))
+* neutralize Python client and geometry terminology ([#367](https://github.com/honua-io/honua-sdk-python/issues/367)) ([5f8b245](https://github.com/honua-io/honua-sdk-python/commit/5f8b245179550d1799a09a0efa1154604291e86a))
+* **okf:** bring honua-sdk-python into the OKF bundle ([#231](https://github.com/honua-io/honua-sdk-python/issues/231)) ([42ae6e1](https://github.com/honua-io/honua-sdk-python/commit/42ae6e12d4f426dee015c21991404a2681492cc5))
+* **okf:** give the pages a resource, so the bundle is a graph ([#233](https://github.com/honua-io/honua-sdk-python/issues/233)) ([04b4631](https://github.com/honua-io/honua-sdk-python/commit/04b46319c28fcd879e42c9bc8d5015c775f12192))
+
 ## Pre-release development history
 
 ### Public distribution

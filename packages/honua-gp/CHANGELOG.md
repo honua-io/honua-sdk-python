@@ -7,6 +7,13 @@
 
 * **gp:** address the published layer explicitly in quickstart ([#383](https://github.com/honua-io/honua-sdk-python/issues/383)) ([4fd8f69](https://github.com/honua-io/honua-sdk-python/commit/4fd8f6991a717f0b6bd6fe447cc3b7dda0b12433))
 
+## [0.1.0](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.0...python-gp-v0.1.0) (2026-11-10)
+
+
+### Documentation
+
+* **gp:** address the published layer explicitly in quickstart ([#383](https://github.com/honua-io/honua-sdk-python/issues/383)) ([4fd8f69](https://github.com/honua-io/honua-sdk-python/commit/4fd8f6991a717f0b6bd6fe447cc3b7dda0b12433))
+
 ## [0.1.0](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.0...python-gp-v0.1.0) (2026-11-09)
 
 

@@ -2,8 +2,9 @@
 
 The canonical vocabulary is the honua-server glossary
 (``docs/concepts/domain/README.md``) and the shared retired-terms policy
-(``scripts/ci/retired-terms.v1.json``). Deprecated aliases and names that
-describe a foreign format or a server wire field are listed explicitly below.
+(``scripts/ci/retired-terms.v1.json``). Public names are renamed outright, with no
+deprecated aliases: ``RENAMED_NAMES`` lists the old names, which must stay gone.
+Names that describe a foreign format or a server wire field are listed in ``KEPT_NAMES``.
 """
 
 from __future__ import annotations
@@ -35,18 +36,28 @@ RETIRED_TEXT = re.compile(
     re.IGNORECASE,
 )
 
-DEPRECATED_ALIASES = {
-    f"honua_sdk.workflow.{cls}.{member}": replacement
-    for cls in ("HonuaWorkflow", "AsyncHonuaWorkflow")
-    for member, replacement in (
-        ("packages", "drafts"),
-        ("package", "draft"),
-        ("package(package_id)", "draft(workflow_id)"),
-        ("save_package", "save_draft"),
-        ("save_package(package_id)", "save_draft(workflow_id)"),
-        ("update_package", "update_draft"),
-        ("update_package(package_id)", "update_draft(workflow_id)"),
-    )
+_WORKFLOW_ID_METHODS = (
+    "versions",
+    "create_version",
+    "version",
+    "validate_version",
+    "dry_run_version",
+    "publish_version",
+)
+
+RENAMED_NAMES = {
+    "honua_sdk.workflow.WORKFLOW_PACKAGE_SCHEMA_VERSION": "WORKFLOW_SCHEMA_VERSION",
+    **{
+        f"honua_sdk.workflow.{cls}.{member}": replacement
+        for cls in ("HonuaWorkflow", "AsyncHonuaWorkflow")
+        for member, replacement in (
+            ("packages", "drafts"),
+            ("package", "draft"),
+            ("save_package", "save_draft"),
+            ("update_package", "update_draft"),
+            *((f"{method}(package_id)", f"{method}(workflow_id)") for method in _WORKFLOW_ID_METHODS),
+        )
+    },
 }
 
 KEPT_NAMES = (
@@ -121,7 +132,7 @@ def _public_names() -> Iterator[tuple[str, str]]:
 
 
 def _is_kept(qualified: str) -> bool:
-    return qualified in DEPRECATED_ALIASES or any(pattern.match(qualified) for pattern, _ in KEPT_NAMES)
+    return any(pattern.match(qualified) for pattern, _ in KEPT_NAMES)
 
 
 def test_public_names_use_the_canonical_vocabulary() -> None:
@@ -132,12 +143,14 @@ def test_public_names_use_the_canonical_vocabulary() -> None:
     assert not unexpected, f"public names use retired vocabulary (see the honua-server glossary): {unexpected}"
 
 
-def test_deprecated_aliases_are_still_present() -> None:
+def test_renamed_names_are_gone() -> None:
     names = {qualified for qualified, _ in _public_names()}
+    workflow = importlib.import_module("honua_sdk.workflow")
+    names |= {f"honua_sdk.workflow.{name}" for name in dir(workflow) if hasattr(workflow, name)}
 
-    missing = sorted(set(DEPRECATED_ALIASES) - names)
+    left = sorted(set(RENAMED_NAMES) & names)
 
-    assert not missing, f"remove these entries from DEPRECATED_ALIASES too: {missing}"
+    assert not left, f"rename these outright, with no alias: {left}"
 
 
 def _parser_texts(parser: argparse.ArgumentParser) -> Iterator[str]:

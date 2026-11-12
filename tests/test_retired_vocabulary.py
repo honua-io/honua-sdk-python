@@ -143,14 +143,48 @@ def test_public_names_use_the_canonical_vocabulary() -> None:
     assert not unexpected, f"public names use retired vocabulary (see the honua-server glossary): {unexpected}"
 
 
+def _resolve(qualified: str) -> object | None:
+    """Look ``qualified`` up with ``getattr``, so a module or class ``__getattr__`` alias resolves too."""
+    module_name, _, attributes = qualified.partition(".workflow.")
+    value: object = importlib.import_module(f"{module_name}.workflow")
+    for attribute in attributes.split("."):
+        try:
+            value = getattr(value, attribute)
+        except AttributeError:
+            return None
+    return value
+
+
+def _accepts_keyword(function: object, keyword: str) -> bool:
+    """True when ``function`` takes ``keyword=``, as a parameter or through ``**kwargs`` forwarding."""
+    parameters = inspect.signature(function).parameters.values()  # type: ignore[arg-type]
+    return any(p.name == keyword or p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters)
+
+
+def _still_present(qualified: str) -> bool:
+    name, _, keyword = qualified.partition("(")
+    value = _resolve(name)
+    if not keyword:
+        return value is not None
+    return value is not None and _accepts_keyword(value, keyword.rstrip(")"))
+
+
 def test_renamed_names_are_gone() -> None:
     names = {qualified for qualified, _ in _public_names()}
-    workflow = importlib.import_module("honua_sdk.workflow")
-    names |= {f"honua_sdk.workflow.{name}" for name in dir(workflow) if hasattr(workflow, name)}
 
-    left = sorted(set(RENAMED_NAMES) & names)
+    left = sorted(qualified for qualified in RENAMED_NAMES if qualified in names or _still_present(qualified))
 
     assert not left, f"rename these outright, with no alias: {left}"
+
+
+def test_renamed_names_replacements_exist() -> None:
+    missing = sorted(
+        qualified
+        for qualified, replacement in RENAMED_NAMES.items()
+        if not _still_present(f"{qualified.rpartition('.')[0]}.{replacement}")
+    )
+
+    assert not missing, f"RENAMED_NAMES points at names that do not exist: {missing}"
 
 
 def _parser_texts(parser: argparse.ArgumentParser) -> Iterator[str]:

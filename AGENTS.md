@@ -42,6 +42,9 @@ pip-audit, honua-gp): `docs/contributor/development.md`.
 - A contract or schema version bump updates `release/component-versions.json` in the same PR.
   Starting or stopping reliance on a server capability updates
   `release/sdk-capability-baseline.json` in the same PR.
+- Rename public names outright, with no deprecated aliases; `tests/test_retired_vocabulary.py`
+  keeps retired vocabulary out of public names, CLI help and authored docs. List each old name
+  in its `RENAMED_NAMES` and each foreign-format or wire-field exception in `KEPT_NAMES`.
 - New pages under `docs/` need OKF frontmatter; regenerate `docs/SUMMARY.md` with
   `python3 scripts/generate-summary.py`.
 
@@ -92,4 +95,4 @@ Generated from honua-flow `agents/fleet-rules.md` (full text, repo map). Do not 
 
 ## Vocabulary review gate
 
-Review every changed public name, CLI command, help string, error and authored example against the [canonical glossary](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/docs/concepts/domain/README.md) and [shared retired-terms policy](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/scripts/ci/retired-terms.v1.json). Block retired object names; use each actual kind, Connection, Dataset, Layer, Service, Folder, Environment and API key. Apply the policy's contextual exceptions for protocol wire names, dependency distributions and operating-system terminology. Server contract changes follow the coordinated migration. The `tests/test_retired_vocabulary.py` guard enforces this for public names, CLI help and authored docs; rename public names outright, with no deprecated aliases, and list each old name or foreign-format exception there explicitly.
+Review every changed public name, CLI command, help string, error and authored example against the [canonical glossary](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/docs/concepts/domain/README.md) and [shared retired-terms policy](https://github.com/honua-io/honua-server/blob/115011ce760443e93ec70e4bd5123d7b9fa08414/scripts/ci/retired-terms.v1.json). Block retired object names; use each actual kind, Connection, Dataset, Layer, Service, Folder, Environment and API key. Apply the policy's contextual exceptions for protocol wire names, dependency distributions and operating-system terminology. Server contract changes follow the coordinated migration.

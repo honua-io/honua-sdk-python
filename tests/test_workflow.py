@@ -127,6 +127,19 @@ def test_save_draft_posts_graph_body() -> None:
     assert "packageId" not in captured
 
 
+def test_save_draft_sends_workflow_id_as_package_id() -> None:
+    captured: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json=_envelope(PACKAGE))
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        client.workflow().save_draft("Buffer flow", GRAPH, workflow_id="pkg-1")
+
+    assert captured["packageId"] == "pkg-1"
+
+
 def test_update_draft_uses_put_and_route_id() -> None:
     captured: dict[str, Any] = {}
     seen_method = {"m": ""}

@@ -1,10 +1,10 @@
-"""Workflow package authoring + publication clients for Honua Server.
+"""Workflow authoring + publication clients for Honua Server.
 
 The reconciled honua-server exposes a **durable, authored multi-node workflow**
 surface over HTTP under ``/api/v1/console`` (honua-server
 ``Features/WorkflowPackages``). This is the replacement for the dropped GeoETL
 pipeline endpoints: instead of an imperative ``/admin/geoetl/pipelines`` API,
-authors persist a workflow *package* (a DAG of registry nodes), snapshot it into
+authors persist a Workflow *Draft* (a DAG of registry nodes), snapshot it into
 an immutable *version*, validate / dry-run it, then *publish* the version to a
 run target (a durable job template, a schedule, or a process-style endpoint) and
 *run* the resulting publication.
@@ -14,10 +14,10 @@ admin authorization on the server):
 
 * ``GET  /workflow-node-registry`` -- the server-owned node registry snapshot,
 * ``GET  /workflow-node-registry/{nodeTypeId}`` -- one node definition,
-* ``GET  /workflow-packages`` -- list package drafts,
-* ``POST /workflow-packages`` -- create/replace a package draft,
-* ``GET  /workflow-packages/{packageId}`` -- get a package draft,
-* ``PUT  /workflow-packages/{packageId}`` -- replace a package draft,
+* ``GET  /workflow-packages`` -- list Workflow Drafts,
+* ``POST /workflow-packages`` -- create/replace a Workflow Draft,
+* ``GET  /workflow-packages/{packageId}`` -- get a Workflow Draft,
+* ``PUT  /workflow-packages/{packageId}`` -- replace a Workflow Draft,
 * ``GET  /workflow-packages/{packageId}/versions`` -- list immutable versions,
 * ``POST /workflow-packages/{packageId}/versions`` -- snapshot a new version,
 * ``GET  /workflow-packages/{packageId}/versions/{version}`` -- get a version,
@@ -47,6 +47,9 @@ For ad-hoc, *un-authored* multi-step geoprocessing, chain process executions or
 submit an analysis ``plan`` to the canonical process via
 :mod:`honua_sdk.geoprocessing` instead.
 
+The ``workflow-packages`` route segment and the ``packageId`` field are server
+wire names and are sent unchanged; the Python names say Workflow and Draft.
+
 Both the synchronous (:class:`HonuaWorkflow`) and asynchronous
 (:class:`AsyncHonuaWorkflow`) clients are provided with full parity and reuse
 the bound :class:`~honua_sdk.client.HonuaClient` /
@@ -55,16 +58,52 @@ the bound :class:`~honua_sdk.client.HonuaClient` /
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+import functools
+import warnings
+from collections.abc import Callable, Mapping
+from typing import Any, ParamSpec, TypeVar
 
 from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from ._http import _encode_path_segment
 
 JsonObject = dict[str, Any]
 
-#: Workflow package schema version emitted by the reconciled server graphs.
-WORKFLOW_PACKAGE_SCHEMA_VERSION = "workflow-package.v1"
+#: Workflow graph schema version emitted by the reconciled server graphs.
+WORKFLOW_SCHEMA_VERSION = "workflow-package.v1"
+
+_RENAMED_CONSTANTS = {"WORKFLOW_PACKAGE_SCHEMA_VERSION": "WORKFLOW_SCHEMA_VERSION"}
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _warn_renamed(old: str, new: str) -> None:
+    warnings.warn(
+        f"{old} is deprecated; use {new}. It is removed in the next minor release.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+def __getattr__(name: str) -> Any:
+    replacement = _RENAMED_CONSTANTS.get(name)
+    if replacement is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    _warn_renamed(name, replacement)
+    return globals()[replacement]
+
+
+def _accepts_package_id(method: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Route the deprecated ``package_id=`` keyword to ``workflow_id=``."""
+
+    @functools.wraps(method)
+    def forward(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        if "package_id" in kwargs:
+            _warn_renamed("package_id=", "workflow_id=")
+            kwargs["workflow_id"] = kwargs.pop("package_id")
+        return method(*args, **kwargs)
+
+    return forward
 
 #: Publication targets accepted by ``POST .../publish`` (mirrors the server
 #: ``WorkflowPublicationTarget`` enum).
@@ -89,18 +128,18 @@ def _unwrap(payload: Mapping[str, Any]) -> JsonObject:
     return dict(payload)
 
 
-def _save_package_body(
+def _save_draft_body(
     *,
     name: str,
     graph: Mapping[str, Any],
-    package_id: str | None,
+    workflow_id: str | None,
     description: str | None,
     namespace: str | None,
     metadata: Mapping[str, str] | None,
 ) -> JsonObject:
     body: JsonObject = {"name": name, "graph": dict(graph)}
-    if package_id is not None:
-        body["packageId"] = package_id
+    if workflow_id is not None:
+        body["packageId"] = workflow_id
     if description is not None:
         body["description"] = description
     if namespace is not None:
@@ -152,24 +191,24 @@ def _node_path(node_type_id: str) -> str:
     return f"{_ROOT}/workflow-node-registry/{_encode_path_segment(node_type_id)}"
 
 
-def _packages_path() -> str:
+def _drafts_path() -> str:
     return f"{_ROOT}/workflow-packages"
 
 
-def _package_path(package_id: str) -> str:
-    return f"{_ROOT}/workflow-packages/{_encode_path_segment(package_id)}"
+def _draft_path(workflow_id: str) -> str:
+    return f"{_drafts_path()}/{_encode_path_segment(workflow_id)}"
 
 
-def _versions_path(package_id: str) -> str:
-    return f"{_package_path(package_id)}/versions"
+def _versions_path(workflow_id: str) -> str:
+    return f"{_draft_path(workflow_id)}/versions"
 
 
-def _version_path(package_id: str, version: int) -> str:
-    return f"{_versions_path(package_id)}/{int(version)}"
+def _version_path(workflow_id: str, version: int) -> str:
+    return f"{_versions_path(workflow_id)}/{int(version)}"
 
 
-def _version_action_path(package_id: str, version: int, action: str) -> str:
-    return f"{_version_path(package_id, version)}/{action}"
+def _version_action_path(workflow_id: str, version: int, action: str) -> str:
+    return f"{_version_path(workflow_id, version)}/{action}"
 
 
 def _publications_path() -> str:
@@ -181,7 +220,7 @@ def _publication_runs_path(publication_id: str) -> str:
 
 
 class HonuaWorkflow:
-    """Synchronous workflow package authoring + publication client."""
+    """Synchronous Workflow authoring + publication client."""
 
     root = _ROOT
 
@@ -198,15 +237,72 @@ class HonuaWorkflow:
         """Get one workflow node definition from the registry."""
         return _unwrap(self.client._request_json("GET", _node_path(node_type_id)))
 
-    # -- package drafts ----------------------------------------------------
+    # -- drafts ------------------------------------------------------------
+
+    def drafts(self) -> JsonObject:
+        """List Workflow Drafts."""
+        return _unwrap(self.client._request_json("GET", _drafts_path()))
+
+    def draft(self, workflow_id: str) -> JsonObject:
+        """Get one Workflow Draft."""
+        return _unwrap(self.client._request_json("GET", _draft_path(workflow_id)))
+
+    def save_draft(
+        self,
+        name: str,
+        graph: Mapping[str, Any],
+        *,
+        workflow_id: str | None = None,
+        description: str | None = None,
+        namespace: str | None = None,
+        metadata: Mapping[str, str] | None = None,
+    ) -> JsonObject:
+        """Create or replace a Workflow Draft.
+
+        ``graph`` is the workflow DAG (``{"nodes", "edges", ...}``) understood by
+        the server. Omit ``workflow_id`` to create a new Draft; pass it to replace
+        an existing one (see :meth:`update_draft` for the PUT variant).
+        """
+        body = _save_draft_body(
+            name=name,
+            graph=graph,
+            workflow_id=workflow_id,
+            description=description,
+            namespace=namespace,
+            metadata=metadata,
+        )
+        return _unwrap(self.client._request_json("POST", _drafts_path(), json_body=body))
+
+    def update_draft(
+        self,
+        workflow_id: str,
+        name: str,
+        graph: Mapping[str, Any],
+        *,
+        description: str | None = None,
+        namespace: str | None = None,
+        metadata: Mapping[str, str] | None = None,
+    ) -> JsonObject:
+        """Replace an existing Workflow Draft (PUT)."""
+        body = _save_draft_body(
+            name=name,
+            graph=graph,
+            workflow_id=workflow_id,
+            description=description,
+            namespace=namespace,
+            metadata=metadata,
+        )
+        return _unwrap(self.client._request_json("PUT", _draft_path(workflow_id), json_body=body))
 
     def packages(self) -> JsonObject:
-        """List workflow package drafts."""
-        return _unwrap(self.client._request_json("GET", _packages_path()))
+        """Deprecated alias of :meth:`drafts`."""
+        _warn_renamed("packages()", "drafts()")
+        return self.drafts()
 
     def package(self, package_id: str) -> JsonObject:
-        """Get a workflow package draft."""
-        return _unwrap(self.client._request_json("GET", _package_path(package_id)))
+        """Deprecated alias of :meth:`draft`."""
+        _warn_renamed("package()", "draft()")
+        return self.draft(package_id)
 
     def save_package(
         self,
@@ -218,21 +314,16 @@ class HonuaWorkflow:
         namespace: str | None = None,
         metadata: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        """Create or replace a workflow package draft.
-
-        ``graph`` is the workflow DAG (``{"nodes", "edges", ...}``) understood by
-        the server. Omit ``package_id`` to create a new draft; pass it to replace
-        an existing one (see :meth:`update_package` for the PUT variant).
-        """
-        body = _save_package_body(
-            name=name,
-            graph=graph,
-            package_id=package_id,
+        """Deprecated alias of :meth:`save_draft`."""
+        _warn_renamed("save_package()", "save_draft()")
+        return self.save_draft(
+            name,
+            graph,
+            workflow_id=package_id,
             description=description,
             namespace=namespace,
             metadata=metadata,
         )
-        return _unwrap(self.client._request_json("POST", _packages_path(), json_body=body))
 
     def update_package(
         self,
@@ -244,46 +335,47 @@ class HonuaWorkflow:
         namespace: str | None = None,
         metadata: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        """Replace an existing workflow package draft (PUT)."""
-        body = _save_package_body(
-            name=name,
-            graph=graph,
-            package_id=package_id,
-            description=description,
-            namespace=namespace,
-            metadata=metadata,
+        """Deprecated alias of :meth:`update_draft`."""
+        _warn_renamed("update_package()", "update_draft()")
+        return self.update_draft(
+            package_id, name, graph, description=description, namespace=namespace, metadata=metadata
         )
-        return _unwrap(self.client._request_json("PUT", _package_path(package_id), json_body=body))
 
     # -- immutable versions ------------------------------------------------
 
-    def versions(self, package_id: str) -> JsonObject:
-        """List immutable versions of a package."""
-        return _unwrap(self.client._request_json("GET", _versions_path(package_id)))
+    @_accepts_package_id
+    def versions(self, workflow_id: str) -> JsonObject:
+        """List immutable Versions of a Workflow."""
+        return _unwrap(self.client._request_json("GET", _versions_path(workflow_id)))
 
-    def create_version(self, package_id: str) -> JsonObject:
-        """Snapshot the current package draft into a new immutable version."""
-        return _unwrap(self.client._request_json("POST", _versions_path(package_id)))
+    @_accepts_package_id
+    def create_version(self, workflow_id: str) -> JsonObject:
+        """Snapshot the current Workflow Draft into a new immutable Version."""
+        return _unwrap(self.client._request_json("POST", _versions_path(workflow_id)))
 
-    def version(self, package_id: str, version: int) -> JsonObject:
-        """Get one immutable package version."""
-        return _unwrap(self.client._request_json("GET", _version_path(package_id, version)))
+    @_accepts_package_id
+    def version(self, workflow_id: str, version: int) -> JsonObject:
+        """Get one immutable Workflow Version."""
+        return _unwrap(self.client._request_json("GET", _version_path(workflow_id, version)))
 
-    def validate_version(self, package_id: str, version: int) -> JsonObject:
-        """Validate a package version and return the validation result."""
+    @_accepts_package_id
+    def validate_version(self, workflow_id: str, version: int) -> JsonObject:
+        """Validate a Workflow Version and return the validation result."""
         return _unwrap(
-            self.client._request_json("POST", _version_action_path(package_id, version, "validate"))
+            self.client._request_json("POST", _version_action_path(workflow_id, version, "validate"))
         )
 
-    def dry_run_version(self, package_id: str, version: int) -> JsonObject:
-        """Dry-run a package version and return the preview result."""
+    @_accepts_package_id
+    def dry_run_version(self, workflow_id: str, version: int) -> JsonObject:
+        """Dry-run a Workflow Version and return the preview result."""
         return _unwrap(
-            self.client._request_json("POST", _version_action_path(package_id, version, "dry-run"))
+            self.client._request_json("POST", _version_action_path(workflow_id, version, "dry-run"))
         )
 
+    @_accepts_package_id
     def publish_version(
         self,
-        package_id: str,
+        workflow_id: str,
         version: int,
         *,
         target: str,
@@ -292,7 +384,7 @@ class HonuaWorkflow:
         schedule: Mapping[str, Any] | None = None,
         enabled: bool = True,
     ) -> JsonObject:
-        """Publish a package version to a run target and return the publication.
+        """Publish a Workflow Version to a run target and return the publication.
 
         ``target`` is one of :data:`PUBLICATION_TARGET_JOB`,
         :data:`PUBLICATION_TARGET_SCHEDULE`, or
@@ -309,14 +401,14 @@ class HonuaWorkflow:
         )
         return _unwrap(
             self.client._request_json(
-                "POST", _version_action_path(package_id, version, "publish"), json_body=body
+                "POST", _version_action_path(workflow_id, version, "publish"), json_body=body
             )
         )
 
     # -- publications + runs -----------------------------------------------
 
     def publications(self) -> JsonObject:
-        """List workflow package publications."""
+        """List Workflow publications."""
         return _unwrap(self.client._request_json("GET", _publications_path()))
 
     def run(
@@ -339,7 +431,7 @@ class HonuaWorkflow:
 
 
 class AsyncHonuaWorkflow:
-    """Asynchronous workflow package authoring + publication client."""
+    """Asynchronous Workflow authoring + publication client."""
 
     root = _ROOT
 
@@ -356,15 +448,72 @@ class AsyncHonuaWorkflow:
         """Get one workflow node definition from the registry."""
         return _unwrap(await self.client._request_json("GET", _node_path(node_type_id)))
 
-    # -- package drafts ----------------------------------------------------
+    # -- drafts ------------------------------------------------------------
+
+    async def drafts(self) -> JsonObject:
+        """List Workflow Drafts."""
+        return _unwrap(await self.client._request_json("GET", _drafts_path()))
+
+    async def draft(self, workflow_id: str) -> JsonObject:
+        """Get one Workflow Draft."""
+        return _unwrap(await self.client._request_json("GET", _draft_path(workflow_id)))
+
+    async def save_draft(
+        self,
+        name: str,
+        graph: Mapping[str, Any],
+        *,
+        workflow_id: str | None = None,
+        description: str | None = None,
+        namespace: str | None = None,
+        metadata: Mapping[str, str] | None = None,
+    ) -> JsonObject:
+        """Create or replace a Workflow Draft.
+
+        ``graph`` is the workflow DAG (``{"nodes", "edges", ...}``) understood by
+        the server. Omit ``workflow_id`` to create a new Draft; pass it to replace
+        an existing one (see :meth:`update_draft` for the PUT variant).
+        """
+        body = _save_draft_body(
+            name=name,
+            graph=graph,
+            workflow_id=workflow_id,
+            description=description,
+            namespace=namespace,
+            metadata=metadata,
+        )
+        return _unwrap(await self.client._request_json("POST", _drafts_path(), json_body=body))
+
+    async def update_draft(
+        self,
+        workflow_id: str,
+        name: str,
+        graph: Mapping[str, Any],
+        *,
+        description: str | None = None,
+        namespace: str | None = None,
+        metadata: Mapping[str, str] | None = None,
+    ) -> JsonObject:
+        """Replace an existing Workflow Draft (PUT)."""
+        body = _save_draft_body(
+            name=name,
+            graph=graph,
+            workflow_id=workflow_id,
+            description=description,
+            namespace=namespace,
+            metadata=metadata,
+        )
+        return _unwrap(await self.client._request_json("PUT", _draft_path(workflow_id), json_body=body))
 
     async def packages(self) -> JsonObject:
-        """List workflow package drafts."""
-        return _unwrap(await self.client._request_json("GET", _packages_path()))
+        """Deprecated alias of :meth:`drafts`."""
+        _warn_renamed("packages()", "drafts()")
+        return await self.drafts()
 
     async def package(self, package_id: str) -> JsonObject:
-        """Get a workflow package draft."""
-        return _unwrap(await self.client._request_json("GET", _package_path(package_id)))
+        """Deprecated alias of :meth:`draft`."""
+        _warn_renamed("package()", "draft()")
+        return await self.draft(package_id)
 
     async def save_package(
         self,
@@ -376,16 +525,16 @@ class AsyncHonuaWorkflow:
         namespace: str | None = None,
         metadata: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        """Create or replace a workflow package draft."""
-        body = _save_package_body(
-            name=name,
-            graph=graph,
-            package_id=package_id,
+        """Deprecated alias of :meth:`save_draft`."""
+        _warn_renamed("save_package()", "save_draft()")
+        return await self.save_draft(
+            name,
+            graph,
+            workflow_id=package_id,
             description=description,
             namespace=namespace,
             metadata=metadata,
         )
-        return _unwrap(await self.client._request_json("POST", _packages_path(), json_body=body))
 
     async def update_package(
         self,
@@ -397,52 +546,47 @@ class AsyncHonuaWorkflow:
         namespace: str | None = None,
         metadata: Mapping[str, str] | None = None,
     ) -> JsonObject:
-        """Replace an existing workflow package draft (PUT)."""
-        body = _save_package_body(
-            name=name,
-            graph=graph,
-            package_id=package_id,
-            description=description,
-            namespace=namespace,
-            metadata=metadata,
-        )
-        return _unwrap(
-            await self.client._request_json("PUT", _package_path(package_id), json_body=body)
+        """Deprecated alias of :meth:`update_draft`."""
+        _warn_renamed("update_package()", "update_draft()")
+        return await self.update_draft(
+            package_id, name, graph, description=description, namespace=namespace, metadata=metadata
         )
 
     # -- immutable versions ------------------------------------------------
 
-    async def versions(self, package_id: str) -> JsonObject:
-        """List immutable versions of a package."""
-        return _unwrap(await self.client._request_json("GET", _versions_path(package_id)))
+    @_accepts_package_id
+    async def versions(self, workflow_id: str) -> JsonObject:
+        """List immutable Versions of a Workflow."""
+        return _unwrap(await self.client._request_json("GET", _versions_path(workflow_id)))
 
-    async def create_version(self, package_id: str) -> JsonObject:
-        """Snapshot the current package draft into a new immutable version."""
-        return _unwrap(await self.client._request_json("POST", _versions_path(package_id)))
+    @_accepts_package_id
+    async def create_version(self, workflow_id: str) -> JsonObject:
+        """Snapshot the current Workflow Draft into a new immutable Version."""
+        return _unwrap(await self.client._request_json("POST", _versions_path(workflow_id)))
 
-    async def version(self, package_id: str, version: int) -> JsonObject:
-        """Get one immutable package version."""
-        return _unwrap(await self.client._request_json("GET", _version_path(package_id, version)))
+    @_accepts_package_id
+    async def version(self, workflow_id: str, version: int) -> JsonObject:
+        """Get one immutable Workflow Version."""
+        return _unwrap(await self.client._request_json("GET", _version_path(workflow_id, version)))
 
-    async def validate_version(self, package_id: str, version: int) -> JsonObject:
-        """Validate a package version and return the validation result."""
+    @_accepts_package_id
+    async def validate_version(self, workflow_id: str, version: int) -> JsonObject:
+        """Validate a Workflow Version and return the validation result."""
         return _unwrap(
-            await self.client._request_json(
-                "POST", _version_action_path(package_id, version, "validate")
-            )
+            await self.client._request_json("POST", _version_action_path(workflow_id, version, "validate"))
         )
 
-    async def dry_run_version(self, package_id: str, version: int) -> JsonObject:
-        """Dry-run a package version and return the preview result."""
+    @_accepts_package_id
+    async def dry_run_version(self, workflow_id: str, version: int) -> JsonObject:
+        """Dry-run a Workflow Version and return the preview result."""
         return _unwrap(
-            await self.client._request_json(
-                "POST", _version_action_path(package_id, version, "dry-run")
-            )
+            await self.client._request_json("POST", _version_action_path(workflow_id, version, "dry-run"))
         )
 
+    @_accepts_package_id
     async def publish_version(
         self,
-        package_id: str,
+        workflow_id: str,
         version: int,
         *,
         target: str,
@@ -451,7 +595,14 @@ class AsyncHonuaWorkflow:
         schedule: Mapping[str, Any] | None = None,
         enabled: bool = True,
     ) -> JsonObject:
-        """Publish a package version to a run target and return the publication."""
+        """Publish a Workflow Version to a run target and return the publication.
+
+        ``target`` is one of :data:`PUBLICATION_TARGET_JOB`,
+        :data:`PUBLICATION_TARGET_SCHEDULE`, or
+        :data:`PUBLICATION_TARGET_PROCESS_ENDPOINT`. Pass ``process_id`` for a
+        process-endpoint target and ``schedule`` (``{"cronExpression", ...}``)
+        for a schedule target.
+        """
         body = _publish_body(
             target=target,
             publication_id=publication_id,
@@ -461,14 +612,14 @@ class AsyncHonuaWorkflow:
         )
         return _unwrap(
             await self.client._request_json(
-                "POST", _version_action_path(package_id, version, "publish"), json_body=body
+                "POST", _version_action_path(workflow_id, version, "publish"), json_body=body
             )
         )
 
     # -- publications + runs -----------------------------------------------
 
     async def publications(self) -> JsonObject:
-        """List workflow package publications."""
+        """List Workflow publications."""
         return _unwrap(await self.client._request_json("GET", _publications_path()))
 
     async def run(

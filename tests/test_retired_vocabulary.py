@@ -51,7 +51,9 @@ DEPRECATED_ALIASES = {
 
 KEPT_NAMES = (
     (
-        re.compile(r"^honua_sdk\.protocols(?:\.scenes)?\.(?:\w*Scene\w*|\w*scene_package\w*|CURRENT_PACKAGE_SCHEMA_VERSION)"),
+        re.compile(
+            r"^honua_sdk\.protocols(?:\.scenes)?\.(?:\w*Scene\w*|\w*scene_package\w*|CURRENT_PACKAGE_SCHEMA_VERSION)"
+        ),
         "offline scene package: a downloadable archive format, not Studio content",
     ),
     (
@@ -123,9 +125,7 @@ def _is_kept(qualified: str) -> bool:
 
 
 def test_public_names_use_the_canonical_vocabulary() -> None:
-    offenders = sorted(
-        {qualified for qualified, name in _public_names() if RETIRED_NAME_TOKEN.search(_snake(name))}
-    )
+    offenders = sorted({qualified for qualified, name in _public_names() if RETIRED_NAME_TOKEN.search(_snake(name))})
 
     unexpected = [qualified for qualified in offenders if not _is_kept(qualified)]
 

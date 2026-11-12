@@ -59,9 +59,10 @@ the bound :class:`~honua_sdk.client.HonuaClient` /
 from __future__ import annotations
 
 import functools
+import inspect
 import warnings
 from collections.abc import Callable, Mapping
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar, cast
 
 from ._client_protocol import SupportsAsyncRequest, SupportsSyncRequest
 from ._http import _encode_path_segment
@@ -77,12 +78,11 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
 
+_RENAMED_MESSAGE = "{old} is deprecated; use {new}. It is removed in the next minor release."
+
+
 def _warn_renamed(old: str, new: str) -> None:
-    warnings.warn(
-        f"{old} is deprecated; use {new}. It is removed in the next minor release.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
+    warnings.warn(_RENAMED_MESSAGE.format(old=old, new=new), DeprecationWarning, stacklevel=3)
 
 
 def __getattr__(name: str) -> Any:
@@ -93,17 +93,34 @@ def __getattr__(name: str) -> Any:
     return globals()[replacement]
 
 
+def _rename_package_id(kwargs: dict[str, Any]) -> None:
+    if "package_id" not in kwargs:
+        return
+    if "workflow_id" in kwargs:
+        raise TypeError("pass workflow_id or the deprecated package_id, not both")
+    message = _RENAMED_MESSAGE.format(old="package_id=", new="workflow_id=")
+    warnings.warn(message, DeprecationWarning, stacklevel=3)
+    kwargs["workflow_id"] = kwargs.pop("package_id")
+
+
 def _accepts_package_id(method: Callable[_P, _R]) -> Callable[_P, _R]:
     """Route the deprecated ``package_id=`` keyword to ``workflow_id=``."""
+    if inspect.iscoroutinefunction(method):
+
+        @functools.wraps(method)
+        async def forward_async(*args: Any, **kwargs: Any) -> Any:
+            _rename_package_id(kwargs)
+            return await method(*args, **kwargs)
+
+        return cast("Callable[_P, _R]", forward_async)
 
     @functools.wraps(method)
     def forward(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        if "package_id" in kwargs:
-            _warn_renamed("package_id=", "workflow_id=")
-            kwargs["workflow_id"] = kwargs.pop("package_id")
+        _rename_package_id(kwargs)
         return method(*args, **kwargs)
 
     return forward
+
 
 #: Publication targets accepted by ``POST .../publish`` (mirrors the server
 #: ``WorkflowPublicationTarget`` enum).

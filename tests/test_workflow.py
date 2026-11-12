@@ -433,3 +433,16 @@ def test_deprecated_schema_version_constant_warns() -> None:
         assert workflow_module.WORKFLOW_PACKAGE_SCHEMA_VERSION == WORKFLOW_SCHEMA_VERSION
     with pytest.raises(AttributeError):
         _ = workflow_module.NOT_A_CONSTANT
+
+
+def test_async_versions_stays_a_coroutine_function() -> None:
+    import inspect
+
+    assert inspect.iscoroutinefunction(AsyncHonuaWorkflow.versions)
+    assert inspect.iscoroutinefunction(AsyncHonuaWorkflow.publish_version)
+
+
+def test_package_id_and_workflow_id_together_are_rejected() -> None:
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(_draft_handler)) as client:
+        with pytest.raises(TypeError, match="not both"):
+            client.workflow().versions(package_id="a", workflow_id="b")  # type: ignore[call-arg]

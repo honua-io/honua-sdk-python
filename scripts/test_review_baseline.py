@@ -46,6 +46,11 @@ def bare():
     def test_noqa_cannot_hide_new_finding(self) -> None:
         self.assertEqual(sum(self.scan("def flags(value: bool): return value  # noqa: FBT001\n").values()), 1)
 
+    def test_generated_files_remain_excluded_with_explicit_config(self) -> None:
+        findings = self.scan("def flags(value: bool): return value\n",
+                             "packages/honua-sdk/honua_sdk/grpc/_generated/sample.py")
+        self.assertEqual(findings, Counter())
+
     def test_invalid_or_duplicate_baseline_rows_are_rejected(self) -> None:
         row = {"code": "FBT001", "path": "sample.py", "message": "existing", "context": "flags", "source": "source", "count": 1}
         with tempfile.TemporaryDirectory() as directory:
@@ -55,10 +60,12 @@ def bare():
                 with self.assertRaises(ValueError):
                     gate.read_baseline(baseline)
 
-    def scan(self, source: str) -> Counter[gate.Finding]:
+    def scan(self, source: str, relative_path: str = "sample.py") -> Counter[gate.Finding]:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "sample.py").write_text(source, encoding="utf-8")
+            sample = root / relative_path
+            sample.parent.mkdir(parents=True, exist_ok=True)
+            sample.write_text(source, encoding="utf-8")
             (root / "scripts").mkdir()
             (root / "scripts/ruff-review.toml").write_text(
                 (gate.ROOT / "scripts/ruff-review.toml").read_text(encoding="utf-8"), encoding="utf-8")

@@ -849,7 +849,7 @@ class TableDiscoveryResponse:
 
 @dataclass(frozen=True, slots=True)
 class PublishedLayerSummary:
-    layer_id: int
+    storage_layer_id: int
     layer_name: str
     schema: str
     table: str

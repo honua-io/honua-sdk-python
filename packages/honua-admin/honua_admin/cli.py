@@ -254,7 +254,7 @@ def _cmd_datasource_test(args: argparse.Namespace, out: TextIO) -> int:
 def _cmd_layer_list(args: argparse.Namespace, out: TextIO) -> int:
     with _make_client(args) as client:
         layers = client.list_layers(args.connection_id, args.service_name)
-    _emit_rows(layers, ["layerId", "layerName", "serviceName", "table", "enabled"], args, out)
+    _emit_rows(layers, ["storageLayerId", "layerName", "serviceName", "table", "enabled"], args, out)
     return 0
 
 

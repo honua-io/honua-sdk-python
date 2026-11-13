@@ -25,7 +25,7 @@ _SERVICE = {
     "enabledProtocols": [],
 }
 _LAYER = {
-    "layerId": 1,
+    "storageLayerId": 1,
     "layerName": "parcels",
     "schema": "public",
     "table": "parcels",
@@ -47,7 +47,7 @@ def anyio_backend() -> str:
 def _item(catalog: str, index: int) -> dict[str, Any]:
     if catalog == "services":
         return {**_SERVICE, "serviceName": f"s{index}"}
-    return {**_LAYER, "layerId": index, "layerName": f"layer-{index}"}
+    return {**_LAYER, "storageLayerId": index, "layerName": f"layer-{index}"}
 
 
 def _pages(catalog: str, case: str) -> dict[int, dict[str, Any]]:

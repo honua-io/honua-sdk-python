@@ -162,7 +162,7 @@ class FakeAdminServer:
     def _publish_layer(self, _key: Any, body: dict[str, Any], _request: Any, connection_id: str) -> httpx.Response:
         rows = self.layers.setdefault(connection_id, [])
         layer = {
-            "layerId": len(rows) + 1,
+            "storageLayerId": len(rows) + 1,
             "layerName": body.get("layerName") or body["table"],
             "schema": body["schema"],
             "table": body["table"],
@@ -181,7 +181,7 @@ class FakeAdminServer:
         self, _key: Any, body: dict[str, Any], _request: Any, connection_id: str, layer_id: str
     ) -> httpx.Response:
         for row in self.layers.get(connection_id, []):
-            if row["layerId"] == int(layer_id):
+            if row["storageLayerId"] == int(layer_id):
                 row["enabled"] = body["enabled"]
                 return httpx.Response(200, json=make_api_response(row))
         return httpx.Response(404, json={"title": "Not Found"})
@@ -282,8 +282,8 @@ def test_operator_workflow_end_to_end(
         "--layer-name", "lifecycle_sites", "--service-name", "lifecycle", "--geometry-column", "geom",
         "--primary-key", "gid",
     )  # fmt: skip
-    assert {k: published[k] for k in ("layerId", "layerName", "serviceName", "enabled")} == {
-        "layerId": 1,
+    assert {k: published[k] for k in ("storageLayerId", "layerName", "serviceName", "enabled")} == {
+        "storageLayerId": 1,
         "layerName": "lifecycle_sites",
         "serviceName": "lifecycle",
         "enabled": True,
@@ -291,7 +291,7 @@ def test_operator_workflow_end_to_end(
     assert json.loads(server.requests[-1].content)["schema"] == "honua_data"
 
     listed = run_json(capsys, "layer", "list", "conn-1", "--service-name", "lifecycle")
-    assert [(row["layerId"], row["enabled"]) for row in listed] == [(1, True)]
+    assert [(row["storageLayerId"], row["enabled"]) for row in listed] == [(1, True)]
     assert server.requests[-1].url.params["serviceName"] == "lifecycle"
 
     disabled = run_json(capsys, "layer", "disable", "conn-1", "1", "--service-name", "lifecycle")
@@ -550,7 +550,7 @@ def test_layer_publish_fields_and_disabled(
 
     code, out, _ = run(capsys, "layer", "list", "conn-1")
     assert code == 0
-    assert out.splitlines()[0].split() == ["layerId", "layerName", "serviceName", "table", "enabled"]
+    assert out.splitlines()[0].split() == ["storageLayerId", "layerName", "serviceName", "table", "enabled"]
 
     code, _, err = run(capsys, "layer", "disable", "conn-1", "99")
     assert (code, "HTTP 404" in err) == (1, True)

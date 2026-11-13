@@ -35,11 +35,19 @@ def bare():
         self.assertEqual(existing, self.scan("\n\n" + source))
         self.assertEqual(sum((self.scan(source * 2) - existing).values()), 1)
 
+    def test_replacement_handler_in_another_function_is_new(self) -> None:
+        original = "def old():\n    try: work()\n    except Exception: pass\n"
+        changed = original.replace("except Exception", "except OSError")
+        changed += original.replace("def old", "def new")
+        new = self.scan(changed) - self.scan(original)
+        self.assertEqual({key[0] for key in new}, {"S110", "BLE001"})
+        self.assertEqual(sum(new.values()), 2)
+
     def test_noqa_cannot_hide_new_finding(self) -> None:
         self.assertEqual(sum(self.scan("def flags(value: bool): return value  # noqa: FBT001\n").values()), 1)
 
     def test_invalid_or_duplicate_baseline_rows_are_rejected(self) -> None:
-        row = {"code": "FBT001", "path": "sample.py", "message": "existing", "source": "source", "count": 1}
+        row = {"code": "FBT001", "path": "sample.py", "message": "existing", "context": "flags", "source": "source", "count": 1}
         with tempfile.TemporaryDirectory() as directory:
             baseline = Path(directory) / "baseline.json"
             for rows in ([row, row], [dict(row, count=0)], [dict(row, count=True)]):

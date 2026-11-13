@@ -87,8 +87,8 @@ deletes its temporary Folder, and returns the Service to Root.
   Ruff configuration ignores `noqa` comments and limits functions to three
   arguments. Generated protobuf code remains excluded.
   `config/ruff-review-baseline.json` records each existing finding by rule,
-  path, message, source line and occurrence count. Moving a line preserves its
-  exemption; changing it or increasing its count requires a fix. Remove
+  path, message, enclosing class/function, source line and occurrence count.
+  Moving a line within its function preserves its exemption; changing it or increasing its count requires a fix. Remove
   baseline entries as debt is fixed. `--capture` replaces the baseline and is
   only for an explicitly reviewed baseline update; CI never captures debt.
 - mypy runs with `strict = true` workspace-wide (`[tool.mypy]` in the root

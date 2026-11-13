@@ -1721,10 +1721,9 @@ completion selects every package tagged at its exact commit.</p>
 from PyPI in a fresh environment, checks dependencies, and runs CLI help.
 Pin the final version and wheel SHA256 in the release cohort only after this
 job, registry parity, provenance and SBOM attestations succeed.</p>
-<p>The first GP release is pinned to <code>0.1.0</code> with <code>release-as</code> in the GP Release Please
-configuration. Remove that bootstrap override after the first release, so later
-releases use conventional version increments. Production publication requires the
-workflow commit to equal the release commit before any package upload.</p>
+<p>GP releases use conventional version increments from the last released version.
+Production publication requires the workflow commit to equal the release commit
+before any package upload.</p>
 
 
 

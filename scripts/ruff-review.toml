@@ -1,0 +1,8 @@
+target-version = "py311"
+extend-exclude = ["artifacts", "packages/honua-sdk/honua_sdk/grpc/_generated"]
+
+[lint]
+select = ["S110", "E722", "BLE001", "FBT001", "PLR0913"]
+
+[lint.pylint]
+max-args = 3

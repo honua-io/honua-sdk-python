@@ -6,12 +6,12 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Install the SDK and run a real query against the public demo server, with no account, key or local install. The fastest proof the SDK works.">
+        <meta name="description" content="Start with authenticated gRPC and cloud-native files, then try the public REST compatibility walkthrough.">
       
       
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../native-data-paths/">
       
       
         <link rel="next" href="../core-client/">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Query features in five minutes - Honua Python SDK</title>
+        <title>Start native, then query an existing service - Honua Python SDK</title>
       
     
     
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Query features in five minutes
+              Start native, then query an existing service
             
           </span>
         </div>
@@ -220,6 +220,25 @@
     
   
   Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../native-data-paths/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Native data paths
 
       </a>
     </li>
@@ -432,6 +451,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../native-data-paths/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Native data paths
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -495,6 +541,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#compatibility-walkthrough-query-an-existing-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility walkthrough: query an existing service
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compatibility walkthrough: query an existing service">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#what-youll-build" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -502,6 +560,11 @@
       
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -589,10 +652,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-query-via-grpc-optional-60-seconds" class="md-nav__link">
+  <a href="#step-6-query-via-grpc-native-application-path" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Query via gRPC (optional, 60 seconds)
+        Step 6: Query via gRPC (native application path)
       
     </span>
   </a>
@@ -699,10 +762,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -720,8 +783,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1037,10 +1100,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1058,8 +1121,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1152,10 +1215,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
             
   
   
@@ -1173,8 +1236,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1204,10 +1267,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
         
           
-          <label class="md-nav__link" for="__nav_6_1" id="__nav_6_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
             
   
   
@@ -1225,8 +1288,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_1">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1376,10 +1439,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
         
           
-          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
             
   
   
@@ -1397,8 +1460,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_2">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1527,10 +1590,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -1548,8 +1611,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1621,6 +1684,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#compatibility-walkthrough-query-an-existing-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility walkthrough: query an existing service
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compatibility walkthrough: query an existing service">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#what-youll-build" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1628,6 +1703,11 @@
       
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1715,10 +1795,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-query-via-grpc-optional-60-seconds" class="md-nav__link">
+  <a href="#step-6-query-via-grpc-native-application-path" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Query via gRPC (optional, 60 seconds)
+        Step 6: Query via gRPC (native application path)
       
     </span>
   </a>
@@ -1818,7 +1898,11 @@
 
 
 <h1 id="5-minute-quickstart-query-features-and-plot-with-geopandas">5-Minute Quickstart: Query Features and Plot with GeoPandas<a class="headerlink" href="#5-minute-quickstart-query-features-and-plot-with-geopandas" title="Permanent link">&para;</a></h1>
-<h2 id="what-youll-build">What You'll Build<a class="headerlink" href="#what-youll-build" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Native application path:</strong> <a href="../native-data-paths/">gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN</a>. Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.</p>
+</blockquote>
+<h2 id="compatibility-walkthrough-query-an-existing-service">Compatibility walkthrough: query an existing service<a class="headerlink" href="#compatibility-walkthrough-query-an-existing-service" title="Permanent link">&para;</a></h2>
+<h3 id="what-youll-build">What You'll Build<a class="headerlink" href="#what-youll-build" title="Permanent link">&para;</a></h3>
 <p>A Python script that queries geospatial features from a Honua server,
 converts them to a GeoDataFrame, and plots them with matplotlib.</p>
 <p>By the end you will have a map saved as <code>features.png</code> and a geocoded
@@ -2021,7 +2105,7 @@ outside it plots off the map.</p>
 <p><code>forward_geocode</code> returns a list of <code>GeocodeResult</code> dataclasses sorted by
 score. Each result exposes <code>address</code>, <code>latitude</code>, <code>longitude</code>, <code>score</code>,
 and <code>attributes</code>.</p>
-<h2 id="step-6-query-via-grpc-optional-60-seconds">Step 6: Query via gRPC (optional, 60 seconds)<a class="headerlink" href="#step-6-query-via-grpc-optional-60-seconds" title="Permanent link">&para;</a></h2>
+<h2 id="step-6-query-via-grpc-native-application-path">Step 6: Query via gRPC (native application path)<a class="headerlink" href="#step-6-query-via-grpc-native-application-path" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Needs your own server.</strong> This step uses a <code>your-honua-server.com:8081</code>
 placeholder. Point it at your server's gRPC address (the Honua Server

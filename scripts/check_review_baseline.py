@@ -17,7 +17,7 @@ Finding = tuple[str, str, str, str, str]
 
 def findings() -> Counter[Finding]:
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", ".", "--config", ".ruff-review.toml",
+        [sys.executable, "-m", "ruff", "check", ".", "--config", "scripts/ruff-review.toml",
          "--ignore-noqa", "--output-format", "json"],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )

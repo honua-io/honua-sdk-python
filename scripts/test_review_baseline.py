@@ -59,8 +59,9 @@ def bare():
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "sample.py").write_text(source, encoding="utf-8")
-            (root / ".ruff-review.toml").write_text(
-                (gate.ROOT / ".ruff-review.toml").read_text(encoding="utf-8"), encoding="utf-8")
+            (root / "scripts").mkdir()
+            (root / "scripts/ruff-review.toml").write_text(
+                (gate.ROOT / "scripts/ruff-review.toml").read_text(encoding="utf-8"), encoding="utf-8")
             with patch.object(gate, "ROOT", root):
                 return gate.findings()
 

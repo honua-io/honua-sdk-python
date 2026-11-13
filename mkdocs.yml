@@ -39,6 +39,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Native data paths: native-data-paths.md
   - Quickstart: quickstart.md
   - Guides:
       - Core client: core-client.md

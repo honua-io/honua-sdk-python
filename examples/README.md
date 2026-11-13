@@ -1,6 +1,15 @@
 # Python Analyst Demo Suite
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../docs/native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 This directory contains runnable examples for Python-first Honua workflows. The demos are script-first so notebooks and services can reuse shared modules instead of carrying duplicate business logic.
+
+## Start with the native path
+
+Follow the [native data guide](../docs/native-data-paths.md) before selecting
+a sample: it covers live gRPC queries, current edit support, browser setup,
+public CDN files and private snapshot refresh. The protocol-specific examples
+below preserve compatibility and coexistence coverage.
 
 ## Cloud Environment Contract
 

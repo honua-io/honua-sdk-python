@@ -6,6 +6,8 @@ tags: [retries, timeouts, transport]
 ---
 # Retries and Timeouts
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 This deep-dive explains how the Honua SDK's retry transport behaves, what
 counts as a transient failure, how `Retry-After` is honoured, and how to
 override timeouts and retry budgets on a per-call or per-clone basis.

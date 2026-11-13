@@ -7,6 +7,8 @@ tags: [python, development, testing, contributor]
 ---
 # Develop and test the Python SDKs
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 The everyday commands (install, lint, type-check, test, coverage gate,
 compatibility gate, sync-client regeneration) are at the top of the repository
 `AGENTS.md`. This page holds the rest: the opt-in lanes, the layout rules, and

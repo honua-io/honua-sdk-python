@@ -82,6 +82,15 @@ deletes its temporary Folder, and returns the Service to Root.
   rule globally.
 - UP037 (quoted forward references) stays on in package source so the
   compatibility-gate public-API snapshot is stable. Do not strip the quotes.
+- Run `python scripts/check_review_baseline.py` to reject new S110, E722,
+  BLE001, FBT001 and PLR0913 findings, including in `honua-gp`. This separate
+  Ruff configuration ignores `noqa` comments and limits functions to three
+  arguments. Generated protobuf code remains excluded.
+  `config/ruff-review-baseline.json` records each existing finding by rule,
+  path, message, source line and occurrence count. Moving a line preserves its
+  exemption; changing it or increasing its count requires a fix. Remove
+  baseline entries as debt is fixed. `--capture` replaces the baseline and is
+  only for an explicitly reviewed baseline update; CI never captures debt.
 - mypy runs with `strict = true` workspace-wide (`[tool.mypy]` in the root
   `pyproject.toml`). Every def in `honua_sdk` and `honua_admin` is annotated.
   A narrow override exempts the generated protobuf stubs

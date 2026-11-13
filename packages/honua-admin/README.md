@@ -1,6 +1,6 @@
 # honua-admin
 
-> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../../docs/native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](https://github.com/honua-io/honua-sdk-python/blob/trunk/docs/native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
 
 Admin / control-plane client for
 [Honua Server](https://github.com/honua-io/honua-server), the multi-protocol

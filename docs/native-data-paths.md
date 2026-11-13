@@ -61,6 +61,14 @@ require or imply support for the separate Connect protocol.
 npm install @honua/sdk-js @bufbuild/protobuf@^2 @connectrpc/connect@^2 @connectrpc/connect-web@^2
 ```
 
+**Current browser packaging limitation:** the JS SDK loads its optional Connect
+peers and internal gRPC modules dynamically with variable imports. Installing the
+peers alone is insufficient in ordinary Vite browser bundles: those imports are
+left for runtime resolution. The configuration below describes the client API,
+not a verified drop-in Vite application. Before deploying, verify that your build
+and module loader resolve those modules in the browser; otherwise use a backend
+with the native SDK until browser packaging is supported.
+
 Configure the deployment's HTTPS gRPC-Web endpoint and allow the application's
 origin, authorization headers and gRPC-Web response headers in its CORS policy.
 Use a short-lived user access token from your sign-in flow; never ship an admin
@@ -113,6 +121,12 @@ requests. Keep private responses out of shared public caches unless the CDN
 enforces the same authorization; configure signing, cache keys and expiry with
 the deployment operator. Refresh the signed URL when it expires, including
 during multi-request reads, and do not put it in logs or source control.
+
+**Reader limitation:** the current JS SDK COG integration rejects URLs containing
+query parameters, including typical presigned URLs. Its COG example therefore
+cannot read those private objects directly. Choose a COG reader that supports
+your signed URLs; do not remove their signatures or make private data public to
+work around this restriction.
 
 After edits, regenerate the affected files and publish a new immutable version
 (for example a generation-specific object key). Update the application's catalog

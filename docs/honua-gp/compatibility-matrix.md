@@ -7,8 +7,6 @@ tags: [honua-gp, geoprocessing, compatibility, generated]
 ---
 # honua-gp compatibility matrix
 
-> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
-
 Generated from the in-code ``COMPAT`` manifest by ``scripts/render_compat_matrix.py`` (re-run after manifest edits).
 
 Statuses: **Supported** runs against Honua, **Partial** runs with documented deviations, **Stub** raises ``HonuaGpUnsupportedError`` with a replacement hint and tracking ticket.

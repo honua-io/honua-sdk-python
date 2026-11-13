@@ -61,7 +61,7 @@ honua layer publish conn-1 \
 honua layer list conn-1 --service-name lifecycle --json
 ```
 
-`publish` prints the new layer's `layerId`. You can also pass the whole
+`publish` prints the new layer's `storageLayerId`. You can also pass the whole
 request as JSON with `--body layer.json`, and flags override fields from the
 file.
 

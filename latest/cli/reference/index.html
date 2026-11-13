@@ -1725,7 +1725,10 @@ default to <code>HONUA_BASE_URL</code> and <code>HONUA_API_KEY</code>.</p>
 (default <code>public</code>), <code>--layer-name</code>, <code>--service-name</code>, <code>--description</code>,
 <code>--geometry-column</code>, <code>--geometry-type</code>, <code>--srid</code>, <code>--primary-key</code>, <code>--field</code>
 (repeatable), <code>--disabled</code>, <code>--body FILE</code>.</p>
-<p>Each command prints a <code>PublishedLayerSummary</code>: <code>layerId</code>, <code>layerName</code>,
+<p>Layer responses use <code>storage_layer_id</code> in Python and <code>storageLayerId</code> in CLI output,
+matching the server contract. Update callers that previously read <code>layer_id</code> or
+<code>layerId</code>; those names are no longer exposed on layer summaries.</p>
+<p>Each command prints a <code>PublishedLayerSummary</code>: <code>storageLayerId</code>, <code>layerName</code>,
 <code>schema</code>, <code>table</code>, <code>geometryType</code>, <code>srid</code>, <code>primaryKey</code>, <code>fieldCount</code>,
 <code>enabled</code> and <code>serviceName</code>.</p>
 <h2 id="proposal"><code>proposal</code><a class="headerlink" href="#proposal" title="Permanent link">&para;</a></h2>

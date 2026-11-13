@@ -21,7 +21,7 @@ from .conftest import layer_page, make_api_response
 
 
 _LAYER_SUMMARY = {
-    "layerId": 1,
+    "storageLayerId": 1,
     "layerName": "parcels",
     "schema": "public",
     "table": "parcels",
@@ -52,7 +52,7 @@ def test_list_layers(make_client) -> None:
     assert seen["params"] == {"page": "1", "pageSize": "100"}
     assert len(result) == 1
     assert isinstance(result[0], PublishedLayerSummary)
-    assert result[0].layer_id == 1
+    assert result[0].storage_layer_id == 1
     assert result[0].layer_name == "parcels"
     assert result[0].geometry_type == "Polygon"
     assert result[0].enabled is True
@@ -129,6 +129,8 @@ def test_publish_layer(make_client) -> None:
     assert seen["body"]["geometryColumn"] == "geom"
     assert seen["body"]["srid"] == 4326
     assert isinstance(result, PublishedLayerSummary)
+    assert result.storage_layer_id == 1
+    assert not hasattr(result, "layer_id")
     assert result.layer_name == "parcels"
 
 

@@ -141,7 +141,11 @@ The password is never accepted as a flag value, and it is never printed.
 `--geometry-column`, `--geometry-type`, `--srid`, `--primary-key`, `--field`
 (repeatable), `--disabled`, `--body FILE`.
 
-Each command prints a `PublishedLayerSummary`: `layerId`, `layerName`,
+Layer responses use `storage_layer_id` in Python and `storageLayerId` in CLI output,
+matching the server contract. Update callers that previously read `layer_id` or
+`layerId`; those names are no longer exposed on layer summaries.
+
+Each command prints a `PublishedLayerSummary`: `storageLayerId`, `layerName`,
 `schema`, `table`, `geometryType`, `srid`, `primaryKey`, `fieldCount`,
 `enabled` and `serviceName`.
 

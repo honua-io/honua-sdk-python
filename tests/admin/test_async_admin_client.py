@@ -703,7 +703,7 @@ async def test_async_rotate_encryption_key() -> None:
 
 
 _LAYER_SUMMARY: dict[str, Any] = {
-    "layerId": 1,
+    "storageLayerId": 1,
     "layerName": "parcels",
     "schema": "public",
     "table": "parcels",
@@ -733,6 +733,7 @@ async def test_async_list_layers_with_filter() -> None:
     assert seen["query"]["page"] == "1"
     assert seen["query"]["pageSize"] == "100"
     assert isinstance(result[0], PublishedLayerSummary)
+    assert result[0].storage_layer_id == 1
 
 
 async def test_async_list_layers_empty_payload() -> None:
@@ -758,6 +759,7 @@ async def test_async_publish_layer() -> None:
 
     assert seen["body"]["table"] == "parcels"
     assert isinstance(result, PublishedLayerSummary)
+    assert result.storage_layer_id == 1
 
 
 async def test_async_set_layer_enabled() -> None:
@@ -776,6 +778,7 @@ async def test_async_set_layer_enabled() -> None:
     assert seen["body"] == {"enabled": False}
     assert "/layers/1/enabled" in seen["path"]
     assert isinstance(result, PublishedLayerSummary)
+    assert result.storage_layer_id == 1
 
 
 async def test_async_set_service_layers_enabled() -> None:

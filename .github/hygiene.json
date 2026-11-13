@@ -5,6 +5,7 @@
     ".github/",
     ".gitignore",
     ".release-please-manifest.json",
+    ".ruff-review.toml",
     "AGENTS.md",
     "CHANGELOG.md",
     "INSTALL.md",

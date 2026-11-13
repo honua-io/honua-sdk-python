@@ -86,7 +86,7 @@ deletes its temporary Folder, and returns the Service to Root.
   BLE001, FBT001 and PLR0913 findings, including in `honua-gp`. This separate
   Ruff configuration ignores `noqa` comments and limits functions to three
   arguments. Generated protobuf code remains excluded.
-  `config/ruff-review-baseline.json` records each existing finding by rule,
+  `scripts/ruff-review-baseline.json` records each existing finding by rule,
   path, message, enclosing class/function, source line and occurrence count.
   Moving a line within its function preserves its exemption; changing it or increasing its count requires a fix. Remove
   baseline entries as debt is fixed. `--capture` replaces the baseline and is

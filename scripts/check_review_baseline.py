@@ -1,4 +1,4 @@
-"""Reject new review findings while preserving individually recorded existing debt."""
+"""Reject new lint violations while preserving individually recorded existing debt."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BASELINE = ROOT / "config" / "ruff-review-baseline.json"
+BASELINE = ROOT / "scripts" / "ruff-review-baseline.json"
 Finding = tuple[str, str, str, str, str]
 
 

@@ -7,6 +7,8 @@ tags: [support, diagnostics, doctor]
 ---
 # Sanitized diagnostic bundles
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 `honua doctor` creates a local, bounded support artifact without uploading it.
 The artifact conforms to the canonical
 [`diagnostic-bundle.v1` schema](https://honua.io/schemas/diagnostic-bundle.v1.json),

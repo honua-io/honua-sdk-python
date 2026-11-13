@@ -7,6 +7,8 @@ tags: [cli, operator, publish, approval]
 ---
 # Run the operator workflow from a terminal
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 This guide runs a Layer lifecycle from the shell with the `honua` script.
 Every step is one command, and with `--json` each one prints a JSON object you
 can pipe into `jq`.

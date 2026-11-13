@@ -7,6 +7,8 @@ tags: [sdk, python, navigation]
 ---
 # Honua SDK Documentation
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 This directory holds the long-form docs for the Honua Python SDKs
 (`honua-sdk` data-plane, `honua-admin` control-plane). The monorepo
 [README](../README.md) covers installation and the high-level package map;

@@ -7,6 +7,8 @@ tags: [auth, api-key, oidc]
 ---
 # Authentication
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 Honua SDK clients support static API keys, static bearer tokens, and refreshable
 auth providers.
 

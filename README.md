@@ -1,5 +1,7 @@
 # Honua Python SDK
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](docs/native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 [![CI](https://github.com/honua-io/honua-sdk-python/actions/workflows/ci.yml/badge.svg?branch=trunk)](https://github.com/honua-io/honua-sdk-python/actions/workflows/ci.yml)
 [![Conformance](https://github.com/honua-io/honua-sdk-python/actions/workflows/conformance.yml/badge.svg?branch=trunk)](https://github.com/honua-io/honua-sdk-python/actions/workflows/conformance.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/honua-io/honua-sdk-python/badge)](https://scorecard.dev/viewer/?uri=github.com/honua-io/honua-sdk-python)

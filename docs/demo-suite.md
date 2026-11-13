@@ -6,6 +6,8 @@ tags: [examples, geopandas, analyst]
 ---
 # Python Analyst Demo Suite
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 The Python SDK demo suite is designed around workflows where Python is the best fit: GeoPandas ETL, data quality reporting, spatial query exploration, and async API services.
 
 ## Environment

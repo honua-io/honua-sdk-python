@@ -96,7 +96,7 @@ server's HTTP error status and details. Where approval is required, these calls
 surface that requirement; they do not approve the mutation.
 
 Omitting `namespace` keeps the operation unscoped. Supplying it selects the
-namespace operation under the tenant resolved by the server. Folder moves and
+namespace operation in the Environment the client is connected to. Folder moves and
 path renames retain the old public paths according to the server's reservation
 rules. `update_folder(..., title=None)` clears display text; omitting `title`
 preserves it. Changing `name` changes the Folder path.

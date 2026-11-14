@@ -2187,7 +2187,7 @@ class AsyncHonuaAdminClient:
 
         Raises:
             HonuaHttpError: The server responded with a non-success status
-                (``404`` for an unknown or other-tenant proposal).
+                (``404`` for an unknown or inaccessible proposal).
             HonuaTransportError: The request failed at the transport layer.
         """
         proposal_id = encode_path_segment(id)

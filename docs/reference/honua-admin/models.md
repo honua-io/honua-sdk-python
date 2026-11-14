@@ -15,9 +15,9 @@ one group per workflow.
 
 ## Services and capabilities
 
-These types describe what an admin tenant exposes — the catalog of
+These types describe what an Environment exposes — the catalog of
 services, the resolved capability set, the running server version, and
-the per-tenant compatibility feature flags that gate optional admin
+the per-Environment compatibility feature flags that gate optional admin
 endpoints.
 
 ::: honua_admin.AdminServiceSummary
@@ -72,7 +72,7 @@ canonical resource shape consumed and emitted by the apply API.
 
 ## Published layers and styles
 
-These types describe layers exposed by the tenant and the styles
+These types describe Layers exposed by the Environment and the Styles
 attached to them — useful when reconciling rendering metadata or
 auditing the published surface.
 
@@ -83,7 +83,7 @@ auditing the published surface.
 
 The secure-connection types cover the lifecycle of upstream credentials:
 listing and inspecting connections, testing connectivity, validating
-encryption at rest, and rotating tenant keys.
+encryption at rest, and rotating encryption keys.
 
 ::: honua_admin.SecureConnectionSummary
 ::: honua_admin.SecureConnectionDetail

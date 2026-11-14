@@ -1,8 +1,8 @@
-"""Tests for the workflow package authoring + publication clients.
+"""Tests for the Workflow authoring + publication clients.
 
 Transport is mocked with :class:`httpx.MockTransport` (no live server/Docker),
 mirroring the existing client tests. The wire shapes mirror the reconciled
-honua-server ``/api/v1/console`` workflow package contract: every successful
+honua-server ``/api/v1/console`` workflow contract: every successful
 body is an ``ApiResponse<T>`` envelope (``{"success", "data", ...}``) and the
 client unwraps the inner ``data`` payload.
 """
@@ -19,7 +19,7 @@ from honua_sdk import AsyncHonuaClient, HonuaClient
 from honua_sdk.workflow import (
     PUBLICATION_TARGET_PROCESS_ENDPOINT,
     PUBLICATION_TARGET_SCHEDULE,
-    WORKFLOW_PACKAGE_SCHEMA_VERSION,
+    WORKFLOW_SCHEMA_VERSION,
     AsyncHonuaWorkflow,
     HonuaWorkflow,
 )
@@ -29,7 +29,7 @@ from honua_sdk.workflow import (
 ROOT = "/api/v1/console"
 
 GRAPH = {
-    "schemaVersion": WORKFLOW_PACKAGE_SCHEMA_VERSION,
+    "schemaVersion": WORKFLOW_SCHEMA_VERSION,
     "nodes": [
         {"nodeId": "n1", "nodeTypeId": "geometry.buffer", "parameters": {"distance": "100"}},
     ],
@@ -81,10 +81,10 @@ def test_node_registry_and_node() -> None:
     assert ("GET", f"{ROOT}/workflow-node-registry/geometry.buffer") in seen
 
 
-# Package draft CRUD
+# Draft CRUD
 
 
-def test_list_and_get_package() -> None:
+def test_list_and_get_draft() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == f"{ROOT}/workflow-packages":
             return httpx.Response(200, json=_envelope({"items": [PACKAGE]}))
@@ -94,14 +94,14 @@ def test_list_and_get_package() -> None:
 
     with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
         wf = client.workflow()
-        listing = wf.packages()
-        package = wf.package("pkg-1")
+        listing = wf.drafts()
+        package = wf.draft("pkg-1")
 
     assert listing["items"][0]["packageId"] == "pkg-1"
     assert package["name"] == "Buffer flow"
 
 
-def test_save_package_posts_graph_body() -> None:
+def test_save_draft_posts_graph_body() -> None:
     captured: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -111,7 +111,7 @@ def test_save_package_posts_graph_body() -> None:
         return httpx.Response(201, json=_envelope(PACKAGE))
 
     with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
-        package = client.workflow().save_package(
+        package = client.workflow().save_draft(
             "Buffer flow",
             GRAPH,
             namespace="analysis",
@@ -127,7 +127,20 @@ def test_save_package_posts_graph_body() -> None:
     assert "packageId" not in captured
 
 
-def test_update_package_uses_put_and_route_id() -> None:
+def test_save_draft_sends_workflow_id_as_package_id() -> None:
+    captured: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json=_envelope(PACKAGE))
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        client.workflow().save_draft("Buffer flow", GRAPH, workflow_id="pkg-1")
+
+    assert captured["packageId"] == "pkg-1"
+
+
+def test_update_draft_uses_put_and_route_id() -> None:
     captured: dict[str, Any] = {}
     seen_method = {"m": ""}
 
@@ -138,7 +151,7 @@ def test_update_package_uses_put_and_route_id() -> None:
         return httpx.Response(200, json=_envelope(PACKAGE))
 
     with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
-        client.workflow().update_package("pkg-1", "Buffer flow", GRAPH, description="updated")
+        client.workflow().update_draft("pkg-1", "Buffer flow", GRAPH, description="updated")
 
     assert seen_method["m"] == "PUT"
     assert captured["packageId"] == "pkg-1"
@@ -333,7 +346,7 @@ async def test_async_authoring_roundtrip() -> None:
         wf = client.workflow()
         assert isinstance(wf, AsyncHonuaWorkflow)
         registry = await wf.node_registry()
-        package = await wf.save_package("Buffer flow", GRAPH)
+        package = await wf.save_draft("Buffer flow", GRAPH)
         version = await wf.create_version("pkg-1")
         publication = await wf.publish_version(
             "pkg-1", 1, target=PUBLICATION_TARGET_PROCESS_ENDPOINT, process_id="analysis.buffer-flow"
@@ -348,7 +361,7 @@ async def test_async_authoring_roundtrip() -> None:
 
 
 @pytest.mark.anyio
-async def test_async_packages_versions_validation() -> None:
+async def test_async_drafts_versions_validation() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path == f"{ROOT}/workflow-packages":
@@ -373,12 +386,12 @@ async def test_async_packages_versions_validation() -> None:
 
     async with AsyncHonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
         wf = client.workflow()
-        assert (await wf.packages())["items"][0]["packageId"] == "pkg-1"
-        assert (await wf.package("pkg-1"))["name"] == "Buffer flow"
+        assert (await wf.drafts())["items"][0]["packageId"] == "pkg-1"
+        assert (await wf.draft("pkg-1"))["name"] == "Buffer flow"
         assert (await wf.node("geometry.buffer"))["nodeTypeId"] == "geometry.buffer"
         assert (await wf.versions("pkg-1"))["items"][0]["version"] == 1
         assert (await wf.version("pkg-1", 1))["version"] == 1
         assert (await wf.validate_version("pkg-1", 1))["isValid"] is False
         assert (await wf.dry_run_version("pkg-1", 1))["artifacts"] == []
         assert (await wf.publications())["items"] == []
-        assert (await wf.update_package("pkg-1", "Buffer flow", GRAPH))["packageId"] == "pkg-1"
+        assert (await wf.update_draft("pkg-1", "Buffer flow", GRAPH))["packageId"] == "pkg-1"

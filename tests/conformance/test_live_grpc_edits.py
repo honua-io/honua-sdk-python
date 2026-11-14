@@ -11,7 +11,7 @@ sdk_grpc = pytest.importorskip("honua_sdk.grpc")
 if not hasattr(sdk_grpc, "ApplyEditsRequest"):
     pytest.skip("installed honua-sdk predates native gRPC edits", allow_module_level=True)
 
-from honua_sdk.grpc import ApplyEditsRequest, Feature, HonuaGrpcClient, build_grpc_metadata  # noqa: E402
+from honua_sdk.grpc import ApplyEditsRequest, Feature, HonuaGrpcClient, build_grpc_metadata
 
 pytestmark = pytest.mark.integration
 

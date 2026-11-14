@@ -15,6 +15,7 @@ from honua_sdk.errors import HonuaGrpcError
 
 from . import _models as models
 from . import _proto_adapter as adapter
+from ._edits import ApplyEditsRequest, ApplyEditsResponse, from_proto_edits, to_proto_edits
 
 
 def _rpc_metadata(error: grpc.RpcError, attribute: str) -> dict[str, list[object]]:
@@ -30,6 +31,14 @@ def _rpc_metadata(error: grpc.RpcError, attribute: str) -> dict[str, list[object
     for key, value in entries or ():
         copied.setdefault(str(key), []).append(value)
     return copied
+
+
+def _grpc_error(error: grpc.RpcError) -> HonuaGrpcError:
+    return HonuaGrpcError(
+        error.code(), error.details() or str(error),
+        initial_metadata=_rpc_metadata(error, "initial_metadata"),
+        trailing_metadata=_rpc_metadata(error, "trailing_metadata"),
+    )
 
 
 def build_grpc_metadata(
@@ -152,6 +161,21 @@ class HonuaGrpcClient:
             self._metadata, _provider_auth_headers_sync(self._auth_provider)
         )
 
+    def apply_edits(self, request: ApplyEditsRequest) -> ApplyEditsResponse:
+        """Execute native edits once, preserving batch and per-feature errors.
+
+        Unsupported RPCs raise HonuaGrpcError; cancellation propagates to gRPC.
+        No mutation retry or REST fallback is performed.
+        """
+        proto_request = to_proto_edits(request)
+        try:
+            response = self._stub.ApplyEdits(
+                proto_request, metadata=self._request_metadata(), timeout=self._timeout,
+            )
+        except grpc.RpcError as error:
+            raise _grpc_error(error) from error
+        return from_proto_edits(response)
+
     def query_features(
         self, request: models.QueryFeaturesRequest
     ) -> models.QueryFeaturesResponse:
@@ -164,12 +188,7 @@ class HonuaGrpcClient:
                 timeout=self._timeout,
             )
         except grpc.RpcError as e:
-            raise HonuaGrpcError(
-                e.code(),
-                e.details() or str(e),
-                initial_metadata=_rpc_metadata(e, "initial_metadata"),
-                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
-            ) from e
+            raise _grpc_error(e) from e
         return adapter.from_proto_response(proto_response)
 
     def query_features_stream(
@@ -189,12 +208,7 @@ class HonuaGrpcClient:
                 if page.is_last_page:
                     break
         except grpc.RpcError as e:
-            raise HonuaGrpcError(
-                e.code(),
-                e.details() or str(e),
-                initial_metadata=_rpc_metadata(e, "initial_metadata"),
-                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
-            ) from e
+            raise _grpc_error(e) from e
         finally:
             if stream is not None:
                 stream.cancel()
@@ -259,6 +273,21 @@ class HonuaGrpcAsyncClient:
         provider_headers = await _resolve_dynamic_auth_headers_async(self._auth_provider)
         return _merge_provider_metadata(self._metadata, provider_headers)
 
+    async def apply_edits(self, request: ApplyEditsRequest) -> ApplyEditsResponse:
+        """Execute native edits once, preserving batch and per-feature errors.
+
+        Unsupported RPCs raise HonuaGrpcError; cancellation propagates to gRPC.
+        No mutation retry or REST fallback is performed.
+        """
+        proto_request = to_proto_edits(request)
+        try:
+            response = await self._stub.ApplyEdits(
+                proto_request, metadata=await self._request_metadata(), timeout=self._timeout,
+            )
+        except grpc.aio.AioRpcError as error:
+            raise _grpc_error(error) from error
+        return from_proto_edits(response)
+
     async def query_features(
         self, request: models.QueryFeaturesRequest
     ) -> models.QueryFeaturesResponse:
@@ -271,12 +300,7 @@ class HonuaGrpcAsyncClient:
                 timeout=self._timeout,
             )
         except grpc.aio.AioRpcError as e:
-            raise HonuaGrpcError(
-                e.code(),
-                e.details() or str(e),
-                initial_metadata=_rpc_metadata(e, "initial_metadata"),
-                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
-            ) from e
+            raise _grpc_error(e) from e
         return adapter.from_proto_response(proto_response)
 
     async def query_features_stream(  # type: ignore[no-untyped-def]
@@ -297,12 +321,7 @@ class HonuaGrpcAsyncClient:
                 if page.is_last_page:
                     break
         except grpc.aio.AioRpcError as e:
-            raise HonuaGrpcError(
-                e.code(),
-                e.details() or str(e),
-                initial_metadata=_rpc_metadata(e, "initial_metadata"),
-                trailing_metadata=_rpc_metadata(e, "trailing_metadata"),
-            ) from e
+            raise _grpc_error(e) from e
         finally:
             if stream is not None:
                 stream.cancel()

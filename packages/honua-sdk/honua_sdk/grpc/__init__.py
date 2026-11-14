@@ -4,6 +4,7 @@ from __future__ import annotations
 from honua_sdk.errors import HonuaGrpcError
 
 from ._client import HonuaGrpcAsyncClient, HonuaGrpcClient, build_grpc_metadata
+from ._edits import ApplyEditsRequest, ApplyEditsResponse, EditError, EditResult
 from ._models import (
     DistanceUnit,
     Extent,
@@ -22,7 +23,11 @@ from ._models import (
 )
 
 __all__ = [
+    "ApplyEditsRequest",
+    "ApplyEditsResponse",
     "DistanceUnit",
+    "EditError",
+    "EditResult",
     "Extent",
     "Feature",
     "FeaturePage",

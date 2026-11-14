@@ -216,3 +216,19 @@ job, registry parity, provenance and SBOM attestations succeed.
 GP releases use conventional version increments from the last released version.
 Production publication requires the workflow commit to equal the release commit
 before any package upload.
+
+## Native gRPC edit integration
+
+The deterministic `tests/grpc_sdk/test_apply_edits.py` suite uses a local native
+RPC server and needs no deployment. For an explicit live write roundtrip, provide
+`HONUA_GRPC_EDIT_TARGET` (TLS host and port), `HONUA_GRPC_EDIT_SERVICE`,
+`HONUA_GRPC_EDIT_LAYER` (defaults to `0`) and `HONUA_GRPC_EDIT_API_KEY` through the
+local environment. Use an authorized disposable point layer with a writable
+`name` string field and WGS84 coordinates. The test adds a point, updates its name
+and deletes it in cleanup; do not target production data.
+
+```bash
+python -m pytest tests/conformance/test_live_grpc_edits.py --run-integration -q
+```
+
+The live test skips when its target, service or API key is absent.

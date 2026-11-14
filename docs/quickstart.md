@@ -333,6 +333,7 @@ plt.show()
 - [Geospatial ETL demo](https://github.com/honua-io/honua-sdk-python/tree/trunk/examples/geospatial_etl) -- canonical script-first ETL flow plus notebook companion, including the `load-summary.json` and `post-load-preview.png` output contract
 - [Troubleshooting](./troubleshooting.md) -- base URL selection, auth, staging smoke env vars, optional ETL dependencies, and cleanup guidance
 - [INSTALL.md](https://github.com/honua-io/honua-sdk-python/blob/trunk/INSTALL.md) -- installation options including gRPC extras
+- [Native gRPC edits](native-data-paths.md) -- add, update and delete through `HonuaGrpcClient.apply_edits`
 - [gRPC client](../packages/honua-sdk/honua_sdk/grpc/) -- streaming feature queries via `HonuaGrpcClient`
 - [Admin client](../packages/honua-admin/honua_admin/) -- server administration with `HonuaAdminClient`
 

@@ -6290,7 +6290,11 @@
     },
     "honua_sdk.grpc": {
       "exports": [
+        "ApplyEditsRequest",
+        "ApplyEditsResponse",
         "DistanceUnit",
+        "EditError",
+        "EditResult",
         "Extent",
         "Feature",
         "FeaturePage",
@@ -6310,6 +6314,82 @@
         "build_grpc_metadata"
       ],
       "symbols": {
+        "ApplyEditsRequest": {
+          "fields": [
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "service_id"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "layer_id"
+            },
+            {
+              "annotation": "list[Feature]",
+              "defaultFactory": "list",
+              "name": "adds"
+            },
+            {
+              "annotation": "list[Feature]",
+              "defaultFactory": "list",
+              "name": "updates"
+            },
+            {
+              "annotation": "list[int]",
+              "defaultFactory": "list",
+              "name": "deletes"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "rollback_on_failure"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "force_write"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "idempotency_key"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.grpc._edits",
+          "qualname": "ApplyEditsRequest",
+          "signature": "(service_id: 'str' = '', layer_id: 'int' = 0, adds: 'list[Feature]' = <factory>, updates: 'list[Feature]' = <factory>, deletes: 'list[int]' = <factory>, rollback_on_failure: 'bool' = True, force_write: 'bool' = False, idempotency_key: 'str' = '') -> None"
+        },
+        "ApplyEditsResponse": {
+          "fields": [
+            {
+              "annotation": "list[EditResult]",
+              "defaultFactory": "list",
+              "name": "add_results"
+            },
+            {
+              "annotation": "list[EditResult]",
+              "defaultFactory": "list",
+              "name": "update_results"
+            },
+            {
+              "annotation": "list[EditResult]",
+              "defaultFactory": "list",
+              "name": "delete_results"
+            },
+            {
+              "annotation": "EditError | None",
+              "default": "None",
+              "name": "error"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.grpc._edits",
+          "qualname": "ApplyEditsResponse",
+          "signature": "(add_results: 'list[EditResult]' = <factory>, update_results: 'list[EditResult]' = <factory>, delete_results: 'list[EditResult]' = <factory>, error: 'EditError | None' = None) -> None"
+        },
         "DistanceUnit": {
           "kind": "enum",
           "members": {
@@ -6321,6 +6401,87 @@
           },
           "module": "honua_sdk.grpc._models",
           "qualname": "DistanceUnit"
+        },
+        "EditError": {
+          "fields": [
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "code"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "message"
+            },
+            {
+              "annotation": "dict[str, str]",
+              "defaultFactory": "dict",
+              "name": "details"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "category"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "phase"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "node_id"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "retryability"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "suggested_action"
+            },
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "severity"
+            },
+            {
+              "annotation": "str",
+              "default": "''",
+              "name": "remedy"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.grpc._edits",
+          "qualname": "EditError",
+          "signature": "(code: 'int' = 0, message: 'str' = '', details: 'dict[str, str]' = <factory>, category: 'int' = 0, phase: 'str' = '', node_id: 'str' = '', retryability: 'int' = 0, suggested_action: 'str' = '', severity: 'int' = 0, remedy: 'str' = '') -> None"
+        },
+        "EditResult": {
+          "fields": [
+            {
+              "annotation": "int",
+              "default": "0",
+              "name": "object_id"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "success"
+            },
+            {
+              "annotation": "EditError | None",
+              "default": "None",
+              "name": "error"
+            }
+          ],
+          "kind": "class",
+          "module": "honua_sdk.grpc._edits",
+          "qualname": "EditResult",
+          "signature": "(object_id: 'int' = 0, success: 'bool' = False, error: 'EditError | None' = None) -> None"
         },
         "Extent": {
           "fields": [
@@ -6484,6 +6645,11 @@
         "HonuaGrpcAsyncClient": {
           "kind": "class",
           "methods": {
+            "apply_edits": {
+              "async": true,
+              "kind": "method",
+              "signature": "(self, request: 'ApplyEditsRequest') -> 'ApplyEditsResponse'"
+            },
             "close": {
               "async": true,
               "kind": "method",
@@ -6506,6 +6672,10 @@
         "HonuaGrpcClient": {
           "kind": "class",
           "methods": {
+            "apply_edits": {
+              "kind": "method",
+              "signature": "(self, request: 'ApplyEditsRequest') -> 'ApplyEditsResponse'"
+            },
             "close": {
               "kind": "method",
               "signature": "(self) -> 'None'"

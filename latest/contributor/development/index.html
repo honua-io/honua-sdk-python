@@ -1547,6 +1547,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#native-grpc-edit-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Native gRPC edit integration
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1782,6 +1793,17 @@ job, registry parity, provenance and SBOM attestations succeed.</p>
 <p>GP releases use conventional version increments from the last released version.
 Production publication requires the workflow commit to equal the release commit
 before any package upload.</p>
+<h2 id="native-grpc-edit-integration">Native gRPC edit integration<a class="headerlink" href="#native-grpc-edit-integration" title="Permanent link">&para;</a></h2>
+<p>The deterministic <code>tests/grpc_sdk/test_apply_edits.py</code> suite uses a local native
+RPC server and needs no deployment. For an explicit live write roundtrip, provide
+<code>HONUA_GRPC_EDIT_TARGET</code> (TLS host and port), <code>HONUA_GRPC_EDIT_SERVICE</code>,
+<code>HONUA_GRPC_EDIT_LAYER</code> (defaults to <code>0</code>) and <code>HONUA_GRPC_EDIT_API_KEY</code> through the
+local environment. Use an authorized disposable point layer with a writable
+<code>name</code> string field and WGS84 coordinates. The test adds a point, updates its name
+and deletes it in cleanup; do not target production data.</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/conformance/test_live_grpc_edits.py<span class="w"> </span>--run-integration<span class="w"> </span>-q
+</code></pre></div>
+<p>The live test skips when its target, service or API key is absent.</p>
 
 
 

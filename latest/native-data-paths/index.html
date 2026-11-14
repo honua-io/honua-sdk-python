@@ -1629,12 +1629,47 @@ development, not a remote authenticated deployment.</p>
     <span class="p">))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>
 </code></pre></div>
-<p><code>HonuaGrpcAsyncClient</code> provides async queries and streaming. For long-running
-sessions pass a refreshable <code>auth_provider</code> to the client; the metadata above is
-a static token snapshot. The public gRPC wrappers <strong>do not yet expose native
-feature edits</strong>. REST <code>apply_edits</code> remains a compatibility workflow, not a
-native implementation; track the rc.3 gap in
-<a href="https://github.com/honua-io/honua-sdk-python/issues/400">#400</a>.</p>
+<p><code>HonuaGrpcAsyncClient</code> provides async queries, streaming and native edits. For
+long-running sessions pass a refreshable <code>auth_provider</code> to the client; the
+metadata above is a static token snapshot.</p>
+<p>Use the same TLS client for adds, updates and deletes through the versioned
+native <code>ApplyEdits</code> RPC:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApplyEditsRequest</span><span class="p">,</span> <span class="n">Feature</span>
+
+<span class="k">with</span> <span class="n">HonuaGrpcClient</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HONUA_GRPC_TARGET"</span><span class="p">],</span>
+    <span class="n">credentials</span><span class="o">=</span><span class="n">grpc</span><span class="o">.</span><span class="n">ssl_channel_credentials</span><span class="p">(),</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="n">build_grpc_metadata</span><span class="p">(</span><span class="n">bearer_token</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HONUA_ACCESS_TOKEN"</span><span class="p">]),</span>
+<span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">apply_edits</span><span class="p">(</span><span class="n">ApplyEditsRequest</span><span class="p">(</span>
+        <span class="n">service_id</span><span class="o">=</span><span class="s2">"parks"</span><span class="p">,</span>
+        <span class="n">layer_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">adds</span><span class="o">=</span><span class="p">[</span><span class="n">Feature</span><span class="p">(</span><span class="n">attributes</span><span class="o">=</span><span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"New park"</span><span class="p">},</span> <span class="n">geometry</span><span class="o">=</span><span class="p">{</span><span class="s2">"x"</span><span class="p">:</span> <span class="o">-</span><span class="mf">122.4</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">:</span> <span class="mf">37.8</span><span class="p">})],</span>
+        <span class="n">updates</span><span class="o">=</span><span class="p">[</span><span class="n">Feature</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">attributes</span><span class="o">=</span><span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Renamed park"</span><span class="p">})],</span>
+        <span class="n">deletes</span><span class="o">=</span><span class="p">[</span><span class="mi">43</span><span class="p">],</span>
+        <span class="n">rollback_on_failure</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">))</span>
+    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Batch failed:"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">add_results</span> <span class="o">+</span> <span class="n">result</span><span class="o">.</span><span class="n">update_results</span> <span class="o">+</span> <span class="n">result</span><span class="o">.</span><span class="n">delete_results</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">object_id</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+</code></pre></div>
+<p>Edit geometry uses GeoServices JSON shapes in the layer's coordinate system.
+Only single-ring polygons are supported for edits; polygons with holes and multipart
+polygons are rejected before sending to avoid ambiguous ring topology.
+The native edit contract cannot carry a spatial reference; the client rejects
+<code>spatialReference</code> and unrecognized shapes before sending the mutation.</p>
+<p>Use <code>await client.apply_edits(request)</code> with <code>HonuaGrpcAsyncClient</code>. Results retain
+server order, typed per-feature errors and the batch error; inspect both before
+assuming changes committed. Rollback defaults to enabled. Set
+<code>rollback_on_failure=False</code> only when partial commits are intended. Mutations are
+sent once without automatic retries; applications choosing to retry should reuse
+an <code>idempotency_key</code> with a server that supports it. Unsupported RPCs raise
+<code>HonuaGrpcError</code> (including <code>UNIMPLEMENTED</code>); the SDK never falls back to REST.
+Async task cancellation reaches the native RPC, but cancellation or a timeout
+does not establish whether a mutation committed. Regenerate affected exports
+after committed edits.</p>
 <h2 id="browser-setup-grpc-web">Browser setup: gRPC-Web<a class="headerlink" href="#browser-setup-grpc-web" title="Permanent link">&para;</a></h2>
 <p>Browsers use gRPC-Web rather than a native HTTP/2 gRPC channel. The JavaScript
 SDK uses the Connect libraries with the <strong>gRPC-Web transport</strong>; this does not

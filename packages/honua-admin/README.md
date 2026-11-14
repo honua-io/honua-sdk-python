@@ -77,19 +77,26 @@ accepts (e.g. `RefreshableBearerTokenProvider`) works here unchanged.
 ### Async
 
 ```python
+import asyncio
+
 from honua_admin import AsyncHonuaAdminClient
 
-async with AsyncHonuaAdminClient(
-    "https://your-honua-server.com",
-    api_key="honua-api-key",
-) as admin:
-    compatibility = await admin.check_compatibility()
-    if not compatibility.supported:
-        raise RuntimeError("; ".join(compatibility.reasons))
 
-    services = await admin.list_services()
-    for svc in services:
-        print(f"{svc.service_name}: {svc.layer_count} layers")
+async def main() -> None:
+    async with AsyncHonuaAdminClient(
+        "https://your-honua-server.com",
+        api_key="honua-api-key",
+    ) as admin:
+        compatibility = await admin.check_compatibility()
+        if not compatibility.supported:
+            raise RuntimeError("; ".join(compatibility.reasons))
+
+        services = await admin.list_services()
+        for svc in services:
+            print(f"{svc.service_name}: {svc.layer_count} layers")
+
+
+asyncio.run(main())
 ```
 
 The async client mirrors the sync method surface (CRUD helpers, manifest

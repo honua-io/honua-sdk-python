@@ -4132,7 +4132,7 @@ retrying. Conflicts, non-empty deletion and authorization failures retain the
 server's HTTP error status and details. Where approval is required, these calls
 surface that requirement; they do not approve the mutation.</p>
 <p>Omitting <code>namespace</code> keeps the operation unscoped. Supplying it selects the
-namespace operation under the tenant resolved by the server. Folder moves and
+namespace operation in the Environment the client is connected to. Folder moves and
 path renames retain the old public paths according to the server's reservation
 rules. <code>update_folder(..., title=None)</code> clears display text; omitting <code>title</code>
 preserves it. Changing <code>name</code> changes the Folder path.</p>
@@ -9362,7 +9362,7 @@ to :meth:<code>_request</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>The server responded with a non-success status
-(<code>404</code> for an unknown or other-tenant proposal).</p>
+(<code>404</code> for an unknown or inaccessible proposal).</p>
               </div>
             </td>
           </tr>
@@ -15125,7 +15125,7 @@ to :meth:<code>_request</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>The server responded with a non-success status
-(<code>404</code> for an unknown or other-tenant proposal).</p>
+(<code>404</code> for an unknown or inaccessible proposal).</p>
               </div>
             </td>
           </tr>

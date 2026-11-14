@@ -94,6 +94,8 @@ def _feature(feature: Feature) -> spatial.Feature:
     if feature.geometry is not None:
         if "spatialReference" in feature.geometry:
             raise ValueError("native edit geometry must use layer coordinates without spatialReference")
+        if len(feature.geometry.get("rings", [])) > 1:
+            raise ValueError("native edit geometry supports only single-ring polygons")
         geometry, _ = _to_proto_geometry(feature.geometry)
         if geometry.WhichOneof("shape") is None:
             raise ValueError("Unsupported native edit geometry shape")

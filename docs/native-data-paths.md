@@ -75,6 +75,8 @@ with HonuaGrpcClient(
 ```
 
 Edit geometry uses GeoServices JSON shapes in the layer's coordinate system.
+Only single-ring polygons are supported for edits; polygons with holes and multipart
+polygons are rejected before sending to avoid ambiguous ring topology.
 The native edit contract cannot carry a spatial reference; the client rejects
 `spatialReference` and unrecognized shapes before sending the mutation.
 

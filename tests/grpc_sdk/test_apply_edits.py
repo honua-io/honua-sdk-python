@@ -179,6 +179,10 @@ def test_partial_results_and_attribute_validation(native_server):
 @pytest.mark.parametrize("geometry", [
     {"x": 1, "y": 2, "spatialReference": {"wkid": 4326}},
     {"type": "Point", "coordinates": [1, 2]},
+    {"rings": [
+        [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]],
+        [[3, 0], [3, 1], [4, 1], [4, 0], [3, 0]],
+    ]},
 ])
 def test_unrepresentable_geometry_never_sends_edits(native_server, geometry):
     target, requests, _ = native_server

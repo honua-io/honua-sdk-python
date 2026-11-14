@@ -1,13 +1,17 @@
 ---
 type: guide
-title: "Query features in five minutes"
-description: "Install the SDK and run a real query against the public demo server, with no account, key or local install. The fastest proof the SDK works."
+title: "Start native, then query an existing service"
+description: "Start with authenticated gRPC and cloud-native files, then try the public REST compatibility walkthrough."
 resource: "https://pypi.org/project/honua-sdk/"
 tags: [quickstart, python]
 ---
 # 5-Minute Quickstart: Query Features and Plot with GeoPandas
 
-## What You'll Build
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
+## Compatibility walkthrough: query an existing service
+
+### What You'll Build
 
 A Python script that queries geospatial features from a Honua server,
 converts them to a GeoDataFrame, and plots them with matplotlib.
@@ -223,7 +227,7 @@ if results:
 score. Each result exposes `address`, `latitude`, `longitude`, `score`,
 and `attributes`.
 
-## Step 6: Query via gRPC (optional, 60 seconds)
+## Step 6: Query via gRPC (native application path)
 
 > **Needs your own server.** This step uses a `your-honua-server.com:8081`
 > placeholder. Point it at your server's gRPC address (the Honua Server

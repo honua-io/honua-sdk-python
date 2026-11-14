@@ -172,7 +172,7 @@ async def test_publish_layer_preserves_omitted_root_and_folder_choices(asynchron
         else:
             assert body["folderId"] == folder_id
         return httpx.Response(200, json=make_api_response({
-            "layerId": 4, "layerName": "Parcels", "schema": "public", "table": "parcels", "description": None,
+            "storageLayerId": 4, "layerName": "Parcels", "schema": "public", "table": "parcels", "description": None,
             "geometryType": "Point", "srid": 4326, "primaryKey": "id", "fieldCount": 1, "enabled": True,
             "serviceName": "logical-parcels",
         }))
@@ -186,7 +186,7 @@ async def test_publish_layer_preserves_omitted_root_and_folder_choices(asynchron
         if inspect.isawaitable(result):
             result = await result
         assert result.service_name == "logical-parcels"
-        assert result.layer_id == 4
+        assert result.storage_layer_id == 4
     finally:
         if asynchronous:
             await client.close()

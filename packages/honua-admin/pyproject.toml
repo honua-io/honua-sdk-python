@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "honua-admin"
-version = "0.3.0"
+version = "0.3.2"
 description = "Admin / control-plane client for Honua geospatial server"
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
   # The floor tracks the honua-sdk release (release-please generic updater on the line
   # below) so honua-admin always requires the SDK it was released with.
-  "honua-sdk>=0.3.1,<0.4",  # x-release-please-version
+  "honua-sdk>=0.3.2,<0.4",  # x-release-please-version
 ]
 
 [project.scripts]

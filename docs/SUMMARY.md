@@ -12,7 +12,7 @@
 
 ## Quickstart
 
-* [Query features in five minutes](quickstart.md)
+* [Start native, then query an existing service](quickstart.md)
 
 ## Guides
 
@@ -22,6 +22,7 @@
 * [Develop and test the Python SDKs](contributor/development.md)
 * [Collect a support bundle](diagnostic-bundles.md)
 * [Import the geoprocessing package](migration/gp-import.md)
+* [Start with gRPC and cloud-native files](native-data-paths.md)
 * [When something does not work](troubleshooting.md)
 
 ## Concepts

@@ -3431,7 +3431,7 @@
           "fields": [
             {
               "annotation": "int",
-              "name": "layer_id"
+              "name": "storage_layer_id"
             },
             {
               "annotation": "str",
@@ -3483,7 +3483,7 @@
           },
           "module": "honua_admin._models",
           "qualname": "PublishedLayerSummary",
-          "signature": "(layer_id: 'int', layer_name: 'str', schema: 'str', table: 'str', description: 'str | None', geometry_type: 'str | None', srid: 'int | None', primary_key: 'str | None', field_count: 'int', enabled: 'bool', service_name: 'str | None') -> None"
+          "signature": "(storage_layer_id: 'int', layer_name: 'str', schema: 'str', table: 'str', description: 'str | None', geometry_type: 'str | None', srid: 'int | None', primary_key: 'str | None', field_count: 'int', enabled: 'bool', service_name: 'str | None') -> None"
         },
         "ResourceMetadata": {
           "fields": [

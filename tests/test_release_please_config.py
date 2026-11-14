@@ -366,9 +366,9 @@ def test_distribution_artifacts_are_rerun_safe() -> None:
     assert "dist-${{ github.run_id }}-${{ github.run_attempt }}" not in PUBLISH_WORKFLOW.read_text(encoding="utf-8")
 
 
-def test_gp_first_release_version_is_explicit() -> None:
+def test_gp_releases_use_conventional_version_increments() -> None:
     config = json.loads((ROOT / "release-please-config.json").read_text())
-    assert config["packages"]["packages/honua-gp"]["release-as"] == "0.1.0"
+    assert "release-as" not in config["packages"]["packages/honua-gp"]
 
 
 def test_gp_registry_install_is_anonymous_and_pinned() -> None:

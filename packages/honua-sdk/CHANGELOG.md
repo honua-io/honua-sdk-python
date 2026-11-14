@@ -22,6 +22,12 @@
   | `WORKFLOW_PACKAGE_SCHEMA_VERSION` | `WORKFLOW_SCHEMA_VERSION` |
 
   The renames apply to `HonuaWorkflow` and `AsyncHonuaWorkflow`. The server routes and the `packageId` wire field are unchanged.
+## [0.3.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.1...python-sdk-v0.3.2) (2026-11-13)
+
+
+### Documentation
+
+* lead customer migrations with gRPC and cloud-native files ([#401](https://github.com/honua-io/honua-sdk-python/issues/401)) ([f8c0f81](https://github.com/honua-io/honua-sdk-python/commit/f8c0f813f9b26aa45369343848b800f5a598ede5))
 
 ## [0.3.1](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.0...python-sdk-v0.3.1) (2026-11-10)
 

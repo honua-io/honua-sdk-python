@@ -7,6 +7,8 @@ tags: [sdk, python, surfaces]
 ---
 # Honua Python SDK Feature Map
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 This repository owns the Python data-plane package and admin/control-plane package.
 
 ## Current Capabilities

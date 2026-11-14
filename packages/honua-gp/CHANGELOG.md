@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.2](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.1...python-gp-v0.1.2) (2026-11-13)
+
+
+### Documentation
+
+* lead customer migrations with gRPC and cloud-native files ([#401](https://github.com/honua-io/honua-sdk-python/issues/401)) ([f8c0f81](https://github.com/honua-io/honua-sdk-python/commit/f8c0f813f9b26aa45369343848b800f5a598ede5))
+
+## [0.1.1](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.0...python-gp-v0.1.1) (2026-11-13)
+
+
+### Documentation
+
+* **gp:** address the published layer explicitly in quickstart ([#383](https://github.com/honua-io/honua-sdk-python/issues/383)) ([4fd8f69](https://github.com/honua-io/honua-sdk-python/commit/4fd8f6991a717f0b6bd6fe447cc3b7dda0b12433))
+
 ## [0.1.0](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.0...python-gp-v0.1.0) (2026-11-10)
 
 

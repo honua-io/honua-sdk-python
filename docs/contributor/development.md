@@ -7,6 +7,8 @@ tags: [python, development, testing, contributor]
 ---
 # Develop and test the Python SDKs
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 The everyday commands (install, lint, type-check, test, coverage gate,
 compatibility gate, sync-client regeneration) are at the top of the repository
 `AGENTS.md`. This page holds the rest: the opt-in lanes, the layout rules, and
@@ -82,6 +84,15 @@ deletes its temporary Folder, and returns the Service to Root.
   rule globally.
 - UP037 (quoted forward references) stays on in package source so the
   compatibility-gate public-API snapshot is stable. Do not strip the quotes.
+- Run `python scripts/check_review_baseline.py` to reject new S110, E722,
+  BLE001, FBT001 and PLR0913 findings, including in `honua-gp`. This separate
+  Ruff configuration ignores `noqa` comments and limits functions to three
+  arguments. Generated protobuf code remains excluded.
+  `scripts/ruff-review-baseline.json` records each existing finding by rule,
+  path, message, enclosing class/function, source line and occurrence count.
+  Moving a line within its function preserves its exemption; changing it or increasing its count requires a fix. Remove
+  baseline entries as debt is fixed. `--capture` replaces the baseline and is
+  only for an explicitly reviewed baseline update; CI never captures debt.
 - mypy runs with `strict = true` workspace-wide (`[tool.mypy]` in the root
   `pyproject.toml`). Every def in `honua_sdk` and `honua_admin` is annotated.
   A narrow override exempts the generated protobuf stubs
@@ -202,7 +213,6 @@ from PyPI in a fresh environment, checks dependencies, and runs CLI help.
 Pin the final version and wheel SHA256 in the release cohort only after this
 job, registry parity, provenance and SBOM attestations succeed.
 
-The first GP release is pinned to `0.1.0` with `release-as` in the GP Release Please
-configuration. Remove that bootstrap override after the first release, so later
-releases use conventional version increments. Production publication requires the
-workflow commit to equal the release commit before any package upload.
+GP releases use conventional version increments from the last released version.
+Production publication requires the workflow commit to equal the release commit
+before any package upload.

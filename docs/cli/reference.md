@@ -7,6 +7,8 @@ tags: [cli, reference]
 ---
 # Command reference
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 Server commands use typed SDK calls. The CLI sends no HTTP requests of its
 own. The explicit `gp` command invokes a separate local developer tool.
 `honua-admin <group> ...` and `honua <group> ...` are the same for the
@@ -141,7 +143,11 @@ The password is never accepted as a flag value, and it is never printed.
 `--geometry-column`, `--geometry-type`, `--srid`, `--primary-key`, `--field`
 (repeatable), `--disabled`, `--body FILE`.
 
-Each command prints a `PublishedLayerSummary`: `layerId`, `layerName`,
+Layer responses use `storage_layer_id` in Python and `storageLayerId` in CLI output,
+matching the server contract. Update callers that previously read `layer_id` or
+`layerId`; those names are no longer exposed on layer summaries.
+
+Each command prints a `PublishedLayerSummary`: `storageLayerId`, `layerName`,
 `schema`, `table`, `geometryType`, `srid`, `primaryKey`, `fieldCount`,
 `enabled` and `serviceName`.
 

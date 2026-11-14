@@ -6,6 +6,8 @@ tags: [pagination, source-facade]
 ---
 # Pagination
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 This deep-dive explains how the Source facade represents pagination, how
 each underlying protocol's pagination signals are normalized, and how to
 choose between collected and streaming query patterns.

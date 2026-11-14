@@ -54,6 +54,11 @@ jobs:
       - name: Run Ruff
         run: ruff check .
 
+      - name: Reject new review findings
+        run: |
+          python scripts/test_review_baseline.py
+          python scripts/check_review_baseline.py
+
       - name: Enforce maintained documentation command policy
         run: python scripts/check_docs_command_policy.py
 

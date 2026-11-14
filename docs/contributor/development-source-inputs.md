@@ -7,6 +7,8 @@ tags: [python, development, release]
 ---
 # Review-only development source inputs
 
+> **Native application path:** [gRPC for live data and edits; PMTiles, GeoParquet and COG through the CDN](../native-data-paths.md). Start there for browser gRPC-Web setup, signed private URLs and regeneration after changes. OGC API and GeoServices REST examples below are compatibility workflows.
+
 `python scripts/development_source_inputs.py --source /absolute/clean/checkout --revision FULL_40_CHARACTER_SHA --destination /absolute/new/proposal-directory`
 
 Run with the exact Python, pip, packaging and platform declared in

@@ -6,7 +6,12 @@ import os
 import grpc
 import pytest
 
-from honua_sdk.grpc import ApplyEditsRequest, Feature, HonuaGrpcClient, build_grpc_metadata
+# Trunk certification installs the pinned public wheel; skip when it predates native edits.
+sdk_grpc = pytest.importorskip("honua_sdk.grpc")
+if not hasattr(sdk_grpc, "ApplyEditsRequest"):
+    pytest.skip("installed honua-sdk predates native gRPC edits", allow_module_level=True)
+
+from honua_sdk.grpc import ApplyEditsRequest, Feature, HonuaGrpcClient, build_grpc_metadata  # noqa: E402
 
 pytestmark = pytest.mark.integration
 

@@ -44,12 +44,50 @@ with HonuaGrpcClient(
     print(page.features)
 ```
 
-`HonuaGrpcAsyncClient` provides async queries and streaming. For long-running
-sessions pass a refreshable `auth_provider` to the client; the metadata above is
-a static token snapshot. The public gRPC wrappers **do not yet expose native
-feature edits**. REST `apply_edits` remains a compatibility workflow, not a
-native implementation; track the rc.3 gap in
-[#400](https://github.com/honua-io/honua-sdk-python/issues/400).
+`HonuaGrpcAsyncClient` provides async queries, streaming and native edits. For
+long-running sessions pass a refreshable `auth_provider` to the client; the
+metadata above is a static token snapshot.
+
+Use the same TLS client for adds, updates and deletes through the versioned
+native `ApplyEdits` RPC:
+
+```python
+from honua_sdk.grpc import ApplyEditsRequest, Feature
+
+with HonuaGrpcClient(
+    os.environ["HONUA_GRPC_TARGET"],
+    credentials=grpc.ssl_channel_credentials(),
+    metadata=build_grpc_metadata(bearer_token=os.environ["HONUA_ACCESS_TOKEN"]),
+) as client:
+    result = client.apply_edits(ApplyEditsRequest(
+        service_id="parks",
+        layer_id=0,
+        adds=[Feature(attributes={"name": "New park"}, geometry={"x": -122.4, "y": 37.8})],
+        updates=[Feature(id=42, attributes={"name": "Renamed park"})],
+        deletes=[43],
+        rollback_on_failure=True,
+    ))
+    if result.error is not None:
+        print("Batch failed:", result.error.message)
+    for item in result.add_results + result.update_results + result.delete_results:
+        if item.error is not None:
+            print(item.object_id, item.error.code, item.error.message)
+```
+
+Edit geometry uses GeoServices JSON shapes in the layer's coordinate system.
+The native edit contract cannot carry a spatial reference; the client rejects
+`spatialReference` and unrecognized shapes before sending the mutation.
+
+Use `await client.apply_edits(request)` with `HonuaGrpcAsyncClient`. Results retain
+server order, typed per-feature errors and the batch error; inspect both before
+assuming changes committed. Rollback defaults to enabled. Set
+`rollback_on_failure=False` only when partial commits are intended. Mutations are
+sent once without automatic retries; applications choosing to retry should reuse
+an `idempotency_key` with a server that supports it. Unsupported RPCs raise
+`HonuaGrpcError` (including `UNIMPLEMENTED`); the SDK never falls back to REST.
+Async task cancellation reaches the native RPC, but cancellation or a timeout
+does not establish whether a mutation committed. Regenerate affected exports
+after committed edits.
 
 ## Browser setup: gRPC-Web
 

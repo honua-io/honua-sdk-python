@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add synchronous and asynchronous native gRPC feature edits with typed batch and per-feature errors; preserve auth, rollback, cancellation and explicit unsupported-RPC failures (#400).
+
+## Unreleased
+
 ### Breaking changes
 
 - When the updated `honua-admin` is installed, use `honua layer disable` instead of `honua layer unpublish`. Disabling retains the Layer definition. The `honua datasource` command path remains unchanged and manages Connections.

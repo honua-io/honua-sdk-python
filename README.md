@@ -26,9 +26,9 @@ Two independently installable, Apache-2.0 packages live under `packages/`:
 | [`packages/honua-sdk`](packages/honua-sdk/) | `honua_sdk` | Data-plane client — feature queries, geocoding, protocol clients, gRPC streaming, GeoPandas/raster interop, `honua` CLI |
 | [`packages/honua-admin`](packages/honua-admin/) | `honua_admin` | Control-plane client — services, connections, layers, styles, metadata, manifests, compatibility checks (depends on `honua-sdk`) |
 
-Also in this repo: [`packages/honua-gp`](packages/honua-gp/), a separately
-licensed geoprocessing integration package (not published). Import it as
-`honua_gp`.
+Also in this repo: [`packages/honua-gp`](packages/honua-gp/), an Apache-2.0
+geoprocessing integration package published to PyPI as `honua-gp`. Install it
+with `pip install honua-gp` and import it as `honua_gp`.
 
 ## Status
 

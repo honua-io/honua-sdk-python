@@ -42,6 +42,9 @@ pip-audit, honua-gp): `docs/contributor/development.md`.
 - A contract or schema version bump updates `release/component-versions.json` in the same PR.
   Starting or stopping reliance on a server capability updates
   `release/sdk-capability-baseline.json` in the same PR.
+- Rename public names outright, with no deprecated aliases; `tests/test_retired_vocabulary.py`
+  keeps retired vocabulary out of public names, CLI help and authored docs. List each old name
+  in its `RENAMED_NAMES` and each foreign-format or wire-field exception in `KEPT_NAMES`.
 - New pages under `docs/` need OKF frontmatter; regenerate `docs/SUMMARY.md` with
   `python3 scripts/generate-summary.py`.
 

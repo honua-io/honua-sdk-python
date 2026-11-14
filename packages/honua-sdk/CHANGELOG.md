@@ -8,6 +8,20 @@
 
 - Removed the offline Python source scanner, local toolbox parsers, translation CLI, and their public exports. Source-code classification and automatic conversion are no longer provided. Consumers of the migration package, its command-line entry point, or local scan functions must remove or replace those integrations. This is an intentional breaking change for a coordinated major release. Generic admin toolbox-manifest submission and server validation remain available independently of local parsing.
 
+### Renamed
+
+- `honua_sdk.workflow`: Workflow authoring names now say Workflow and Draft. They are renamed outright, with no deprecated aliases:
+
+  | Old name | New name |
+  | --- | --- |
+  | `packages()` | `drafts()` |
+  | `package()` | `draft()` |
+  | `save_package()` | `save_draft()` |
+  | `update_package()` | `update_draft()` |
+  | `package_id=` parameter | `workflow_id=` |
+  | `WORKFLOW_PACKAGE_SCHEMA_VERSION` | `WORKFLOW_SCHEMA_VERSION` |
+
+  The renames apply to `HonuaWorkflow` and `AsyncHonuaWorkflow`. The server routes and the `packageId` wire field are unchanged.
 ## [0.3.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.1...python-sdk-v0.3.2) (2026-11-13)
 
 

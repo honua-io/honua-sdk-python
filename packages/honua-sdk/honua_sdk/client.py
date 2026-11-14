@@ -740,14 +740,14 @@ class HonuaClient:
         return HonuaGeoprocessing(self)
 
     def workflow(self) -> "HonuaWorkflow":
-        """Return a workflow package authoring + publication client.
+        """Return a Workflow authoring + publication client.
 
         Returns:
             An :class:`~honua_sdk.workflow.HonuaWorkflow` bound to this
-            client's transport for authoring workflow package drafts,
-            snapshotting immutable versions, validating / dry-running /
+            client's transport for authoring Workflow Drafts,
+            snapshotting immutable Versions, validating / dry-running /
             publishing them, and running publications over the server's
-            ``/api/v1/console`` workflow package surface (the durable
+            ``/api/v1/console`` Workflow surface (the durable
             replacement for the dropped GeoETL pipeline endpoints; admin
             authorization required server-side).
         """

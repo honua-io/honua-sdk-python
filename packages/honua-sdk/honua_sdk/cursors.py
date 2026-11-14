@@ -1,6 +1,6 @@
 """da-style cursor ergonomics over the canonical Source facade.
 
-Esri's core geoprocessing data-access idiom is the ``da`` cursor family —
+Desktop GIS scripting APIs read and write rows with a ``da`` cursor set —
 ``SearchCursor`` to iterate rows lazily, ``InsertCursor`` / ``UpdateCursor`` to
 write rows back. The Honua SDK already exposes a streaming query and a batched
 ``apply_edits`` helper; this module wraps them into the familiar cursor shape so

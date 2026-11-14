@@ -44,13 +44,22 @@ with HonuaGrpcClient(
     print(page.features)
 ```
 
-`HonuaGrpcAsyncClient` provides async queries, streaming and native edits. For
-long-running sessions pass a refreshable `auth_provider` to the client; the
-metadata above is a static token snapshot.
+`HonuaGrpcAsyncClient` provides async queries and streaming. For long-running
+sessions pass a refreshable `auth_provider` to the client; the metadata above
+is a static token snapshot.
+
+## Native edits: source preview
+
+Published `honua-sdk` 0.3.2 does not expose `ApplyEditsRequest` or the sync and
+async clients' `apply_edits` methods. The following example requires a source
+checkout with native edit support, installed in a separate development
+environment using the [development installation instructions](../INSTALL.md).
+A source install does not certify the published package or a release candidate.
 
 Use the same TLS client for adds, updates and deletes through the versioned
 native `ApplyEdits` RPC:
 
+<!-- doc-run: skip reason="Native gRPC edits require a development source checkout; published honua-sdk 0.3.2 does not expose this API." -->
 ```python
 from honua_sdk.grpc import ApplyEditsRequest, Feature
 

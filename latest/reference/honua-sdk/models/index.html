@@ -2215,17 +2215,21 @@ on the public API for the existing <code>HonuaClient.query</code> /
 <code>iter_query</code> dispatcher and to keep typed access to FeatureServer
 responses. New code should prefer <code>Query</code> / <code>Result[QueryFeature]</code>
 via the <a href="../source-facade/">Source facade</a>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">Query</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pagination</span><span class="p">,</span> <span class="n">Query</span>
 
-<span class="n">q</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">"status = 'active'"</span><span class="p">,</span> <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">],</span> <span class="n">limit</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">descriptor</span><span class="p">)</span><span class="o">.</span><span class="n">iter_query</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span>
+    <span class="n">where</span><span class="o">=</span><span class="s2">"status = 'active'"</span><span class="p">,</span>
+    <span class="n">out_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">],</span>
+    <span class="n">pagination</span><span class="o">=</span><span class="n">Pagination</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">descriptor</span><span class="p">)</span><span class="o">.</span><span class="n">iter_features</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">feature</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">feature</span><span class="o">.</span><span class="n">properties</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>See also</strong>: <a href="../source-facade/">Source facade</a> for the entry point that consumes
 these models, <a href="../errors/">Errors</a> for the exception hierarchy raised on
 failure, and <a href="../../../pagination/">Pagination</a> for how <code>Result.exceeded_transfer_limit</code> /
 <code>Result.total_count</code> map to FeatureServer, OGC Features, STAC, and OData
-signals and how <code>Query.page_size</code> / <code>Query.max_pages</code> drive the pagination loop.</p>
+signals and how <code>Query.pagination</code> configures the pagination loop.</p>
 <h2 id="geometry-schema-and-geodataframe-ergonomics">Geometry, schema, and GeoDataFrame ergonomics<a class="headerlink" href="#geometry-schema-and-geodataframe-ergonomics" title="Permanent link">&para;</a></h2>
 <p>For geoprocessing workflows, the typed feature models carry a first-class
 geometry bridge and the source facade exposes typed layer schema and cursors:</p>

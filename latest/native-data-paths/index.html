@@ -525,6 +525,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#native-edits-source-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Native edits: source preview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#browser-setup-grpc-web" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1545,6 +1556,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#native-edits-source-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Native edits: source preview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#browser-setup-grpc-web" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1629,11 +1651,18 @@ development, not a remote authenticated deployment.</p>
     <span class="p">))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">features</span><span class="p">)</span>
 </code></pre></div>
-<p><code>HonuaGrpcAsyncClient</code> provides async queries, streaming and native edits. For
-long-running sessions pass a refreshable <code>auth_provider</code> to the client; the
-metadata above is a static token snapshot.</p>
+<p><code>HonuaGrpcAsyncClient</code> provides async queries and streaming. For long-running
+sessions pass a refreshable <code>auth_provider</code> to the client; the metadata above
+is a static token snapshot.</p>
+<h2 id="native-edits-source-preview">Native edits: source preview<a class="headerlink" href="#native-edits-source-preview" title="Permanent link">&para;</a></h2>
+<p>Published <code>honua-sdk</code> 0.3.2 does not expose <code>ApplyEditsRequest</code> or the sync and
+async clients' <code>apply_edits</code> methods. The following example requires a source
+checkout with native edit support, installed in a separate development
+environment using the <a href="https://github.com/honua-io/honua-sdk-python/blob/trunk/INSTALL.md">development installation instructions</a>.
+A source install does not certify the published package or a release candidate.</p>
 <p>Use the same TLS client for adds, updates and deletes through the versioned
 native <code>ApplyEdits</code> RPC:</p>
+<!-- doc-run: skip reason="Native gRPC edits require a development source checkout; published honua-sdk 0.3.2 does not expose this API." -->
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk.grpc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApplyEditsRequest</span><span class="p">,</span> <span class="n">Feature</span>
 
 <span class="k">with</span> <span class="n">HonuaGrpcClient</span><span class="p">(</span>

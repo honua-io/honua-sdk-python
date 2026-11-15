@@ -1773,8 +1773,9 @@ protocol-specific signals such as FeatureServer's
 and OData's <code>@odata.count</code> / <code>@odata.nextLink</code>) rather than being
 silently fabricated from <code>len(features)</code>.</p>
 </blockquote>
-<p>When the server does not advertise a total count, <code>total_count</code> falls
-back to <code>len(features)</code> so callers can always read an integer.</p>
+<p>When the server does not advertise a total count, <code>total_count</code> is <code>None</code>.
+Use <code>len(result.features)</code> for the number of returned features; a bounded or
+truncated result can contain fewer features than the server has in total.</p>
 <h2 id="per-protocol-pagination-signals">Per-protocol pagination signals<a class="headerlink" href="#per-protocol-pagination-signals" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

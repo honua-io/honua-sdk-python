@@ -1998,18 +1998,21 @@ GeoDataFrame through the SDK helper:</p>
     <span class="n">landing</span> <span class="o">=</span> <span class="n">maps</span><span class="o">.</span><span class="n">landing</span><span class="p">()</span>                        <span class="c1"># dict JSON</span>
     <span class="n">openapi</span> <span class="o">=</span> <span class="n">maps</span><span class="o">.</span><span class="n">openapi</span><span class="p">()</span>                        <span class="c1"># dict JSON</span>
     <span class="n">map_png</span> <span class="o">=</span> <span class="n">maps</span><span class="o">.</span><span class="n">collection_map</span><span class="p">(</span><span class="n">COLLECTION_ID</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="n">BBOX</span><span class="p">)</span>
-    <span class="n">styled_png</span> <span class="o">=</span> <span class="n">maps</span><span class="o">.</span><span class="n">styled_collection_map</span><span class="p">(</span><span class="n">COLLECTION_ID</span><span class="p">,</span> <span class="s2">"default"</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="n">BBOX</span><span class="p">)</span>
     <span class="n">tilesets</span> <span class="o">=</span> <span class="n">maps</span><span class="o">.</span><span class="n">collection_tilesets</span><span class="p">(</span><span class="n">COLLECTION_ID</span><span class="p">)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">map_png</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">styled_png</span><span class="p">))</span>                <span class="c1"># bytes</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">map_png</span><span class="p">))</span>                                <span class="c1"># bytes</span>
 </code></pre></div>
+<p>For an explicitly styled map, replace <code>STYLE_ID</code> with a style identifier
+associated with the collection in your deployment. A style named <code>default</code>
+is not guaranteed to exist. Within the client context above, request it with
+<code>maps.styled_collection_map(COLLECTION_ID, STYLE_ID, bbox=BBOX)</code>.</p>
 <h2 id="ogc-api-tiles">OGC API Tiles<a class="headerlink" href="#ogc-api-tiles" title="Permanent link">&para;</a></h2>
 <p>Tileset discovery returns JSON. Tile requests return bytes. By default, the
 server chooses the tile encoding (typically Mapbox vector tiles). Pass
 <code>response_format="png"</code> to request a rendered raster tile through the OGC
-<code>f=png</code> query parameter. Deployment-specific selectors can be supplied with
-<code>extra_params</code>; if it includes <code>f</code>, that value takes precedence over
-<code>response_format</code>.</p>
+<code>f=png</code> query parameter. Only pass <code>extra_params</code> supported by the endpoint;
+Honua OGC Tiles does not accept a <code>style</code> query parameter. If <code>extra_params</code>
+includes <code>f</code>, that value takes precedence over <code>response_format</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">honua_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">HonuaClient</span>
 
 <span class="k">with</span> <span class="n">HonuaClient</span><span class="p">(</span><span class="n">SERVER</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
@@ -2025,7 +2028,6 @@ server chooses the tile encoding (typically Mapbox vector tiles). Pass
         <span class="mi">0</span><span class="p">,</span>
         <span class="n">collection_id</span><span class="o">=</span><span class="n">COLLECTION_ID</span><span class="p">,</span>
         <span class="n">response_format</span><span class="o">=</span><span class="s2">"png"</span><span class="p">,</span>
-        <span class="n">extra_params</span><span class="o">=</span><span class="p">{</span><span class="s2">"style"</span><span class="p">:</span> <span class="s2">"default"</span><span class="p">},</span>
     <span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tile_png</span><span class="p">))</span>                                <span class="c1"># bytes</span>

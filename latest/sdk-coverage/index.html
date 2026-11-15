@@ -1672,11 +1672,13 @@ site claims ledger and other producer snapshots in this ecosystem:</p>
 <li><strong>Never pad.</strong> A capability this SDK's client source does not touch is
   omitted from the snapshot entirely -- there is no <code>status: "none"</code>
   entry to skim past.</li>
-<li><strong>Honest <code>sinceVersion</code>.</strong> This SDK is a source preview: neither
-  <code>honua-sdk</code> nor <code>honua-admin</code> has been published to PyPI yet (see the
-  repo README/AGENTS.md "Status: alpha"). Every entry's <code>sinceVersion</code> is
-  the literal string <code>"unreleased (source preview; not yet published to
-  PyPI)"</code> rather than an invented release number.</li>
+<li><strong>Honest <code>sinceVersion</code>.</strong> Both <a href="https://pypi.org/project/honua-sdk/0.3.2/"><code>honua-sdk</code></a>
+  and <a href="https://pypi.org/project/honua-admin/0.3.2/"><code>honua-admin</code></a> have published
+  PyPI releases. This snapshot describes current source coverage, not
+  installed-package certification. Per-capability first release versions have
+  not been verified, so every entry retains the literal string
+  <code>"unreleased (per-capability first release unverified)"</code>. The <code>unreleased</code>
+  marker does not mean the packages are unavailable.</li>
 </ul>
 <h2 id="schema">Schema<a class="headerlink" href="#schema" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
@@ -1688,7 +1690,7 @@ site claims ledger and other producer snapshots in this ecosystem:</p>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"serve.geoservices-featureserver"</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"covered"</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"sinceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unreleased (source preview; not yet published to PyPI)"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"sinceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unreleased (per-capability first release unverified)"</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">"entrypoints"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="s2">"honua_sdk.protocols.GeoServicesFeatureServerClient"</span><span class="p">,</span>
 <span class="w">        </span><span class="s2">"honua_sdk.protocols.AsyncGeoServicesFeatureServerClient"</span><span class="p">,</span>
@@ -1698,7 +1700,7 @@ site claims ledger and other producer snapshots in this ecosystem:</p>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"serve.odata"</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"partial"</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"sinceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unreleased (source preview; not yet published to PyPI)"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"sinceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unreleased (per-capability first release unverified)"</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">"entrypoints"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"honua_sdk.protocols.ODataClient"</span><span class="p">,</span><span class="w"> </span><span class="s2">"honua_sdk.protocols.AsyncODataClient"</span><span class="p">],</span>
 <span class="w">      </span><span class="nt">"note"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Read/query only ...; no create/update/delete entity-set operations are implemented."</span>
 <span class="w">    </span><span class="p">}</span>

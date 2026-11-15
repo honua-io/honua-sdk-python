@@ -154,7 +154,7 @@ with HonuaGrpcClient(
 
 The constructor takes `target` positionally; pass exactly one of
 `credentials=`, `channel=`, or `insecure=True`. The same shape is used
-in [docs/quickstart.md](docs/quickstart.md#step-6-query-via-grpc-optional-60-seconds).
+in [docs/quickstart.md](docs/quickstart.md#step-6-query-via-grpc-native-application-path).
 
 ## Admin
 

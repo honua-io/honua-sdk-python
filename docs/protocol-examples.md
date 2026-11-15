@@ -109,20 +109,24 @@ with HonuaClient(SERVER) as client:
     landing = maps.landing()                        # dict JSON
     openapi = maps.openapi()                        # dict JSON
     map_png = maps.collection_map(COLLECTION_ID, bbox=BBOX)
-    styled_png = maps.styled_collection_map(COLLECTION_ID, "default", bbox=BBOX)
     tilesets = maps.collection_tilesets(COLLECTION_ID)
 
-print(len(map_png), len(styled_png))                # bytes
+print(len(map_png))                                # bytes
 ```
+
+For an explicitly styled map, replace `STYLE_ID` with a style identifier
+associated with the collection in your deployment. A style named `default`
+is not guaranteed to exist. Within the client context above, request it with
+`maps.styled_collection_map(COLLECTION_ID, STYLE_ID, bbox=BBOX)`.
 
 ## OGC API Tiles
 
 Tileset discovery returns JSON. Tile requests return bytes. By default, the
 server chooses the tile encoding (typically Mapbox vector tiles). Pass
 `response_format="png"` to request a rendered raster tile through the OGC
-`f=png` query parameter. Deployment-specific selectors can be supplied with
-`extra_params`; if it includes `f`, that value takes precedence over
-`response_format`.
+`f=png` query parameter. Only pass `extra_params` supported by the endpoint;
+Honua OGC Tiles does not accept a `style` query parameter. If `extra_params`
+includes `f`, that value takes precedence over `response_format`.
 
 ```python
 from honua_sdk import HonuaClient
@@ -140,7 +144,6 @@ with HonuaClient(SERVER) as client:
         0,
         collection_id=COLLECTION_ID,
         response_format="png",
-        extra_params={"style": "default"},
     )
 
 print(len(tile_png))                                # bytes

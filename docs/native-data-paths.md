@@ -53,7 +53,7 @@ is a static token snapshot.
 Published `honua-sdk` 0.3.2 does not expose `ApplyEditsRequest` or the sync and
 async clients' `apply_edits` methods. The following example requires a source
 checkout with native edit support, installed in a separate development
-environment using the [development installation instructions](../INSTALL.md).
+environment using the [development installation instructions](https://github.com/honua-io/honua-sdk-python/blob/trunk/INSTALL.md).
 A source install does not certify the published package or a release candidate.
 
 Use the same TLS client for adds, updates and deletes through the versioned

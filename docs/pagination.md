@@ -60,9 +60,11 @@ The async counterpart (`AsyncSource`) exposes the same three: `await
 source.query(...)`, `await source.query_all(...)`, and `async for
 feature in source.stream(...)`.
 
-## `Query.page_size` and `Query.max_pages`
+## Configure `Query.pagination`
 
-Two `Query` knobs control the underlying pagination loop:
+Construct `Query` with a `Pagination` object. Its `page_size` and
+`max_pages` fields control the underlying pagination loop; `Query.page_size`
+and `Query.max_pages` are read-only accessors, not constructor arguments.
 
 - **`page_size`** — maximum features requested per HTTP round-trip.
   Forwarded to FeatureServer's `resultRecordCount`, OGC/STAC's `limit`,
@@ -70,16 +72,18 @@ Two `Query` knobs control the underlying pagination loop:
 - **`max_pages`** — upper bound on the number of pages the iterator
   will fetch. The `client.query` / `client.iter_query` facades default
   this cap to **100**; pass **`max_pages=None`** for an *unbounded* walk
-  that drains until the server stops advertising more pages. When a
+  that drains until the server stops advertising more pages. This applies
+  to those client methods; `Pagination(max_pages=None)` on the Source
+  facade selects its default cap of 100 pages. When a
   bounded `client.query` walk stops at the cap while the server still
   reports more features (`exceededTransferLimit`), a `ResourceWarning`
   is emitted so a large iterate never silently truncates — raise
   `max_pages`, set it to `None`, or pass a `limit` to acknowledge it.
 
 ```python
-from honua_sdk import Query
+from honua_sdk import Pagination, Query
 
-q = Query(where="1=1", page_size=500, max_pages=20)
+q = Query(where="1=1", pagination=Pagination(page_size=500, max_pages=20))
 for feature in source.iter_features(q):
     process(feature)
 
@@ -137,7 +141,7 @@ request shapes; supplying them for a non-FeatureServer source raises
 ### Stream all features into geopandas
 
 ```python
-from honua_sdk import HonuaClient, Query, SourceDescriptor, SourceLocator
+from honua_sdk import HonuaClient, Pagination, Query, SourceDescriptor, SourceLocator
 
 with HonuaClient("https://example.com") as client:
     parcels = client.source(
@@ -147,7 +151,7 @@ with HonuaClient("https://example.com") as client:
             locator=SourceLocator(service_id="parcels", layer_id=0),
         )
     )
-    result = parcels.query(Query(where="status='active'", page_size=2000))
+    result = parcels.query(Query(where="status='active'", pagination=Pagination(page_size=2000)))
     gdf = result.to_geodataframe()
     print(gdf.crs, len(gdf))
 ```
@@ -156,13 +160,13 @@ For very large datasets, prefer `stream()` plus a row-wise builder so
 you don't materialize every page at once:
 
 ```python
-features = list(parcels.iter_features(Query(where="1=1", page_size=2000)))
+features = list(parcels.iter_features(Query(where="1=1", pagination=Pagination(page_size=2000))))
 ```
 
 ### Cap pagination for a preview UI
 
 ```python
-preview = parcels.query(Query(where="1=1", page_size=50, max_pages=1))
+preview = parcels.query(Query(where="1=1", pagination=Pagination(page_size=50, max_pages=1)))
 # `preview.exceeded_transfer_limit` tells you whether to render a
 # "load more" affordance. `preview.total_count` is the server's count
 # (numberMatched / @odata.count / FeatureServer count) when advertised.
@@ -170,13 +174,14 @@ preview = parcels.query(Query(where="1=1", page_size=50, max_pages=1))
 
 ### Resume from a known offset
 
-The canonical `Query` model also exposes `offset` (mapped per-protocol
-in `_extra_params_for_query`: `resultOffset` for FeatureServer, `$skip`
-for OData, `offset` otherwise). Use it to resume a paginated drain:
+`Pagination.offset` sets the starting offset and is exposed through the
+read-only `Query.offset` accessor. It maps to `resultOffset` for
+FeatureServer, `$skip` for OData, and `offset` otherwise. Use it to resume
+a paginated drain:
 
 ```python
 checkpoint = 4_000
-result = parcels.query(Query(where="1=1", page_size=1000, offset=checkpoint))
+result = parcels.query(Query(where="1=1", pagination=Pagination(page_size=1000, offset=checkpoint)))
 ```
 
 OGC Features and STAC servers that advertise `next` links typically

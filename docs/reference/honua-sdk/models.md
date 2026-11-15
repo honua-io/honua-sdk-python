@@ -24,10 +24,14 @@ responses. New code should prefer ``Query`` / ``Result[QueryFeature]``
 via the [Source facade](source-facade.md).
 
 ```python
-from honua_sdk import Query
+from honua_sdk import Pagination, Query
 
-q = Query(where="status = 'active'", out_fields=["id", "name"], limit=100)
-for feature in client.source(descriptor).iter_query(q):
+q = Query(
+    where="status = 'active'",
+    out_fields=["id", "name"],
+    pagination=Pagination(limit=100),
+)
+for feature in client.source(descriptor).iter_features(q):
     print(feature.id, feature.properties)
 ```
 
@@ -35,7 +39,7 @@ for feature in client.source(descriptor).iter_query(q):
 these models, [Errors](errors.md) for the exception hierarchy raised on
 failure, and [Pagination](../../pagination.md) for how `Result.exceeded_transfer_limit` /
 `Result.total_count` map to FeatureServer, OGC Features, STAC, and OData
-signals and how `Query.page_size` / `Query.max_pages` drive the pagination loop.
+signals and how `Query.pagination` configures the pagination loop.
 
 ## Geometry, schema, and GeoDataFrame ergonomics
 

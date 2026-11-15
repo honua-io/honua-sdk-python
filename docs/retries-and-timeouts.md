@@ -183,8 +183,10 @@ auto-generates a fresh `uuid4().hex` per request.
 ### Tighten timeout for a single hot path
 
 ```python
+from honua_sdk import Pagination, Query
+
 preview = client.with_options(timeout=2.0)
-features = preview.source(descriptor).query(Query(where="1=1", limit=10))
+features = preview.source(descriptor).query(Query(where="1=1", pagination=Pagination(limit=10)))
 ```
 
 Because `2.0 < 30.0`, this builds an independent clone. Close it (or

@@ -28,11 +28,13 @@ site claims ledger and other producer snapshots in this ecosystem:
 - **Never pad.** A capability this SDK's client source does not touch is
   omitted from the snapshot entirely -- there is no `status: "none"`
   entry to skim past.
-- **Honest `sinceVersion`.** This SDK is a source preview: neither
-  `honua-sdk` nor `honua-admin` has been published to PyPI yet (see the
-  repo README/AGENTS.md "Status: alpha"). Every entry's `sinceVersion` is
-  the literal string `"unreleased (source preview; not yet published to
-  PyPI)"` rather than an invented release number.
+- **Honest `sinceVersion`.** Both [`honua-sdk`](https://pypi.org/project/honua-sdk/0.3.2/)
+  and [`honua-admin`](https://pypi.org/project/honua-admin/0.3.2/) have published
+  PyPI releases. This snapshot describes current source coverage, not
+  installed-package certification. Per-capability first release versions have
+  not been verified, so every entry retains the literal string
+  `"unreleased (per-capability first release unverified)"`. The `unreleased`
+  marker does not mean the packages are unavailable.
 
 ## Schema
 
@@ -46,7 +48,7 @@ site claims ledger and other producer snapshots in this ecosystem:
     {
       "key": "serve.geoservices-featureserver",
       "status": "covered",
-      "sinceVersion": "unreleased (source preview; not yet published to PyPI)",
+      "sinceVersion": "unreleased (per-capability first release unverified)",
       "entrypoints": [
         "honua_sdk.protocols.GeoServicesFeatureServerClient",
         "honua_sdk.protocols.AsyncGeoServicesFeatureServerClient",
@@ -56,7 +58,7 @@ site claims ledger and other producer snapshots in this ecosystem:
     {
       "key": "serve.odata",
       "status": "partial",
-      "sinceVersion": "unreleased (source preview; not yet published to PyPI)",
+      "sinceVersion": "unreleased (per-capability first release unverified)",
       "entrypoints": ["honua_sdk.protocols.ODataClient", "honua_sdk.protocols.AsyncODataClient"],
       "note": "Read/query only ...; no create/update/delete entity-set operations are implemented."
     }

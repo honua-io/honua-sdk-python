@@ -37,10 +37,10 @@ Rules from #182, enforced below:
 - ``partial`` requires a non-empty ``note`` saying where coverage stops.
 - Capabilities the SDK does not touch are omitted entirely -- never
   padded with a ``none`` entry.
-- ``sinceVersion`` is an honest, non-invented marker: this SDK is a
-  source preview with no published PyPI release, so every entry uses the
-  literal :data:`SINCE_VERSION` string rather than a package version
-  number nobody can actually install.
+- ``sinceVersion`` describes capability introduction, not package availability.
+  Both SDK packages are published on PyPI, but their per-capability first
+  release versions have not been verified. Every entry retains the literal
+  :data:`SINCE_VERSION` marker rather than inventing an introduction version.
 
 Usage::
 
@@ -72,11 +72,8 @@ KEY_LIST_URL_ENV_VAR = "HONUA_CAPABILITY_KEY_LIST_URL"
 
 SCHEMA_VERSION = "sdk-coverage.v1"
 
-# This SDK is a source preview: neither honua-sdk nor honua-admin has ever
-# been published to PyPI (see AGENTS.md / README "Status: alpha"). Never
-# invent a released version number here -- this literal string is the
-# honest answer for every entry until a real release ships.
-SINCE_VERSION = "unreleased (source preview; not yet published to PyPI)"
+# Source coverage does not establish the first published version of a capability.
+SINCE_VERSION = "unreleased (per-capability first release unverified)"
 
 KEY_LIST_POLICY = (
     "Canonical capability key vocabulary is owned and published by "

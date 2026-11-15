@@ -246,4 +246,5 @@ def test_snapshot_every_entry_has_the_honest_since_version() -> None:
 
     for entry in snapshot["capabilities"]:
         assert entry["sinceVersion"] == gen_sdk_coverage.SINCE_VERSION
-        assert "published to PyPI" in entry["sinceVersion"] or "unreleased" in entry["sinceVersion"]
+        assert "unverified" in entry["sinceVersion"]
+        assert "not yet published" not in entry["sinceVersion"]

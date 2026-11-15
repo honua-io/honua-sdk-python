@@ -23,7 +23,7 @@ or execute arbitrary Python code.
 | Cancel | `DELETE /ogc/processes/jobs/{jobId}` (best effort) |
 | Auth | `HonuaClient` API key, bearer token, or refreshable auth provider |
 | Fixture | `honua-samples/jobs/geoprocessing-job-lifecycle.json#job-page-fixture:geometry-buffer-v1` |
-| Maturity | Source preview; not yet published to PyPI |
+| Maturity | Alpha; [`honua-sdk` is published on PyPI](https://pypi.org/project/honua-sdk/0.3.2/). This guide describes current source. |
 | Result href | Absolute result links are fetched only when scheme, host, and port match the client. A foreign origin is refused. |
 
 Inspect the process description before constructing `inputs`; those schemas are

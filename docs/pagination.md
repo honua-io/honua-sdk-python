@@ -29,8 +29,9 @@ See `_result_from_legacy` in `honua_sdk/source.py`:
 > and OData's `@odata.count` / `@odata.nextLink`) rather than being
 > silently fabricated from `len(features)`.
 
-When the server does not advertise a total count, `total_count` falls
-back to `len(features)` so callers can always read an integer.
+When the server does not advertise a total count, `total_count` is `None`.
+Use `len(result.features)` for the number of returned features; a bounded or
+truncated result can contain fewer features than the server has in total.
 
 ## Per-protocol pagination signals
 

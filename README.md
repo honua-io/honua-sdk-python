@@ -337,7 +337,7 @@ release fragment still requires every independent operation cell to pass.
 Bugs and feature requests: [GitHub issues](https://github.com/honua-io/honua-sdk-python/issues).
 This repository does not accept outside code contributions. Bug reports, feature
 requests, and interoperability reports are welcome through GitHub Issues. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the policy and security-reporting guidance.
+[CONTRIBUTING.md](.github/CONTRIBUTING.md) for the policy and security-reporting guidance.
 
 ## Security
 

@@ -162,10 +162,13 @@ Related: [honua-admin](https://github.com/honua-io/honua-sdk-python/tree/trunk/p
 From 0.2.1, each PyPI release is built by this repository's publication workflow, which attaches
 the same wheel and sdist to the matching GitHub release and records a build-provenance attestation
 for them. 0.2.0 was published without an attestation; use 0.2.1 or later when you need to verify
-provenance. To check a downloaded file:
+provenance. After this package is installed, download that same version and check the wheel:
 
 ```bash
-gh attestation verify honua_sdk-<version>-py3-none-any.whl --repo honua-io/honua-sdk-python
+version="$(python3 -c 'import importlib.metadata as metadata; print(metadata.version("honua-sdk"))')"
+mkdir -p ./honua-wheels
+pip download "honua-sdk==${version}" --no-deps --dest ./honua-wheels
+gh attestation verify "./honua-wheels/honua_sdk-${version}-py3-none-any.whl" --repo honua-io/honua-sdk-python
 ```
 
 ## License

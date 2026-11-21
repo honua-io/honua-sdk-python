@@ -254,7 +254,7 @@ def _workspace_layer_id(name: str, service_id: str, *, session: HonuaSession) ->
     """
 
     candidate = name.strip()
-    if candidate.isdigit():
+    if _LAYER_ID_RE.fullmatch(candidate):
         return int(candidate)
     try:
         layer_ids = session.service_layer_ids(service_id)
@@ -353,7 +353,8 @@ def descriptor_mapping(
     }
 
 
-_SERVICE_LAYER_PATH_RE = re.compile(r"^[^/]+/(?P<layer>\d+)$")
+_SERVICE_LAYER_PATH_RE = re.compile(r"^[^/]+/(?P<layer>[0-9]+)$")
+_LAYER_ID_RE = re.compile(r"[0-9]+")
 
 
 def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
@@ -386,10 +387,13 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     resolved = resolve(path, session=session)
     source = resolved.source.strip()
     workspace = resolved.workspace or session.workspace
+    service_layer_match = _SERVICE_LAYER_PATH_RE.match(source)
+    if service_layer_match is not None:
+        return int(service_layer_match.group("layer"))
     if source.startswith("honua://services/") or (
         isinstance(workspace, str) and workspace.startswith("honua://services/")
     ):
-        if not source.startswith("honua://services/") and not source.isdigit():
+        if not source.startswith("honua://services/") and not _LAYER_ID_RE.fullmatch(source):
             service_id = str(workspace)[len("honua://services/") :].strip("/").split("/")[0]
             if _workspace_layer_id(source, service_id, session=session) is None:
                 raise HonuaGpResolveError(
@@ -414,12 +418,8 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
             )
         return layer_id
 
-    if source.isdigit():
+    if _LAYER_ID_RE.fullmatch(source):
         return int(source)
-
-    service_layer_match = _SERVICE_LAYER_PATH_RE.match(source)
-    if service_layer_match is not None:
-        return int(service_layer_match.group("layer"))
 
     raise HonuaGpResolveError(
         str(path),

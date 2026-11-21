@@ -227,6 +227,9 @@ def test_workspace_layer_names_resolve_through_the_service_layer_list() -> None:
     assert resolve_layer_id("parcels") == 2
     assert resolve_layer_id("owners") == 5
     assert resolve_layer_id("3") == 3
+    assert resolve_layer_id("cadastre/4") == 4
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        resolve_layer_id("\u00b2")
     assert descriptor_mapping(resolve("Parcels"))["locator"] == {"serviceId": "cadastre", "layerId": 2}
     assert client.calls == ["metadata"]
     with pytest.raises(honua_gp.HonuaGpResolveError, match="no layer or table named 'rivers'"):

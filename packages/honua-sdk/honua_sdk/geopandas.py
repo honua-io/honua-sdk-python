@@ -140,7 +140,32 @@ def _coord_is_missing(value: Any) -> bool:
         return False
 
 
-def _geoservices_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noqa: PLR0911, PLR0912 -- geometry type dispatch
+_MIN_2D_LEN = 2
+
+
+def _normalize_geoservices_coord(
+    coord: Any,
+    *,
+    has_z: bool,
+    has_m: bool,
+) -> tuple[float, ...]:
+    """Slice a GeoServices coordinate vertex for Shapely (2D or 3D, never 4D/M-as-Z)."""
+    x = float(coord[0])
+    y = float(coord[1])
+    if len(coord) <= _MIN_2D_LEN or (has_m and not has_z):
+        return (x, y)
+    z = coord[2]
+    if _coord_is_missing(z):
+        return (x, y)
+    return (x, y, float(z))
+
+
+def _geoservices_geometry_to_shapely(  # noqa: PLR0911, PLR0912 -- geometry type dispatch
+    geom: dict[str, Any] | None,
+    *,
+    default_has_z: bool = False,
+    default_has_m: bool = False,
+) -> Any:
     """Convert a single GeoServices JSON geometry dict to a Shapely geometry.
 
     Returns ``None`` when *geom* is ``None`` or empty.
@@ -148,25 +173,31 @@ def _geoservices_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noq
     if geom is None:
         return None
 
+    has_z = bool(geom["hasZ"]) if "hasZ" in geom else default_has_z
+    has_m = bool(geom["hasM"]) if "hasM" in geom else default_has_m
+
     if "x" in geom and "y" in geom:
         x = geom["x"]
         y = geom["y"]
         # GeoServices REST represents null-island-style "no geometry" as NaN coords.
         if _coord_is_missing(x) or _coord_is_missing(y):
             return None
+        z = geom.get("z")
+        if z is not None and not _coord_is_missing(z) and geom.get("hasZ") is not False:
+            return Point(x, y, z)
         return Point(x, y)
 
     if "points" in geom:
         pts = geom["points"]
         if not pts:
             return None
-        return MultiPoint([Point(*p) for p in pts])
+        return MultiPoint([Point(*_normalize_geoservices_coord(p, has_z=has_z, has_m=has_m)) for p in pts])
 
     if "paths" in geom:
         paths = geom["paths"]
         if not paths:
             return None
-        lines = [list(map(tuple, path)) for path in paths]
+        lines = [[_normalize_geoservices_coord(v, has_z=has_z, has_m=has_m) for v in path] for path in paths]
         if len(lines) == 1:
             from shapely.geometry import LineString
 
@@ -188,7 +219,7 @@ def _geoservices_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noq
         holes_for: list[list[list[tuple[float, ...]]]] = []
 
         for idx, ring_coords in enumerate(rings):
-            coords = [tuple(c) for c in ring_coords]
+            coords = [_normalize_geoservices_coord(c, has_z=has_z, has_m=has_m) for c in ring_coords]
             lr = LinearRing(coords)
             # First ring is always exterior.  Subsequent rings:
             # if CCW it's a hole (GeoServices convention), otherwise exterior.
@@ -220,6 +251,12 @@ def _geoservices_geometry_to_shapely(geom: dict[str, Any] | None) -> Any:  # noq
 # Shapely -> GeoServices JSON geometry
 
 
+def _with_has_z(payload: dict[str, Any], *, has_z: bool) -> dict[str, Any]:
+    if has_z:
+        payload["hasZ"] = True
+    return payload
+
+
 def _shapely_to_geoservices_geometry(geom: Any) -> dict[str, Any] | None:  # noqa: PLR0911 -- geometry type dispatch
     """Convert a Shapely geometry to a GeoServices JSON geometry dict.
 
@@ -248,36 +285,37 @@ def _shapely_to_geoservices_geometry(geom: Any) -> dict[str, Any] | None:  # noq
     )
     from shapely.geometry.polygon import orient as _orient
 
+    has_z = bool(getattr(geom, "has_z", False))
+
     if isinstance(geom, _Pt):
+        if has_z:
+            return {"x": geom.x, "y": geom.y, "z": geom.z, "hasZ": True}
         return {"x": geom.x, "y": geom.y}
 
     if isinstance(geom, _MP):
-        return {"points": [list(p.coords[0]) for p in geom.geoms]}
+        return _with_has_z({"points": [list(p.coords[0]) for p in geom.geoms]}, has_z=has_z)
 
     if isinstance(geom, LineString):
-        return {"paths": [[list(c) for c in geom.coords]]}
+        return _with_has_z({"paths": [[list(c) for c in geom.coords]]}, has_z=has_z)
 
     if isinstance(geom, _MLS):
-        return {"paths": [[list(c) for c in line.coords] for line in geom.geoms]}
+        return _with_has_z({"paths": [[list(c) for c in line.coords] for line in geom.geoms]}, has_z=has_z)
 
     if isinstance(geom, _Poly):
         # GeoServices convention: exterior rings are clockwise, holes counter-clockwise.
         # ``orient(..., sign=-1.0)`` yields a CW exterior and CCW interiors.
         oriented = _orient(geom, sign=-1.0)
-        rings: list[list[list[float]]] = []
-        rings.append([list(c) for c in oriented.exterior.coords])
-        for interior in oriented.interiors:
-            rings.append([list(c) for c in interior.coords])
-        return {"rings": rings}
+        rings: list[list[list[float]]] = [[list(c) for c in oriented.exterior.coords]]
+        rings.extend([list(c) for c in interior.coords] for interior in oriented.interiors)
+        return _with_has_z({"rings": rings}, has_z=has_z)
 
     if isinstance(geom, _MPoly):
         rings_all: list[list[list[float]]] = []
         for poly in geom.geoms:
             oriented = _orient(poly, sign=-1.0)
             rings_all.append([list(c) for c in oriented.exterior.coords])
-            for interior in oriented.interiors:
-                rings_all.append([list(c) for c in interior.coords])
-        return {"rings": rings_all}
+            rings_all.extend([list(c) for c in interior.coords] for interior in oriented.interiors)
+        return _with_has_z({"rings": rings_all}, has_z=has_z)
 
     raise TypeError(f"Unsupported geometry type: {type(geom).__name__}")
 
@@ -395,13 +433,19 @@ def features_to_geodataframe(
     features = response.get("features", [])
     spatial_ref = response.get("spatialReference")
     crs = _crs_from_spatial_reference(spatial_ref)
+    default_has_z = bool(response.get("hasZ", False))
+    default_has_m = bool(response.get("hasM", False))
 
     rows: list[dict[str, Any]] = []
     geometries: list[Any] = []
 
     for feat in features:
         attrs = dict(feat.get("attributes", {}))
-        geom = _geoservices_geometry_to_shapely(feat.get("geometry"))
+        geom = _geoservices_geometry_to_shapely(
+            feat.get("geometry"),
+            default_has_z=default_has_z,
+            default_has_m=default_has_m,
+        )
         rows.append(attrs)
         geometries.append(geom)
 

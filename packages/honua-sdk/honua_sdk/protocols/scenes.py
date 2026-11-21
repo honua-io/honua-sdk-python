@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import httpx
 
@@ -1514,6 +1514,30 @@ def _is_external_tileset_uri(uri: str) -> bool:
     return path.lower().endswith(".json")
 
 
+def _normalize_scene_relative_path(path: str, *, base_dir: str = "", original: str | None = None) -> str:
+    """Normalize a relative scene/tileset POSIX path and reject root escapes."""
+    label = original if original is not None else path
+    if "\\" in path:
+        raise ValueError(f"Scene path {label!r} must use POSIX '/' separators.")
+    raw_segments = [seg for seg in (f"{base_dir}/{path}" if base_dir else path).split("/") if seg]
+    stack: list[str] = []
+    for segment in raw_segments:
+        decoded = unquote(segment)
+        if "\\" in decoded or "/" in decoded:
+            raise ValueError(f"Scene path {label!r} contains an invalid path segment {segment!r}.")
+        if decoded == ".":
+            continue
+        if decoded == "..":
+            if not stack:
+                raise ValueError(f"Scene path {label!r} resolves outside the scene root.")
+            stack.pop()
+            continue
+        stack.append(segment)
+    if not stack:
+        raise ValueError(f"Scene path {label!r} resolves to an empty path.")
+    return "/".join(stack)
+
+
 def _resolve_tileset_relative_path(base_path: str, uri: str) -> str:
     """Resolve a content ``uri`` against the package-relative ``base_path``.
 
@@ -1521,13 +1545,19 @@ def _resolve_tileset_relative_path(base_path: str, uri: str) -> str:
     (e.g. ``"tileset.json"`` or ``"sub/tileset.json"``). Absolute URLs and
     rooted paths are returned unchanged; relative URIs (and their query string)
     are normalized against the declaring document's directory using POSIX
-    semantics so the result stays a stable package-local key.
+    semantics so the result stays a stable package-local key. Relative paths
+    that escape above the tileset root (e.g. leading ``..`` segments) raise
+    :class:`ValueError`.
     """
     split = urlsplit(uri)
     if split.scheme or split.netloc or uri.startswith("/"):
         return uri
     directory = posixpath.dirname(base_path)
-    combined = posixpath.normpath(posixpath.join(directory, split.path)) if split.path else base_path
+    combined = (
+        _normalize_scene_relative_path(split.path, base_dir=directory, original=uri)
+        if split.path
+        else base_path
+    )
     return f"{combined}?{split.query}" if split.query else combined
 
 
@@ -1856,10 +1886,13 @@ def _scene_asset_path(scene_id: str, asset_path: str) -> str:
         raise ValueError("Scene asset path is required.")
     query = ""
     split = urlsplit(cleaned)
+    if split.scheme or split.netloc:
+        raise ValueError(f"Scene asset path {asset_path!r} must be a relative path.")
     if split.query:
         query = f"?{split.query}"
         cleaned = split.path
-    segments = "/".join(_encode_path_segment(segment) for segment in cleaned.split("/") if segment)
+    normalized = _normalize_scene_relative_path(cleaned.lstrip("/"), original=asset_path)
+    segments = "/".join(_encode_path_segment(segment) for segment in normalized.split("/"))
     return f"{_DEFAULT_TILESET_ROOT}/{_encode_path_segment(scene_id)}/{segments}{query}"
 
 

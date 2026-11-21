@@ -70,15 +70,22 @@ def _coords(point: Sequence[Any], *, has_z: bool) -> tuple[float, ...]:
     return (x, y)
 
 
-def _geoservices_to_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:  # noqa: PLR0911 - geometry dispatch
-    has_z = bool(geom.get("hasZ"))
+def _geoservices_to_geo_interface(  # noqa: PLR0911 - geometry dispatch
+    geom: Mapping[str, Any],
+    *,
+    default_has_z: bool = False,
+    default_has_m: bool = False,
+) -> dict[str, Any] | None:
+    has_z = bool(geom["hasZ"]) if "hasZ" in geom else default_has_z
+    _ = bool(geom["hasM"]) if "hasM" in geom else default_has_m
 
     if "x" in geom and "y" in geom:
         x = geom.get("x")
         y = geom.get("y")
         if x is None or y is None:
             return None
-        coords = _coords([x, y, geom.get("z")] if has_z else [x, y], has_z=has_z)
+        point_has_z = has_z or (geom.get("z") is not None and geom.get("hasZ") is not False)
+        coords = _coords([x, y, geom.get("z")] if point_has_z else [x, y], has_z=point_has_z)
         return {"type": "Point", "coordinates": list(coords)}
 
     if "points" in geom:
@@ -166,7 +173,12 @@ def _geojson_geo_interface(geom: Mapping[str, Any]) -> dict[str, Any] | None:
 # Public conversion entry points
 
 
-def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def geometry_to_geo_interface(
+    geom: Mapping[str, Any] | None,
+    *,
+    default_has_z: bool = False,
+    default_has_m: bool = False,
+) -> dict[str, Any] | None:
     """Normalize a GeoServices JSON or GeoJSON geometry mapping to a GeoJSON mapping.
 
     Returns ``None`` for an absent or empty geometry. This is the pure-dict
@@ -178,20 +190,33 @@ def geometry_to_geo_interface(geom: Mapping[str, Any] | None) -> dict[str, Any] 
     if ("type" in geom and "coordinates" in geom) or geom.get("type") == "GeometryCollection":
         return _geojson_geo_interface(geom)
     if _is_geoservices_geometry(geom):
-        return _geoservices_to_geo_interface(geom)
+        return _geoservices_to_geo_interface(
+            geom,
+            default_has_z=default_has_z,
+            default_has_m=default_has_m,
+        )
     # Fall back to GeoJSON interpretation when a ``type`` is present.
     if "type" in geom:
         return _geojson_geo_interface(geom)
     return None
 
 
-def geometry_to_shapely(geom: Mapping[str, Any] | None) -> BaseGeometry | None:
+def geometry_to_shapely(
+    geom: Mapping[str, Any] | None,
+    *,
+    default_has_z: bool = False,
+    default_has_m: bool = False,
+) -> BaseGeometry | None:
     """Convert a GeoServices JSON or GeoJSON geometry mapping to a Shapely geometry.
 
     Returns ``None`` for an absent or empty geometry. Raises :class:`ImportError`
     with an install hint when Shapely is not available.
     """
-    geo = geometry_to_geo_interface(geom)
+    geo = geometry_to_geo_interface(
+        geom,
+        default_has_z=default_has_z,
+        default_has_m=default_has_m,
+    )
     if geo is None:
         return None
     shapely_geometry = _require_shapely()

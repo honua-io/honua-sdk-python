@@ -317,6 +317,9 @@ def descriptor_mapping(
     }
 
 
+_SERVICE_LAYER_PATH_RE = re.compile(r"^[^/]+/(?P<layer>\d+)$")
+
+
 def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     """Project a workspace path / layer alias onto a honua-server ``layerId``.
 
@@ -328,28 +331,58 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     truth (alias map, ``honua://`` URIs, ``HONUA_GP_PATH_MAP``) drives both
     the source-facade descriptor and the process ``layerId``.
 
-    The ``layerId`` is taken from the resolved descriptor's ``locator.layerId``.
-    ``descriptor_mapping`` defaults unrecognized paths to ``layerId=0``; a
-    ``honua://services/<svc>/<n>`` URI yields ``<n>``. A non-integer or negative
-    layer id raises :class:`HonuaGpResolveError` so the caller surfaces the
-    gap scripting-API-style instead of POSTing an invalid process payload.
+    Accepts a non-negative integer, a numeric string, a ``service/layerId``
+    path, a FeatureServer layer URL, or a ``honua://services/<svc>/<n>`` URI
+    (directly or via an alias / ``HONUA_GP_PATH_MAP``). Unresolved bare layer
+    names raise :class:`HonuaGpResolveError` instead of silently defaulting to
+    ``layerId = 0``.
     """
+
+    if isinstance(path, int) and not isinstance(path, bool):
+        if path < 0:
+            raise HonuaGpResolveError(
+                str(path),
+                hint="Layer-aware geoprocessing requires a non-negative integer layer id.",
+            )
+        return path
 
     session = session or get_session()
     resolved = resolve(path, session=session)
-    descriptor = descriptor_mapping(resolved, session=session)
-    layer_id = descriptor.get("locator", {}).get("layerId")
-    if not isinstance(layer_id, int) or isinstance(layer_id, bool) or layer_id < 0:
-        raise HonuaGpResolveError(
-            str(path),
-            hint=(
-                "Layer-aware geoprocessing requires a numeric layer id. Point "
-                "the input at a honua://services/<service>/<layerId> URI (or a "
-                "HONUA_GP_PATH_MAP entry that resolves to one) so the shim "
-                "can address the honua-server process by layerId."
-            ),
-        )
-    return layer_id
+    source = resolved.source.strip()
+    workspace = resolved.workspace or session.workspace
+    if source.startswith("honua://services/") or (
+        isinstance(workspace, str) and workspace.startswith("honua://services/")
+    ):
+        descriptor = descriptor_mapping(resolved, session=session)
+        layer_id = descriptor.get("locator", {}).get("layerId")
+        if not isinstance(layer_id, int) or isinstance(layer_id, bool) or layer_id < 0:
+            raise HonuaGpResolveError(
+                str(path),
+                hint=(
+                    "Layer-aware geoprocessing requires a numeric layer id. Point "
+                    "the input at a honua://services/<service>/<layerId> URI (or a "
+                    "HONUA_GP_PATH_MAP entry that resolves to one) so the shim "
+                    "can address the honua-server process by layerId."
+                ),
+            )
+        return layer_id
+
+    if source.isdigit():
+        return int(source)
+
+    service_layer_match = _SERVICE_LAYER_PATH_RE.match(source)
+    if service_layer_match is not None:
+        return int(service_layer_match.group("layer"))
+
+    raise HonuaGpResolveError(
+        str(path),
+        hint=(
+            "Layer-aware geoprocessing requires an explicit numeric layer id. "
+            "Pass a honua://services/<service>/<layerId> URI, a FeatureServer "
+            "layer URL, a '<service>/<layerId>' path, an integer layer id, or "
+            "map the layer name via HONUA_GP_PATH_MAP."
+        ),
+    )
 
 
 __all__ = [

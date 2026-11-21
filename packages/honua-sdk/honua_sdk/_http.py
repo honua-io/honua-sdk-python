@@ -5,13 +5,14 @@ from __future__ import annotations
 import ipaddress
 import math
 import os
+import re
 import uuid
 import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 import httpx
 from anyio import to_thread
@@ -622,6 +623,35 @@ def _build_geoservices_error(
     )
 
 
+_SENSITIVE_QUERY_PARAMS = frozenset({"token", "api_key", "apikey", "access_token", "x-api-key"})
+_SENSITIVE_QUERY_RE = re.compile(
+    r"([?&](?:token|api_key|apikey|access_token|x-api-key)=)[^&\s'\"\]\)]+",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_url_query(url: str) -> str:
+    """Redact sensitive query parameters (``token``, ``api_key``, ``access_token``) from a URL."""
+    split = urlsplit(url)
+    if not split.query:
+        return url
+    pairs = parse_qsl(split.query, keep_blank_values=True)
+    if not any(key.lower() in _SENSITIVE_QUERY_PARAMS for key, _ in pairs):
+        return url
+    sanitized_parts: list[str] = []
+    for key, value in pairs:
+        encoded_key = quote(key, safe="")
+        if key.lower() in _SENSITIVE_QUERY_PARAMS:
+            sanitized_parts.append(f"{encoded_key}=[REDACTED]")
+        else:
+            sanitized_parts.append(f"{encoded_key}={quote(value, safe='')}")
+    return urlunsplit(split._replace(query="&".join(sanitized_parts)))
+
+
+def _sanitize_transport_message(message: str) -> str:
+    return _SENSITIVE_QUERY_RE.sub(r"\1[REDACTED]", message)
+
+
 def _to_transport_error(error: httpx.HTTPError) -> HonuaTransportError:
     """Map an httpx transport-level error to the Honua exception hierarchy.
 
@@ -630,9 +660,9 @@ def _to_transport_error(error: httpx.HTTPError) -> HonuaTransportError:
     :class:`httpx.HTTPError` arriving without a response) becomes
     :class:`HonuaTransportError`.
     """
-    message = str(error) or error.__class__.__name__
+    message = _sanitize_transport_message(str(error) or error.__class__.__name__)
     request = getattr(error, "request", None)
-    url = str(request.url) if request is not None else None
+    url = _sanitize_url_query(str(request.url)) if request is not None else None
     detail = f"Transport error: {message}"
 
     if isinstance(error, httpx.TimeoutException):

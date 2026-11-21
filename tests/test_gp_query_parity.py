@@ -520,7 +520,7 @@ def test_grpc_factory_builds_client_from_base_config() -> None:
         "https://example.test:8443",
         api_key="secret-key",
     ) as client:
-        grpc_client = client.grpc(insecure=True)
+        grpc_client = client.grpc(insecure=True, allow_insecure_transport=True)
         try:
             # Target derived from the REST authority (host:port).
             assert grpc_client._channel is not None
@@ -547,7 +547,7 @@ async def test_async_grpc_factory_builds_async_client() -> None:
     from honua_sdk.grpc import HonuaGrpcAsyncClient
 
     async with AsyncHonuaClient("https://example.test", api_key="k") as client:
-        grpc_client = client.grpc(insecure=True)
+        grpc_client = client.grpc(insecure=True, allow_insecure_transport=True)
         try:
             assert isinstance(grpc_client, HonuaGrpcAsyncClient)
         finally:

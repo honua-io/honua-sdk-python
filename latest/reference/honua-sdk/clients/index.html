@@ -6866,6 +6866,10 @@ as gRPC call metadata derived from the client's <code>api_key</code> /
 to TLS for an <code>https</code> base URL and plaintext otherwise; override with
 <code>credentials=</code> (a :class:<code>grpc.ChannelCredentials</code>) or
 <code>insecure=True</code>.</p>
+<p>When credentials are attached, an explicit <code>target</code> must match the
+client's configured host, and plaintext (<code>insecure=True</code>) channels to
+non-loopback targets are refused unless the client was built with
+<code>allow_insecure_http=True</code> (or <code>HONUA_ALLOW_INSECURE_HTTP=1</code> is set).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7005,7 +7009,11 @@ auth-derived metadata.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The client base_url has no host to derive a target from.</p>
+                <p>The client base_url has no host to derive a target from,
+an explicit target host does not match the client's configured
+host while credentials are attached, or plaintext transport is
+requested for a non-loopback target with credentials without
+the client's <code>allow_insecure_http</code> opt-in.</p>
               </div>
             </td>
           </tr>
@@ -11282,6 +11290,10 @@ as gRPC call metadata derived from the client's <code>api_key</code> /
 to TLS for an <code>https</code> base URL and plaintext otherwise; override with
 <code>credentials=</code> (a :class:<code>grpc.ChannelCredentials</code>) or
 <code>insecure=True</code>.</p>
+<p>When credentials are attached, an explicit <code>target</code> must match the
+client's configured host, and plaintext (<code>insecure=True</code>) channels to
+non-loopback targets are refused unless the client was built with
+<code>allow_insecure_http=True</code> (or <code>HONUA_ALLOW_INSECURE_HTTP=1</code> is set).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -11421,7 +11433,11 @@ auth-derived metadata.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The client base_url has no host to derive a target from.</p>
+                <p>The client base_url has no host to derive a target from,
+an explicit target host does not match the client's configured
+host while credentials are attached, or plaintext transport is
+requested for a non-loopback target with credentials without
+the client's <code>allow_insecure_http</code> opt-in.</p>
               </div>
             </td>
           </tr>

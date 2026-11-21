@@ -69,6 +69,7 @@ class HonuaSession:
     _processes: Any = field(default=None, repr=False)
     _layers: dict[str, LayerAlias] = field(default_factory=dict, repr=False)
     _unbound_outputs: dict[str, str] = field(default_factory=dict, repr=False)
+    _service_layer_ids: dict[str, dict[str, int]] = field(default_factory=dict, repr=False)
     _audit_writer: AuditWriter | None = field(default=None, repr=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
@@ -227,6 +228,27 @@ class HonuaSession:
         with self._lock:
             return self._unbound_outputs.get(name)
 
+    def service_layer_ids(self, service_id: str) -> dict[str, int]:
+        """Return ``{casefolded layer name: layer id}`` for a FeatureServer service.
+
+        Read once per service from ``client().feature_server(service_id).metadata()``
+        (its ``layers`` and ``tables``) and cached until :meth:`reset`.
+        """
+
+        with self._lock:
+            cached = self._service_layer_ids.get(service_id)
+            if cached is not None:
+                return cached
+            metadata = self.client().feature_server(service_id).metadata()
+            index: dict[str, int] = {}
+            for key in ("layers", "tables"):
+                for entry in metadata.get(key) or ():
+                    name, layer_id = entry.get("name"), entry.get("id")
+                    if isinstance(name, str) and isinstance(layer_id, int) and not isinstance(layer_id, bool):
+                        index.setdefault(name.casefold(), layer_id)
+            self._service_layer_ids[service_id] = index
+            return index
+
     def resolve_layer_or_source(self, name: str) -> str:
         """Return the underlying source string for an alias, or the input if none registered."""
 
@@ -260,6 +282,7 @@ class HonuaSession:
             self._processes = None
             self._layers = {}
             self._unbound_outputs = {}
+            self._service_layer_ids = {}
             self._audit_writer = None
 
     # Internal builders

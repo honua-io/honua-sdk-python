@@ -23,7 +23,9 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-from ._errors import HonuaGpResolveError
+from honua_sdk.errors import HonuaError
+
+from ._errors import HonuaGpConfigurationError, HonuaGpResolveError
 from ._output_artifact import OUTPUT_SOURCE_PREFIX
 from ._session import HonuaSession, LayerAlias, get_session
 
@@ -241,6 +243,37 @@ def _require_configured_server(resolved: ResolvedSource, session: HonuaSession) 
         )
 
 
+def _workspace_layer_id(name: str, service_id: str, *, session: HonuaSession) -> int | None:
+    """Resolve a name inside a ``honua://services/<service>`` workspace to its layer id.
+
+    A numeric name is the layer id itself; any other name is looked up in the
+    service's FeatureServer ``layers``/``tables`` metadata so the layer the
+    script names is the one addressed. Returns ``None`` when the layer list
+    cannot be read (no client, no ``feature_server``, an HTTP error, or an
+    empty list); raises when the list is readable but lacks the name.
+    """
+
+    candidate = name.strip()
+    if candidate.isdigit():
+        return int(candidate)
+    try:
+        layer_ids = session.service_layer_ids(service_id)
+    except (HonuaError, HonuaGpConfigurationError, AttributeError, TypeError):
+        return None
+    if not layer_ids:
+        return None
+    layer_id = layer_ids.get(candidate.casefold())
+    if layer_id is None:
+        raise HonuaGpResolveError(
+            name,
+            hint=(
+                f"Service {service_id!r} has no layer or table named {name!r}. Use one of "
+                f"{sorted(layer_ids)!r}, a numeric layer id, or a HONUA_GP_PATH_MAP entry."
+            ),
+        )
+    return layer_id
+
+
 def descriptor_mapping(
     resolved: ResolvedSource,
     *,
@@ -299,7 +332,10 @@ def descriptor_mapping(
         ws_parts = [part for part in workspace[len("honua://services/") :].split("/") if part]
         if ws_parts:
             service_id = ws_parts[0]
-        layer_id = 0
+            # An unreadable layer list keeps the legacy layer 0 so read paths
+            # surface their own not-found errors; resolve_layer_id refuses it.
+            looked_up = _workspace_layer_id(source, service_id, session=session)
+            layer_id = 0 if looked_up is None else looked_up
     else:
         service_id = source
         layer_id = 0
@@ -353,6 +389,17 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
     if source.startswith("honua://services/") or (
         isinstance(workspace, str) and workspace.startswith("honua://services/")
     ):
+        if not source.startswith("honua://services/") and not source.isdigit():
+            service_id = str(workspace)[len("honua://services/") :].strip("/").split("/")[0]
+            if _workspace_layer_id(source, service_id, session=session) is None:
+                raise HonuaGpResolveError(
+                    str(path),
+                    hint=(
+                        f"Could not read the layer list of service {service_id!r} to find "
+                        f"{source!r}; address it as honua://services/{service_id}/<layerId> "
+                        "or through HONUA_GP_PATH_MAP."
+                    ),
+                )
         descriptor = descriptor_mapping(resolved, session=session)
         layer_id = descriptor.get("locator", {}).get("layerId")
         if not isinstance(layer_id, int) or isinstance(layer_id, bool) or layer_id < 0:

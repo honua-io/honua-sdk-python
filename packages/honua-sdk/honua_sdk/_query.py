@@ -151,18 +151,29 @@ def feature_server_extra_params(query: FeatureQuery) -> dict[str, Any]:
             params.setdefault(key, value)
     elif query.bbox is not None:
         bbox = _bbox_values(query.bbox)
+        if len(bbox) == 6:
+            xmin, ymin, zmin, xmax, ymax, zmax = bbox
+            envelope: dict[str, Any] = {
+                "xmin": xmin,
+                "ymin": ymin,
+                "xmax": xmax,
+                "ymax": ymax,
+                "zmin": zmin,
+                "zmax": zmax,
+                "spatialReference": {"wkid": 4326},
+            }
+        else:
+            xmin, ymin, xmax, ymax = bbox
+            envelope = {
+                "xmin": xmin,
+                "ymin": ymin,
+                "xmax": xmax,
+                "ymax": ymax,
+                "spatialReference": {"wkid": 4326},
+            }
         params.setdefault(
             "geometry",
-            json.dumps(
-                {
-                    "xmin": bbox[0],
-                    "ymin": bbox[1],
-                    "xmax": bbox[2],
-                    "ymax": bbox[3],
-                    "spatialReference": {"wkid": 4326},
-                },
-                separators=(",", ":"),
-            ),
+            json.dumps(envelope, separators=(",", ":")),
         )
         params.setdefault("geometryType", "esriGeometryEnvelope")
         params.setdefault("spatialRel", "esriSpatialRelIntersects")
@@ -200,10 +211,17 @@ def query_max_pages(query: FeatureQuery, default: int) -> int:
 
 
 def query_feature_from_feature_server(feature: Feature, *, source: str, protocol: str) -> QueryFeature:
+    geometry: dict[str, Any] | None = None
+    if feature.geometry is not None:
+        geometry = dict(feature.geometry)
+        if feature.has_z and "hasZ" not in geometry:
+            geometry["hasZ"] = True
+        if feature.has_m and "hasM" not in geometry:
+            geometry["hasM"] = True
     return QueryFeature(
         id=feature.object_id,
         properties=dict(feature.attributes),
-        geometry=dict(feature.geometry) if feature.geometry is not None else None,
+        geometry=geometry,
         protocol=protocol,
         source=source,
         raw=dict(feature.raw),
@@ -238,12 +256,14 @@ def query_feature_from_mapping(feature: Mapping[str, Any], *, source: str, proto
     )
 
 
-def _bbox_values(value: str | Sequence[int | float]) -> tuple[float, float, float, float]:
+def _bbox_values(value: str | Sequence[int | float]) -> tuple[float, ...]:
     parts = value.split(",") if isinstance(value, str) else list(value)
-    if len(parts) != 4:
-        raise ValueError("bbox must contain exactly four values: minx, miny, maxx, maxy.")
-    minx, miny, maxx, maxy = (float(part) for part in parts)
-    return minx, miny, maxx, maxy
+    if len(parts) not in (4, 6):
+        raise ValueError(
+            "bbox must contain 4 values (minx, miny, maxx, maxy) or "
+            "6 values (minx, miny, minz, maxx, maxy, maxz)."
+        )
+    return tuple(float(part) for part in parts)
 
 
 def _first_present(payload: Mapping[str, Any], *keys: str) -> Any:

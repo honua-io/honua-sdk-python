@@ -292,7 +292,7 @@ def RasterCalculator(
     ... (raw GeoTIFF bytes or ``RasterReference.from_geotiff_bytes``);
     ``expression`` is an allow-listed band-math expression (e.g. ``"(A-B)/(A+B)"``).
     """
-    inputs: dict[str, Any] = {"sources": encode_source_list(in_rasters)}
+    inputs: dict[str, Any] = {"sources": encode_source_list(in_rasters, min_sources=1)}
     server = _server_params("sa.RasterCalculator", {"data_type": data_type, "no_data": no_data}, parameters)
     server["expression"] = expression
     merge_parameters(inputs, server)

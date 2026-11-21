@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from ._geometry import geometry_to_geo_interface, geometry_to_shapely
@@ -32,6 +32,8 @@ class Feature:
     geometry: Mapping[str, Any] | None = None
     raw: Mapping[str, Any] = field(default_factory=dict)
     object_id_field: str | None = None
+    has_z: bool = False
+    has_m: bool = False
 
     @classmethod
     def from_dict(
@@ -66,7 +68,11 @@ class Feature:
         the wider Python geospatial ecosystem. Handles both the GeoServices JSON
         (FeatureServer) and GeoJSON (OGC/STAC) geometry encodings.
         """
-        return geometry_to_geo_interface(self.geometry)
+        return geometry_to_geo_interface(
+            self.geometry,
+            default_has_z=self.has_z,
+            default_has_m=self.has_m,
+        )
 
     def to_shapely(self) -> "BaseGeometry | None":
         """Return this feature's geometry as a Shapely geometry.
@@ -77,7 +83,11 @@ class Feature:
         feature has no geometry. Raises :class:`ImportError` with an install
         hint when the optional ``shapely`` dependency is absent.
         """
-        return geometry_to_shapely(self.geometry)
+        return geometry_to_shapely(
+            self.geometry,
+            default_has_z=self.has_z,
+            default_has_m=self.has_m,
+        )
 
     @property
     def geometry_shape(self) -> "BaseGeometry | None":
@@ -99,15 +109,24 @@ class FeatureSet:
     spatial_reference: Mapping[str, Any] | None = None
     exceeded_transfer_limit: bool = False
     raw: Mapping[str, Any] = field(default_factory=dict)
+    has_z: bool = False
+    has_m: bool = False
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "FeatureSet":
         raw_features = payload.get("features")
         raw_fields = payload.get("fields")
         spatial_reference = payload.get("spatialReference")
+        has_z = bool(payload.get("hasZ", False))
+        has_m = bool(payload.get("hasM", False))
+        object_id_field = _optional_str(payload.get("objectIdFieldName"))
         return cls(
             features=tuple(
-                Feature.from_dict(feature, object_id_field=_optional_str(payload.get("objectIdFieldName")))
+                replace(
+                    Feature.from_dict(feature, object_id_field=object_id_field),
+                    has_z=has_z,
+                    has_m=has_m,
+                )
                 for feature in raw_features or []
                 if isinstance(feature, Mapping)
             ),
@@ -116,6 +135,8 @@ class FeatureSet:
             spatial_reference=dict(spatial_reference) if isinstance(spatial_reference, Mapping) else None,
             exceeded_transfer_limit=bool(payload.get("exceededTransferLimit", False)),
             raw=dict(payload),
+            has_z=has_z,
+            has_m=has_m,
         )
 
 

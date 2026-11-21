@@ -21,6 +21,8 @@ import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
+from honua_sdk.errors import HonuaError
+
 from .._audit import _shape_of, record_call
 from .._compat import anchor_for
 from .._dispatch import raise_unsupported
@@ -85,10 +87,102 @@ def _combine_where(*clauses: str | None) -> str | None:
     return " AND ".join(f"({clause})" for clause in parts)
 
 
-_OID_KEYS: tuple[str, ...] = ("OBJECTID", "oid", "FID")
+_DEFAULT_OID_FIELD = "OBJECTID"
+_OID_KEYS: tuple[str, ...] = ("OBJECTID", "objectid", "objectId", "oid", "FID")
 
 
-def _oid_from_attrs(attrs: Mapping[str, Any]) -> Any:
+def _resolve_oid_field(source: Any) -> str:
+    """Resolve the layer's actual ``objectIdFieldName`` from layer metadata.
+
+    Falls back to ``"OBJECTID"`` only when the source does not expose schema
+    metadata or the schema does not advertise an OID field name.
+    """
+
+    schema_fn = getattr(source, "schema", None)
+    if not callable(schema_fn):
+        return _DEFAULT_OID_FIELD
+    try:
+        schema = schema_fn()
+    except (HonuaError, HonuaGpUnsupportedError, NotImplementedError):
+        # Metadata unavailable or unsupported for this source: keep the default.
+        return _DEFAULT_OID_FIELD
+    if schema is None:
+        return _DEFAULT_OID_FIELD
+
+    direct = getattr(schema, "object_id_field", None)
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+
+    raw = getattr(schema, "raw", None)
+    if isinstance(raw, Mapping):
+        for key in ("objectIdFieldName", "objectIdField"):
+            candidate = raw.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+
+    if isinstance(schema, Mapping):
+        for key in ("objectIdFieldName", "objectIdField"):
+            candidate = schema.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+
+    fields = getattr(schema, "fields", None)
+    if fields is None and isinstance(schema, Mapping):
+        fields = schema.get("fields")
+    if isinstance(fields, Sequence) and not isinstance(fields, (str, bytes)):
+        for entry in fields:
+            field_type = entry.get("type") if isinstance(entry, Mapping) else getattr(entry, "type", None)
+            field_name = entry.get("name") if isinstance(entry, Mapping) else getattr(entry, "name", None)
+            if field_type == "esriFieldTypeOID" and isinstance(field_name, str) and field_name.strip():
+                return field_name.strip()
+
+    return _DEFAULT_OID_FIELD
+
+
+def _check_apply_edits_result(result: Any, *, qualified_name: str) -> dict[str, Any]:
+    """Validate an ``apply_edits`` response and raise ``ExecuteError`` on failed rows."""
+
+    result_dict = getattr(result, "to_dict", lambda: result)()
+    failures: list[str] = []
+
+    if isinstance(result_dict, Mapping):
+        for bucket in ("addResults", "updateResults", "deleteResults"):
+            items = result_dict.get(bucket)
+            if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
+                continue
+            for idx, item in enumerate(items):
+                if not isinstance(item, Mapping):
+                    continue
+                if item.get("success") is False:
+                    err = item.get("error")
+                    detail = ""
+                    if isinstance(err, Mapping):
+                        code = err.get("code")
+                        desc = err.get("description") or err.get("message")
+                        parts = [str(p) for p in (code, desc) if p is not None and str(p)]
+                        if parts:
+                            detail = f" ({': '.join(parts)})"
+                    elif err:
+                        detail = f" ({err})"
+                    failures.append(f"{bucket}[{idx}]{detail}")
+
+    if not failures and getattr(result, "all_succeeded", None) is False:
+        failures.append("apply_edits reported one or more failed edit operations")
+
+    if failures:
+        summary = "; ".join(failures[:5])
+        if len(failures) > 5:
+            summary += f"; ... ({len(failures)} total failures)"
+        raise ExecuteError(
+            f"{qualified_name} apply_edits failed: {summary}",
+            function=qualified_name,
+            error_kind="apply_edits_failed",
+            compat_anchor=anchor_for(qualified_name),
+        )
+    return result_dict
+
+
+def _oid_from_attrs(attrs: Mapping[str, Any], *, oid_field: str = _DEFAULT_OID_FIELD) -> Any:
     """Return the first present OID-shaped value in ``attrs``.
 
     Uses explicit key-presence checks so a valid zero-valued OID
@@ -96,6 +190,8 @@ def _oid_from_attrs(attrs: Mapping[str, Any]) -> Any:
     ``None`` by a ``get(...) or ...`` falsy chain.
     """
 
+    if oid_field in attrs:
+        return attrs[oid_field]
     for key in _OID_KEYS:
         if key in attrs:
             return attrs[key]
@@ -123,7 +219,9 @@ def _attrs_for_feature(feature: Any) -> dict[str, Any]:
     return {}
 
 
-def _oid_from_feature(feature: Any, attrs: Mapping[str, Any]) -> Any:
+def _oid_from_feature(
+    feature: Any, attrs: Mapping[str, Any], *, oid_field: str = _DEFAULT_OID_FIELD
+) -> Any:
     """Resolve a feature's OID, preferring the SDK's protocol-neutral ``.id``.
 
     ``QueryFeature.id`` is the SDK's already-resolved stable identifier --
@@ -136,10 +234,12 @@ def _oid_from_feature(feature: Any, attrs: Mapping[str, Any]) -> Any:
     feature_id = getattr(feature, "id", None)
     if feature_id is not None:
         return feature_id
-    return _oid_from_attrs(attrs)
+    return _oid_from_attrs(attrs, oid_field=oid_field)
 
 
-def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
+def _values_for_row(
+    feature: Any, fields: Sequence[str], *, oid_field: str = _DEFAULT_OID_FIELD
+) -> tuple[Any, ...]:
     attrs = _attrs_for_feature(feature)
 
     geometry = getattr(feature, "geometry", None)
@@ -151,7 +251,7 @@ def _values_for_row(feature: Any, fields: Sequence[str]) -> tuple[Any, ...]:
         if field.upper() in {"SHAPE@", "SHAPE@JSON"}:
             out.append(_shape_value(geometry, field.upper()))
         elif field.upper() == "OID@":
-            out.append(_oid_from_feature(feature, attrs))
+            out.append(_oid_from_feature(feature, attrs, oid_field=oid_field))
         else:
             out.append(attrs.get(field))
     return tuple(out)
@@ -168,7 +268,9 @@ def _shape_value(geometry: Any, token: str) -> Any:
     return geometry
 
 
-def _payload_for_row(row: Sequence[Any], fields: Sequence[str]) -> dict[str, Any]:
+def _payload_for_row(
+    row: Sequence[Any], fields: Sequence[str], *, oid_field: str = _DEFAULT_OID_FIELD
+) -> dict[str, Any]:
     # Explicit length check so a short / long row surfaces as
     # HonuaGpConfigurationError (which subclasses ExecuteError) instead of
     # the bare ValueError that ``zip(..., strict=True)`` would otherwise raise
@@ -191,7 +293,7 @@ def _payload_for_row(row: Sequence[Any], fields: Sequence[str]) -> dict[str, Any
             else:
                 geometry = value
         elif upper == "OID@":
-            attributes["OBJECTID"] = value
+            attributes[oid_field] = value
         else:
             attributes[field] = value
     payload: dict[str, Any] = {"attributes": attributes}
@@ -200,14 +302,16 @@ def _payload_for_row(row: Sequence[Any], fields: Sequence[str]) -> dict[str, Any
     return payload
 
 
-def _out_fields_for_cursor(fields: Sequence[str]) -> tuple[str, ...] | None:
+def _out_fields_for_cursor(
+    fields: Sequence[str], *, oid_field: str = _DEFAULT_OID_FIELD
+) -> tuple[str, ...] | None:
     if any(field == "*" for field in fields):
         return None
     out_fields: list[str] = []
     for field in fields:
         upper = field.upper()
         if upper == "OID@":
-            out_fields.append("OBJECTID")
+            out_fields.append(oid_field)
         elif upper in {"SHAPE@", "SHAPE@JSON"}:
             continue
         else:
@@ -396,11 +500,13 @@ class SearchCursor(_BaseCursor):
         self._iterator: Iterator[Any] | None = None
         self._count = 0
         self._alias: Any | None = None
+        self._oid_field: str = _DEFAULT_OID_FIELD
 
     def _open(self) -> None:
         source, alias = _client_source(self.in_table)
         self._source = source
         self._alias = alias
+        self._oid_field = _resolve_oid_field(source)
 
     def _query_kwargs(self) -> dict[str, Any]:
         kwargs: dict[str, Any] = {}
@@ -408,7 +514,7 @@ class SearchCursor(_BaseCursor):
         combined = _combine_where(alias_where, self.where_clause)
         if combined:
             kwargs["where"] = combined
-        out_fields = _out_fields_for_cursor(self.fields)
+        out_fields = _out_fields_for_cursor(self.fields, oid_field=self._oid_field)
         if out_fields is not None:
             kwargs["out_fields"] = out_fields
         kwargs["return_geometry"] = _return_geometry_for_cursor(self.fields)
@@ -454,7 +560,7 @@ class SearchCursor(_BaseCursor):
         except Exception as exc:
             raise _wrap_source_error(self.qualified_name, exc) from exc
         self._count += 1
-        return _values_for_row(feature, self.fields)
+        return _values_for_row(feature, self.fields, oid_field=self._oid_field)
 
     def _close(self, exc_type, exc, tb) -> None:
         if self._record is not None and self._record.get("result_shape") is None:
@@ -481,11 +587,13 @@ class UpdateCursor(_BaseCursor):
         self._updated = 0
         self._deleted = 0
         self._alias: Any | None = None
+        self._oid_field: str = _DEFAULT_OID_FIELD
 
     def _open(self) -> None:
         self._source, self._alias = _client_source(self.in_table)
         if isinstance(self._source, OutputArtifactSource):
             raise self._source.refusal(self.qualified_name, OUTPUT_READ_ONLY_REASON)
+        self._oid_field = _resolve_oid_field(self._source)
 
     def _reset(self) -> None:
         self._iterator = None
@@ -502,7 +610,7 @@ class UpdateCursor(_BaseCursor):
             combined = _combine_where(alias_where, self.where_clause)
             if combined:
                 kwargs["where"] = combined
-            out_fields = _out_fields_for_cursor(self.fields)
+            out_fields = _out_fields_for_cursor(self.fields, oid_field=self._oid_field)
             if out_fields is not None:
                 kwargs["out_fields"] = out_fields
             kwargs["return_geometry"] = _return_geometry_for_cursor(self.fields)
@@ -528,17 +636,17 @@ class UpdateCursor(_BaseCursor):
             raise _wrap_source_error(self.qualified_name, exc) from exc
         self._current_feature = feature
         self._count += 1
-        return list(_values_for_row(feature, self.fields))
+        return list(_values_for_row(feature, self.fields, oid_field=self._oid_field))
 
     def updateRow(self, row: Sequence[Any]) -> None:
         self._ensure_open()
         if self._current_feature is None:
             raise HonuaGpConfigurationError("updateRow called before the cursor produced a row.")
-        payload = _payload_for_row(row, self.fields)
+        payload = _payload_for_row(row, self.fields, oid_field=self._oid_field)
         oid = self._extract_oid(self._current_feature)
         if oid is None:
             raise HonuaGpConfigurationError("updateRow requires an OID-bearing row; include OID@ in field_names.")
-        payload.setdefault("attributes", {})["OBJECTID"] = oid
+        payload.setdefault("attributes", {})[self._oid_field] = oid
         self._updates.append(payload)
         self._updated += 1
 
@@ -572,7 +680,7 @@ class UpdateCursor(_BaseCursor):
             raise _wrap_source_error(self.qualified_name, exc) from exc
         self._updates.clear()
         self._deletes.clear()
-        return getattr(result, "to_dict", lambda: result)()
+        return _check_apply_edits_result(result, qualified_name=self.qualified_name)
 
     def _close(self, exc_type, exc, tb) -> None:
         if exc_type is not None:
@@ -586,7 +694,7 @@ class UpdateCursor(_BaseCursor):
             })
 
     def _extract_oid(self, feature: Any) -> Any:
-        return _oid_from_feature(feature, _attrs_for_feature(feature))
+        return _oid_from_feature(feature, _attrs_for_feature(feature), oid_field=self._oid_field)
 
 
 class InsertCursor(_BaseCursor):
@@ -599,11 +707,13 @@ class InsertCursor(_BaseCursor):
         self._inserts: list[dict[str, Any]] = []
         self._inserted = 0
         self._alias: Any | None = None
+        self._oid_field: str = _DEFAULT_OID_FIELD
 
     def _open(self) -> None:
         self._source, self._alias = _client_source(self.in_table)
         if isinstance(self._source, OutputArtifactSource):
             raise self._source.refusal(self.qualified_name, OUTPUT_READ_ONLY_REASON)
+        self._oid_field = _resolve_oid_field(self._source)
 
     def reset(self) -> None:
         # Real ``da.InsertCursor`` does not expose ``reset()``: there is
@@ -619,7 +729,7 @@ class InsertCursor(_BaseCursor):
 
     def insertRow(self, row: Sequence[Any]) -> int:
         self._ensure_open()
-        payload = _payload_for_row(row, self.fields)
+        payload = _payload_for_row(row, self.fields, oid_field=self._oid_field)
         self._inserts.append(payload)
         self._inserted += 1
         return self._inserted  # The scripting API returns the new OID; this is a 1-based index before flush.
@@ -636,7 +746,7 @@ class InsertCursor(_BaseCursor):
         except Exception as exc:
             raise _wrap_source_error(self.qualified_name, exc) from exc
         self._inserts.clear()
-        return getattr(result, "to_dict", lambda: result)()
+        return _check_apply_edits_result(result, qualified_name=self.qualified_name)
 
     def _close(self, exc_type, exc, tb) -> None:
         if exc_type is not None:

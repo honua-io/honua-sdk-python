@@ -5,13 +5,14 @@ from __future__ import annotations
 import ipaddress
 import math
 import os
+import re
 import uuid
 import warnings
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 import httpx
 from anyio import to_thread
@@ -156,13 +157,64 @@ _TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
 
 def _is_loopback_host(host: str) -> bool:
     """Return whether *host* is ``localhost`` or a loopback IP (127.0.0.0/8, ``::1``)."""
-    candidate = host.strip().strip("[]").rstrip(".").lower()
+    candidate = _normalize_host(host)
     if candidate == "localhost":
         return True
     try:
         return ipaddress.ip_address(candidate).is_loopback
     except ValueError:
         return False
+
+
+def _normalize_host(host: str) -> str:
+    return host.strip().strip("[]").rstrip(".").lower()
+
+
+def _grpc_target_hosts(target: str) -> tuple[str, ...]:
+    """Return every host a gRPC dial target can connect to.
+
+    ``ipv4:``/``ipv6:`` targets list several comma-separated addresses and the
+    channel may use any of them, so each one is returned.
+    """
+    candidate = target.strip()
+    if not candidate:
+        raise ValueError("gRPC target must be non-empty.")
+    if candidate.startswith("dns:///"):
+        addresses = [candidate[len("dns:///") :]]
+    elif candidate.startswith("dns://"):
+        addresses = [candidate[len("dns://") :].partition("/")[2]]
+    elif candidate.startswith(("ipv4:", "ipv6:")):
+        addresses = candidate.split(":", 1)[1].split(",")
+    else:
+        addresses = [candidate]
+    hosts = tuple(urlsplit(f"//{address.strip()}").hostname for address in addresses)
+    if not hosts or any(not host for host in hosts):
+        raise ValueError(f"Cannot extract host from gRPC target {target!r}.")
+    return tuple(host for host in hosts if host)
+
+
+def _ensure_grpc_credential_target(
+    target: str,
+    *,
+    configured_host: str | None,
+    refuse_plaintext: bool,
+) -> None:
+    """Refuse a credentialed gRPC target the client is not configured for.
+
+    Every address of *target* must equal *configured_host* (skipped when
+    ``None``), and with *refuse_plaintext* every address must be loopback.
+    """
+    for host in _grpc_target_hosts(target):
+        if configured_host is not None and _normalize_host(host) != _normalize_host(configured_host):
+            raise ValueError(
+                f"Refusing to send credentials to gRPC target {target!r}: "
+                f"host {host!r} does not match configured client host {configured_host!r}."
+            )
+        if refuse_plaintext and not _is_loopback_host(host):
+            raise ValueError(
+                f"Refusing to send credentials over plaintext gRPC to non-loopback target {target!r}. "
+                "Use TLS (`insecure=False`) or opt in explicitly with `allow_insecure_http=True` on the client."
+            )
 
 
 def _insecure_http_opted_in_by_env() -> bool:
@@ -622,6 +674,35 @@ def _build_geoservices_error(
     )
 
 
+_SENSITIVE_QUERY_PARAMS = frozenset({"token", "api_key", "apikey", "access_token", "x-api-key"})
+_SENSITIVE_QUERY_RE = re.compile(
+    r"([?&](?:token|api_key|apikey|access_token|x-api-key)=)[^&\s'\"\]\)]+",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_url_query(url: str) -> str:
+    """Redact sensitive query parameters (``token``, ``api_key``, ``access_token``) from a URL."""
+    split = urlsplit(url)
+    if not split.query:
+        return url
+    pairs = parse_qsl(split.query, keep_blank_values=True)
+    if not any(key.lower() in _SENSITIVE_QUERY_PARAMS for key, _ in pairs):
+        return url
+    sanitized_parts: list[str] = []
+    for key, value in pairs:
+        encoded_key = quote(key, safe="")
+        if key.lower() in _SENSITIVE_QUERY_PARAMS:
+            sanitized_parts.append(f"{encoded_key}=[REDACTED]")
+        else:
+            sanitized_parts.append(f"{encoded_key}={quote(value, safe='')}")
+    return urlunsplit(split._replace(query="&".join(sanitized_parts)))
+
+
+def _sanitize_transport_message(message: str) -> str:
+    return _SENSITIVE_QUERY_RE.sub(r"\1[REDACTED]", message)
+
+
 def _to_transport_error(error: httpx.HTTPError) -> HonuaTransportError:
     """Map an httpx transport-level error to the Honua exception hierarchy.
 
@@ -630,9 +711,9 @@ def _to_transport_error(error: httpx.HTTPError) -> HonuaTransportError:
     :class:`httpx.HTTPError` arriving without a response) becomes
     :class:`HonuaTransportError`.
     """
-    message = str(error) or error.__class__.__name__
+    message = _sanitize_transport_message(str(error) or error.__class__.__name__)
     request = getattr(error, "request", None)
-    url = str(request.url) if request is not None else None
+    url = _sanitize_url_query(str(request.url)) if request is not None else None
     detail = f"Transport error: {message}"
 
     if isinstance(error, httpx.TimeoutException):

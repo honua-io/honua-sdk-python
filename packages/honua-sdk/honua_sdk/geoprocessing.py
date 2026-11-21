@@ -686,6 +686,24 @@ def _next_poll_delay(current: float) -> float:
     return min(current * 2.0, _MAX_POLL_INTERVAL)
 
 
+_OUTPUT_CRS_PARAM_KEYS = frozenset({
+    "targetsrid",
+    "tosrid",
+    "outsr",
+    "out_sr",
+    "outputcrs",
+    "crs",
+})
+
+
+def _strip_base_path_prefix(path: str, base_url: httpx.URL) -> str:
+    """Strip *base_url*'s path prefix so sub-path deployments do not double-prefix."""
+    prefix = base_url.path.rstrip("/")
+    if prefix and (path == prefix or path.startswith(f"{prefix}/")):
+        return path[len(prefix) :] or "/"
+    return path
+
+
 def _href_path_and_params(href: str, base_url: httpx.URL) -> tuple[str, dict[str, str]]:
     """Return a same-origin path and query for a result ``href``.
 
@@ -693,6 +711,8 @@ def _href_path_and_params(href: str, base_url: httpx.URL) -> tuple[str, dict[str
     only when its scheme, host, and port match ``base_url``. A foreign origin
     is refused: the host is not stripped and replayed against the configured
     server, and the client's credentials are not sent to another host.
+    Any leading ``base_url`` path prefix is stripped because the client's
+    ``_request`` joins ``base_url.path`` onto relative paths.
     """
     parsed = urlsplit(href)
     if parsed.netloc and not parsed.scheme:
@@ -702,7 +722,48 @@ def _href_path_and_params(href: str, base_url: httpx.URL) -> tuple[str, dict[str
         path = parsed.path or "/"
     else:
         path = parsed.path or href
+    path = _strip_base_path_prefix(path, base_url)
     return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
+
+
+def _results_to_dataframe(
+    result: Mapping[str, Any],
+    *,
+    source_crs: Any,
+    parameters: Mapping[str, Any] | None,
+) -> "gpd.GeoDataFrame":
+    """Build the GeoDataFrame for a geoprocessing result with the right output CRS.
+
+    The frame is labelled with the payload-declared CRS (``crs``,
+    ``coordRefSys``, or ``honua:spatialReference``) and then reprojected back
+    to ``source_crs`` so a projected-in / projected-out round trip preserves
+    coordinates, unless ``parameters`` asked the process for an output CRS.
+    """
+    from .geopandas import _crs_from_spatial_reference, ogc_features_to_geodataframe
+
+    feature_collection = _feature_collection_from_results(result)
+    out = ogc_features_to_geodataframe(feature_collection)
+
+    honua_sr = feature_collection.get("honua:spatialReference")
+    if (
+        feature_collection.get("crs") is None
+        and feature_collection.get("coordRefSys") is None
+        and isinstance(honua_sr, Mapping)
+    ):
+        payload_crs = _crs_from_spatial_reference(dict(honua_sr))
+        if payload_crs is not None:
+            out = out.set_crs(payload_crs, allow_override=True)
+
+    has_param_crs = bool(
+        parameters
+        and any(
+            str(key).lower() in _OUTPUT_CRS_PARAM_KEYS and value is not None
+            for key, value in parameters.items()
+        )
+    )
+    if not has_param_crs and source_crs is not None and out.crs is not None:
+        return out.to_crs(source_crs)
+    return out
 
 
 class HonuaGeoprocessing:
@@ -861,7 +922,7 @@ class HonuaGeoprocessing:
         FeatureCollection back to a GeoDataFrame. Requires the ``geopandas``
         extra.
         """
-        from .geopandas import geodataframe_to_geojson, ogc_features_to_geodataframe
+        from .geopandas import geodataframe_to_geojson
 
         source_crs = gdf.crs
         layer = LayerReference.from_geojson(geodataframe_to_geojson(gdf))
@@ -872,12 +933,7 @@ class HonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        out = ogc_features_to_geodataframe(_feature_collection_from_results(result))
-        # The result rides back as GeoJSON/WGS84; reapply the caller's source CRS
-        # so a projected-in / projected-out round-trip preserves coordinates.
-        if source_crs is not None and out.crs is not None:
-            out = out.to_crs(source_crs)
-        return out
+        return _results_to_dataframe(result, source_crs=source_crs, parameters=parameters)
 
     # -- raster result interop --------------------------------------------
 
@@ -1316,7 +1372,7 @@ class AsyncHonuaGeoprocessing:
         timeout: float | None = 120.0,
     ) -> "gpd.GeoDataFrame":
         """Run a vector process over a GeoDataFrame and return a GeoDataFrame."""
-        from .geopandas import geodataframe_to_geojson, ogc_features_to_geodataframe
+        from .geopandas import geodataframe_to_geojson
 
         source_crs = gdf.crs
         layer = LayerReference.from_geojson(geodataframe_to_geojson(gdf))
@@ -1327,12 +1383,7 @@ class AsyncHonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        out = ogc_features_to_geodataframe(_feature_collection_from_results(result))
-        # The result rides back as GeoJSON/WGS84; reapply the caller's source CRS
-        # so a projected-in / projected-out round-trip preserves coordinates.
-        if source_crs is not None and out.crs is not None:
-            out = out.to_crs(source_crs)
-        return out
+        return _results_to_dataframe(result, source_crs=source_crs, parameters=parameters)
 
     # -- raster result interop --------------------------------------------
 

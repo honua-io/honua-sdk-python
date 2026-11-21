@@ -15,9 +15,11 @@ from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
 from ._http import (
     _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
+    _ensure_grpc_credential_target,
     _ensure_same_origin_continuation,
     _ensure_secure_credential_transport,
     _extract_trusted_authority,
+    _insecure_http_opted_in_by_env,
     _normalize_base_url,
     _to_http_error,
     _to_transport_error,
@@ -107,6 +109,7 @@ def _grpc_target_from_base_url(base_url: httpx.URL) -> str:
     if port is None:
         port = 443 if base_url.scheme == "https" else 80
     return f"{host}:{port}"
+
 
 
 class AsyncHonuaClient:
@@ -856,6 +859,11 @@ class AsyncHonuaClient:
         ``credentials=`` (a :class:`grpc.ChannelCredentials`) or
         ``insecure=True``.
 
+        When credentials are attached, an explicit ``target`` must match the
+        client's configured host, and plaintext (``insecure=True``) channels to
+        non-loopback targets are refused unless the client was built with
+        ``allow_insecure_http=True`` (or ``HONUA_ALLOW_INSECURE_HTTP=1`` is set).
+
         Args:
             target: Explicit ``host:port`` gRPC dial target. Defaults to the
                 REST base URL's authority.
@@ -871,11 +879,29 @@ class AsyncHonuaClient:
             An :class:`AsyncHonuaGrpcClient` ready to issue feature queries.
 
         Raises:
-            ValueError: The client base_url has no host to derive a target from.
+            ValueError: The client base_url has no host to derive a target from,
+                an explicit target host does not match the client's configured
+                host while credentials are attached, or plaintext transport is
+                requested for a non-loopback target with credentials without
+                the client's ``allow_insecure_http`` opt-in.
         """
         from .grpc import HonuaGrpcAsyncClient, build_grpc_metadata
 
         resolved_target = target or _grpc_target_from_base_url(self._base_url)
+        has_credentials = (
+            bool(self._init_api_key)
+            or bool(self._init_bearer_token)
+            or self._init_auth_provider is not None
+            or any(key.lower() in {"authorization", "x-api-key"} for key in (extra_metadata or {}))
+        )
+        use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
+        if has_credentials:
+            allow_plaintext = self._init_allow_insecure_http or _insecure_http_opted_in_by_env()
+            _ensure_grpc_credential_target(
+                resolved_target,
+                configured_host=self._base_url.host if target is not None else None,
+                refuse_plaintext=use_insecure and not allow_plaintext,
+            )
         # Build only the static metadata (api-key / bearer / extra) here. Any
         # auth_provider is handed to the gRPC client so it is re-consulted per
         # RPC (awaiting ``auth_headers_async`` when available) -- otherwise a
@@ -886,7 +912,6 @@ class AsyncHonuaClient:
             bearer_token=self._init_bearer_token,
             extra_metadata=extra_metadata,
         )
-        use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
         if credentials is None and not use_insecure:
             import grpc
 

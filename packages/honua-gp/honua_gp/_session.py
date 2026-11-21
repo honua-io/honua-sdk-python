@@ -42,8 +42,8 @@ class HonuaSession:
     """Session-scoped runtime state."""
 
     base_url: str | None = None
-    api_key: str | None = None
-    bearer_token: str | None = None
+    api_key: str | None = field(default=None, repr=False)
+    bearer_token: str | None = field(default=None, repr=False)
     workspace: str | None = None
     overwrite_output: bool = False
     output_coordinate_system: Any | None = None

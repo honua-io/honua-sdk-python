@@ -157,13 +157,64 @@ _TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
 
 def _is_loopback_host(host: str) -> bool:
     """Return whether *host* is ``localhost`` or a loopback IP (127.0.0.0/8, ``::1``)."""
-    candidate = host.strip().strip("[]").rstrip(".").lower()
+    candidate = _normalize_host(host)
     if candidate == "localhost":
         return True
     try:
         return ipaddress.ip_address(candidate).is_loopback
     except ValueError:
         return False
+
+
+def _normalize_host(host: str) -> str:
+    return host.strip().strip("[]").rstrip(".").lower()
+
+
+def _grpc_target_hosts(target: str) -> tuple[str, ...]:
+    """Return every host a gRPC dial target can connect to.
+
+    ``ipv4:``/``ipv6:`` targets list several comma-separated addresses and the
+    channel may use any of them, so each one is returned.
+    """
+    candidate = target.strip()
+    if not candidate:
+        raise ValueError("gRPC target must be non-empty.")
+    if candidate.startswith("dns:///"):
+        addresses = [candidate[len("dns:///") :]]
+    elif candidate.startswith("dns://"):
+        addresses = [candidate[len("dns://") :].partition("/")[2]]
+    elif candidate.startswith(("ipv4:", "ipv6:")):
+        addresses = candidate.split(":", 1)[1].split(",")
+    else:
+        addresses = [candidate]
+    hosts = tuple(urlsplit(f"//{address.strip()}").hostname for address in addresses)
+    if not hosts or any(not host for host in hosts):
+        raise ValueError(f"Cannot extract host from gRPC target {target!r}.")
+    return tuple(host for host in hosts if host)
+
+
+def _ensure_grpc_credential_target(
+    target: str,
+    *,
+    configured_host: str | None,
+    refuse_plaintext: bool,
+) -> None:
+    """Refuse a credentialed gRPC target the client is not configured for.
+
+    Every address of *target* must equal *configured_host* (skipped when
+    ``None``), and with *refuse_plaintext* every address must be loopback.
+    """
+    for host in _grpc_target_hosts(target):
+        if configured_host is not None and _normalize_host(host) != _normalize_host(configured_host):
+            raise ValueError(
+                f"Refusing to send credentials to gRPC target {target!r}: "
+                f"host {host!r} does not match configured client host {configured_host!r}."
+            )
+        if refuse_plaintext and not _is_loopback_host(host):
+            raise ValueError(
+                f"Refusing to send credentials over plaintext gRPC to non-loopback target {target!r}. "
+                "Use TLS (`insecure=False`) or opt in explicitly with `allow_insecure_http=True` on the client."
+            )
 
 
 def _insecure_http_opted_in_by_env() -> bool:

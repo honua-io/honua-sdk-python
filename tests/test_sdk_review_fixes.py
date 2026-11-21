@@ -82,6 +82,16 @@ def test_grpc_rejects_plaintext_non_loopback_with_credentials_without_opt_in() -
             client.grpc(insecure=True)
 
 
+def test_grpc_checks_every_address_of_a_multi_address_target() -> None:
+    pytest.importorskip("grpc")
+    with HonuaClient("https://10.0.0.1", api_key="secret-key") as client:
+        with pytest.raises(ValueError, match="does not match configured client host"):
+            client.grpc(target="ipv4:10.0.0.1:443,203.0.113.5:443")
+    with HonuaClient("http://127.0.0.1:8080", api_key="secret-key") as local_client:
+        with pytest.raises(ValueError, match="does not match configured client host"):
+            local_client.grpc(insecure=True, target="ipv4:127.0.0.1:50051,203.0.113.5:50051")
+
+
 def test_grpc_allows_same_host_different_port_with_tls_and_loopback_plaintext() -> None:
     pytest.importorskip("grpc")
     with HonuaClient("https://api.example.test", api_key="secret-key") as client:
@@ -330,6 +340,31 @@ def test_ogc_iter_items_stops_when_number_matched_reached_without_links() -> Non
     assert calls == 1
 
 
+def test_ogc_iter_items_offset_pages_while_number_matched_exceeds_fetched_despite_self_link() -> None:
+    offsets: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offset = request.url.params.get("offset")
+        offsets.append(offset)
+        assert len(offsets) <= 3, "pagination did not stop at numberMatched"
+        start = int(offset or 0)
+        return httpx.Response(
+            200,
+            json={
+                "type": "FeatureCollection",
+                "numberMatched": 4,
+                "features": [{"id": start + 1}, {"id": start + 2}],
+                "links": [{"rel": "self", "href": str(request.url)}],
+            },
+        )
+
+    with HonuaClient("http://example.test", transport=httpx.MockTransport(handler)) as client:
+        items = list(client.ogc_features().collection("parcels").iter_items(page_size=2, max_pages=None))
+
+    assert [i["id"] for i in items] == [1, 2, 3, 4]
+    assert len(offsets) == 2
+
+
 @pytest.mark.anyio
 async def test_async_ogc_iter_items_stops_on_exact_page_size_without_next_link() -> None:
     calls = 0
@@ -413,11 +448,13 @@ def test_execute_dataframe_respects_payload_and_parameter_crs() -> None:
 
         return httpx.MockTransport(handler)
 
-    # Explicit payload CRS is preserved instead of overwritten to source_crs (3857).
+    # A payload-declared CRS (26904) is read as such, then reprojected back to source_crs (3857).
     with HonuaClient("http://example.test", transport=_make_handler(fc_with_crs)) as client:
-        out_payload_crs = client.geoprocessing().execute_dataframe("conversion.feature-project", src, poll_interval=0.0)
+        out_payload_crs = client.geoprocessing().execute_dataframe("geometry.buffer", src, poll_interval=0.0)
     assert out_payload_crs.crs is not None
-    assert out_payload_crs.crs.to_epsg() == 26904
+    assert out_payload_crs.crs.to_epsg() == 3857
+    expected = gpd.GeoSeries([Point(618000.0, 2356000.0)], crs="EPSG:26904").to_crs("EPSG:3857")
+    assert out_payload_crs.geometry.iloc[0].distance(expected.iloc[0]) < 1e-3
 
     # Reprojection parameter targetSrid prevents overwriting back to source_crs (3857).
     with HonuaClient("http://example.test", transport=_make_handler(fc_plain)) as client:

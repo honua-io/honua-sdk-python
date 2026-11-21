@@ -9,7 +9,6 @@ import logging
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
 
 import httpx
 
@@ -17,11 +16,11 @@ from . import _endpoints
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
+    _ensure_grpc_credential_target,
     _ensure_same_origin_continuation,
     _ensure_secure_credential_transport,
     _extract_trusted_authority,
     _insecure_http_opted_in_by_env,
-    _is_loopback_host,
     _normalize_base_url,
     _to_http_error,
     _to_transport_error,
@@ -113,24 +112,6 @@ def _grpc_target_from_base_url(base_url: httpx.URL) -> str:
         port = 443 if base_url.scheme == "https" else 80
     return f"{host}:{port}"
 
-
-def _extract_grpc_target_host(target: str) -> str:
-    """Extract the host component from a gRPC dial target string."""
-    candidate = target.strip()
-    if not candidate:
-        raise ValueError("gRPC target must be non-empty.")
-    if candidate.startswith("dns:///"):
-        candidate = candidate[len("dns:///") :]
-    elif candidate.startswith("dns://"):
-        _, _, remainder = candidate[len("dns://") :].partition("/")
-        candidate = remainder
-    elif candidate.startswith(("ipv4:", "ipv6:")):
-        candidate = candidate.split(":", 1)[1].split(",", 1)[0]
-    parsed = urlsplit(f"//{candidate}")
-    host = parsed.hostname
-    if not host:
-        raise ValueError(f"Cannot extract host from gRPC target {target!r}.")
-    return host
 
 
 class HonuaClient:
@@ -914,21 +895,13 @@ class HonuaClient:
             or self._init_auth_provider is not None
             or any(key.lower() in {"authorization", "x-api-key"} for key in (extra_metadata or {}))
         )
-        target_host = _extract_grpc_target_host(resolved_target)
-        if target is not None and has_credentials:
-            configured_host = (self._base_url.host or "").strip().strip("[]").rstrip(".").lower()
-            normalized_target_host = target_host.strip().strip("[]").rstrip(".").lower()
-            if normalized_target_host != configured_host:
-                raise ValueError(
-                    f"Refusing to send credentials to gRPC target {resolved_target!r}: "
-                    f"host {target_host!r} does not match configured client host {self._base_url.host!r}."
-                )
         use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
-        allow_plaintext = self._init_allow_insecure_http or _insecure_http_opted_in_by_env()
-        if use_insecure and has_credentials and not allow_plaintext and not _is_loopback_host(target_host):
-            raise ValueError(
-                f"Refusing to send credentials over plaintext gRPC to non-loopback target {resolved_target!r}. "
-                "Use TLS (`insecure=False`) or opt in explicitly with `allow_insecure_http=True` on the client."
+        if has_credentials:
+            allow_plaintext = self._init_allow_insecure_http or _insecure_http_opted_in_by_env()
+            _ensure_grpc_credential_target(
+                resolved_target,
+                configured_host=self._base_url.host if target is not None else None,
+                refuse_plaintext=use_insecure and not allow_plaintext,
             )
         # Build only the static metadata (api-key / bearer / extra) here. Any
         # auth_provider is handed to the gRPC client so it is re-consulted per

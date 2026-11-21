@@ -734,19 +734,16 @@ def _results_to_dataframe(
 ) -> "gpd.GeoDataFrame":
     """Build the GeoDataFrame for a geoprocessing result with the right output CRS.
 
-    Respects a payload-declared CRS (``crs``, ``coordRefSys``, or
-    ``honua:spatialReference``) or a reprojection parameter in ``parameters``
-    instead of blindly overwriting back to ``source_crs``.
+    The frame is labelled with the payload-declared CRS (``crs``,
+    ``coordRefSys``, or ``honua:spatialReference``) and then reprojected back
+    to ``source_crs`` so a projected-in / projected-out round trip preserves
+    coordinates, unless ``parameters`` asked the process for an output CRS.
     """
     from .geopandas import _crs_from_spatial_reference, ogc_features_to_geodataframe
 
     feature_collection = _feature_collection_from_results(result)
     out = ogc_features_to_geodataframe(feature_collection)
 
-    has_explicit_payload_crs = any(
-        feature_collection.get(key) is not None
-        for key in ("crs", "coordRefSys", "honua:spatialReference")
-    )
     honua_sr = feature_collection.get("honua:spatialReference")
     if (
         feature_collection.get("crs") is None
@@ -764,7 +761,7 @@ def _results_to_dataframe(
             for key, value in parameters.items()
         )
     )
-    if not has_explicit_payload_crs and not has_param_crs and source_crs is not None and out.crs is not None:
+    if not has_param_crs and source_crs is not None and out.crs is not None:
         return out.to_crs(source_crs)
     return out
 

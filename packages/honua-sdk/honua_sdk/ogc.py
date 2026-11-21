@@ -125,16 +125,18 @@ def _should_continue_offset_fallback(
     """Return whether pagination should fall back to offset stepping without ``rel="next"``.
 
     ``full_page`` is true only when no ``rel="next"`` link was ever followed and
-    the page held at least ``page_limit`` features. Only falls back when the
-    server neither provides a ``links`` array nor indicates exhaustion via
-    ``numberMatched`` (compared with ``total_fetched``, the offset of the next
-    page), preventing an infinite loop when the final page happens to contain
-    exactly ``page_size`` features.
+    the page held at least ``page_limit`` features. A ``numberMatched`` count
+    decides first (continue while ``total_fetched``, the offset of the next
+    page, is below it); without one, a server that sends a ``links`` array but
+    no ``rel="next"`` has signalled the last page. This prevents an infinite
+    loop when the final page happens to contain exactly ``page_size`` features.
     """
-    if not full_page or _has_links_field(response):
+    if not full_page:
         return False
     matched = _number_matched(response)
-    return matched is None or total_fetched < matched
+    if matched is not None:
+        return total_fetched < matched
+    return not _has_links_field(response)
 
 
 def _next_link(response: Mapping[str, Any]) -> str | None:

@@ -4502,7 +4502,7 @@
             },
             "grpc": {
               "kind": "method",
-              "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None, allow_insecure_transport: 'bool' = False) -> \"'HonuaGrpcAsyncClient'\""
+              "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcAsyncClient'\""
             },
             "image_server": {
               "kind": "method",
@@ -5022,7 +5022,7 @@
           "methods": {
             "from_dict": {
               "kind": "classmethod",
-              "signature": "(cls, payload: 'Mapping[str, Any]', *, object_id_field: 'str | None' = None, has_z: 'bool' = False, has_m: 'bool' = False) -> \"'Feature'\""
+              "signature": "(cls, payload: 'Mapping[str, Any]', *, object_id_field: 'str | None' = None) -> \"'Feature'\""
             },
             "geometry_shape": {
               "kind": "property"
@@ -5430,7 +5430,7 @@
             },
             "grpc": {
               "kind": "method",
-              "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None, allow_insecure_transport: 'bool' = False) -> \"'HonuaGrpcClient'\""
+              "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcClient'\""
             },
             "image_server": {
               "kind": "method",

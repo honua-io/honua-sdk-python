@@ -726,21 +726,22 @@ def _href_path_and_params(href: str, base_url: httpx.URL) -> tuple[str, dict[str
     return path, dict(parse_qsl(parsed.query, keep_blank_values=True))
 
 
-def _resolve_dataframe_crs(
-    feature_collection: Mapping[str, Any],
-    out: "gpd.GeoDataFrame",
+def _results_to_dataframe(
+    result: Mapping[str, Any],
     *,
     source_crs: Any,
-    out_sr: int | str | None,
     parameters: Mapping[str, Any] | None,
 ) -> "gpd.GeoDataFrame":
-    """Apply the appropriate output CRS to a geoprocessing GeoDataFrame result.
+    """Build the GeoDataFrame for a geoprocessing result with the right output CRS.
 
-    Respects an explicit ``out_sr`` argument, a payload-declared CRS (``crs``,
-    ``coordRefSys``, or ``honua:spatialReference``), or a reprojection parameter
-    in ``parameters`` instead of blindly overwriting back to ``source_crs``.
+    Respects a payload-declared CRS (``crs``, ``coordRefSys``, or
+    ``honua:spatialReference``) or a reprojection parameter in ``parameters``
+    instead of blindly overwriting back to ``source_crs``.
     """
-    from .geopandas import _crs_for_typed, _crs_from_spatial_reference
+    from .geopandas import _crs_from_spatial_reference, ogc_features_to_geodataframe
+
+    feature_collection = _feature_collection_from_results(result)
+    out = ogc_features_to_geodataframe(feature_collection)
 
     has_explicit_payload_crs = any(
         feature_collection.get(key) is not None
@@ -755,12 +756,6 @@ def _resolve_dataframe_crs(
         payload_crs = _crs_from_spatial_reference(dict(honua_sr))
         if payload_crs is not None:
             out = out.set_crs(payload_crs, allow_override=True)
-
-    if out_sr is not None:
-        target_crs = _crs_for_typed(out_sr, default_geojson=False)
-        if target_crs is not None:
-            return out.to_crs(target_crs) if out.crs is not None else out.set_crs(target_crs)
-        return out
 
     has_param_crs = bool(
         parameters
@@ -920,7 +915,6 @@ class HonuaGeoprocessing:
         gdf: "gpd.GeoDataFrame",
         *,
         parameters: Mapping[str, Any] | None = None,
-        out_sr: int | str | None = None,
         poll_interval: float = 0.5,
         timeout: float | None = 120.0,
     ) -> "gpd.GeoDataFrame":
@@ -931,7 +925,7 @@ class HonuaGeoprocessing:
         FeatureCollection back to a GeoDataFrame. Requires the ``geopandas``
         extra.
         """
-        from .geopandas import geodataframe_to_geojson, ogc_features_to_geodataframe
+        from .geopandas import geodataframe_to_geojson
 
         source_crs = gdf.crs
         layer = LayerReference.from_geojson(geodataframe_to_geojson(gdf))
@@ -942,15 +936,7 @@ class HonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        fc = _feature_collection_from_results(result)
-        out = ogc_features_to_geodataframe(fc)
-        return _resolve_dataframe_crs(
-            fc,
-            out,
-            source_crs=source_crs,
-            out_sr=out_sr,
-            parameters=parameters,
-        )
+        return _results_to_dataframe(result, source_crs=source_crs, parameters=parameters)
 
     # -- raster result interop --------------------------------------------
 
@@ -1385,12 +1371,11 @@ class AsyncHonuaGeoprocessing:
         gdf: "gpd.GeoDataFrame",
         *,
         parameters: Mapping[str, Any] | None = None,
-        out_sr: int | str | None = None,
         poll_interval: float = 0.5,
         timeout: float | None = 120.0,
     ) -> "gpd.GeoDataFrame":
         """Run a vector process over a GeoDataFrame and return a GeoDataFrame."""
-        from .geopandas import geodataframe_to_geojson, ogc_features_to_geodataframe
+        from .geopandas import geodataframe_to_geojson
 
         source_crs = gdf.crs
         layer = LayerReference.from_geojson(geodataframe_to_geojson(gdf))
@@ -1401,15 +1386,7 @@ class AsyncHonuaGeoprocessing:
             poll_interval=poll_interval,
             timeout=timeout,
         )
-        fc = _feature_collection_from_results(result)
-        out = ogc_features_to_geodataframe(fc)
-        return _resolve_dataframe_crs(
-            fc,
-            out,
-            source_crs=source_crs,
-            out_sr=out_sr,
-            parameters=parameters,
-        )
+        return _results_to_dataframe(result, source_crs=source_crs, parameters=parameters)
 
     # -- raster result interop --------------------------------------------
 

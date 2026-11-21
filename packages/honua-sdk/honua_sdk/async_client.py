@@ -19,6 +19,7 @@ from ._http import (
     _ensure_same_origin_continuation,
     _ensure_secure_credential_transport,
     _extract_trusted_authority,
+    _insecure_http_opted_in_by_env,
     _is_loopback_host,
     _normalize_base_url,
     _to_http_error,
@@ -859,7 +860,6 @@ class AsyncHonuaClient:
         credentials: Any = None,
         timeout: float | None = 30.0,
         extra_metadata: Mapping[str, str] | None = None,
-        allow_insecure_transport: bool = False,
     ) -> "HonuaGrpcAsyncClient":
         """Return a gRPC FeatureService client bound to this client's config.
 
@@ -880,7 +880,8 @@ class AsyncHonuaClient:
 
         When credentials are attached, an explicit ``target`` must match the
         client's configured host, and plaintext (``insecure=True``) channels to
-        non-loopback targets are refused unless ``allow_insecure_transport=True``.
+        non-loopback targets are refused unless the client was built with
+        ``allow_insecure_http=True`` (or ``HONUA_ALLOW_INSECURE_HTTP=1`` is set).
 
         Args:
             target: Explicit ``host:port`` gRPC dial target. Defaults to the
@@ -892,8 +893,6 @@ class AsyncHonuaClient:
             timeout: Per-call gRPC timeout in seconds.
             extra_metadata: Additional metadata entries merged onto the
                 auth-derived metadata.
-            allow_insecure_transport: Explicitly opt in to sending credentials
-                over a plaintext gRPC channel to a non-loopback target.
 
         Returns:
             An :class:`AsyncHonuaGrpcClient` ready to issue feature queries.
@@ -903,7 +902,7 @@ class AsyncHonuaClient:
                 an explicit target host does not match the client's configured
                 host while credentials are attached, or plaintext transport is
                 requested for a non-loopback target with credentials without
-                ``allow_insecure_transport=True``.
+                the client's ``allow_insecure_http`` opt-in.
         """
         from .grpc import HonuaGrpcAsyncClient, build_grpc_metadata
 
@@ -924,10 +923,11 @@ class AsyncHonuaClient:
                     f"host {target_host!r} does not match configured client host {self._base_url.host!r}."
                 )
         use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
-        if use_insecure and has_credentials and not allow_insecure_transport and not _is_loopback_host(target_host):
+        allow_plaintext = self._init_allow_insecure_http or _insecure_http_opted_in_by_env()
+        if use_insecure and has_credentials and not allow_plaintext and not _is_loopback_host(target_host):
             raise ValueError(
                 f"Refusing to send credentials over plaintext gRPC to non-loopback target {resolved_target!r}. "
-                "Use TLS (`insecure=False`) or opt in explicitly with `allow_insecure_transport=True`."
+                "Use TLS (`insecure=False`) or opt in explicitly with `allow_insecure_http=True` on the client."
             )
         # Build only the static metadata (api-key / bearer / extra) here. Any
         # auth_provider is handed to the gRPC client so it is re-consulted per

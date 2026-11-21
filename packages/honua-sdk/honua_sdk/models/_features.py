@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from ._geometry import geometry_to_geo_interface, geometry_to_shapely
@@ -37,12 +37,7 @@ class Feature:
 
     @classmethod
     def from_dict(
-        cls,
-        payload: Mapping[str, Any],
-        *,
-        object_id_field: str | None = None,
-        has_z: bool = False,
-        has_m: bool = False,
+        cls, payload: Mapping[str, Any], *, object_id_field: str | None = None,
     ) -> "Feature":
         attributes = payload.get("attributes")
         geometry = payload.get("geometry")
@@ -51,8 +46,6 @@ class Feature:
             geometry=dict(geometry) if isinstance(geometry, Mapping) else None,
             raw=dict(payload),
             object_id_field=object_id_field,
-            has_z=has_z,
-            has_m=has_m,
         )
 
     @property
@@ -129,9 +122,8 @@ class FeatureSet:
         object_id_field = _optional_str(payload.get("objectIdFieldName"))
         return cls(
             features=tuple(
-                Feature.from_dict(
-                    feature,
-                    object_id_field=object_id_field,
+                replace(
+                    Feature.from_dict(feature, object_id_field=object_id_field),
                     has_z=has_z,
                     has_m=has_m,
                 )

@@ -78,7 +78,7 @@ def test_grpc_rejects_cross_host_target_when_credentials_attached() -> None:
 def test_grpc_rejects_plaintext_non_loopback_with_credentials_without_opt_in() -> None:
     pytest.importorskip("grpc")
     with HonuaClient("https://api.example.test", api_key="secret-key") as client:
-        with pytest.raises(ValueError, match="allow_insecure_transport=True"):
+        with pytest.raises(ValueError, match="allow_insecure_http=True"):
             client.grpc(insecure=True)
 
 
@@ -106,7 +106,7 @@ async def test_async_grpc_enforces_host_binding_and_transport_security() -> None
     async with AsyncHonuaClient("https://api.example.test", api_key="secret-key") as client:
         with pytest.raises(ValueError, match="does not match configured client host"):
             client.grpc(target="other.example.test:50051")
-        with pytest.raises(ValueError, match="allow_insecure_transport=True"):
+        with pytest.raises(ValueError, match="allow_insecure_http=True"):
             client.grpc(insecure=True)
 
 
@@ -384,7 +384,7 @@ def test_geoprocessing_href_does_not_double_prefix_subpath() -> None:
     ]
 
 
-def test_execute_dataframe_respects_out_sr_and_payload_crs() -> None:
+def test_execute_dataframe_respects_payload_and_parameter_crs() -> None:
     gpd = pytest.importorskip("geopandas")
     from shapely.geometry import Point
 
@@ -418,14 +418,6 @@ def test_execute_dataframe_respects_out_sr_and_payload_crs() -> None:
         out_payload_crs = client.geoprocessing().execute_dataframe("conversion.feature-project", src, poll_interval=0.0)
     assert out_payload_crs.crs is not None
     assert out_payload_crs.crs.to_epsg() == 26904
-
-    # Explicit out_sr is honored instead of overwriting to source_crs (3857).
-    with HonuaClient("http://example.test", transport=_make_handler(fc_plain)) as client:
-        out_explicit = client.geoprocessing().execute_dataframe(
-            "geometry.buffer", src, out_sr=4326, poll_interval=0.0
-        )
-    assert out_explicit.crs is not None
-    assert out_explicit.crs.to_epsg() == 4326
 
     # Reprojection parameter targetSrid prevents overwriting back to source_crs (3857).
     with HonuaClient("http://example.test", transport=_make_handler(fc_plain)) as client:

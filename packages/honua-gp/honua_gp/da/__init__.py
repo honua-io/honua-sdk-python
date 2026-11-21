@@ -21,6 +21,8 @@ import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
+from honua_sdk.errors import HonuaError
+
 from .._audit import _shape_of, record_call
 from .._compat import anchor_for
 from .._dispatch import raise_unsupported
@@ -101,7 +103,8 @@ def _resolve_oid_field(source: Any) -> str:
         return _DEFAULT_OID_FIELD
     try:
         schema = schema_fn()
-    except Exception:
+    except (HonuaError, HonuaGpUnsupportedError, NotImplementedError):
+        # Metadata unavailable or unsupported for this source: keep the default.
         return _DEFAULT_OID_FIELD
     if schema is None:
         return _DEFAULT_OID_FIELD

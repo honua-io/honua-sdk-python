@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from threading import RLock
 from typing import Any, Protocol, runtime_checkable
@@ -58,7 +58,7 @@ class TokenStore(Protocol):
 class BearerToken:
     """Bearer token plus optional expiration metadata."""
 
-    access_token: str
+    access_token: str = field(repr=False)
     expires_at: datetime | None = None
     token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token_type label, not a secret
 

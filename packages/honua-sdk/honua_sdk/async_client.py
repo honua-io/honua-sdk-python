@@ -7,6 +7,7 @@ import logging
 import warnings
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -18,6 +19,7 @@ from ._http import (
     _ensure_same_origin_continuation,
     _ensure_secure_credential_transport,
     _extract_trusted_authority,
+    _is_loopback_host,
     _normalize_base_url,
     _to_http_error,
     _to_transport_error,
@@ -107,6 +109,25 @@ def _grpc_target_from_base_url(base_url: httpx.URL) -> str:
     if port is None:
         port = 443 if base_url.scheme == "https" else 80
     return f"{host}:{port}"
+
+
+def _extract_grpc_target_host(target: str) -> str:
+    """Extract the host component from a gRPC dial target string."""
+    candidate = target.strip()
+    if not candidate:
+        raise ValueError("gRPC target must be non-empty.")
+    if candidate.startswith("dns:///"):
+        candidate = candidate[len("dns:///") :]
+    elif candidate.startswith("dns://"):
+        _, _, remainder = candidate[len("dns://") :].partition("/")
+        candidate = remainder
+    elif candidate.startswith(("ipv4:", "ipv6:")):
+        candidate = candidate.split(":", 1)[1].split(",", 1)[0]
+    parsed = urlsplit(f"//{candidate}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"Cannot extract host from gRPC target {target!r}.")
+    return host
 
 
 class AsyncHonuaClient:
@@ -838,6 +859,7 @@ class AsyncHonuaClient:
         credentials: Any = None,
         timeout: float | None = 30.0,
         extra_metadata: Mapping[str, str] | None = None,
+        allow_insecure_transport: bool = False,
     ) -> "HonuaGrpcAsyncClient":
         """Return a gRPC FeatureService client bound to this client's config.
 
@@ -856,6 +878,10 @@ class AsyncHonuaClient:
         ``credentials=`` (a :class:`grpc.ChannelCredentials`) or
         ``insecure=True``.
 
+        When credentials are attached, an explicit ``target`` must match the
+        client's configured host, and plaintext (``insecure=True``) channels to
+        non-loopback targets are refused unless ``allow_insecure_transport=True``.
+
         Args:
             target: Explicit ``host:port`` gRPC dial target. Defaults to the
                 REST base URL's authority.
@@ -866,16 +892,43 @@ class AsyncHonuaClient:
             timeout: Per-call gRPC timeout in seconds.
             extra_metadata: Additional metadata entries merged onto the
                 auth-derived metadata.
+            allow_insecure_transport: Explicitly opt in to sending credentials
+                over a plaintext gRPC channel to a non-loopback target.
 
         Returns:
             An :class:`AsyncHonuaGrpcClient` ready to issue feature queries.
 
         Raises:
-            ValueError: The client base_url has no host to derive a target from.
+            ValueError: The client base_url has no host to derive a target from,
+                an explicit target host does not match the client's configured
+                host while credentials are attached, or plaintext transport is
+                requested for a non-loopback target with credentials without
+                ``allow_insecure_transport=True``.
         """
         from .grpc import HonuaGrpcAsyncClient, build_grpc_metadata
 
         resolved_target = target or _grpc_target_from_base_url(self._base_url)
+        has_credentials = (
+            bool(self._init_api_key)
+            or bool(self._init_bearer_token)
+            or self._init_auth_provider is not None
+            or any(key.lower() in {"authorization", "x-api-key"} for key in (extra_metadata or {}))
+        )
+        target_host = _extract_grpc_target_host(resolved_target)
+        if target is not None and has_credentials:
+            configured_host = (self._base_url.host or "").strip().strip("[]").rstrip(".").lower()
+            normalized_target_host = target_host.strip().strip("[]").rstrip(".").lower()
+            if normalized_target_host != configured_host:
+                raise ValueError(
+                    f"Refusing to send credentials to gRPC target {resolved_target!r}: "
+                    f"host {target_host!r} does not match configured client host {self._base_url.host!r}."
+                )
+        use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
+        if use_insecure and has_credentials and not allow_insecure_transport and not _is_loopback_host(target_host):
+            raise ValueError(
+                f"Refusing to send credentials over plaintext gRPC to non-loopback target {resolved_target!r}. "
+                "Use TLS (`insecure=False`) or opt in explicitly with `allow_insecure_transport=True`."
+            )
         # Build only the static metadata (api-key / bearer / extra) here. Any
         # auth_provider is handed to the gRPC client so it is re-consulted per
         # RPC (awaiting ``auth_headers_async`` when available) -- otherwise a
@@ -886,7 +939,6 @@ class AsyncHonuaClient:
             bearer_token=self._init_bearer_token,
             extra_metadata=extra_metadata,
         )
-        use_insecure = insecure if insecure is not None else (self._base_url.scheme != "https")
         if credentials is None and not use_insecure:
             import grpc
 

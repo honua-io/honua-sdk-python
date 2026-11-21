@@ -24,9 +24,9 @@
         "signature": "(self) -> \"'AsyncGeoServicesGeometryServerClient'\""
       },
       "grpc": {
-        "parameters": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None)",
+        "parameters": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None, allow_insecure_transport: 'bool' = False)",
         "returns": "HonuaGrpcAsyncClient",
-        "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcAsyncClient'\""
+        "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None, allow_insecure_transport: 'bool' = False) -> \"'HonuaGrpcAsyncClient'\""
       },
       "image_server": {
         "parameters": "(self, service_id: 'str | ServiceAddress | None' = None)",
@@ -121,9 +121,9 @@
         "signature": "(self) -> \"'GeoServicesGeometryServerClient'\""
       },
       "grpc": {
-        "parameters": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None)",
+        "parameters": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None, allow_insecure_transport: 'bool' = False)",
         "returns": "HonuaGrpcClient",
-        "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None) -> \"'HonuaGrpcClient'\""
+        "signature": "(self, *, target: 'str | None' = None, insecure: 'bool | None' = None, credentials: 'Any' = None, timeout: 'float | None' = 30.0, extra_metadata: 'Mapping[str, str] | None' = None, allow_insecure_transport: 'bool' = False) -> \"'HonuaGrpcClient'\""
       },
       "image_server": {
         "parameters": "(self, service_id: 'str | ServiceAddress | None' = None)",

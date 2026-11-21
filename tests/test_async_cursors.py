@@ -72,9 +72,25 @@ async def test_async_insert_cursor_flushes_on_exit() -> None:
         source = client.source(_descriptor())
         async with source.insert_cursor() as cursor:
             assert isinstance(cursor, AsyncInsertCursor)
-            cursor.insert_row({"name": "X"}, {"x": 1.0, "y": 1.0})
+            await cursor.insert_row({"name": "X"}, {"x": 1.0, "y": 1.0})
     assert len(edits) == 1
     assert edits[0]["adds"][0]["attributes"]["name"] == "X"
+
+
+async def test_async_insert_cursor_flushes_at_batch_size() -> None:
+    edits: list[dict[str, Any]] = []
+    async with AsyncHonuaClient("http://example.test", transport=_edit_transport(edits)) as client:
+        source = client.source(_descriptor())
+        async with source.insert_cursor(batch_size=2) as cursor:
+            await cursor.insert_row({"name": "A"}, {"x": 1.0, "y": 1.0})
+            assert len(edits) == 0
+            await cursor.insert_row({"name": "B"}, {"x": 2.0, "y": 2.0})
+            assert len(edits) == 1
+            assert [item["attributes"]["name"] for item in edits[0]["adds"]] == ["A", "B"]
+            await cursor.insert_row({"name": "C"}, {"x": 3.0, "y": 3.0})
+            assert len(edits) == 1
+    assert len(edits) == 2
+    assert [item["attributes"]["name"] for item in edits[1]["adds"]] == ["C"]
 
 
 async def test_async_update_cursor_iterate_and_write_back() -> None:
@@ -84,9 +100,21 @@ async def test_async_update_cursor_iterate_and_write_back() -> None:
         async with source.update_cursor() as cursor:
             assert isinstance(cursor, AsyncUpdateCursor)
             async for row in cursor:
-                cursor.update_row(row, attributes={"name": row.attributes["name"].lower()})
+                await cursor.update_row(row, attributes={"name": row.attributes["name"].lower()})
     assert len(edits) == 1
     assert {u["attributes"]["name"] for u in edits[0]["updates"]} == {"a", "b"}
+
+
+async def test_async_update_cursor_flushes_at_batch_size() -> None:
+    edits: list[dict[str, Any]] = []
+    async with AsyncHonuaClient("http://example.test", transport=_edit_transport(edits)) as client:
+        source = client.source(_descriptor())
+        async with source.update_cursor(batch_size=1) as cursor:
+            async for row in cursor:
+                await cursor.update_row(row, attributes={"name": row.attributes["name"].lower()})
+    assert len(edits) == 2
+    assert edits[0]["updates"][0]["attributes"]["name"] == "a"
+    assert edits[1]["updates"][0]["attributes"]["name"] == "b"
 
 
 async def test_async_update_cursor_fetches_rows_lazily_per_batch() -> None:

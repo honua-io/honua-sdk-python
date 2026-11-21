@@ -100,6 +100,46 @@ def _features_from_collection(response: Mapping[str, Any]) -> list[JsonObject]:
     return [feature for feature in features if isinstance(feature, dict)]
 
 
+def _has_links_field(response: Mapping[str, Any]) -> bool:
+    links = response.get("links")
+    return isinstance(links, Sequence) and not isinstance(links, (str, bytes))
+
+
+def _number_matched(response: Mapping[str, Any]) -> int | None:
+    raw = response.get("numberMatched")
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float) and raw.is_integer():
+        return int(raw)
+    return None
+
+
+def _should_continue_offset_fallback(
+    response: Mapping[str, Any],
+    *,
+    fetched: int,
+    start_offset: int,
+    page_count: int,
+    page_limit: int,
+    used_next_link: bool,
+) -> bool:
+    """Return whether pagination should fall back to offset stepping without ``rel="next"``.
+
+    Only falls back when the server neither provides a ``links`` array (nor
+    uses ``rel="next"``) nor indicates exhaustion via ``numberMatched``
+    or a short page, preventing an infinite loop when the final page happens to
+    contain exactly ``page_size`` features.
+    """
+    if used_next_link or page_count < page_limit or page_count == 0:
+        return False
+    if _has_links_field(response):
+        return False
+    matched = _number_matched(response)
+    return not (matched is not None and start_offset + fetched >= matched)
+
+
 def _next_link(response: Mapping[str, Any]) -> str | None:
     links = response.get("links")
     if not isinstance(links, Sequence) or isinstance(links, str):
@@ -643,6 +683,7 @@ class HonuaOgcFeatureCollection:
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        used_next_link = False
         response_url = (
             f"{str(self.client._base_url).rstrip('/')}/ogc/features/collections/"
             f"{_encode_path_segment(str(self.collection_id))}/items"
@@ -654,6 +695,7 @@ class HonuaOgcFeatureCollection:
 
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
+                used_next_link = True
                 path, params = _resolve_continuation_href(next_href, response_url)
                 http_response = self.client._request(
                     "GET",
@@ -687,7 +729,14 @@ class HonuaOgcFeatureCollection:
             page_features = _features_from_collection(response)
             fetched += len(page_features)
             next_href = _next_link(response)
-            if next_href is None and len(page_features) < page_limit:
+            if next_href is None and not _should_continue_offset_fallback(
+                response,
+                fetched=fetched,
+                start_offset=start_offset,
+                page_count=len(page_features),
+                page_limit=page_limit,
+                used_next_link=used_next_link,
+            ):
                 break
             # Guard against a non-advancing cursor: a server that echoes a
             # constant ``rel=next`` would otherwise loop forever (max_pages=None
@@ -1316,6 +1365,7 @@ class AsyncHonuaOgcFeatureCollection:
         fetched = 0
         next_href: str | None = None
         previous_next_href: str | None = None
+        used_next_link = False
         response_url = (
             f"{str(self.client._base_url).rstrip('/')}/ogc/features/collections/"
             f"{_encode_path_segment(str(self.collection_id))}/items"
@@ -1327,6 +1377,7 @@ class AsyncHonuaOgcFeatureCollection:
 
             page_limit = min(effective_page_size, remaining)
             if next_href is not None:
+                used_next_link = True
                 path, params = _resolve_continuation_href(next_href, response_url)
                 http_response = await self.client._request(
                     "GET",
@@ -1360,7 +1411,14 @@ class AsyncHonuaOgcFeatureCollection:
             page_features = _features_from_collection(response)
             fetched += len(page_features)
             next_href = _next_link(response)
-            if next_href is None and len(page_features) < page_limit:
+            if next_href is None and not _should_continue_offset_fallback(
+                response,
+                fetched=fetched,
+                start_offset=start_offset,
+                page_count=len(page_features),
+                page_limit=page_limit,
+                used_next_link=used_next_link,
+            ):
                 break
             # Guard against a non-advancing cursor: a server that echoes a
             # constant ``rel=next`` would otherwise loop forever (max_pages=None

@@ -120,7 +120,7 @@ def encode_feature_collection(value: Any) -> str:
     return base64.b64encode(payload).decode("ascii")
 
 
-def encode_source_list(values: Sequence[Any]) -> str:
+def encode_source_list(values: Sequence[Any], *, min_sources: int = 2) -> str:
     """Encode a list of source rasters into the ``'|'``-separated ``sources`` input.
 
     honua-server's ``raster.mosaic`` / ``raster.map-algebra`` read a
@@ -130,7 +130,11 @@ def encode_source_list(values: Sequence[Any]) -> str:
     ``rasterId`` references are not resolvable into the multi-source string --
     so they are rejected with a clear message.
     """
-    if not isinstance(values, (list, tuple)) or len(values) < 2:
+    if not isinstance(values, (list, tuple)) or len(values) < min_sources:
+        if min_sources <= 1:
+            raise HonuaGpConfigurationError(
+                "This tool requires at least one input raster as a list."
+            )
         raise HonuaGpConfigurationError(
             "This tool requires two or more input rasters as a list."
         )

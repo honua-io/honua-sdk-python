@@ -420,13 +420,15 @@ class AsyncInsertCursor(_BaseWriteCursor):
     ) -> None:
         super().__init__(source, batch_size=batch_size, rollback_on_failure=rollback_on_failure)
 
-    def insert_row(
+    async def insert_row(
         self,
         attributes: Mapping[str, Any],
         geometry: Mapping[str, Any] | None = None,
     ) -> None:
-        """Queue a feature for insertion (flush is explicit on the async cursor)."""
+        """Queue a feature for insertion, flushing when the batch fills."""
         self._buffer.adds.append(_geoservices_feature_from(attributes, geometry))
+        if self._buffer.pending >= self._buffer.batch_size:
+            await self.flush()
 
     async def flush(self) -> ApplyEditsResult | None:
         """Write any pending inserts; returns the batch result or ``None``."""
@@ -483,14 +485,14 @@ class AsyncUpdateCursor(_BaseWriteCursor):
                     wanted.discard(row.object_id)
                     yield row
 
-    def update_row(
+    async def update_row(
         self,
         row: Row,
         *,
         attributes: Mapping[str, Any] | None = None,
         geometry: Mapping[str, Any] | None = None,
     ) -> None:
-        """Queue an update for *row*, merging *attributes* over its current ones."""
+        """Queue an update for *row*, merging *attributes* over its current ones, flushing when the batch fills."""
         object_id = row.object_id
         if object_id is None:
             raise ValueError("Cannot update a row without an object id (OBJECTID).")
@@ -505,6 +507,8 @@ class AsyncUpdateCursor(_BaseWriteCursor):
             merged["OBJECTID"] = object_id
         geom = geometry if geometry is not None else row.feature.geometry
         self._buffer.updates.append(_geoservices_feature_from(merged, geom))
+        if self._buffer.pending >= self._buffer.batch_size:
+            await self.flush()
 
     async def flush(self) -> ApplyEditsResult | None:
         """Write any pending updates; returns the batch result or ``None``."""

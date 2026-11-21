@@ -31,6 +31,7 @@ have **no** layer-aware catalog counterpart, so they stay honest stubs; see
 from __future__ import annotations
 
 import json
+import math
 import re
 import uuid
 from collections.abc import Mapping, Sequence
@@ -547,14 +548,90 @@ def _project_spatial_join(bound: Mapping[str, Any], *, session: HonuaSession, pr
     _reserve_output(bound.get("out_feature_class"), session=session, projected=projected)
 
 
+_SEARCH_RADIUS_TO_METERS: dict[str, float] = {
+    "meters": 1.0,
+    "meter": 1.0,
+    "m": 1.0,
+    "kilometers": 1000.0,
+    "kilometer": 1000.0,
+    "km": 1000.0,
+    "feet": 0.3048,
+    "foot": 0.3048,
+    "ft": 0.3048,
+    "foot_us": 1200.0 / 3937.0,
+    "feet_us": 1200.0 / 3937.0,
+    "surveyfeet": 1200.0 / 3937.0,
+    "surveyfoot": 1200.0 / 3937.0,
+    "survey_feet": 1200.0 / 3937.0,
+    "survey_foot": 1200.0 / 3937.0,
+    "ussurveyfeet": 1200.0 / 3937.0,
+    "ussurveyfoot": 1200.0 / 3937.0,
+    "us_survey_feet": 1200.0 / 3937.0,
+    "us_survey_foot": 1200.0 / 3937.0,
+    "miles": 1609.344,
+    "mile": 1609.344,
+    "mi": 1609.344,
+    "miles_int": 1609.344,
+    "nauticalmiles": 1852.0,
+    "nauticalmile": 1852.0,
+    "nautical_miles": 1852.0,
+    "nautical_mile": 1852.0,
+    "nmi": 1852.0,
+    "yards": 0.9144,
+    "yard": 0.9144,
+    "yd": 0.9144,
+}
+
+
+def _parse_search_radius(value: Any) -> float:
+    """Convert a SpatialJoin ``search_radius`` argument into meters.
+
+    ``analytics.spatial-join`` accepts a numeric ``distance`` in meters with no
+    separate unit input. Accepts a numeric value (interpreted as meters) or a
+    linear-unit string such as ``"1 Mile"`` or ``"500 Feet"`` and converts to
+    meters so units are never discarded.
+    """
+    if isinstance(value, bool):
+        raise HonuaGpConfigurationError(f"SpatialJoin search_radius {value!r} is not a number.")
+    if isinstance(value, (int, float)):
+        magnitude = float(value)
+        if not math.isfinite(magnitude) or magnitude < 0:
+            raise HonuaGpConfigurationError(f"SpatialJoin search_radius {value!r} must be a non-negative finite number.")
+        return magnitude
+    if not isinstance(value, str) or not value.strip():
+        raise HonuaGpConfigurationError(
+            f"SpatialJoin search_radius {value!r} is not a number or a linear-unit string."
+        )
+    parts = value.strip().split()
+    try:
+        magnitude = float(parts[0])
+    except ValueError as exc:
+        raise HonuaGpConfigurationError(
+            f"SpatialJoin search_radius {value!r} does not start with a number."
+        ) from exc
+    if not math.isfinite(magnitude) or magnitude < 0:
+        raise HonuaGpConfigurationError(f"SpatialJoin search_radius {value!r} must be a non-negative finite number.")
+    unit_token = "_".join(parts[1:]).lower() if len(parts) > 1 else "meters"
+    factor = _SEARCH_RADIUS_TO_METERS.get(unit_token)
+    if factor is None:
+        raise HonuaGpConfigurationError(
+            f"SpatialJoin search_radius unit {unit_token!r} is not supported; "
+            "supported units: Meters, Kilometers, Feet, Foot_US/SurveyFeet, Miles, NauticalMiles, Yards."
+        )
+    return magnitude * factor
+
+
 def _match_option_to_predicate(match_option: Any, search_radius: Any) -> tuple[str, float | None]:
     token = str(match_option).upper()
+    # ArcPy SpatialJoin uses target-subject semantics ("CONTAINS" means target
+    # contains join; "WITHIN" means target is within join), whereas honua-server
+    # analytics.spatial-join uses join-subject semantics ("contains" means join
+    # contains target; "within" means join is within target).
     mapping = {
         "INTERSECT": ("intersects", None),
-        "CONTAINS": ("contains", None),
-        "WITHIN": ("within", None),
+        "CONTAINS": ("within", None),
+        "WITHIN": ("contains", None),
         "WITHIN_A_DISTANCE": ("dwithin", None),
-        "CLOSEST": ("dwithin", None),
     }
     if token not in mapping:
         raise HonuaGpConfigurationError(
@@ -565,12 +642,12 @@ def _match_option_to_predicate(match_option: Any, search_radius: Any) -> tuple[s
     predicate, _ = mapping[token]
     distance: float | None = None
     if predicate == "dwithin":
-        distance, _unit = _parse_linear_distance(search_radius) if search_radius is not None else (None, None)
-        if distance is None:
+        if search_radius is None:
             raise HonuaGpConfigurationError(
                 "SpatialJoin match_option=WITHIN_A_DISTANCE requires a "
                 "search_radius (e.g. '100 Meters')."
             )
+        distance = _parse_search_radius(search_radius)
     return predicate, distance
 
 

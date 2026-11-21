@@ -274,6 +274,21 @@ def _workspace_layer_id(name: str, service_id: str, *, session: HonuaSession) ->
     return layer_id
 
 
+def _require_readable_workspace_layer(name: str, workspace: str, *, session: HonuaSession) -> None:
+    """Refuse a workspace-relative process layer whose service layer list is unreadable."""
+
+    service_id = workspace[len("honua://services/") :].strip("/").split("/")[0]
+    if _workspace_layer_id(name, service_id, session=session) is None:
+        raise HonuaGpResolveError(
+            name,
+            hint=(
+                f"Could not read the layer list of service {service_id!r} to find "
+                f"{name!r}; address it as honua://services/{service_id}/<layerId> "
+                "or through HONUA_GP_PATH_MAP."
+            ),
+        )
+
+
 def descriptor_mapping(
     resolved: ResolvedSource,
     *,
@@ -394,16 +409,7 @@ def resolve_layer_id(path: Any, *, session: HonuaSession | None = None) -> int:
         isinstance(workspace, str) and workspace.startswith("honua://services/")
     ):
         if not source.startswith("honua://services/") and not _LAYER_ID_RE.fullmatch(source):
-            service_id = str(workspace)[len("honua://services/") :].strip("/").split("/")[0]
-            if _workspace_layer_id(source, service_id, session=session) is None:
-                raise HonuaGpResolveError(
-                    str(path),
-                    hint=(
-                        f"Could not read the layer list of service {service_id!r} to find "
-                        f"{source!r}; address it as honua://services/{service_id}/<layerId> "
-                        "or through HONUA_GP_PATH_MAP."
-                    ),
-                )
+            _require_readable_workspace_layer(source, str(workspace), session=session)
         descriptor = descriptor_mapping(resolved, session=session)
         layer_id = descriptor.get("locator", {}).get("layerId")
         if not isinstance(layer_id, int) or isinstance(layer_id, bool) or layer_id < 0:

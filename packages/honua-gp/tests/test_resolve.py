@@ -196,3 +196,50 @@ def test_descriptor_mapping_round_trips_through_honua_sdk() -> None:
     assert coerced.protocol == "geoservices-feature-service"
     assert coerced.locator.service_id == "parcels"
     assert coerced.locator.layer_id == 0
+
+
+class _TwoLayerFeatureServer:
+    def __init__(self, calls: list[str]) -> None:
+        self._calls = calls
+
+    def metadata(self, **_: object) -> dict[str, object]:
+        self._calls.append("metadata")
+        return {
+            "layers": [{"id": 0, "name": "roads"}, {"id": 2, "name": "Parcels"}],
+            "tables": [{"id": 5, "name": "owners"}],
+        }
+
+
+class _TwoLayerClient:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def feature_server(self, service_id: str) -> _TwoLayerFeatureServer:
+        assert service_id == "cadastre"
+        return _TwoLayerFeatureServer(self.calls)
+
+
+def test_workspace_layer_names_resolve_through_the_service_layer_list() -> None:
+    client = _TwoLayerClient()
+    honua_gp.configure(client=client)
+    honua_gp.get_session().workspace = "honua://services/cadastre"
+
+    assert resolve_layer_id("parcels") == 2
+    assert resolve_layer_id("owners") == 5
+    assert resolve_layer_id("3") == 3
+    assert resolve_layer_id("cadastre/4") == 4
+    with pytest.raises(honua_gp.HonuaGpResolveError):
+        resolve_layer_id("\u00b2")
+    assert descriptor_mapping(resolve("Parcels"))["locator"] == {"serviceId": "cadastre", "layerId": 2}
+    assert client.calls == ["metadata"]
+    with pytest.raises(honua_gp.HonuaGpResolveError, match="no layer or table named 'rivers'"):
+        resolve_layer_id("rivers")
+    with pytest.raises(honua_gp.HonuaGpResolveError, match="no layer or table named 'rivers'"):
+        descriptor_mapping(resolve("rivers"))
+
+
+def test_workspace_layer_name_without_a_readable_layer_list_is_refused_for_processes() -> None:
+    honua_gp.get_session().workspace = "honua://services/transport"
+
+    with pytest.raises(honua_gp.HonuaGpResolveError, match="Could not read the layer list"):
+        resolve_layer_id("roads")

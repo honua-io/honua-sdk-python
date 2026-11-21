@@ -460,9 +460,17 @@ jobs:
             -f "${server_root}/docker/client-compat/seed/Dockerfile" \
             "${server_root}"
 
-          # Bring up postgres/redis first and wait for both healthchecks so the
-          # subsequent --no-deps honua start does not race an unready dependency.
-          docker compose -f "${compose_file}" -f "${override_file}" up -d --wait postgres redis
+          # Bring up the backing services first and wait for their healthchecks
+          # so the subsequent --no-deps honua start does not race an unready
+          # dependency. Redis is started only when this server revision's
+          # fixture still defines it: honua-server removed Redis, so the moving
+          # canary's compose has postgres alone while older pins carry both.
+          defined_services="$(docker compose -f "${compose_file}" -f "${override_file}" config --services)"
+          backing_services=(postgres)
+          if grep -qx redis <<<"${defined_services}"; then
+            backing_services+=(redis)
+          fi
+          docker compose -f "${compose_file}" -f "${override_file}" up -d --wait "${backing_services[@]}"
 
           # Start honua directly (--no-deps), bypassing its "seed" dependency, so
           # it migrates a genuinely empty database on this first boot -- see the

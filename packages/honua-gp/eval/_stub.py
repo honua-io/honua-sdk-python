@@ -210,8 +210,22 @@ class _StubFeatureServer:
         },
     }
 
+    # Attribute tables the eval scripts address by name inside the transport
+    # workspace (make_table_view.py); listed in service metadata only.
+    _TABLES: dict[str, tuple[dict[str, Any], ...]] = {
+        "transport": ({"id": 1, "name": "segments_attrs"},),
+    }
+
     def __init__(self, service_id: str) -> None:
         self.service_id = service_id
+
+    def metadata(self, **_: Any) -> dict[str, Any]:
+        layers = [
+            {"id": layer_id, "name": payload["name"]}
+            for (service_id, layer_id), payload in sorted(self._CATALOG.items())
+            if service_id == self.service_id
+        ]
+        return {"layers": layers, "tables": list(self._TABLES.get(self.service_id, ()))}
 
     def layer_metadata(self, layer_id: int, **_: Any) -> dict[str, Any]:
         key = (self.service_id, layer_id)

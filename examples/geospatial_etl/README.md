@@ -23,7 +23,7 @@ See [../README.md](../README.md) for the shared demo-suite cloud environment con
 Use the existing `honua-server` Docker Compose quick start and seeded `test_service` docs instead of re-creating that setup here:
 
 - `honua-server` quick start: <https://github.com/honua-io/honua-server/blob/trunk/README.md#quick-start>
-- Seeded `test_service` + layer `0`: <https://github.com/honua-io/honua-server/blob/trunk/docs/contributor/mcp-certification.md#how-the-seed-is-applied-in-ci>
+- Seeded `test_service` + layer `0`: <https://github.com/honua-io/honua-server/blob/trunk/docs/internal/contributor/mcp-certification.md#how-the-seed-is-applied-in-ci>
 
 ## Install
 

@@ -1,5 +1,5 @@
 {
-  "packages/honua-sdk": "0.3.2",
-  "packages/honua-admin": "0.3.2",
-  "packages/honua-gp": "0.1.2"
+  "packages/honua-sdk": "0.3.3",
+  "packages/honua-admin": "0.3.3",
+  "packages/honua-gp": "0.1.3"
 }

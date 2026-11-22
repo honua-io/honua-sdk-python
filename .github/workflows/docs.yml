@@ -70,6 +70,9 @@ jobs:
       - name: Build site
         run: mkdocs build --strict
 
+      - name: Check documentation sitemap
+        run: python scripts/check_docs_sitemap.py site https://honua-io.github.io/honua-sdk-python/
+
       - name: Upload rendered site artifact
         # Attach the rendered ``site/`` so PR reviewers can preview the docs
         # without checking out the branch and building locally. The ``mike``

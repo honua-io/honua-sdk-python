@@ -1,4 +1,5 @@
 site_name: Honua Python SDK
+site_url: https://honua-io.github.io/honua-sdk-python/
 site_description: Honua data-plane and control-plane Python clients
 repo_url: https://github.com/honua-io/honua-sdk-python
 docs_dir: docs

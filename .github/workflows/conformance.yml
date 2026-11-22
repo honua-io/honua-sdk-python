@@ -90,8 +90,8 @@ env:
   # Current nightly image and its exact embedded source revision. Update these as
   # one identity so scheduled evidence never joins a candidate to unrelated seed
   # fixtures. Release dispatches continue to override both explicitly.
-  HONUA_SERVER_IMAGE: ${{ github.event.inputs.server_image || 'ghcr.io/honua-io/honua-server@sha256:78e3088d64d832d3e2752c87d80bfcad201b414f4525989ca5d9a242cd5fee8a' }}
-  HONUA_SERVER_NIGHTLY_REVISION: 'f897700159e2791c9468c6ca85bb4e2a3a8d8433'
+  HONUA_SERVER_IMAGE: ${{ github.event.inputs.server_image || 'ghcr.io/honua-io/honua-server@sha256:9cdcd09fede97f4c47a3e69abb537813ef7a80f5f7ba365cf32a10e6954652cf' }}
+  HONUA_SERVER_NIGHTLY_REVISION: 'a997a37e6953d19a4db483aa9160a113f06ae5ef'
 
 jobs:
   conformance:

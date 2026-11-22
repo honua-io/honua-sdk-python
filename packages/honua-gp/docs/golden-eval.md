@@ -149,6 +149,6 @@ export HONUA_GP_PATH_MAP='{"roads":"honua://services/test_service/0","segments_a
 python eval/run_eval.py --require-supported-pass-rate 1.0
 ```
 
-The server must have Redis-backed durable job storage available (the OGC
+The server must have PostgreSQL-backed durable job storage available (the OGC
 Processes job store honua-server's async GP operations run on); the
-client-compat compose wires Redis for exactly this.
+client-compat compose wires PostgreSQL for this.

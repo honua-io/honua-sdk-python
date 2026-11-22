@@ -552,7 +552,9 @@ def _run_feature_query_jsonb_projection(
     features = _as_list(response.get("features"), "response is missing a 'features' array")
     _require(len(features) > 0, "seeded layer returned no features")
 
-    observed = _validate_seeded_json_fields(features, "FeatureServer", "attributes")
+    # FeatureServer advertises JSON columns as esriFieldTypeString and serializes them
+    # as JSON text (honua-server#5147), so the values are decoded before the type checks.
+    observed = _validate_seeded_json_fields(features, "FeatureServer", "attributes", json_as_text=True)
     jsonb_fields = {"tags", "numbers"}
     return {
         "feature_count": len(features),
@@ -561,8 +563,19 @@ def _run_feature_query_jsonb_projection(
     }
 
 
+def _decode_json_text(value: Any, surface: str, name: str) -> Any:
+    _require(
+        isinstance(value, str),
+        f"{surface} {name} value/type drift: expected JSON text for a string field, got {value!r}",
+    )
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(f"{surface} {name} is not valid JSON text: {value!r}") from exc
+
+
 def _validate_seeded_json_fields(
-    features: list[Any], surface: str, member_name: str
+    features: list[Any], surface: str, member_name: str, *, json_as_text: bool = False
 ) -> set[str]:
     observed: set[str] = set()
     for feature in features:
@@ -577,11 +590,14 @@ def _validate_seeded_json_fields(
         _require(not missing, f"{surface} JSON field projection is missing {missing}")
 
         tags = attributes["tags"]
+        numbers = attributes["numbers"]
+        if json_as_text:
+            tags = _decode_json_text(tags, surface, "tags")
+            numbers = _decode_json_text(numbers, surface, "numbers")
         _require(
             isinstance(tags, list) and all(isinstance(value, str) for value in tags),
             f"{surface} tags value/type drift: expected an array of strings, got {tags!r}",
         )
-        numbers = attributes["numbers"]
         _require(
             isinstance(numbers, list)
             and all(isinstance(value, int) and not isinstance(value, bool) for value in numbers),
@@ -667,7 +683,8 @@ def _run_feature_query_layer_fields(
         "ratio": "floating",
         "active": "integer",
         "created_at": "date",
-        "event_date": "date",
+        # Calendar dates are esriFieldTypeDateOnly (honua-server#4839).
+        "event_date": "dateonly",
         "event_time": "string",
         "uid": "guid",
         "tags": "string",

@@ -338,44 +338,47 @@ def test_replica_probe_rejects_untyped_or_partial_sync_signals(metadata: dict[st
         _run_replica_surface(_ReplicaClient(metadata), TARGET, BUNDLE)
 
 
-def test_json_field_probe_accepts_seed_without_synthetic_feature_count() -> None:
-    response = {
-        "features": [{
-            "attributes": {"tags": ["red", "blue"], "numbers": [0, 1, 2]},
-            "geometry": {"x": 0, "y": 0},
-        }],
+def _json_field_response(tags: object, numbers: object) -> dict[str, object]:
+    return {
+        "features": [{"attributes": {"tags": tags, "numbers": numbers}, "geometry": {"x": 0, "y": 0}}],
         "exceededTransferLimit": False,
     }
+
+
+def test_json_field_probe_accepts_featureserver_json_text() -> None:
+    response = _json_field_response('["red","blue"]', "[0,1,2]")
 
     result = _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
 
     assert result["jsonb_fields_projected"] == ["numbers", "tags"]
 
 
-def test_json_field_probe_rejects_stringified_arrays() -> None:
-    response = {
-        "features": [{
-            "attributes": {"feature_count": 1, "tags": '["red","blue"]', "numbers": "[0,1,2]"},
-            "geometry": {"x": 0, "y": 0},
-        }],
-        "exceededTransferLimit": False,
-    }
+def test_json_field_probe_rejects_featureserver_native_arrays() -> None:
+    response = _json_field_response(["red", "blue"], [0, 1, 2])
 
-    with pytest.raises(AssertionError, match="tags value/type drift"):
+    with pytest.raises(AssertionError, match="tags value/type drift: expected JSON text"):
+        _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
+
+
+def test_json_field_probe_rejects_invalid_json_text() -> None:
+    response = _json_field_response('["red",', "[0,1,2]")
+
+    with pytest.raises(AssertionError, match="tags is not valid JSON text"):
         _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
 
 
 def test_json_field_probe_rejects_boolean_numbers() -> None:
-    response = {
-        "features": [{
-            "attributes": {"feature_count": 1, "tags": ["red", "blue"], "numbers": [False, True, 2]},
-            "geometry": {"x": 0, "y": 0},
-        }],
-        "exceededTransferLimit": False,
-    }
+    response = _json_field_response('["red","blue"]', "[false,true,2]")
 
     with pytest.raises(AssertionError, match="array of integers"):
         _run_feature_query_jsonb_projection(_QueryClient(response=response), TARGET, BUNDLE)
+
+
+def test_ogc_json_field_probe_rejects_stringified_arrays() -> None:
+    feature = {"properties": {"tags": '["red","blue"]', "numbers": "[0,1,2]"}}
+
+    with pytest.raises(AssertionError, match="tags value/type drift: expected an array of strings"):
+        _validate_seeded_json_fields([feature], "OGC API Features", "properties")
 
 
 @pytest.mark.parametrize(
@@ -672,7 +675,7 @@ def test_layer_metadata_probe_requires_complete_client_compat_seed_schema(
                     {"name": "ratio", "type": "esriFieldTypeDouble"},
                     {"name": "active", "type": "esriFieldTypeSmallInteger"},
                     {"name": "created_at", "type": "esriFieldTypeDate"},
-                    {"name": "event_date", "type": "esriFieldTypeDate"},
+                    {"name": "event_date", "type": "esriFieldTypeDateOnly"},
                     {"name": "event_time", "type": "esriFieldTypeString"},
                     {"name": "uid", "type": "esriFieldTypeGUID"},
                     {"name": "tags", "type": "esriFieldTypeString"},

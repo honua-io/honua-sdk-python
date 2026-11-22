@@ -1746,6 +1746,9 @@ must never also carry unrelated required assertions.
 read contract and are always required. The JSONB attribute projection check
 (the honua-server#1238 class of regression) lives in its own cases,
 <code>feature_query_jsonb_projection</code> and <code>ogc_features_items_jsonb_projection</code>.
+FeatureServer advertises JSON columns as <code>esriFieldTypeString</code> and returns their
+values as JSON text, so the FeatureServer case decodes the text before it checks
+the element types; OGC API Features returns them as native JSON arrays.
 New drift in a required case must fail the lane; never add a blanket
 <code>continue-on-error</code>.</p>
 <h2 id="no-custom-code-submission-or-backend-selection">No custom-code submission or backend selection<a class="headerlink" href="#no-custom-code-submission-or-backend-selection" title="Permanent link">&para;</a></h2>

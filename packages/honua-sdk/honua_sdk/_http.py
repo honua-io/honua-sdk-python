@@ -33,7 +33,17 @@ def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/") + "/"
 
 
+def _has_control_character(value: str) -> bool:
+    return any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value)
+
+
 def _encode_path_segment(value: str) -> str:
+    if not value or not value.strip():
+        raise ValueError("Path segment must be a non-empty string.")
+    if value in {".", ".."}:
+        raise ValueError("Path segment must not be '.' or '..'.")
+    if _has_control_character(value):
+        raise ValueError("Path segment must not contain control characters.")
     return quote(value, safe="")
 
 
@@ -72,6 +82,8 @@ def encode_request_path(raw_path: str) -> bytes:
     percent-encoding (and reserved delimiters) untouched so already-encoded
     segments are not double-encoded.
     """
+    if _has_control_character(raw_path):
+        raise ValueError("Request path must not contain control characters.")
     try:
         return raw_path.encode("ascii")
     except UnicodeEncodeError:

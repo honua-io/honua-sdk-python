@@ -334,8 +334,8 @@ plt.show()
 - [Troubleshooting](./troubleshooting.md) -- base URL selection, auth, staging smoke env vars, optional ETL dependencies, and cleanup guidance
 - [INSTALL.md](https://github.com/honua-io/honua-sdk-python/blob/trunk/INSTALL.md) -- installation options including gRPC extras
 - [Native gRPC edits](native-data-paths.md) -- add, update and delete through `HonuaGrpcClient.apply_edits`
-- [gRPC client](../packages/honua-sdk/honua_sdk/grpc/) -- streaming feature queries via `HonuaGrpcClient`
-- [Admin client](../packages/honua-admin/honua_admin/) -- server administration with `HonuaAdminClient`
+- [gRPC client](protocol-examples.md#grpc) -- streaming feature queries via `HonuaGrpcClient`
+- [Admin client](reference/honua-admin/clients.md) -- server administration with `HonuaAdminClient`
 
 ## Appendix: Manual GeoServices REST JSON conversion (without the `geopandas` extra)
 

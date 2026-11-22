@@ -553,8 +553,9 @@ def _run_feature_query_jsonb_projection(
     _require(len(features) > 0, "seeded layer returned no features")
 
     # FeatureServer advertises JSON columns as esriFieldTypeString and serializes them
-    # as JSON text (honua-server#5147), so the values are decoded before the type checks.
-    observed = _validate_seeded_json_fields(features, "FeatureServer", "attributes", json_as_text=True)
+    # as JSON text, so the values are decoded before the shared type checks.
+    decoded = _decode_featureserver_json_fields(features)
+    observed = _validate_seeded_json_fields(decoded, "FeatureServer", "attributes")
     jsonb_fields = {"tags", "numbers"}
     return {
         "feature_count": len(features),
@@ -574,8 +575,25 @@ def _decode_json_text(value: Any, surface: str, name: str) -> Any:
         raise AssertionError(f"{surface} {name} is not valid JSON text: {value!r}") from exc
 
 
+def _decode_featureserver_json_fields(features: list[Any]) -> list[Any]:
+    decoded: list[Any] = []
+    for feature in features:
+        attributes = feature.get("attributes") if isinstance(feature, Mapping) else None
+        if not isinstance(attributes, Mapping):
+            decoded.append(feature)
+            continue
+        values = {
+            key: _decode_json_text(value, "FeatureServer", str(key).lower())
+            if str(key).lower() in {"tags", "numbers"}
+            else value
+            for key, value in attributes.items()
+        }
+        decoded.append({**feature, "attributes": values})
+    return decoded
+
+
 def _validate_seeded_json_fields(
-    features: list[Any], surface: str, member_name: str, *, json_as_text: bool = False
+    features: list[Any], surface: str, member_name: str
 ) -> set[str]:
     observed: set[str] = set()
     for feature in features:
@@ -591,9 +609,6 @@ def _validate_seeded_json_fields(
 
         tags = attributes["tags"]
         numbers = attributes["numbers"]
-        if json_as_text:
-            tags = _decode_json_text(tags, surface, "tags")
-            numbers = _decode_json_text(numbers, surface, "numbers")
         _require(
             isinstance(tags, list) and all(isinstance(value, str) for value in tags),
             f"{surface} tags value/type drift: expected an array of strings, got {tags!r}",
@@ -683,7 +698,7 @@ def _run_feature_query_layer_fields(
         "ratio": "floating",
         "active": "integer",
         "created_at": "date",
-        # Calendar dates are esriFieldTypeDateOnly (honua-server#4839).
+        # Calendar dates are esriFieldTypeDateOnly.
         "event_date": "dateonly",
         "event_time": "string",
         "uid": "guid",

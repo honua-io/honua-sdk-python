@@ -552,13 +552,44 @@ def _run_feature_query_jsonb_projection(
     features = _as_list(response.get("features"), "response is missing a 'features' array")
     _require(len(features) > 0, "seeded layer returned no features")
 
-    observed = _validate_seeded_json_fields(features, "FeatureServer", "attributes")
+    # FeatureServer advertises JSON columns as esriFieldTypeString and serializes them
+    # as JSON text, so the values are decoded before the shared type checks.
+    decoded = _decode_featureserver_json_fields(features)
+    observed = _validate_seeded_json_fields(decoded, "FeatureServer", "attributes")
     jsonb_fields = {"tags", "numbers"}
     return {
         "feature_count": len(features),
         "observed_fields": sorted(observed),
         "jsonb_fields_projected": sorted(jsonb_fields),
     }
+
+
+def _decode_json_text(value: Any, surface: str, name: str) -> Any:
+    _require(
+        isinstance(value, str),
+        f"{surface} {name} value/type drift: expected JSON text for a string field, got {value!r}",
+    )
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(f"{surface} {name} is not valid JSON text: {value!r}") from exc
+
+
+def _decode_featureserver_json_fields(features: list[Any]) -> list[Any]:
+    decoded: list[Any] = []
+    for feature in features:
+        attributes = feature.get("attributes") if isinstance(feature, Mapping) else None
+        if not isinstance(attributes, Mapping):
+            decoded.append(feature)
+            continue
+        values = {
+            key: _decode_json_text(value, "FeatureServer", str(key).lower())
+            if str(key).lower() in {"tags", "numbers"}
+            else value
+            for key, value in attributes.items()
+        }
+        decoded.append({**feature, "attributes": values})
+    return decoded
 
 
 def _validate_seeded_json_fields(
@@ -577,11 +608,11 @@ def _validate_seeded_json_fields(
         _require(not missing, f"{surface} JSON field projection is missing {missing}")
 
         tags = attributes["tags"]
+        numbers = attributes["numbers"]
         _require(
             isinstance(tags, list) and all(isinstance(value, str) for value in tags),
             f"{surface} tags value/type drift: expected an array of strings, got {tags!r}",
         )
-        numbers = attributes["numbers"]
         _require(
             isinstance(numbers, list)
             and all(isinstance(value, int) and not isinstance(value, bool) for value in numbers),
@@ -667,7 +698,8 @@ def _run_feature_query_layer_fields(
         "ratio": "floating",
         "active": "integer",
         "created_at": "date",
-        "event_date": "date",
+        # Calendar dates are esriFieldTypeDateOnly.
+        "event_date": "dateonly",
         "event_time": "string",
         "uid": "guid",
         "tags": "string",

@@ -26,6 +26,23 @@
   | `WORKFLOW_PACKAGE_SCHEMA_VERSION` | `WORKFLOW_SCHEMA_VERSION` |
 
   The renames apply to `HonuaWorkflow` and `AsyncHonuaWorkflow`. The server routes and the `packageId` wire field are unchanged.
+## [0.3.3](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.2...python-sdk-v0.3.3) (2026-11-23)
+
+
+### Features
+
+* add typed native gRPC edit clients ([#405](https://github.com/honua-io/honua-sdk-python/issues/405)) ([d55fc15](https://github.com/honua-io/honua-sdk-python/commit/d55fc15ffaf2aca8ccfff0020cad637b91cde714))
+
+
+### Bug Fixes
+
+* **sdk,gp:** harden URL safety, 3D geometry conversion, pagination, and GP parity ([#426](https://github.com/honua-io/honua-sdk-python/issues/426)) ([72a1daf](https://github.com/honua-io/honua-sdk-python/commit/72a1daf3049f9c9502b2ad2f5e35593c70d9cad7))
+
+
+### Documentation
+
+* verify the installed wheel attestation ([#420](https://github.com/honua-io/honua-sdk-python/issues/420)) ([d16faec](https://github.com/honua-io/honua-sdk-python/commit/d16faecd6a29ef137e3b85fb2148f3bb6e6d998d)), closes [#419](https://github.com/honua-io/honua-sdk-python/issues/419)
+
 ## [0.3.2](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.1...python-sdk-v0.3.2) (2026-11-13)
 
 

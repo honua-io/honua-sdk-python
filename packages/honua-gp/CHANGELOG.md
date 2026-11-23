@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.3](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.2...python-gp-v0.1.3) (2026-11-23)
+
+
+### Bug Fixes
+
+* **gp:** canary without Redis, workspace layer names, README link ([#428](https://github.com/honua-io/honua-sdk-python/issues/428)) ([41e7a16](https://github.com/honua-io/honua-sdk-python/commit/41e7a16aba99506d49e4893508337d2a98f2ea32))
+* **sdk,gp:** harden URL safety, 3D geometry conversion, pagination, and GP parity ([#426](https://github.com/honua-io/honua-sdk-python/issues/426)) ([72a1daf](https://github.com/honua-io/honua-sdk-python/commit/72a1daf3049f9c9502b2ad2f5e35593c70d9cad7))
+
+
+### Documentation
+
+* **honua-gp:** replace stale Redis durable-job requirement with PostgreSQL ([#431](https://github.com/honua-io/honua-sdk-python/issues/431)) ([#432](https://github.com/honua-io/honua-sdk-python/issues/432)) ([e5848d1](https://github.com/honua-io/honua-sdk-python/commit/e5848d19418788b8689f05ccb6b681c1482b076b))
+
 ## [0.1.2](https://github.com/honua-io/honua-sdk-python/compare/python-gp-v0.1.1...python-gp-v0.1.2) (2026-11-13)
 
 

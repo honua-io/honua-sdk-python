@@ -62,6 +62,9 @@ jobs:
       - name: Enforce maintained documentation command policy
         run: python scripts/check_docs_command_policy.py
 
+      - name: Verify generated attestation examples are current
+        run: python scripts/gen_attestation_examples.py --check
+
       - name: Require the same pip pin in every dependency lock
         run: python scripts/check_lock_pip_pins.py
 

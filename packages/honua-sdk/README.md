@@ -162,14 +162,44 @@ Related: [honua-admin](https://github.com/honua-io/honua-sdk-python/tree/trunk/p
 From 0.2.1, each PyPI release is built by this repository's publication workflow, which attaches
 the same wheel and sdist to the matching GitHub release and records a build-provenance attestation
 for them. 0.2.0 was published without an attestation; use 0.2.1 or later when you need to verify
-provenance. After this package is installed, download that same version and check the wheel:
+provenance. The example verifies the 0.3.3 wheel from PyPI using public attestations.
+Run it in Bash with Python 3, pip, and GitHub CLI (tested with 2.103.3).
+No GitHub login or token is required. For another release, update both the
+version and the expected source commit to match that release.
 
+<!-- BEGIN GENERATED ATTESTATION EXAMPLE -->
 ```bash
-version="$(python3 -c 'import importlib.metadata as metadata; print(metadata.version("honua-sdk"))')"
-mkdir -p ./honua-wheels
-pip download "honua-sdk==${version}" --no-deps --dest ./honua-wheels
-gh attestation verify "./honua-wheels/honua_sdk-${version}-py3-none-any.whl" --repo honua-io/honua-sdk-python
+(
+  set -eu
+  workdir="$(mktemp -d)"
+  trap 'rm -r "$workdir"' EXIT
+  cd "$workdir"
+
+  version=0.3.3
+  repo=honua-io/honua-sdk-python
+  source=21a9ecb952e43ecc1450384e595259b1912f27b3
+  wheel="honua_sdk-${version}-py3-none-any.whl"
+  python3 -m pip download --only-binary=:all: --no-deps "honua-sdk==$version"
+
+  python3 - "$wheel" "$repo" <<'PYTHON' > attestations.jsonl
+import hashlib
+import json
+import sys
+from pathlib import Path
+from urllib.request import urlopen
+
+wheel, repo = sys.argv[1:]
+digest = hashlib.sha256(Path(wheel).read_bytes()).hexdigest()
+with urlopen(f"https://api.github.com/repos/{repo}/attestations/sha256:{digest}", timeout=30) as response:
+    attestations = json.load(response)["attestations"]
+for attestation in attestations:
+    print(json.dumps(attestation["bundle"]))
+PYTHON
+
+  gh attestation verify "$wheel" --bundle attestations.jsonl --repo "$repo" --source-digest "$source"
+)
 ```
+<!-- END GENERATED ATTESTATION EXAMPLE -->
 
 ## License
 

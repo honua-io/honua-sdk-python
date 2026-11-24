@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "honua-io/honua-release"
@@ -20,9 +21,25 @@ def api(path):
     return json.loads(result.stdout)
 
 
-def fetch(pins, destination, *, source_sha=None, revision=None, release_manifest=False, get=api):
-    if release_manifest and (not source_sha or not revision):
+class GovernanceSource(NamedTuple):
+    sha: str | None = None
+    revision: str | None = None
+    paths: tuple[str, ...] = PATHS
+
+
+DEFAULT_SOURCE = GovernanceSource()
+
+
+def fetch_release(pins, destination, source, get=api):
+    if not source.sha or not source.revision:
         raise ValueError("release certification requires an exact source SHA and requirements revision")
+    return fetch(pins, destination, GovernanceSource(
+        source.sha, source.revision, (*PATHS, "platform-manifest.yaml")
+    ), get=get)
+
+
+def fetch(pins, destination, source=DEFAULT_SOURCE, get=api):
+    source_sha, revision, paths = source
     if set(pins) != {"repository", "sourceSha", "requirementsRevision", "sha256"} or pins["repository"] != REPOSITORY:
         raise ValueError("governance pins must identify the canonical release repository")
     if bool(source_sha) != bool(revision):
@@ -53,24 +70,8 @@ def fetch(pins, destination, *, source_sha=None, revision=None, release_manifest
     if tree.get("truncated") is not False or not isinstance(tree.get("tree"), list):
         raise ValueError("governance source tree is incomplete")
     retained = {}
-    paths = (*PATHS, "platform-manifest.yaml") if release_manifest else PATHS
     for path in paths:
-        matches = [entry for entry in tree["tree"] if entry.get("path") == path]
-        if len(matches) != 1 or matches[0].get("type") != "blob":
-            raise ValueError("governance source file is missing or ambiguous")
-        blob_sha = matches[0].get("sha")
-        if not re.fullmatch(r"[0-9a-f]{40}", blob_sha or ""):
-            raise ValueError("governance source blob identity is invalid")
-        blob = get(f"repos/{REPOSITORY}/git/blobs/{blob_sha}")
-        if blob.get("sha") != blob_sha or blob.get("encoding") != "base64":
-            raise ValueError("governance source blob readback differs")
-        data = base64.b64decode("".join(blob.get("content", "").split()), validate=True)
-        if not 0 < len(data) <= 32 * 1024 * 1024 or blob.get("size") != len(data):
-            raise ValueError("governance source blob is missing or exceeds its bound")
-        actual_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data, usedforsecurity=False).hexdigest()
-        if actual_blob != blob_sha:
-            raise ValueError("governance source bytes differ from the immutable Git blob")
-        digest = hashlib.sha256(data).hexdigest()
+        data, digest, blob_sha = fetch_blob(tree["tree"], path, get)
         if source_sha is None and digest != pins["sha256"][path]:
             raise ValueError("governance source bytes differ from reviewed file pins")
         retained[path] = (data, digest, blob_sha)
@@ -88,6 +89,26 @@ def fetch(pins, destination, *, source_sha=None, revision=None, release_manifest
     return binding
 
 
+def fetch_blob(tree, path, get):
+    matches = [entry for entry in tree if entry.get("path") == path]
+    if len(matches) != 1 or matches[0].get("type") != "blob":
+        raise ValueError("governance source file is missing or ambiguous")
+    blob_sha = matches[0].get("sha")
+    if not re.fullmatch(r"[0-9a-f]{40}", blob_sha or ""):
+        raise ValueError("governance source blob identity is invalid")
+    blob = get(f"repos/{REPOSITORY}/git/blobs/{blob_sha}")
+    if blob.get("sha") != blob_sha or blob.get("encoding") != "base64":
+        raise ValueError("governance source blob readback differs")
+    data = base64.b64decode("".join(blob.get("content", "").split()), validate=True)
+    if not 0 < len(data) <= 32 * 1024 * 1024 or blob.get("size") != len(data):
+        raise ValueError("governance source blob is missing or exceeds its bound")
+    actual_blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data, usedforsecurity=False).hexdigest()
+    if actual_blob != blob_sha:
+        raise ValueError("governance source bytes differ from the immutable Git blob")
+    digest = hashlib.sha256(data).hexdigest()
+    return data, digest, blob_sha
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pins", type=Path, default=ROOT / "conformance/requirements-pins.json")
@@ -97,9 +118,9 @@ def main():
     parser.add_argument("--release-manifest", action="store_true")
     args = parser.parse_args()
     try:
-        value = fetch(json.loads(args.pins.read_text()), args.destination,
-                      source_sha=args.source_sha, revision=args.requirements_revision,
-                      release_manifest=args.release_manifest)
+        fetch_source = fetch_release if args.release_manifest else fetch
+        value = fetch_source(json.loads(args.pins.read_text()), args.destination,
+                             GovernanceSource(args.source_sha, args.requirements_revision))
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         parser.exit(1, f"governance source refused: {type(exc).__name__}\n")
     print(json.dumps(value))

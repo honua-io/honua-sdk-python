@@ -96,9 +96,10 @@ class GovernanceFetchTests(unittest.TestCase):
                            {"source_sha": "trunk", "revision": "fixture"},
                            {"source_sha": pins["sourceSha"], "revision": "stale"}):
                 with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
-                    MODULE.fetch(pins, Path(directory), get=responses.__getitem__, **kwargs)
-            result = MODULE.fetch(pins, Path(directory), get=responses.__getitem__,
-                                  source_sha=pins["sourceSha"], revision="fixture")
+                    MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(sha=kwargs.get("source_sha"), revision=kwargs.get("revision")),
+                                 get=responses.__getitem__)
+            result = MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(pins["sourceSha"], "fixture"),
+                                  get=responses.__getitem__)
             self.assertEqual(pins["sourceSha"], result["sourceSha"])
 
 

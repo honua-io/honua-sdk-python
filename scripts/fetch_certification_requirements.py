@@ -20,7 +20,9 @@ def api(path):
     return json.loads(result.stdout)
 
 
-def fetch(pins, destination, *, source_sha=None, revision=None, get=api):
+def fetch(pins, destination, *, source_sha=None, revision=None, release_manifest=False, get=api):
+    if release_manifest and (not source_sha or not revision):
+        raise ValueError("release certification requires an exact source SHA and requirements revision")
     if set(pins) != {"repository", "sourceSha", "requirementsRevision", "sha256"} or pins["repository"] != REPOSITORY:
         raise ValueError("governance pins must identify the canonical release repository")
     if bool(source_sha) != bool(revision):
@@ -51,7 +53,8 @@ def fetch(pins, destination, *, source_sha=None, revision=None, get=api):
     if tree.get("truncated") is not False or not isinstance(tree.get("tree"), list):
         raise ValueError("governance source tree is incomplete")
     retained = {}
-    for path in PATHS:
+    paths = (*PATHS, "platform-manifest.yaml") if release_manifest else PATHS
+    for path in paths:
         matches = [entry for entry in tree["tree"] if entry.get("path") == path]
         if len(matches) != 1 or matches[0].get("type") != "blob":
             raise ValueError("governance source file is missing or ambiguous")
@@ -91,10 +94,12 @@ def main():
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--source-sha")
     parser.add_argument("--requirements-revision")
+    parser.add_argument("--release-manifest", action="store_true")
     args = parser.parse_args()
     try:
         value = fetch(json.loads(args.pins.read_text()), args.destination,
-                      source_sha=args.source_sha, revision=args.requirements_revision)
+                      source_sha=args.source_sha, revision=args.requirements_revision,
+                      release_manifest=args.release_manifest)
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         parser.exit(1, f"governance source refused: {type(exc).__name__}\n")
     print(json.dumps(value))

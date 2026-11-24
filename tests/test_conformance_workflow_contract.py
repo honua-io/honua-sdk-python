@@ -35,7 +35,7 @@ def test_conformance_uses_candidate_on_pr_and_public_wheel_elsewhere() -> None:
         "&& 'protocol-certification-fragment.json' || '' }}"
     ) in workflow
     assert "HONUA_PROTOCOL_CERTIFICATION_FRAGMENT_PATH: ${{ github.event_name != 'pull_request'" not in workflow
-    assert workflow.count("--require-hashes") == 5
+    assert workflow.count("--require-hashes") == 6
     assert workflow.count(".github/requirements/publish-python.lock") == 3
     assert "--no-isolation" in workflow
     assert "pip install --upgrade" not in workflow
@@ -384,3 +384,55 @@ def test_undispatched_install_keeps_the_repository_pinned_public_wheel(tmp_path)
     assert written["HONUA_SDK_WHEEL_FILENAME"] == "honua_sdk-0.1.18-py3-none-any.whl"
     assert written["HONUA_SDK_WHEEL_SHA256"] == digest
     assert written["HONUA_SDK_SOURCE_SHA"] == "3" * 40
+
+
+def test_release_dispatch_binds_wheel_before_install_without_sdk_inputs(tmp_path, monkeypatch):
+    import yaml
+
+    from scripts.bind_release_wheel import main
+
+    version, digest, source = "0.3.2", "sha256:" + "a" * 64, "b" * 40
+    filename = f"honua_sdk-{version}-py3-none-any.whl"
+    wheel = dict(package="honua-sdk", repository="honua-io/honua-sdk-python", ecosystem="pypi",
+                 publicationState="published", version=version, sourceSha=source, digest=digest,
+                 filename=filename)
+    manifest = dict(
+        components={"honua-sdk-python": dict(
+            artifact="pypi:honua-sdk", version=version, sha=source, artifactSha256=digest
+        )},
+        clientArtifacts={"honua-sdk-python-wheel": wheel},
+    )
+    governance = tmp_path / "honua-release-governance"
+    governance.mkdir()
+    env = tmp_path / "github-env"
+    monkeypatch.setenv("GITHUB_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("GITHUB_ENV", str(env))
+    for name in _NIGHTLY_PACKAGE_INPUTS:
+        monkeypatch.delenv(name.upper(), raising=False)
+    workflow = WORKFLOW.read_text()
+    assert workflow.index("--release-manifest") < workflow.index("python scripts/bind_release_wheel.py")
+    assert workflow.index("python scripts/bind_release_wheel.py") < workflow.index("python -m pip download")
+    with pytest.raises(SystemExit, match="Release wheel binding refused"):
+        main()
+    assert not env.exists()
+
+    manifest_path = governance / "platform-manifest.yaml"
+    manifest_path.write_text(yaml.safe_dump(manifest))
+    main()
+    assert env.read_text().splitlines() == [
+        f"HONUA_SDK_PUBLIC_VERSION={version}",
+        f"HONUA_SDK_PUBLIC_WHEEL={filename}",
+        f"HONUA_SDK_PUBLIC_WHEEL_SHA256={digest.removeprefix('sha256:')}",
+        f"HONUA_SDK_PUBLIC_SOURCE_SHA={source}",
+    ]
+
+    env.unlink()
+    monkeypatch.setenv("SDK_PACKAGE_VERSION", "0.1.18")
+    with pytest.raises(SystemExit, match="SDK_PACKAGE_VERSION differs"):
+        main()
+    monkeypatch.delenv("SDK_PACKAGE_VERSION")
+    wheel["sourceSha"] = "c" * 40
+    manifest_path.write_text(yaml.safe_dump(manifest))
+    with pytest.raises(SystemExit, match="no matching published"):
+        main()
+    assert not env.exists()

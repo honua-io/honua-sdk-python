@@ -43,19 +43,19 @@ on:
         required: false
         default: ""
       sdk_package:
-        description: "Nightly only: published package to certify (honua-sdk). Required with nightly_dispatch_id."
+        description: "published package to certify (honua-sdk). Required with nightly_dispatch_id; optional release assertion."
         required: false
         default: ""
       sdk_package_version:
-        description: "Nightly only: exact published honua-sdk version on PyPI. Required with nightly_dispatch_id."
+        description: "exact published honua-sdk version on PyPI. Required with nightly_dispatch_id; optional release assertion."
         required: false
         default: ""
       sdk_package_digest:
-        description: "Nightly only: sha256:<64 hex> of the universal wheel file. Required with nightly_dispatch_id."
+        description: "sha256:<64 hex> of the universal wheel file. Required with nightly_dispatch_id; optional release assertion."
         required: false
         default: ""
       sdk_source_sha:
-        description: "Nightly only: 40-hex source commit the published wheel was built from. Required with nightly_dispatch_id."
+        description: "40-hex source commit the published wheel was built from. Required with nightly_dispatch_id; optional release assertion."
         required: false
         default: ""
       certification_tier:
@@ -82,7 +82,7 @@ env:
   # filename, registry digest and published tag source together as one identity.
   # A governed nightly dispatch (nightly_dispatch_id) supplies this identity as
   # sdk_package* / sdk_source_sha inputs instead: the run is the trunk harness
-  # certifying that exact published package, so these pins are not consulted.
+  # certifying that exact published package. Release uses the immutable manifest.
   HONUA_SDK_PUBLIC_VERSION: "0.1.18"
   HONUA_SDK_PUBLIC_WHEEL: "honua_sdk-0.1.18-py3-none-any.whl"
   HONUA_SDK_PUBLIC_WHEEL_SHA256: "11d5c0074a8c3065b2ca2777a33efab6672dd1f03e0d664abc5f9f964727b033"
@@ -101,6 +101,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Bind nightly dispatch to the exact published honua-sdk package
+        if: ${{ inputs.certification_tier != 'release' }}
         env:
           NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}
           REQUIREMENTS_SOURCE_SHA: ${{ github.event.inputs.requirements_ref || '' }}
@@ -139,13 +140,18 @@ jobs:
 
       - name: Retain immutable protected-trunk certification requirements
         env:
+          CERTIFICATION_TIER: ${{ inputs.certification_tier || '' }}
           GH_TOKEN: ${{ github.token }}
           REQUIREMENTS_SOURCE_SHA: ${{ github.event.inputs.requirements_ref || '' }}
           REQUIREMENTS_REVISION: ${{ github.event.inputs.requirements_revision || '' }}
         run: |
+          set -euo pipefail
           args=(--destination "${GITHUB_WORKSPACE}/honua-release-governance")
           if [[ -n "${REQUIREMENTS_SOURCE_SHA}" || -n "${REQUIREMENTS_REVISION}" ]]; then
             args+=(--source-sha "${REQUIREMENTS_SOURCE_SHA}" --requirements-revision "${REQUIREMENTS_REVISION}")
+          fi
+          if [[ "${CERTIFICATION_TIER}" == release ]]; then
+            args+=(--release-manifest)
           fi
           python3 scripts/fetch_certification_requirements.py "${args[@]}"
 
@@ -155,6 +161,18 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: packages/honua-sdk/pyproject.toml
+
+      - name: Bind release dispatch to the manifest wheel
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.certification_tier == 'release' }}
+        env:
+          SDK_PACKAGE: ${{ github.event.inputs.sdk_package || '' }}
+          SDK_PACKAGE_VERSION: ${{ github.event.inputs.sdk_package_version || '' }}
+          SDK_PACKAGE_DIGEST: ${{ github.event.inputs.sdk_package_digest || '' }}
+          SDK_SOURCE_SHA: ${{ github.event.inputs.sdk_source_sha || '' }}
+        run: |
+          set -euo pipefail
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/development-inputs.lock
+          python scripts/bind_release_wheel.py
 
       - name: Build and install candidate honua-sdk wheel
         if: ${{ github.event_name == 'pull_request' }}
@@ -192,13 +210,14 @@ jobs:
       - name: Download and install exact public honua-sdk wheel
         if: ${{ github.event_name != 'pull_request' }}
         env:
+          CERTIFICATION_TIER: ${{ inputs.certification_tier || '' }}
           NIGHTLY_DISPATCH_ID: ${{ github.event.inputs.nightly_dispatch_id || '' }}
           SDK_PACKAGE_VERSION: ${{ github.event.inputs.sdk_package_version || '' }}
           SDK_PACKAGE_DIGEST: ${{ github.event.inputs.sdk_package_digest || '' }}
           SDK_SOURCE_SHA: ${{ github.event.inputs.sdk_source_sha || '' }}
         run: |
           set -euo pipefail
-          if [[ -n "${NIGHTLY_DISPATCH_ID}" ]]; then
+          if [[ "${CERTIFICATION_TIER:-}" != release && -n "${NIGHTLY_DISPATCH_ID}" ]]; then
             # Validated by the bind step: the dispatched package is the governed identity.
             HONUA_SDK_PUBLIC_VERSION="${SDK_PACKAGE_VERSION}"
             HONUA_SDK_PUBLIC_WHEEL="honua_sdk-${SDK_PACKAGE_VERSION}-py3-none-any.whl"

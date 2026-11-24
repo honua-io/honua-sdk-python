@@ -214,7 +214,7 @@ def _run_step(name: str, env: dict[str, str], tmp_path: Path, path_prefix: Path 
         base["PATH"] = str(path_prefix) + os.pathsep + base["PATH"]
     result = subprocess.run(  # noqa: S603 -- maintained workflow step with local stubs; no network or services
         [bash, "-c", script], env={**base, "GITHUB_ENV": str(github_env), "GITHUB_STEP_SUMMARY": os.devnull,
-                                   "RUNNER_TEMP": str(tmp_path), **env},
+                                   "RUNNER_TEMP": str(tmp_path), "GITHUB_WORKSPACE": str(WORKFLOW.parents[2]), **env},
         cwd=tmp_path, capture_output=True, text=True, check=False)
     return result, github_env.read_text()
 
@@ -410,8 +410,8 @@ def test_release_dispatch_binds_wheel_before_install_without_sdk_inputs(tmp_path
     for name in _NIGHTLY_PACKAGE_INPUTS:
         monkeypatch.delenv(name.upper(), raising=False)
     workflow = WORKFLOW.read_text()
-    assert workflow.index("--release-manifest") < workflow.index("python scripts/bind_release_wheel.py")
-    assert workflow.index("python scripts/bind_release_wheel.py") < workflow.index("python -m pip download")
+    assert workflow.index("--release-manifest") < workflow.index("python -m scripts.bind_release_wheel")
+    assert workflow.index("python -m scripts.bind_release_wheel") < workflow.index("python -m pip download")
     with pytest.raises(SystemExit, match="Release wheel binding refused"):
         main()
     assert not env.exists()

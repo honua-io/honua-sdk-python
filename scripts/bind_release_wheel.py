@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
 """Select the published Python wheel from retained release governance."""
 import os
-import re
 from pathlib import Path
 
 import yaml
+
+from scripts.published_wheel_identity import validate_identity
 
 
 def release_wheel(manifest):
     component = manifest["components"]["honua-sdk-python"]
     wheel = manifest["clientArtifacts"]["honua-sdk-python-wheel"]
     version, digest, source = (wheel[key] for key in ("version", "digest", "sourceSha"))
+    validate_identity(wheel["package"], version, digest, source)
     if (
-        wheel["package"] != "honua-sdk"
-        or wheel["ecosystem"] != "pypi"
+        wheel["ecosystem"] != "pypi"
         or wheel["repository"] != "honua-io/honua-sdk-python"
         or wheel["publicationState"] != "published"
         or component["artifact"] != "pypi:honua-sdk"
         or (version, digest, source) != tuple(component[key] for key in ("version", "artifactSha256", "sha"))
-        or not re.fullmatch(r"[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?", version)
-        or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
-        or not re.fullmatch(r"[0-9a-f]{40}", source)
         or wheel["filename"] != f"honua_sdk-{version}-py3-none-any.whl"
     ):
         raise ValueError("release manifest has no matching published honua-sdk wheel identity")

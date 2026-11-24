@@ -120,15 +120,10 @@ jobs:
           # Every identity input is required; refuse before anything is fetched or installed.
           fail() { echo "::error::nightly dispatch $1"; exit 1; }
           sha40='^[0-9a-f]{40}$'
-          digest='^sha256:[0-9a-f]{64}$'
-          version='^[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$'
           [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]] || fail "must arrive through workflow_dispatch"
           [[ "${REQUIREMENTS_SOURCE_SHA}" =~ ${sha40} ]] || fail "requires requirements_ref as a 40-hex honua-release commit"
           [[ -n "${REQUIREMENTS_REVISION//[[:space:]]/}" ]] || fail "requires requirements_revision"
-          [[ "${SDK_PACKAGE}" == "honua-sdk" ]] || fail "requires sdk_package=honua-sdk"
-          [[ "${SDK_PACKAGE_VERSION}" =~ ${version} ]] || fail "requires sdk_package_version as an exact normalized release version"
-          [[ "${SDK_PACKAGE_DIGEST}" =~ ${digest} ]] || fail "requires sdk_package_digest as sha256:<64 lowercase hex>"
-          [[ "${SDK_SOURCE_SHA}" =~ ${sha40} ]] || fail "requires sdk_source_sha as a 40-hex source commit"
+          python3 "${GITHUB_WORKSPACE}/scripts/published_wheel_identity.py"
           [[ "${GITHUB_SHA}" =~ ${sha40} ]] || fail "requires a 40-hex harness commit"
           {
             echo "## Nightly certification identity"
@@ -172,7 +167,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/development-inputs.lock
-          python scripts/bind_release_wheel.py
+          python -m scripts.bind_release_wheel
 
       - name: Build and install candidate honua-sdk wheel
         if: ${{ github.event_name == 'pull_request' }}

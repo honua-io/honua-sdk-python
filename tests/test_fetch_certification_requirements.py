@@ -39,7 +39,7 @@ class GovernanceFetchTests(unittest.TestCase):
     def test_retains_verified_exact_bytes_and_blob_binding(self):
         pins, responses = fixtures()
         with tempfile.TemporaryDirectory() as directory:
-            result = MODULE.fetch(pins, Path(directory), get=responses.__getitem__)
+            result = MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(get=responses.__getitem__))
             self.assertEqual(pins["sourceSha"], result["sourceSha"])
             self.assertEqual(pins["requirementsRevision"], result["requirementsRevision"])
             for path, digest in pins["sha256"].items():
@@ -64,7 +64,7 @@ class GovernanceFetchTests(unittest.TestCase):
                 broken = deepcopy(responses)
                 broken[path][field] = value
                 with self.assertRaises(ValueError):
-                    MODULE.fetch(pins, Path(directory), get=broken.__getitem__)
+                    MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(get=broken.__getitem__))
                 self.assertEqual([], list(Path(directory).iterdir()))
 
     def test_api_failure_never_falls_back_to_trunk_or_cached_bytes(self):
@@ -72,7 +72,7 @@ class GovernanceFetchTests(unittest.TestCase):
         def unavailable(path):
             raise subprocess.CalledProcessError(1, ["gh", "api", path], stderr="HTTP 404")
         with tempfile.TemporaryDirectory() as directory, self.assertRaises(subprocess.CalledProcessError):
-            MODULE.fetch(pins, Path(directory), get=unavailable)
+            MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(get=unavailable))
 
     def test_rejects_wrong_blob_bytes_or_reviewed_digest(self):
         pins, responses = fixtures()
@@ -83,11 +83,11 @@ class GovernanceFetchTests(unittest.TestCase):
                 broken = deepcopy(responses)
                 broken[blob][field] = value
                 with self.assertRaises(ValueError):
-                    MODULE.fetch(pins, Path(directory), get=broken.__getitem__)
+                    MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(get=broken.__getitem__))
         broken = deepcopy(pins)
         broken["sha256"][MODULE.PATHS[0]] = "f" * 64
         with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
-            MODULE.fetch(broken, Path(directory), get=responses.__getitem__)
+            MODULE.fetch(broken, Path(directory), MODULE.GovernanceSource(get=responses.__getitem__))
 
     def test_override_requires_explicit_pair_and_reviewed_history(self):
         pins, responses = fixtures()
@@ -96,10 +96,9 @@ class GovernanceFetchTests(unittest.TestCase):
                            {"source_sha": "trunk", "revision": "fixture"},
                            {"source_sha": pins["sourceSha"], "revision": "stale"}):
                 with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
-                    MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(sha=kwargs.get("source_sha"), revision=kwargs.get("revision")),
-                                 get=responses.__getitem__)
-            result = MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(pins["sourceSha"], "fixture"),
-                                  get=responses.__getitem__)
+                    MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(sha=kwargs.get("source_sha"), revision=kwargs.get("revision"),
+                                                         get=responses.__getitem__))
+            result = MODULE.fetch(pins, Path(directory), MODULE.GovernanceSource(pins["sourceSha"], "fixture", responses.__getitem__))
             self.assertEqual(pins["sourceSha"], result["sourceSha"])
 
 

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from collections.abc import Callable
 from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,22 +25,25 @@ def api(path):
 class GovernanceSource(NamedTuple):
     sha: str | None = None
     revision: str | None = None
-    paths: tuple[str, ...] = PATHS
+    get: Callable = api
 
 
 DEFAULT_SOURCE = GovernanceSource()
 
 
-def fetch_release(pins, destination, source, get=api):
+def fetch_release(pins, destination, source):
     if not source.sha or not source.revision:
         raise ValueError("release certification requires an exact source SHA and requirements revision")
-    return fetch(pins, destination, GovernanceSource(
-        source.sha, source.revision, (*PATHS, "platform-manifest.yaml")
-    ), get=get)
+    return retain(pins, destination, (source, (*PATHS, "platform-manifest.yaml")))
 
 
-def fetch(pins, destination, source=DEFAULT_SOURCE, get=api):
-    source_sha, revision, paths = source
+def fetch(pins, destination, source=DEFAULT_SOURCE):
+    return retain(pins, destination, (source, PATHS))
+
+
+def retain(pins, destination, selection):
+    source, paths = selection
+    source_sha, revision, get = source
     if set(pins) != {"repository", "sourceSha", "requirementsRevision", "sha256"} or pins["repository"] != REPOSITORY:
         raise ValueError("governance pins must identify the canonical release repository")
     if bool(source_sha) != bool(revision):

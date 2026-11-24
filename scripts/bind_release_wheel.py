@@ -12,7 +12,7 @@ def release_wheel(manifest):
     component = manifest["components"]["honua-sdk-python"]
     wheel = manifest["clientArtifacts"]["honua-sdk-python-wheel"]
     version, digest, source = (wheel[key] for key in ("version", "digest", "sourceSha"))
-    validate_identity(wheel["package"], version, digest, source)
+    validate_identity(wheel)
     if (
         wheel["ecosystem"] != "pypi"
         or wheel["repository"] != "honua-io/honua-sdk-python"

@@ -3,7 +3,8 @@ import os
 import re
 
 
-def validate_identity(package, version, digest, source):
+def validate_identity(wheel):
+    package, version, digest, source = (wheel[key] for key in ("package", "version", "digest", "sourceSha"))
     if package != "honua-sdk":
         raise ValueError("requires sdk_package=honua-sdk")
     if not isinstance(version, str) or not re.fullmatch(
@@ -18,9 +19,12 @@ def validate_identity(package, version, digest, source):
 
 def main():
     try:
-        validate_identity(*(os.environ.get(name, "") for name in (
-            "SDK_PACKAGE", "SDK_PACKAGE_VERSION", "SDK_PACKAGE_DIGEST", "SDK_SOURCE_SHA"
-        )))
+        validate_identity({
+            "package": os.environ.get("SDK_PACKAGE", ""),
+            "version": os.environ.get("SDK_PACKAGE_VERSION", ""),
+            "digest": os.environ.get("SDK_PACKAGE_DIGEST", ""),
+            "sourceSha": os.environ.get("SDK_SOURCE_SHA", ""),
+        })
     except ValueError as exc:
         print(f"::error::nightly dispatch {exc}")
         raise SystemExit(1) from exc

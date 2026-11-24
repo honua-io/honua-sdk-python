@@ -436,3 +436,14 @@ def test_release_dispatch_binds_wheel_before_install_without_sdk_inputs(tmp_path
     with pytest.raises(SystemExit, match="no matching published"):
         main()
     assert not env.exists()
+
+
+def test_release_dispatch_concurrency_is_scoped_to_its_run() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert (
+        "concurrency:\n"
+        "  group: ${{ github.workflow }}-${{ inputs.certification_tier == 'release' "
+        "&& format('release-{0}', github.run_id) || github.ref }}\n"
+        "  cancel-in-progress: true\n"
+    ) in workflow

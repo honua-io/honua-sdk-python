@@ -136,6 +136,7 @@ Run it in Bash with Python 3, pip, and GitHub CLI (tested with 2.103.3).
 No GitHub login or token is required. For another release, update both the
 version and the expected source commit to match that release.
 
+<!-- BEGIN GENERATED ATTESTATION EXAMPLE -->
 ```bash
 (
   set -eu
@@ -167,6 +168,7 @@ PYTHON
   gh attestation verify "$wheel" --bundle attestations.jsonl --repo "$repo" --source-digest "$source"
 )
 ```
+<!-- END GENERATED ATTESTATION EXAMPLE -->
 
 ## License
 

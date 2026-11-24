@@ -142,7 +142,9 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/${{ contains(matrix.extras, 'geopandas') && 'ci-geopandas.lock' || 'ci.lock' }}
+          python -m pip install --require-hashes --only-binary=:all: \
+            -r .github/requirements/development-inputs.lock \
+            -r .github/requirements/${{ contains(matrix.extras, 'geopandas') && 'ci-geopandas.lock' || 'ci.lock' }}
           pip install --no-deps --no-build-isolation -e "packages/honua-sdk[${{ matrix.extras }}]"
           pip install --no-deps --no-build-isolation -e "packages/honua-admin"
 

@@ -70,7 +70,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.certification_tier == 'release' && format('release-{0}', github.run_id) || github.ref }}
   cancel-in-progress: true
 
 env:

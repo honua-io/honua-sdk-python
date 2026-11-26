@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import ipaddress
 import math
 import os
@@ -432,72 +431,6 @@ async def _apply_sensitive_auth_headers_async(
 
     for name in SENSITIVE_AUTH_HEADER_NAMES:
         request.headers.pop(name, None)
-
-
-def _replace_sensitive_auth_headers(request: httpx.Request, headers: Mapping[str, str]) -> bool:
-    if not headers:
-        return False
-    for name in SENSITIVE_AUTH_HEADER_NAMES:
-        request.headers.pop(name, None)
-    for name, value in headers.items():
-        request.headers[name] = value
-    return True
-
-
-def _invoke_provider_refresh(auth_provider: AuthProvider) -> bool:
-    refresh_fn = getattr(auth_provider, "refresh", None)
-    if not callable(refresh_fn):
-        return False
-    refresh_fn()
-    return True
-
-
-async def _invoke_provider_refresh_async(auth_provider: AuthProvider) -> bool:
-    refresh_fn = getattr(auth_provider, "refresh", None)
-    if not callable(refresh_fn):
-        return False
-    if inspect.iscoroutinefunction(refresh_fn):
-        await refresh_fn()
-        return True
-    result = await to_thread.run_sync(refresh_fn)
-    if inspect.isawaitable(result):
-        await result
-    return True
-
-
-def _refresh_auth_headers(
-    request: httpx.Request,
-    *,
-    trusted_authority: tuple[str, str, int | None] | None,
-    auth_provider: AuthProvider | None = None,
-) -> bool:
-    """Force-refresh credentials on a trusted origin after an auth challenge."""
-    if trusted_authority is None or auth_provider is None:
-        return False
-    request_authority = (request.url.scheme, request.url.host, request.url.port)
-    if request_authority != trusted_authority:
-        return False
-    if not _invoke_provider_refresh(auth_provider):
-        return False
-    return _replace_sensitive_auth_headers(request, _auth_provider_headers(auth_provider))
-
-
-async def _refresh_auth_headers_async(
-    request: httpx.Request,
-    *,
-    trusted_authority: tuple[str, str, int | None] | None,
-    auth_provider: AuthProvider | None = None,
-) -> bool:
-    """Async variant of :func:`_refresh_auth_headers`."""
-    if trusted_authority is None or auth_provider is None:
-        return False
-    request_authority = (request.url.scheme, request.url.host, request.url.port)
-    if request_authority != trusted_authority:
-        return False
-    if not await _invoke_provider_refresh_async(auth_provider):
-        return False
-    dynamic_headers = await _resolve_dynamic_auth_headers_async(auth_provider)
-    return _replace_sensitive_auth_headers(request, dynamic_headers)
 
 
 def parse_retry_after(value: str | None) -> float | None:

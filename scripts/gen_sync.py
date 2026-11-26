@@ -206,6 +206,10 @@ _COMMON_RULES: tuple[Rule, ...] = (
         "apply_sensitive_auth_headers",
     ),
     _rule(
+        r"\bbuild_auth_refresh_hook_async\b",
+        "build_auth_refresh_hook",
+    ),
+    _rule(
         r"\b_refresh_auth_headers_async\b",
         "_refresh_auth_headers",
     ),

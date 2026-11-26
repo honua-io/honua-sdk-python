@@ -61,6 +61,12 @@ the canonical names above.
 from __future__ import annotations
 
 from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
+from ._auth_refresh import (
+    build_auth_refresh_hook,
+    build_auth_refresh_hook_async,
+    refresh_auth_headers,
+    refresh_auth_headers_async,
+)
 from ._http import (
     INSECURE_HTTP_OPT_IN_ENV,
     _apply_sensitive_auth_headers,
@@ -71,8 +77,6 @@ from ._http import (
     _extract_trusted_authority,
     _normalize_base_url,
     _parse_retry_after,
-    _refresh_auth_headers,
-    _refresh_auth_headers_async,
     _to_http_error,
     _to_transport_error,
     _validate_auth_configuration,
@@ -103,8 +107,6 @@ ensure_secure_credential_transport = _ensure_secure_credential_transport
 extract_trusted_authority = _extract_trusted_authority
 normalize_base_url = _normalize_base_url
 parse_retry_after = _parse_retry_after
-refresh_auth_headers = _refresh_auth_headers
-refresh_auth_headers_async = _refresh_auth_headers_async
 to_http_error = _to_http_error
 to_transport_error = _to_transport_error
 validate_auth_configuration = _validate_auth_configuration
@@ -135,6 +137,8 @@ __all__ = [
     "_warn_deprecated_bearer_token",
     "apply_sensitive_auth_headers",
     "apply_sensitive_auth_headers_async",
+    "build_auth_refresh_hook",
+    "build_auth_refresh_hook_async",
     "build_idempotency_headers",
     "build_sensitive_auth_headers",
     "encode_path_segment",

@@ -321,3 +321,62 @@ def test_admin_client_reactive_auth_refresh_sync_and_async() -> None:
 
     assert asyncio.run(run()) == []
     assert async_seen == ["Bearer admin-async-stale", "Bearer admin-async-fresh"]
+
+
+def test_honua_retryable_false_header_overrides_body_retryable_true_in_receipt() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200,
+            headers={"Honua-Retryable": "false"},
+            json={"error": {"code": 503, "message": "Terminal outage", "retryable": True}},
+        )
+
+    with HonuaClient("https://example.test", transport=httpx.MockTransport(handler), max_retries=3) as client:
+        with pytest.raises(HonuaHttpError) as excinfo:
+            client.query_features("Parcels", 0, where="1=1")
+
+    assert calls == 1
+    assert excinfo.value.retryable is False
+    assert excinfo.value.receipt.retryable is False
+
+
+def test_challenge_response_is_closed_before_refresh_callback_runs() -> None:
+    closed_before_refresh = False
+
+    class _TrackingStream(httpx.SyncByteStream):
+        def __init__(self) -> None:
+            self.closed = False
+
+        def __iter__(self):
+            yield b'{"title":"Unauthorized"}'
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = _TrackingStream()
+
+    def failing_refresh() -> BearerToken:
+        nonlocal closed_before_refresh
+        closed_before_refresh = stream.closed
+        raise RuntimeError("refresh endpoint down")
+
+    provider = RefreshableBearerTokenProvider(failing_refresh, initial_token=BearerToken("stale-token"))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, headers={"content-type": "application/json"}, stream=stream)
+
+    with HonuaClient(
+        "https://example.test",
+        auth_provider=provider,
+        transport=httpx.MockTransport(handler),
+        max_retries=0,
+    ) as client:
+        with pytest.raises(RuntimeError, match="refresh endpoint down"):
+            client.readiness()
+
+    assert closed_before_refresh is True
+

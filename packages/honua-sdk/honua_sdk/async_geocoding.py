@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from ._async_retry import AsyncRetryTransport
+from ._auth_refresh import build_auth_refresh_hook_async
 from ._endpoints import parse_json_response_body
 from ._geocoding_models import (
     GeocodeResult,
@@ -22,7 +23,6 @@ from ._http import (
     _ensure_secure_credential_transport,
     _extract_trusted_authority,
     _normalize_base_url,
-    _refresh_auth_headers_async,
     _to_http_error,
     _to_transport_error,
     _validate_auth_configuration,
@@ -89,16 +89,7 @@ class AsyncHonuaGeocodingClient:
         # zero budget is a single attempt (no behaviour change).
         inner = transport or httpx.AsyncHTTPTransport()
         retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
-        if auth_provider is not None:
-
-            async def _auth_refresh_hook(request: httpx.Request) -> bool:
-                return await _refresh_auth_headers_async(
-                    request,
-                    trusted_authority=trusted_authority,
-                    auth_provider=auth_provider,
-                )
-
-            retry_transport.set_auth_refresh(_auth_refresh_hook)
+        retry_transport.set_auth_refresh(build_auth_refresh_hook_async(trusted_authority, auth_provider))
         effective_transport: httpx.AsyncBaseTransport = retry_transport
 
         self._client = httpx.AsyncClient(

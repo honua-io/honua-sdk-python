@@ -184,11 +184,13 @@ class AsyncRetryTransport(httpx.AsyncBaseTransport):
             return False
         if not can_replay_request(request):
             return False
+        # Release the challenge response before refreshing credentials so a failing
+        # refresh callback never leaks a pooled connection or deadlocks a shared pool.
+        await response.aread()
+        await response.aclose()
         if not await self._auth_refresh(request):
             return False
         _LOGGER.debug("Retrying %s %s after reactive auth refresh", request.method, request.url.path)
-        await response.aread()
-        await response.aclose()
         return True
 
     async def _wait_after_transport_error(self, exc: Exception, state: _RetryState) -> None:

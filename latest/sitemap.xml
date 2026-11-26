@@ -2,130 +2,130 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/auth/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/compatibility/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/core-client/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/demo-suite/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/diagnostic-bundles/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/examples/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/geoprocessing-job-lifecycle/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/native-data-paths/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/operating-cadence/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/pagination/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/protocol-examples/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/protocol-parity/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/quickstart/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/retries-and-timeouts/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/sdk-coverage/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/troubleshooting/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/audit/platform-20261006/issue-281/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/audit/platform-20261006/issue-282/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/cli/operator-workflow/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/cli/reference/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/contributor/development-source-inputs/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/contributor/development/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/honua-gp/compatibility-matrix/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/migration/gp-import/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-admin/clients/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-admin/errors/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-admin/models/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-sdk/clients/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-sdk/errors/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-sdk/models/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
     <url>
          <loc>https://honua-io.github.io/honua-sdk-python/latest/reference/honua-sdk/source-facade/</loc>
-         <lastmod>2026-11-25</lastmod>
+         <lastmod>2026-11-26</lastmod>
     </url>
 </urlset>

@@ -26,6 +26,7 @@ from .errors import (
     HonuaTimeoutError,
     HonuaTransportError,
     _http_failure_receipt,
+    _sanitize_headers,
 )
 
 
@@ -494,7 +495,7 @@ def _build_http_error(
         or response.headers.get("honua-request-id")
         or response.headers.get("x-correlation-id")
     )
-    headers = dict(response.headers)
+    headers = _sanitize_headers(response.headers)
     retry_after = _parse_retry_after(response.headers.get("retry-after"))
     receipt = _http_failure_receipt(
         transport_status=response.status_code,
@@ -644,7 +645,7 @@ def _build_geoservices_error(
         or response.headers.get("honua-request-id")
         or response.headers.get("x-correlation-id")
     )
-    headers = dict(response.headers)
+    headers = _sanitize_headers(response.headers)
     status_code = _normalize_geoservices_status(error_code)
     retry_after = _parse_retry_after(response.headers.get("retry-after"))
     receipt = _http_failure_receipt(

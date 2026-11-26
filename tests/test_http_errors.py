@@ -130,3 +130,65 @@ def test_direct_rate_limit_receipt_retains_explicit_retry_after() -> None:
 
     assert error.retry_after == pytest.approx(2.5)
     assert error.receipt.retry_after_seconds == pytest.approx(2.5)
+
+
+def test_http_error_strips_sensitive_response_headers() -> None:
+    response = _make_response(
+        500,
+        headers={
+            "X-Request-ID": "req-secret-test",
+            "Set-Cookie": "session=super-secret-cookie; HttpOnly",
+            "Authorization": "Bearer super-secret-token",
+            "Cookie": "sid=super-secret-cookie",
+            "X-API-Key": "super-secret-key",
+            "Proxy-Authorization": "Basic super-secret-proxy",
+            "Content-Type": "application/json",
+        },
+    )
+    error = _to_http_error(response)
+
+    assert error.headers.get("x-request-id") == "req-secret-test"
+    for sensitive in ("set-cookie", "authorization", "cookie", "x-api-key", "proxy-authorization"):
+        assert sensitive not in {key.lower() for key in error.headers}
+    assert "super-secret" not in str(error.headers)
+
+
+def test_geoservices_and_direct_http_error_strip_set_cookie_header() -> None:
+    from honua_sdk._http import _build_geoservices_error
+
+    geo_response = _make_response(
+        200,
+        headers={"Set-Cookie": "sid=geo-secret", "X-Request-ID": "geo-1"},
+        json_body={"error": {"code": 403, "message": "denied"}},
+    )
+    geo_error = _build_geoservices_error(
+        error_code=403,
+        message="denied",
+        body={"error": {"code": 403, "message": "denied"}},
+        response=geo_response,
+    )
+    assert "set-cookie" not in {key.lower() for key in geo_error.headers}
+    assert geo_error.headers.get("x-request-id") == "geo-1"
+
+    direct_error = HonuaHttpError(
+        500,
+        "boom",
+        headers={
+            "Set-Cookie": "sid=direct-secret",
+            "Proxy-Authorization": "Basic direct-proxy",
+            "X-Request-ID": "direct-1",
+        },
+    )
+    assert "set-cookie" not in {key.lower() for key in direct_error.headers}
+    assert "proxy-authorization" not in {key.lower() for key in direct_error.headers}
+    assert direct_error.headers.get("X-Request-ID") == "direct-1"
+
+
+def test_honua_sdk_pyproject_declares_anyio_dependency() -> None:
+    import tomllib
+    from pathlib import Path
+
+    pyproject_path = Path(__file__).resolve().parents[1] / "packages" / "honua-sdk" / "pyproject.toml"
+    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    deps = data["project"]["dependencies"]
+    assert any(dep.lower().startswith("anyio") for dep in deps)

@@ -97,7 +97,17 @@ class TerminalFailureReceipt:
     protocol_metadata: ProtocolMetadata
 
 
-_SENSITIVE_METADATA = frozenset({"authorization", "cookie", "set-cookie", "x-api-key"})
+_SENSITIVE_METADATA = frozenset({"authorization", "cookie", "proxy-authorization", "set-cookie", "x-api-key"})
+
+
+def _sanitize_headers(values: Mapping[str, str] | None) -> dict[str, str]:
+    if not values:
+        return {}
+    return {
+        key: value
+        for key, value in values.items()
+        if key.lower() not in _SENSITIVE_METADATA
+    }
 _HTTP_KINDS = {
     400: FailureKind.VALIDATION,
     401: FailureKind.AUTHENTICATION,
@@ -367,7 +377,9 @@ class HonuaHttpError(HonuaError):
         request_id: Server correlation id parsed from the response
             headers (``x-request-id`` / ``Honua-Request-Id`` /
             ``X-Correlation-ID``), or ``None`` when not present.
-        headers: Full response headers as a plain ``dict[str, str]``.
+        headers: Response headers as a plain ``dict[str, str]`` with sensitive
+            headers (``Authorization``, ``Cookie``, ``Proxy-Authorization``,
+            ``Set-Cookie``, ``X-API-Key``) stripped.
         error_code: The application-level error code reported by a GeoServices REST
             error envelope (e.g. ``498``/``499`` token errors), when
             the failure originated from such an envelope. ``None`` for ordinary
@@ -391,7 +403,7 @@ class HonuaHttpError(HonuaError):
         self.message = message
         self.body = body
         self.request_id = request_id
-        self.headers: Mapping[str, str] = dict(headers) if headers is not None else {}
+        self.headers: Mapping[str, str] = _sanitize_headers(headers)
         self.error_code = error_code
         self.receipt = receipt or _http_failure_receipt(
             transport_status=status_code,
@@ -422,7 +434,9 @@ class HonuaAuthError(HonuaHttpError):
         body: Parsed JSON body when available, otherwise the raw text.
         request_id: Server correlation id, when present in the response
             headers.
-        headers: Full response headers as a plain ``dict[str, str]``.
+        headers: Response headers as a plain ``dict[str, str]`` with sensitive
+            headers (``Authorization``, ``Cookie``, ``Proxy-Authorization``,
+            ``Set-Cookie``, ``X-API-Key``) stripped.
     """
 
 
@@ -441,7 +455,9 @@ class HonuaRateLimitError(HonuaHttpError):
             or ``None`` when the header was absent / unparseable.
         request_id: Server correlation id, when present in the response
             headers.
-        headers: Full response headers as a plain ``dict[str, str]``.
+        headers: Response headers as a plain ``dict[str, str]`` with sensitive
+            headers (``Authorization``, ``Cookie``, ``Proxy-Authorization``,
+            ``Set-Cookie``, ``X-API-Key``) stripped.
     """
 
     def __init__(  # noqa: PLR0913 — kwarg-only fields surface server diagnostics

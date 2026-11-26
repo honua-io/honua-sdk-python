@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 
+from ._auth_refresh import build_auth_refresh_hook
 from ._endpoints import parse_json_response_body
 from ._geocoding_models import (
     GeocodeResult,
@@ -89,9 +90,9 @@ class HonuaGeocodingClient:
         # the SDK. The transport only retries when its budget is positive, so a
         # zero budget is a single attempt (no behaviour change).
         inner = transport or httpx.HTTPTransport()
-        effective_transport: httpx.BaseTransport = RetryTransport(
-            inner, max_retries=max_retries
-        )
+        retry_transport = RetryTransport(inner, max_retries=max_retries)
+        retry_transport.set_auth_refresh(build_auth_refresh_hook(trusted_authority, auth_provider))
+        effective_transport: httpx.BaseTransport = retry_transport
 
         self._client = httpx.Client(
             base_url=normalized_base_url,

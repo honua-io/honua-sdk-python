@@ -532,6 +532,14 @@ def _build_http_error(
     )
 
 
+def _first_non_empty_str(mapping: Mapping[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        candidate = mapping.get(key)
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    return None
+
+
 def _to_http_error(response: httpx.Response) -> HonuaHttpError:
     body: Any | None = None
     message = response.reason_phrase or "Request failed"
@@ -544,13 +552,11 @@ def _to_http_error(response: httpx.Response) -> HonuaHttpError:
     if isinstance(body, Mapping):
         error = body.get("error")
         if isinstance(error, Mapping):
-            candidate = error.get("message")
-            if isinstance(candidate, str) and candidate:
-                message = candidate
+            candidate = _first_non_empty_str(error, ("message",))
         else:
-            candidate = body.get("detail") or body.get("message")
-            if isinstance(candidate, str) and candidate:
-                message = candidate
+            candidate = _first_non_empty_str(body, ("detail", "message", "title"))
+        if candidate is not None:
+            message = candidate
 
     return _build_http_error(
         status_code=response.status_code,
@@ -616,12 +622,14 @@ def _normalize_geoservices_status(error_code: int) -> int:
     GeoServices codes are an application code space, so an arbitrary code (e.g. a
     large negative HRESULT-style value such as ``-2147217395``) must not be
     surfaced verbatim as an HTTP ``status_code``. Codes that already fall in the
-    valid HTTP range are passed through; auth/token codes collapse to ``403``;
-    everything else normalizes to ``500`` (server-side failure). The original
-    code is always preserved on ``error_code``.
+    valid HTTP range are passed through; token authentication codes (``498``/``499``)
+    normalize to ``401`` rather than ``403``; everything else normalizes to ``500``
+    (server-side failure). The original code is always preserved on ``error_code``.
     """
+    if error_code in (498, 499):
+        return 401
     if error_code in _GEOSERVICES_AUTH_CODES:
-        return error_code if error_code in (401, 403) else 403
+        return error_code
     if 100 <= error_code <= 599:
         return error_code
     return 500

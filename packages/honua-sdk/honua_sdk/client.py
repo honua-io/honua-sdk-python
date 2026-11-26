@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from . import _endpoints
+from ._auth_refresh import build_auth_refresh_hook
 from ._http import (
     _apply_sensitive_auth_headers,
     _build_sensitive_auth_headers,
@@ -238,6 +239,7 @@ class HonuaClient:
         # ``with_options(max_retries=N)`` instead of silently no-op'ing.
         inner = transport or httpx.HTTPTransport()
         retry_transport = RetryTransport(inner, max_retries=max_retries)
+        retry_transport.set_auth_refresh(build_auth_refresh_hook(trusted_authority, auth_provider))
         effective_transport: httpx.BaseTransport = retry_transport
         self._retry_methods = retry_transport.retry_methods
 

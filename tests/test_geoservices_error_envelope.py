@@ -11,7 +11,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from honua_sdk import HonuaAuthError, HonuaClient, HonuaGeocodingClient, HonuaHttpError
+from honua_sdk import FailureKind, HonuaAuthError, HonuaClient, HonuaGeocodingClient, HonuaHttpError
 from honua_sdk._endpoints import parse_json_response_body
 
 
@@ -31,28 +31,29 @@ def test_query_features_raises_on_error_envelope() -> None:
 
 
 def test_apply_edits_raises_auth_on_token_required_envelope() -> None:
-    # Esri code 499 (Token Required) is an application code, not an HTTP status:
-    # it must surface as HonuaAuthError (catchable via ``except HonuaAuthError``)
-    # while preserving the original GeoServices code on ``error_code`` and normalizing
-    # the HTTP ``status_code`` surface to 403.
+    # GeoServices code 499 (Token Required) is an authentication code, not an HTTP 403
+    # authorization error: it surfaces as HonuaAuthError while preserving the original
+    # GeoServices code on ``error_code`` and normalizing ``status_code`` to 401.
     with HonuaClient(
         "http://example.test", transport=_envelope_handler(code=499, message="Token Required")
     ) as client:
         with pytest.raises(HonuaAuthError) as excinfo:
             client.apply_edits("Parcels", 0, adds=[{"attributes": {"NAME": "x"}}])
     assert excinfo.value.error_code == 499
-    assert excinfo.value.status_code == 403
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.failure_kind is FailureKind.AUTHENTICATION
 
 
 def test_invalid_token_envelope_maps_to_auth_error() -> None:
-    # Esri code 498 (Invalid Token) likewise maps to HonuaAuthError.
+    # GeoServices code 498 (Invalid Token) likewise maps to HonuaAuthError (401 authentication).
     with HonuaClient(
         "http://example.test", transport=_envelope_handler(code=498, message="Invalid Token")
     ) as client:
         with pytest.raises(HonuaAuthError) as excinfo:
             client.query_features("Parcels", 0, where="1=1")
     assert excinfo.value.error_code == 498
-    assert excinfo.value.status_code == 403
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.failure_kind is FailureKind.AUTHENTICATION
 
 
 def test_exotic_negative_code_normalizes_status_but_preserves_error_code() -> None:

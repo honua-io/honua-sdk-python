@@ -205,6 +205,18 @@ _COMMON_RULES: tuple[Rule, ...] = (
         r"\bapply_sensitive_auth_headers_async\b",
         "apply_sensitive_auth_headers",
     ),
+    _rule(
+        r"\bbuild_auth_refresh_hook_async\b",
+        "build_auth_refresh_hook",
+    ),
+    _rule(
+        r"\b_refresh_auth_headers_async\b",
+        "_refresh_auth_headers",
+    ),
+    _rule(
+        r"\brefresh_auth_headers_async\b",
+        "refresh_auth_headers",
+    ),
     _rule(r"\bcollect_query_pages_async\b", "collect_query_pages"),
     #
     # Async-only sibling modules collapse onto their sync equivalents.

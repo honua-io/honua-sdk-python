@@ -61,6 +61,12 @@ the canonical names above.
 from __future__ import annotations
 
 from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
+from ._auth_refresh import (
+    build_auth_refresh_hook,
+    build_auth_refresh_hook_async,
+    refresh_auth_headers,
+    refresh_auth_headers_async,
+)
 from ._http import (
     INSECURE_HTTP_OPT_IN_ENV,
     _apply_sensitive_auth_headers,
@@ -131,6 +137,8 @@ __all__ = [
     "_warn_deprecated_bearer_token",
     "apply_sensitive_auth_headers",
     "apply_sensitive_auth_headers_async",
+    "build_auth_refresh_hook",
+    "build_auth_refresh_hook_async",
     "build_idempotency_headers",
     "build_sensitive_auth_headers",
     "encode_path_segment",
@@ -141,6 +149,8 @@ __all__ = [
     "merge_request_headers",
     "normalize_base_url",
     "parse_retry_after",
+    "refresh_auth_headers",
+    "refresh_auth_headers_async",
     "to_http_error",
     "to_transport_error",
     "validate_auth_configuration",

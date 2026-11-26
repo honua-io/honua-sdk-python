@@ -12,6 +12,7 @@ import httpx
 
 from . import _endpoints
 from ._async_retry import AsyncNonClosingTransport, AsyncRetryTransport
+from ._auth_refresh import build_auth_refresh_hook_async
 from ._http import (
     _apply_sensitive_auth_headers_async,
     _build_sensitive_auth_headers,
@@ -236,6 +237,7 @@ class AsyncHonuaClient:
         # ``with_options(max_retries=N)`` instead of silently no-op'ing.
         inner = transport or httpx.AsyncHTTPTransport()
         retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
+        retry_transport.set_auth_refresh(build_auth_refresh_hook_async(trusted_authority, auth_provider))
         effective_transport: httpx.AsyncBaseTransport = retry_transport
         self._retry_methods = retry_transport.retry_methods
 

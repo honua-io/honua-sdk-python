@@ -17,6 +17,7 @@ from honua_sdk.http import (
     NonClosingTransport,
     RetryTransport,
     apply_sensitive_auth_headers,
+    build_auth_refresh_hook,
     build_idempotency_headers,
     build_sensitive_auth_headers,
     encode_path_segment,
@@ -240,6 +241,7 @@ class HonuaAdminClient:
         effective_transport = transport
         inner = effective_transport or httpx.HTTPTransport()
         retry_transport = RetryTransport(inner, max_retries=max_retries)
+        retry_transport.set_auth_refresh(build_auth_refresh_hook(trusted_authority, auth_provider))
         effective_transport = retry_transport
         self._retry_methods = retry_transport.retry_methods
 

@@ -22,6 +22,7 @@ from ._http import (
     _extract_trusted_authority,
     _insecure_http_opted_in_by_env,
     _normalize_base_url,
+    _refresh_auth_headers,
     _to_http_error,
     _to_transport_error,
     _validate_auth_configuration,
@@ -238,6 +239,16 @@ class HonuaClient:
         # ``with_options(max_retries=N)`` instead of silently no-op'ing.
         inner = transport or httpx.HTTPTransport()
         retry_transport = RetryTransport(inner, max_retries=max_retries)
+        if auth_provider is not None:
+
+            def _auth_refresh_hook(request: httpx.Request) -> bool:
+                return _refresh_auth_headers(
+                    request,
+                    trusted_authority=trusted_authority,
+                    auth_provider=auth_provider,
+                )
+
+            retry_transport.set_auth_refresh(_auth_refresh_hook)
         effective_transport: httpx.BaseTransport = retry_transport
         self._retry_methods = retry_transport.retry_methods
 

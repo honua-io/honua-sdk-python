@@ -23,6 +23,7 @@ from ._http import (
     _ensure_secure_credential_transport,
     _extract_trusted_authority,
     _normalize_base_url,
+    _refresh_auth_headers,
     _to_http_error,
     _to_transport_error,
     _validate_auth_configuration,
@@ -89,9 +90,18 @@ class HonuaGeocodingClient:
         # the SDK. The transport only retries when its budget is positive, so a
         # zero budget is a single attempt (no behaviour change).
         inner = transport or httpx.HTTPTransport()
-        effective_transport: httpx.BaseTransport = RetryTransport(
-            inner, max_retries=max_retries
-        )
+        retry_transport = RetryTransport(inner, max_retries=max_retries)
+        if auth_provider is not None:
+
+            def _auth_refresh_hook(request: httpx.Request) -> bool:
+                return _refresh_auth_headers(
+                    request,
+                    trusted_authority=trusted_authority,
+                    auth_provider=auth_provider,
+                )
+
+            retry_transport.set_auth_refresh(_auth_refresh_hook)
+        effective_transport: httpx.BaseTransport = retry_transport
 
         self._client = httpx.Client(
             base_url=normalized_base_url,

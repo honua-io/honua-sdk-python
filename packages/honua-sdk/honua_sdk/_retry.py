@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 
 import httpx
 
@@ -23,11 +24,16 @@ from ._retry_core import (
     _DEFAULT_RETRY_METHODS,
     _DEFAULT_RETRY_STATUSES,
     _RETRIABLE_TRANSPORT_EXCEPTIONS,
+    AuthRefreshHook,
+    can_replay_request,
     compute_backoff,
     compute_delay,
+    is_auth_challenge_response,
+    needs_envelope_inspection,
     normalize_retry_methods,
+    retry_trigger_label,
     should_retry_method,
-    should_retry_status,
+    should_retry_response,
 )
 
 __all__ = [
@@ -36,6 +42,15 @@ __all__ = [
 ]
 
 _LOGGER = logging.getLogger("honua_sdk.transport")
+
+
+@dataclass
+class _RetryState:
+    request: httpx.Request
+    budget: int
+    remaining: int
+    attempt: int = 0
+    auth_refreshed: bool = False
 
 
 class NonClosingTransport(httpx.BaseTransport):
@@ -124,72 +139,95 @@ class RetryTransport(httpx.BaseTransport):
         self._jitter = jitter
         self._retry_methods = normalize_retry_methods(retry_methods)
         self._retry_statuses = retry_statuses
+        self._auth_refresh: AuthRefreshHook | None = None
 
     @property
     def retry_methods(self) -> frozenset[str]:
         """The set of HTTP methods that this transport will retry."""
         return self._retry_methods
 
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
-        # Idempotency gate: non-retriable methods get a single attempt.
-        if not should_retry_method(request.method, self._retry_methods):
-            return self._wrapped.handle_request(request)
+    def set_auth_refresh(self, hook: AuthRefreshHook | None) -> None:
+        """Configure a reactive auth-refresh hook for 401/498/499 challenges."""
+        self._auth_refresh = hook
 
-        # Per-request override: ``HonuaClient.with_options(max_retries=…)``
-        # signals an override by stashing the value in ``request.extensions``.
-        override = request.extensions.get("honua_max_retries")
-        retries_remaining = override if isinstance(override, int) else self._max_retries
-        retry_budget = retries_remaining
-        attempt = 0
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        budget = self._resolve_retry_budget(request)
+        state = _RetryState(request=request, budget=budget, remaining=budget)
 
         while True:
             try:
                 response = self._wrapped.handle_request(request)
             except _RETRIABLE_TRANSPORT_EXCEPTIONS as exc:
-                if retries_remaining <= 0:
+                if state.remaining <= 0:
                     raise
-                delay = self._compute_backoff(attempt)
-                _LOGGER.debug(
-                    "Retrying %s %s after transport error %s (attempt %s/%s, delay %.3fs)",
-                    request.method,
-                    request.url.path,
-                    exc.__class__.__name__,
-                    attempt + 1,
-                    retry_budget,
-                    delay,
-                )
-                time.sleep(delay)
-                retries_remaining -= 1
-                attempt += 1
+                self._wait_after_transport_error(exc, state)
                 continue
 
-            if retries_remaining <= 0 or not should_retry_status(
-                response.status_code, self._retry_statuses
-            ):
+            if needs_envelope_inspection(response):
+                response.read()
+
+            if not state.auth_refreshed and self._try_auth_refresh(request, response):
+                state.auth_refreshed = True
+                continue
+
+            if state.remaining <= 0 or not should_retry_response(response, self._retry_statuses):
                 return response
 
-            delay = self._compute_delay(response, attempt)
-            _LOGGER.debug(
-                "Retrying %s %s after HTTP %s (attempt %s/%s, delay %.3fs)",
-                request.method,
-                request.url.path,
-                response.status_code,
-                attempt + 1,
-                retry_budget,
-                delay,
-            )
+            self._wait_after_response(response, state)
 
-            # Read and close the unsuccessful response BEFORE sleeping so the
-            # underlying connection is returned to the pool during the backoff
-            # window. Holding it across the sleep would tie up pooled capacity
-            # under a 429/503 storm exactly when the server is already degraded.
-            response.read()
-            response.close()
+    def _resolve_retry_budget(self, request: httpx.Request) -> int:
+        if not should_retry_method(request.method, self._retry_methods):
+            return 0
+        override = request.extensions.get("honua_max_retries")
+        return override if isinstance(override, int) else self._max_retries
 
-            time.sleep(delay)
+    def _try_auth_refresh(self, request: httpx.Request, response: httpx.Response) -> bool:
+        if self._auth_refresh is None or not is_auth_challenge_response(response):
+            return False
+        if not can_replay_request(request):
+            return False
+        if not self._auth_refresh(request):
+            return False
+        _LOGGER.debug("Retrying %s %s after reactive auth refresh", request.method, request.url.path)
+        response.read()
+        response.close()
+        return True
 
-            retries_remaining -= 1
-            attempt += 1
+    def _wait_after_transport_error(self, exc: Exception, state: _RetryState) -> None:
+        delay = self._compute_backoff(state.attempt)
+        _LOGGER.debug(
+            "Retrying %s %s after transport error %s (attempt %s/%s, delay %.3fs)",
+            state.request.method,
+            state.request.url.path,
+            exc.__class__.__name__,
+            state.attempt + 1,
+            state.budget,
+            delay,
+        )
+        time.sleep(delay)
+        state.remaining -= 1
+        state.attempt += 1
+
+    def _wait_after_response(self, response: httpx.Response, state: _RetryState) -> None:
+        delay = self._compute_delay(response, state.attempt)
+        _LOGGER.debug(
+            "Retrying %s %s after %s (attempt %s/%s, delay %.3fs)",
+            state.request.method,
+            state.request.url.path,
+            retry_trigger_label(response),
+            state.attempt + 1,
+            state.budget,
+            delay,
+        )
+        # Read and close the unsuccessful response BEFORE sleeping so the
+        # underlying connection is returned to the pool during the backoff
+        # window. Holding it across the sleep would tie up pooled capacity
+        # under a 429/503 storm exactly when the server is already degraded.
+        response.read()
+        response.close()
+        time.sleep(delay)
+        state.remaining -= 1
+        state.attempt += 1
 
     def _compute_delay(self, response: httpx.Response, attempt: int) -> float:
         return compute_delay(

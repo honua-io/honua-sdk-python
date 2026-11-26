@@ -223,6 +223,21 @@ def _number(value: object) -> float | None:
     return None
 
 
+def _resolve_http_retryable(
+    body_value: object,
+    header_value: str | None,
+    *,
+    default: bool,
+) -> bool:
+    if isinstance(body_value, bool):
+        return body_value
+    if header_value is not None:
+        normalized = header_value.strip().lower()
+        if normalized in ("true", "false"):
+            return normalized == "true"
+    return default
+
+
 def _http_failure_receipt(  # noqa: PLR0913 - explicit carriers prevent receipt data loss
     *,
     transport_status: int,
@@ -239,13 +254,13 @@ def _http_failure_receipt(  # noqa: PLR0913 - explicit carriers prevent receipt 
     kind = _kind(source.get("kind"), _http_kind(classification_code, transport_status))
     declared_code = source.get("machineCode") or source.get("code")
     code = declared_code if isinstance(declared_code, str) else _default_code(kind)
-    declared_retryable = source.get("retryable")
-    retryable = (
-        declared_retryable
-        if isinstance(declared_retryable, bool)
-        else classification_code in _RETRYABLE_HTTP_CODES or transport_status in _RETRYABLE_HTTP_CODES
-    )
     safe_headers = _metadata(headers)
+    header_retryable = _first(safe_headers, "honua-retryable", "honua-error-retryable")
+    retryable = _resolve_http_retryable(
+        source.get("retryable"),
+        header_retryable,
+        default=classification_code in _RETRYABLE_HTTP_CODES or transport_status in _RETRYABLE_HTTP_CODES,
+    )
     correlation_id = (
         source.get("correlationId")
         or root.get("correlationId")

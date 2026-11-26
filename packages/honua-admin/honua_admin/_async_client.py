@@ -24,6 +24,7 @@ from honua_sdk.http import (
     join_base_path,
     merge_request_headers,
     normalize_base_url,
+    refresh_auth_headers_async,
     to_http_error,
     to_transport_error,
     validate_auth_configuration,
@@ -238,6 +239,16 @@ class AsyncHonuaAdminClient:
         effective_transport = transport
         inner = effective_transport or httpx.AsyncHTTPTransport()
         retry_transport = AsyncRetryTransport(inner, max_retries=max_retries)
+        if auth_provider is not None:
+
+            async def _auth_refresh_hook(request: httpx.Request) -> bool:
+                return await refresh_auth_headers_async(
+                    request,
+                    trusted_authority=trusted_authority,
+                    auth_provider=auth_provider,
+                )
+
+            retry_transport.set_auth_refresh(_auth_refresh_hook)
         effective_transport = retry_transport
         self._retry_methods = retry_transport.retry_methods
 

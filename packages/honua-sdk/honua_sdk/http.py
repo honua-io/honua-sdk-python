@@ -71,6 +71,8 @@ from ._http import (
     _extract_trusted_authority,
     _normalize_base_url,
     _parse_retry_after,
+    _refresh_auth_headers,
+    _refresh_auth_headers_async,
     _to_http_error,
     _to_transport_error,
     _validate_auth_configuration,
@@ -101,6 +103,8 @@ ensure_secure_credential_transport = _ensure_secure_credential_transport
 extract_trusted_authority = _extract_trusted_authority
 normalize_base_url = _normalize_base_url
 parse_retry_after = _parse_retry_after
+refresh_auth_headers = _refresh_auth_headers
+refresh_auth_headers_async = _refresh_auth_headers_async
 to_http_error = _to_http_error
 to_transport_error = _to_transport_error
 validate_auth_configuration = _validate_auth_configuration
@@ -141,6 +145,8 @@ __all__ = [
     "merge_request_headers",
     "normalize_base_url",
     "parse_retry_after",
+    "refresh_auth_headers",
+    "refresh_auth_headers_async",
     "to_http_error",
     "to_transport_error",
     "validate_auth_configuration",

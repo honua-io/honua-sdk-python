@@ -10,6 +10,13 @@
 
 - Replace `layer unpublish` with `layer disable` in `honua-admin` and in `honua` when this admin package is installed. The command disables serving and retains the Layer definition; `layer enable` restores serving. Update scripts to use `disable`. The `datasource` command path remains unchanged and manages Connections.
 
+## [0.3.4](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.3.3...python-admin-v0.3.4) (2026-11-26)
+
+
+### Bug Fixes
+
+* **sdk:** harden GeoServices retries, reactive auth refresh, and error parsing ([#448](https://github.com/honua-io/honua-sdk-python/issues/448)) ([581e912](https://github.com/honua-io/honua-sdk-python/commit/581e91282916e3aa4fabc5615f1207e0eecb8216))
+
 ## [0.3.3](https://github.com/honua-io/honua-sdk-python/compare/python-admin-v0.3.2...python-admin-v0.3.3) (2026-11-23)
 
 

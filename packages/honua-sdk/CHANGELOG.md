@@ -26,6 +26,14 @@
   | `WORKFLOW_PACKAGE_SCHEMA_VERSION` | `WORKFLOW_SCHEMA_VERSION` |
 
   The renames apply to `HonuaWorkflow` and `AsyncHonuaWorkflow`. The server routes and the `packageId` wire field are unchanged.
+## [0.3.4](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.3...python-sdk-v0.3.4) (2026-11-26)
+
+
+### Bug Fixes
+
+* **sdk:** declare anyio dependency and strip sensitive headers from HonuaHttpError ([#446](https://github.com/honua-io/honua-sdk-python/issues/446)) ([3bcddd6](https://github.com/honua-io/honua-sdk-python/commit/3bcddd6d5155579e23ab9bfff3cab7250e7e6c81))
+* **sdk:** harden GeoServices retries, reactive auth refresh, and error parsing ([#448](https://github.com/honua-io/honua-sdk-python/issues/448)) ([581e912](https://github.com/honua-io/honua-sdk-python/commit/581e91282916e3aa4fabc5615f1207e0eecb8216))
+
 ## [0.3.3](https://github.com/honua-io/honua-sdk-python/compare/python-sdk-v0.3.2...python-sdk-v0.3.3) (2026-11-23)
 
 
